@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-react/
+release/
+*.log
+.DS_Store
+*.local
+.env
+.env.local
+
