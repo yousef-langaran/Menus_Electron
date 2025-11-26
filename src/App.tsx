@@ -6,6 +6,7 @@ import OrdersPage from './pages/Orders';
 import { useAuthStore } from './store/authStore';
 import { usePrinterSettingsStore } from './store/printerSettingsStore';
 import { useEffect } from 'react';
+import { OrdersSocketManager } from './components/OrdersSocketManager';
 
 function App() {
   const { user, loadCachedUser, isHydrated } = useAuthStore();
@@ -26,6 +27,7 @@ function App() {
 
   return (
     <HashRouter>
+      <OrdersSocketManager />
       <Routes>
         <Route
           path="/login"

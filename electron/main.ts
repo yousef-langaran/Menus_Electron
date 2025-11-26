@@ -14,6 +14,76 @@ import {
 
 let mainWindow: BrowserWindow | null = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+const DEEP_LINK_PROTOCOL = 'menus-order-manager';
+const PROTOCOL_PREFIX = `${DEEP_LINK_PROTOCOL}://`;
+let pendingDeepLinkUrl: string | null = null;
+
+if (process.platform === 'win32') {
+  const urlArg = process.argv.find((arg) => arg.startsWith(PROTOCOL_PREFIX));
+  if (urlArg) {
+    pendingDeepLinkUrl = urlArg;
+  }
+}
+
+const focusMainWindow = () => {
+  if (!mainWindow) {
+    return;
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+  mainWindow.show();
+  mainWindow.focus();
+
+  if (pendingDeepLinkUrl) {
+    mainWindow.webContents.send('deep-link-open-order', pendingDeepLinkUrl);
+    pendingDeepLinkUrl = null;
+  }
+};
+
+const handleDeepLinkNavigation = (url: string) => {
+  pendingDeepLinkUrl = url;
+  focusMainWindow();
+};
+
+const registerDeepLinkProtocol = () => {
+  try {
+    if (process.defaultApp && process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient(DEEP_LINK_PROTOCOL, process.execPath, [
+        path.resolve(process.argv[1]),
+      ]);
+    } else {
+      app.setAsDefaultProtocolClient(DEEP_LINK_PROTOCOL);
+    }
+  } catch (error) {
+    console.warn('Could not register deep-link protocol', error);
+  }
+};
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const urlArg = argv.find((arg) => arg.startsWith(PROTOCOL_PREFIX));
+
+    if (urlArg) {
+      handleDeepLinkNavigation(urlArg);
+      return;
+    }
+
+    focusMainWindow();
+  });
+}
+
+if (process.platform === 'darwin') {
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    handleDeepLinkNavigation(url);
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -38,9 +108,14 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  mainWindow.once('ready-to-show', () => {
+    focusMainWindow();
+  });
 }
 
 app.whenReady().then(() => {
+  registerDeepLinkProtocol();
   // Configure CORS for API requests
   // Add CORS headers to all responses
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {

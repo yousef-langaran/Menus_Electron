@@ -28,6 +28,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.0",
+    "socket.io-client": "^4.8.1",
     "zustand": "^4.5.5"
   },
   "devDependencies": {
@@ -48,6 +49,14 @@
     "directories": {
       "output": "release"
     },
+    "protocols": [
+      {
+        "name": "Menus Order Manager",
+        "schemes": [
+          "menus-order-manager"
+        ]
+      }
+    ],
     "files": [
       "dist/**/*",
       "dist-react/**/*",

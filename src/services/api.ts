@@ -131,3 +131,12 @@ export async function updateOrderStatus(orderId: number, status: string, token?:
   return response.data;
 }
 
+export async function fetchProfile(token: string) {
+  const response = await api.get('/auth/profile', {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+}
+

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { fetchOrders, updateOrderStatus } from '../services/api';
 import { getAllOrders } from '../services/offlineStorage';
+import { connectOrdersSocket, disconnectOrdersSocket } from '../services/ordersSocket';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
 import './Orders.css';
 
@@ -53,7 +54,11 @@ export default function OrdersPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
 
-  const restaurantName = useMemo(() => user?.restaurants?.[0]?.name, [user]);
+  const restaurantName = useMemo(() => {
+    const name = user?.restaurants?.[0]?.name;
+    console.log('[OrdersPage] Restaurant name resolved:', { name, userRestaurants: user?.restaurants });
+    return name;
+  }, [user]);
   const enabledPrinters = useMemo(
     () => Object.values(printerConfigs || {}).filter((config) => config.enabled),
     [printerConfigs]
@@ -133,6 +138,80 @@ export default function OrdersPage() {
       loadOnlineOrders();
     }
   }, [statusFilter, isOnline]);
+
+  useEffect(() => {
+    console.log('[OrdersPage] Socket effect triggered', {
+      hasToken: !!token,
+      restaurantName,
+      isOnline,
+    });
+
+    if (!token || !restaurantName || !isOnline) {
+      console.warn('[OrdersPage] Missing requirements, disconnecting socket');
+      disconnectOrdersSocket();
+      return;
+    }
+
+    console.log('[OrdersPage] Attempting to connect socket...');
+    const socket = connectOrdersSocket({ token, restaurantName });
+    if (!socket) {
+      console.error('[OrdersPage] Failed to create socket');
+      return;
+    }
+
+    console.log('[OrdersPage] Socket created, setting up listeners');
+
+    const handleNewOrder = (order: any) => {
+      setOnlineOrders((prev) => {
+        const withoutCurrent = prev.filter((item) => item.id !== order.id);
+        if (statusFilter !== 'all' && order.status !== statusFilter) {
+          return withoutCurrent;
+        }
+        return [order, ...withoutCurrent];
+      });
+      setSyncMessage(`سفارش جدید ${order.orderNumber || order.id} ثبت شد.`);
+    };
+
+    const handleOrderUpdated = (order: any) => {
+      setOnlineOrders((prev) => {
+        const withoutCurrent = prev.filter((item) => item.id !== order.id);
+        if (statusFilter !== 'all' && order.status !== statusFilter) {
+          return withoutCurrent;
+        }
+        return [order, ...withoutCurrent];
+      });
+    };
+
+    const handleSocketError = (message: any) => {
+      const resolvedMessage =
+        typeof message === 'string' ? message : 'خطا در ارتباط زنده سفارش‌ها.';
+      setSyncMessage(resolvedMessage);
+    };
+
+    const handleConnect = () => {
+      setSyncMessage('اتصال زنده سفارش‌ها برقرار شد.');
+    };
+
+    const handleConnectError = (error: Error) => {
+      console.error('Orders socket connection error:', error);
+      setSyncMessage('اتصال سوکت سفارش‌ها برقرار نشد.');
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('orders:new', handleNewOrder);
+    socket.on('orders:updated', handleOrderUpdated);
+    socket.on('orders:error', handleSocketError);
+    socket.on('connect_error', handleConnectError);
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('orders:new', handleNewOrder);
+      socket.off('orders:updated', handleOrderUpdated);
+      socket.off('orders:error', handleSocketError);
+      socket.off('connect_error', handleConnectError);
+      disconnectOrdersSocket();
+    };
+  }, [token, restaurantName, isOnline, statusFilter]);
 
   const loadOnlineOrders = async () => {
     if (!isOnline) return;
