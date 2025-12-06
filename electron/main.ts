@@ -3,6 +3,7 @@ import * as path from 'path';
 import { isOnline } from './utils/network';
 import { syncOfflineOrders } from './services/sync';
 import { printReceipt, generateReceiptHTML, renderReceiptPreview } from './services/printer';
+import { cacheImage, getCachedImagePath, cacheImages, getImageUrl } from './services/imageCache';
 import { saveOfflineOrder as dbSaveOfflineOrder, getAllOrders } from './database/orders';
 import {
   loadUserSession as loadUserSessionPrefs,
@@ -312,6 +313,48 @@ ipcMain.handle('save-printer-configs', async (_event, configs) => {
     return { success: true };
   } catch (error) {
     console.error('Save printer configs error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// Image cache handlers
+ipcMain.handle('cache-image', async (_event, imageUrl: string) => {
+  try {
+    const cachedPath = await cacheImage(imageUrl);
+    if (cachedPath) {
+      // تبدیل به file:// URL برای استفاده در renderer
+      return { success: true, url: `file://${cachedPath}` };
+    }
+    return { success: false, error: 'Failed to cache image' };
+  } catch (error) {
+    console.error('Cache image error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('get-cached-image', async (_event, imageUrl: string) => {
+  try {
+    const cachedPath = getCachedImagePath(imageUrl);
+    if (cachedPath) {
+      return { success: true, url: `file://${cachedPath}` };
+    }
+    return { success: false, url: imageUrl }; // اگر cache نشده باشد، URL اصلی را برگردان
+  } catch (error) {
+    console.error('Get cached image error:', error);
+    return { success: false, url: imageUrl };
+  }
+});
+
+ipcMain.handle('cache-images', async (_event, imageUrls: string[]) => {
+  try {
+    const results = await cacheImages(imageUrls || []);
+    const urlMap: Record<string, string> = {};
+    for (const [originalUrl, cachedPath] of Object.entries(results)) {
+      urlMap[originalUrl] = `file://${cachedPath}`;
+    }
+    return { success: true, urls: urlMap };
+  } catch (error) {
+    console.error('Cache images error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });

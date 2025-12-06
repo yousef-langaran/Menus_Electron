@@ -26,6 +26,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadPrinterConfigs: () => ipcRenderer.invoke('load-printer-configs'),
   savePrinterConfigs: (configs: Record<string, any>) =>
     ipcRenderer.invoke('save-printer-configs', configs),
+  cacheImage: (imageUrl: string) => ipcRenderer.invoke('cache-image', imageUrl),
+  getCachedImage: (imageUrl: string) => ipcRenderer.invoke('get-cached-image', imageUrl),
+  cacheImages: (imageUrls: string[]) => ipcRenderer.invoke('cache-images', imageUrls),
 });
 
 declare global {
@@ -51,6 +54,9 @@ declare global {
       clearUserSession: () => Promise<{ success: boolean; error?: string }>;
       loadPrinterConfigs: () => Promise<Record<string, any>>;
       savePrinterConfigs: (configs: Record<string, any>) => Promise<{ success: boolean; error?: string }>;
+      cacheImage: (imageUrl: string) => Promise<{ success: boolean; url?: string; error?: string }>;
+      getCachedImage: (imageUrl: string) => Promise<{ success: boolean; url: string }>;
+      cacheImages: (imageUrls: string[]) => Promise<{ success: boolean; urls?: Record<string, string>; error?: string }>;
       onOnlineStatusChange: (callback: (isOnline: boolean) => void) => void | (() => void);
     };
   }

@@ -1,20 +1,31 @@
 import { create } from 'zustand';
 
+export type ReceiptType = 'full' | 'kitchen'; // full = با قیمت، kitchen = بدون قیمت
+
+export interface ReceiptConfig {
+  type: ReceiptType;
+  enabled: boolean;
+  copies: number;
+}
+
 export interface PrinterConfig {
   name: string;
   displayName?: string;
   paperWidth: number; // mm
   paperLength: number; // mm
   margin: number; // mm
-  copies: number;
   enabled: boolean;
+  receipts: ReceiptConfig[]; // لیست رسیدهای مختلف برای این پرینتر
 }
 
 interface PrinterSettingsState {
   configs: Record<string, PrinterConfig>;
   setPrinterEnabled: (printer: { name: string; displayName?: string }, enabled: boolean) => void;
   updatePrinterConfig: (printerName: string, partial: Partial<PrinterConfig>) => void;
+  setReceiptEnabled: (printerName: string, receiptType: ReceiptType, enabled: boolean) => void;
+  setReceiptCopies: (printerName: string, receiptType: ReceiptType, copies: number) => void;
   getEnabledPrinters: () => PrinterConfig[];
+  getPrinterReceipts: (printerName: string) => ReceiptConfig[];
   loadFromStorage: () => Promise<void>;
 }
 
@@ -79,8 +90,11 @@ export const usePrinterSettingsStore = create<PrinterSettingsState>((set, get) =
         paperWidth: 80,
         paperLength: 200,
         margin: 5,
-        copies: 1,
         enabled: false,
+        receipts: [
+          { type: 'full', enabled: true, copies: 1 },
+          { type: 'kitchen', enabled: false, copies: 1 },
+        ],
       };
       const updated = {
         ...state.configs,
@@ -88,6 +102,10 @@ export const usePrinterSettingsStore = create<PrinterSettingsState>((set, get) =
           ...current,
           enabled,
           displayName: printer.displayName || current.displayName,
+          receipts: current.receipts || [
+            { type: 'full', enabled: true, copies: 1 },
+            { type: 'kitchen', enabled: false, copies: 1 },
+          ],
         },
       };
       persistConfigs(updated);
@@ -104,6 +122,62 @@ export const usePrinterSettingsStore = create<PrinterSettingsState>((set, get) =
         [printerName]: {
           ...existing,
           ...partial,
+          receipts: existing.receipts || [
+            { type: 'full', enabled: true, copies: 1 },
+            { type: 'kitchen', enabled: false, copies: 1 },
+          ],
+        },
+      };
+      persistConfigs(updated);
+      return { configs: updated };
+    });
+  },
+
+  setReceiptEnabled: (printerName, receiptType, enabled) => {
+    set((state) => {
+      const existing = state.configs[printerName];
+      if (!existing) return state;
+      
+      const receipts = existing.receipts || [
+        { type: 'full', enabled: true, copies: 1 },
+        { type: 'kitchen', enabled: false, copies: 1 },
+      ];
+      
+      const updatedReceipts = receipts.map(r => 
+        r.type === receiptType ? { ...r, enabled } : r
+      );
+      
+      const updated = {
+        ...state.configs,
+        [printerName]: {
+          ...existing,
+          receipts: updatedReceipts,
+        },
+      };
+      persistConfigs(updated);
+      return { configs: updated };
+    });
+  },
+
+  setReceiptCopies: (printerName, receiptType, copies) => {
+    set((state) => {
+      const existing = state.configs[printerName];
+      if (!existing) return state;
+      
+      const receipts = existing.receipts || [
+        { type: 'full', enabled: true, copies: 1 },
+        { type: 'kitchen', enabled: false, copies: 1 },
+      ];
+      
+      const updatedReceipts = receipts.map(r => 
+        r.type === receiptType ? { ...r, copies: Math.max(1, Math.min(5, copies)) } : r
+      );
+      
+      const updated = {
+        ...state.configs,
+        [printerName]: {
+          ...existing,
+          receipts: updatedReceipts,
         },
       };
       persistConfigs(updated);
@@ -114,6 +188,15 @@ export const usePrinterSettingsStore = create<PrinterSettingsState>((set, get) =
   getEnabledPrinters: () => {
     const configs = get().configs;
     return Object.values(configs).filter((config) => config.enabled);
+  },
+
+  getPrinterReceipts: (printerName) => {
+    const config = get().configs[printerName];
+    if (!config) return [];
+    return config.receipts || [
+      { type: 'full', enabled: true, copies: 1 },
+      { type: 'kitchen', enabled: false, copies: 1 },
+    ];
   },
 }));
 

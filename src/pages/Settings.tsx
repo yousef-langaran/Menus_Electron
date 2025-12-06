@@ -12,7 +12,15 @@ export default function SettingsPage() {
   const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
   const [printerError, setPrinterError] = useState('');
   const [availablePrinters, setAvailablePrinters] = useState<Array<{ name: string; displayName?: string; description?: string }>>([]);
-  const { configs, setPrinterEnabled, updatePrinterConfig, loadFromStorage } = usePrinterSettingsStore();
+  const { 
+    configs, 
+    setPrinterEnabled, 
+    updatePrinterConfig, 
+    setReceiptEnabled,
+    setReceiptCopies,
+    getPrinterReceipts,
+    loadFromStorage 
+  } = usePrinterSettingsStore();
 
   useEffect(() => {
     checkOnlineStatus();
@@ -149,55 +157,95 @@ export default function SettingsPage() {
                       <span className="printer-description">{printer.description}</span>
                     </div>
                     {isEnabled && (
-                      <div className="printer-config-grid">
-                        <label>
-                          عرض کاغذ (میلی‌متر)
-                          <input
-                            type="number"
-                            value={config?.paperWidth ?? 80}
-                            min={40}
-                            max={120}
-                            onChange={(e) =>
-                              updatePrinterConfig(printer.name, { paperWidth: Number(e.target.value) || 80 })
-                            }
-                          />
-                        </label>
-                        <label>
-                          طول کاغذ (میلی‌متر)
-                          <input
-                            type="number"
-                            value={config?.paperLength ?? 200}
-                            min={80}
-                            max={800}
-                            onChange={(e) =>
-                              updatePrinterConfig(printer.name, { paperLength: Number(e.target.value) || 200 })
-                            }
-                          />
-                        </label>
-                        <label>
-                          حاشیه (میلی‌متر)
-                          <input
-                            type="number"
-                            value={config?.margin ?? 5}
-                            min={0}
-                            max={20}
-                            onChange={(e) =>
-                              updatePrinterConfig(printer.name, { margin: Number(e.target.value) || 5 })
-                            }
-                          />
-                        </label>
-                        <label>
-                          تعداد چاپ
-                          <input
-                            type="number"
-                            value={config?.copies ?? 1}
-                            min={1}
-                            max={5}
-                            onChange={(e) =>
-                              updatePrinterConfig(printer.name, { copies: Number(e.target.value) || 1 })
-                            }
-                          />
-                        </label>
+                      <div className="printer-config">
+                        <div className="printer-config-grid">
+                          <label>
+                            عرض کاغذ (میلی‌متر)
+                            <input
+                              type="number"
+                              value={config?.paperWidth ?? 80}
+                              min={40}
+                              max={120}
+                              onChange={(e) =>
+                                updatePrinterConfig(printer.name, { paperWidth: Number(e.target.value) || 80 })
+                              }
+                            />
+                          </label>
+                          <label>
+                            طول کاغذ (میلی‌متر)
+                            <input
+                              type="number"
+                              value={config?.paperLength ?? 200}
+                              min={80}
+                              max={800}
+                              onChange={(e) =>
+                                updatePrinterConfig(printer.name, { paperLength: Number(e.target.value) || 200 })
+                              }
+                            />
+                          </label>
+                          <label>
+                            حاشیه (میلی‌متر)
+                            <input
+                              type="number"
+                              value={config?.margin ?? 5}
+                              min={0}
+                              max={20}
+                              onChange={(e) =>
+                                updatePrinterConfig(printer.name, { margin: Number(e.target.value) || 5 })
+                              }
+                            />
+                          </label>
+                        </div>
+                        
+                        <div className="receipt-types-section">
+                          <h3>نوع رسید</h3>
+                          <div className="receipt-types">
+                            <div className="receipt-type-item">
+                              <label className="receipt-type-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={getPrinterReceipts(printer.name).find(r => r.type === 'full')?.enabled ?? true}
+                                  onChange={(e) => setReceiptEnabled(printer.name, 'full', e.target.checked)}
+                                />
+                                <span>رسید کامل (با قیمت)</span>
+                              </label>
+                              {getPrinterReceipts(printer.name).find(r => r.type === 'full')?.enabled && (
+                                <label className="receipt-copies">
+                                  تعداد:
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={5}
+                                    value={getPrinterReceipts(printer.name).find(r => r.type === 'full')?.copies ?? 1}
+                                    onChange={(e) => setReceiptCopies(printer.name, 'full', Number(e.target.value) || 1)}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                            <div className="receipt-type-item">
+                              <label className="receipt-type-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={getPrinterReceipts(printer.name).find(r => r.type === 'kitchen')?.enabled ?? false}
+                                  onChange={(e) => setReceiptEnabled(printer.name, 'kitchen', e.target.checked)}
+                                />
+                                <span>رسید آشپزخانه (بدون قیمت)</span>
+                              </label>
+                              {getPrinterReceipts(printer.name).find(r => r.type === 'kitchen')?.enabled && (
+                                <label className="receipt-copies">
+                                  تعداد:
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={5}
+                                    value={getPrinterReceipts(printer.name).find(r => r.type === 'kitchen')?.copies ?? 1}
+                                    onChange={(e) => setReceiptCopies(printer.name, 'kitchen', Number(e.target.value) || 1)}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>

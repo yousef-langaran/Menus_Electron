@@ -140,3 +140,12 @@ export async function fetchProfile(token: string) {
   return response.data;
 }
 
+export async function getActiveSubscription(restaurantId: number, token: string) {
+  const response = await api.get(`/subscriptions/restaurant/${restaurantId}/active`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+}
+

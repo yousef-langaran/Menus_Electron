@@ -46,13 +46,66 @@ export default function OrderPage() {
   const [error, setError] = useState('');
   const [userExists, setUserExists] = useState<boolean | null>(null);
   const [isCheckingUser, setIsCheckingUser] = useState(false);
-  const enabledPrinters = usePrinterSettingsStore((state) =>
-    Object.values(state.configs).filter((config) => config.enabled)
-  );
+  const [imageCache, setImageCache] = useState<Record<string, string>>({});
+  const { configs, getPrinterReceipts } = usePrinterSettingsStore();
+  const enabledPrinters = Object.values(configs).filter((config) => config.enabled);
 
   useEffect(() => {
     loadProducts();
   }, []);
+
+  // Cache images when products change
+  useEffect(() => {
+    const cacheProductImages = async () => {
+      if (products.length === 0 || !window.electronAPI?.cacheImages) return;
+
+      const isOnline = window.electronAPI 
+        ? await window.electronAPI.checkOnline() 
+        : navigator.onLine;
+
+      // فقط در حالت آنلاین عکس‌ها را cache کن
+      if (isOnline) {
+        const imageUrls = products
+          .map(p => p.multiMedia?.url)
+          .filter(Boolean)
+          .map(url => `https://apimenu.promal.ir${url}`);
+        
+        if (imageUrls.length > 0) {
+          try {
+            const result = await window.electronAPI.cacheImages(imageUrls);
+            if (result.success && result.urls) {
+              setImageCache(prev => ({ ...prev, ...result.urls }));
+            }
+          } catch (err) {
+            console.warn('Failed to cache images:', err);
+          }
+        }
+      }
+
+      // همیشه سعی کن عکس‌های cache شده را لود کن (حتی در حالت آفلاین)
+      if (window.electronAPI?.getCachedImage) {
+        const imageUrlMap: Record<string, string> = {};
+        for (const product of products) {
+          if (product.multiMedia?.url) {
+            const fullUrl = `https://apimenu.promal.ir${product.multiMedia.url}`;
+            try {
+              const result = await window.electronAPI.getCachedImage(fullUrl);
+              if (result.success && result.url) {
+                imageUrlMap[fullUrl] = result.url;
+              }
+            } catch (err) {
+              // ignore errors
+            }
+          }
+        }
+        if (Object.keys(imageUrlMap).length > 0) {
+          setImageCache(prev => ({ ...prev, ...imageUrlMap }));
+        }
+      }
+    };
+
+    cacheProductImages();
+  }, [products]);
 
   const loadProducts = async () => {
     setIsLoading(true);
@@ -159,15 +212,28 @@ export default function OrderPage() {
             finalAmount: getFinalAmount(),
           };
 
-          const printerJobs = enabledPrinters.map((printer) => ({
-            name: printer.name,
-            displayName: printer.displayName,
-            paperWidth: printer.paperWidth,
-            paperLength: printer.paperLength,
-            margin: printer.margin,
-            copies: printer.copies,
-          }));
-          await window.electronAPI.printReceipt(orderData, printerJobs);
+          // ایجاد لیست jobها برای هر پرینتر و هر نوع رسید
+          const printerJobs: any[] = [];
+          for (const printer of enabledPrinters) {
+            const receipts = getPrinterReceipts(printer.name);
+            for (const receipt of receipts) {
+              if (receipt.enabled) {
+                printerJobs.push({
+                  name: printer.name,
+                  displayName: printer.displayName,
+                  paperWidth: printer.paperWidth,
+                  paperLength: printer.paperLength,
+                  margin: printer.margin,
+                  receiptType: receipt.type,
+                  copies: receipt.copies,
+                });
+              }
+            }
+          }
+
+          if (printerJobs.length > 0) {
+            await window.electronAPI.printReceipt(orderData, printerJobs);
+          }
         } catch (error) {
           console.error('Print error:', error);
         }
@@ -231,13 +297,23 @@ export default function OrderPage() {
                   className="product-card"
                   onClick={() => addToCart(product)}
                 >
-                  {product.multiMedia?.url && (
-                    <img
-                      src={`https://apimenu.promal.ir${product.multiMedia.url}`}
-                      alt={product.name_fa || product.name}
-                      className="product-image"
-                    />
-                  )}
+                  {product.multiMedia?.url && (() => {
+                    const fullUrl = `https://apimenu.promal.ir${product.multiMedia.url}`;
+                    const imageSrc = imageCache[fullUrl] || fullUrl;
+                    return (
+                      <img
+                        src={imageSrc}
+                        alt={product.name_fa || product.name}
+                        className="product-image"
+                        onError={(e) => {
+                          // در صورت خطا در بارگذاری، از URL اصلی استفاده کن
+                          if (e.currentTarget.src !== fullUrl) {
+                            e.currentTarget.src = fullUrl;
+                          }
+                        }}
+                      />
+                    );
+                  })()}
                   <div className="product-info">
                     <h3>{product.name_fa || product.name}</h3>
                     <p className="product-price">{formatPrice(product.price)}</p>
