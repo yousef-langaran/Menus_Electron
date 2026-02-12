@@ -4,7 +4,7 @@ import axios from 'axios';
 const getDefaultBaseUrl = () => {
   const baseUrl = import.meta.env.VITE_API_BASE_URL ||
     import.meta.env.NEXT_PUBLIC_API_BASE_URL ||
-    'http://localhost:3001';
+    'https://api.hoshmenu.ir';
   const version = import.meta.env.VITE_API_BASE_VERSION ||
     import.meta.env.NEXT_PUBLIC_API_BASE_VERSION ||
     '/api/v1';
@@ -37,7 +37,7 @@ export function getApiBaseUrl(): string {
 export function getAssetBaseUrl(): string {
   const base = getApiBaseUrl();
   const withoutPath = base.replace(/\/api\/v\d+(\/)?$/i, '').replace(/\/+$/, '');
-  return withoutPath || 'http://localhost:3001';
+  return withoutPath || 'https://api.hoshmenu.ir';
 }
 
 /**
