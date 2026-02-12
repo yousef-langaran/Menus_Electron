@@ -1,24 +1,19 @@
 import axios from 'axios';
 
-// Determine API base URL from environment variables
-const getApiBaseUrl = () => {
-  // Get base URL and version separately
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 
-                  import.meta.env.NEXT_PUBLIC_API_BASE_URL || 
-                  'http://localhost:3001';
-  
-  const version = import.meta.env.VITE_API_BASE_VERSION || 
-                  import.meta.env.NEXT_PUBLIC_API_BASE_VERSION || 
-                  '/api/v1';
-  
-  // Remove trailing slashes and combine
-  const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-  const cleanVersion = version.startsWith('/') ? version : `/${version}`;
-  
+// مقدار پیش‌فرض از env ویترین (فقط در زمان build درج می‌شود)
+const getDefaultBaseUrl = () => {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL ||
+    import.meta.env.NEXT_PUBLIC_API_BASE_URL ||
+    'http://localhost:3001';
+  const version = import.meta.env.VITE_API_BASE_VERSION ||
+    import.meta.env.NEXT_PUBLIC_API_BASE_VERSION ||
+    '/api/v1';
+  const cleanBaseUrl = String(baseUrl).replace(/\/+$/, '');
+  const cleanVersion = String(version).startsWith('/') ? version : `/${version}`;
   return `${cleanBaseUrl}${cleanVersion}`;
 };
 
-export const API_BASE_URL = getApiBaseUrl();
+export const API_BASE_URL = getDefaultBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -27,6 +22,25 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+/** برای به‌روزرسانی baseURL از پنل الکترون (خوانده‌شده از .env یا api-config.json) */
+export function setApiBaseUrl(baseURL: string) {
+  api.defaults.baseURL = baseURL.replace(/\/+$/, '');
+}
+
+/**
+ * در الکترون از main process خوانده می‌شود (از .env یا api-config.json).
+ * اولین درخواست این پرامیس را await می‌کند.
+ */
+export const apiConfigReady: Promise<void> =
+  typeof window !== 'undefined' && (window as any).electronAPI?.getApiConfig
+    ? (window as any).electronAPI
+        .getApiConfig()
+        .then((c: { baseURL?: string }) => {
+          if (c?.baseURL) setApiBaseUrl(c.baseURL);
+        })
+        .catch(() => {})
+    : Promise.resolve();
 
 // Add request interceptor for debugging
 api.interceptors.request.use(
@@ -67,16 +81,19 @@ api.interceptors.response.use(
 );
 
 export async function login(mobile: string, password: string) {
+  await apiConfigReady;
   const response = await api.post('/auth/login', { mobile, password });
   return response.data;
 }
 
 export async function checkUser(mobile: string) {
+  await apiConfigReady;
   const response = await api.post('/auth/check-user', { mobile });
   return response.data;
 }
 
 export async function getRestaurantByName(restaurantName: string, token?: string) {
+  await apiConfigReady;
   const headers: Record<string, string> = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -86,6 +103,7 @@ export async function getRestaurantByName(restaurantName: string, token?: string
 }
 
 export async function getRestaurantById(restaurantId: number, token?: string) {
+  await apiConfigReady;
   const headers: Record<string, string> = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -95,6 +113,7 @@ export async function getRestaurantById(restaurantId: number, token?: string) {
 }
 
 export async function getProducts(restaurantName?: string, restaurantId?: number, token?: string) {
+  await apiConfigReady;
   const headers: any = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -106,7 +125,6 @@ export async function getProducts(restaurantName?: string, restaurantId?: number
     headers['x-selected-restaurant-id'] = String(restaurantId);
   }
 
-  // Use POST method for filter/public endpoint
   const body: any = {};
   if (restaurantName) {
     body.restaurantName = restaurantName;
@@ -120,6 +138,7 @@ export async function getProducts(restaurantName?: string, restaurantId?: number
 }
 
 export async function createOrder(orderData: any, token: string) {
+  await apiConfigReady;
   const response = await api.post('/orders', orderData, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -132,6 +151,7 @@ export async function fetchOrders(
   params: { restaurantName?: string; status?: string } = {},
   token?: string,
 ) {
+  await apiConfigReady;
   const headers: any = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -141,6 +161,7 @@ export async function fetchOrders(
 }
 
 export async function updateOrderStatus(orderId: number, status: string, token?: string) {
+  await apiConfigReady;
   const headers: any = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -150,6 +171,7 @@ export async function updateOrderStatus(orderId: number, status: string, token?:
 }
 
 export async function fetchProfile(token: string) {
+  await apiConfigReady;
   const response = await api.get('/auth/profile', {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -159,6 +181,7 @@ export async function fetchProfile(token: string) {
 }
 
 export async function getActiveSubscription(restaurantId: number, token: string) {
+  await apiConfigReady;
   const response = await api.get(`/subscriptions/restaurant/${restaurantId}/active`, {
     headers: {
       Authorization: `Bearer ${token}`,

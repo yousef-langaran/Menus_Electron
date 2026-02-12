@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  getApiConfig: () => ipcRenderer.invoke('get-api-config'),
   checkOnline: () => ipcRenderer.invoke('check-online'),
   syncOrders: (token?: string) => ipcRenderer.invoke('sync-orders', token),
   printReceipt: (orderData: any, printerJobs: any[]) =>
@@ -34,6 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 declare global {
   interface Window {
     electronAPI: {
+      getApiConfig: () => Promise<{ baseURL: string; token?: string; restaurantName?: string; restaurantId?: number }>;
       checkOnline: () => Promise<boolean>;
       syncOrders: (token?: string) => Promise<any>;
       printReceipt: (orderData: any, printerJobs: any[]) => Promise<{ success: boolean; error?: string }>;

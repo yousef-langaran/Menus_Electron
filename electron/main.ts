@@ -1,5 +1,16 @@
-import { app, BrowserWindow, ipcMain, dialog, session } from 'electron';
+import { config as dotenvConfig } from 'dotenv';
 import * as path from 'path';
+
+import { app, BrowserWindow, ipcMain, dialog, session } from 'electron';
+
+// بارگذاری .env: در حالت dev از روت پروژه، در حالت packaged از کنار فایل exe
+function loadEnv() {
+  const devPath = path.join(__dirname, '..', '.env');
+  const packagedPath = path.join(path.dirname(app.getPath('exe')), '.env');
+  dotenvConfig({ path: packagedPath });
+  dotenvConfig({ path: devPath });
+}
+loadEnv();
 import { isOnline } from './utils/network';
 import { syncOfflineOrders } from './services/sync';
 import { printReceipt, generateReceiptHTML, renderReceiptPreview } from './services/printer';
@@ -12,6 +23,7 @@ import {
   loadPrinterConfigs as loadPrinterConfigsPrefs,
   savePrinterConfigs as savePrinterConfigsPrefs,
 } from './database/preferences';
+import { getApiConfig } from './config/api';
 
 let mainWindow: BrowserWindow | null = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -157,6 +169,10 @@ app.on('window-all-closed', () => {
 });
 
 // IPC Handlers
+ipcMain.handle('get-api-config', async () => {
+  return getApiConfig();
+});
+
 ipcMain.handle('check-online', async () => {
   return await isOnline();
 });
