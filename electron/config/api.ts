@@ -28,12 +28,12 @@ export function getApiConfig(): ApiConfig {
   }
 
   if (!cachedConfig) {
-    const envUrl = process.env.API_BASE_URL || process.env.VITE_API_BASE_URL || '';
+    const envUrl = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.VITE_API_BASE_URL || '';
     const base = envUrl.replace(/\/+$/, '');
     cachedConfig = {
       baseURL: base
         ? (base.includes('/api') ? base : `${base}/api/v1`)
-        : 'https://apimenu.promal.ir/api/v1',
+        : 'http://localhost:3001/api/v1',
     };
   }
 

@@ -28,6 +28,18 @@ export function setApiBaseUrl(baseURL: string) {
   api.defaults.baseURL = baseURL.replace(/\/+$/, '');
 }
 
+/** آدرس پایهٔ API (مثلاً برای درخواست‌ها) */
+export function getApiBaseUrl(): string {
+  return api.defaults.baseURL || API_BASE_URL;
+}
+
+/** آدرس پایهٔ سرور بدون مسیر /api/v1 (برای لینک عکس‌ها و آپلودها) */
+export function getAssetBaseUrl(): string {
+  const base = getApiBaseUrl();
+  const withoutPath = base.replace(/\/api\/v\d+(\/)?$/i, '').replace(/\/+$/, '');
+  return withoutPath || 'http://localhost:3001';
+}
+
 /**
  * در الکترون از main process خوانده می‌شود (از .env یا api-config.json).
  * اولین درخواست این پرامیس را await می‌کند.

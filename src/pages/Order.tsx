@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useOrderStore } from '../store/orderStore';
-import { getProducts, getRestaurantByName, getRestaurantById, checkUser } from '../services/api';
+import { getProducts, getRestaurantByName, getRestaurantById, checkUser, getAssetBaseUrl } from '../services/api';
 import { getCachedMenu, cacheMenu } from '../services/cache';
 import { useNavigate } from 'react-router-dom';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
@@ -75,10 +75,11 @@ export default function OrderPage() {
 
       // فقط در حالت آنلاین عکس‌ها را cache کن
       if (isOnline) {
+        const assetBase = getAssetBaseUrl();
         const imageUrls = products
           .map(p => p.multiMedia?.url)
           .filter(Boolean)
-          .map(url => `https://apimenu.promal.ir${url}`);
+          .map(url => `${assetBase}${url}`);
 
         if (imageUrls.length > 0) {
           try {
@@ -94,10 +95,11 @@ export default function OrderPage() {
 
       // همیشه سعی کن عکس‌های cache شده را لود کن (حتی در حالت آفلاین)
       if (window.electronAPI?.getCachedImage) {
+        const assetBase = getAssetBaseUrl();
         const imageUrlMap: Record<string, string> = {};
         for (const product of products) {
           if (product.multiMedia?.url) {
-            const fullUrl = `https://apimenu.promal.ir${product.multiMedia.url}`;
+            const fullUrl = `${assetBase}${product.multiMedia.url}`;
             try {
               const result = await window.electronAPI.getCachedImage(fullUrl);
               if (result.success && result.url) {
@@ -327,7 +329,7 @@ export default function OrderPage() {
                   >
                     {product.multiMedia?.url && (
                       <img
-                        src={`https://apimenu.promal.ir${product.multiMedia.url}`}
+                        src={`${getAssetBaseUrl()}${product.multiMedia.url}`}
                         alt={product.name_fa || product.name}
                         className="product-image"
                       />

@@ -27,6 +27,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   root: '.', // Ensure root is current directory
+  envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   define: {
     'process.env': {},
   },

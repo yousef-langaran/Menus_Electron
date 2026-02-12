@@ -15,7 +15,7 @@ export async function syncOfflineOrders(tokenOverride?: string) {
   }
 
   const apiConfig = getApiConfig();
-  const defaultBaseURL = apiConfig.baseURL || 'https://apimenu.promal.ir/api/v1';
+  const defaultBaseURL = apiConfig.baseURL || process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api/v1';
 
   for (const order of offlineOrders) {
     if (!order.id) continue;
