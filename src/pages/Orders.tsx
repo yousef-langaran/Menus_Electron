@@ -356,7 +356,7 @@ export default function OrdersPage() {
         setPreviewImage(result.imageDataUrl || '');
       } else {
         setPreviewHtml(
-          `<pre style="direction:rtl;font-family:Tahoma;padding:16px;margin:0;background:#fff">${JSON.stringify(
+          `<pre style="direction:rtl;font-family:inherit;padding:16px;margin:0;background:#fff">${JSON.stringify(
             orderPayload,
             null,
             2

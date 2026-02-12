@@ -6,15 +6,22 @@ let userCache: any = null;
 
 const hasElectronBridge = () => typeof window !== 'undefined' && Boolean(window.electronAPI);
 
-export async function cacheMenu(restaurantId: number, restaurantName: string, products: any[], categories: any[]) {
+export async function cacheMenu(
+  restaurantId: number,
+  restaurantName: string,
+  products: any[],
+  categories: any[],
+  cartItemOptions?: string[]
+) {
   menuCache = {
     restaurantId,
     restaurantName,
     products,
     categories,
+    cartItemOptions: cartItemOptions || [],
     cachedAt: new Date().toISOString(),
   };
-  
+
   try {
     localStorage.setItem('menuCache', JSON.stringify(menuCache));
   } catch (error) {

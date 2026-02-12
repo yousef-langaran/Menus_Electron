@@ -9,6 +9,7 @@ interface CartItem {
   quantity: number;
   price: number;
   totalPrice: number;
+  itemOption?: string;
 }
 
 type DiscountType = 'percentage' | 'fixed';
@@ -26,6 +27,7 @@ interface OrderState {
   isSubmitting: boolean;
   addToCart: (product: any) => void;
   updateCartQuantity: (productId: number, quantity: number) => void;
+  updateCartItemOption: (productId: number, itemOption: string) => void;
   removeFromCart: (productId: number) => void;
   setCustomerPhone: (phone: string) => void;
   setServiceType: (type: 'dine_in' | 'takeaway') => void;
@@ -80,6 +82,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             quantity: 1,
             price: product.price,
             totalPrice: product.price,
+            itemOption: '',
           },
         ],
       });
@@ -98,6 +101,14 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         ),
       });
     }
+  },
+
+  updateCartItemOption: (productId, itemOption) => {
+    set({
+      cart: get().cart.map(item =>
+        item.productId === productId ? { ...item, itemOption: itemOption || '' } : item
+      ),
+    });
   },
 
   removeFromCart: (productId) => {
@@ -139,6 +150,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
     set({ isSubmitting: true });
 
+    try {
     const discountAmount = state.getDiscountAmount();
     const orderData = {
       customerPhone: state.customerPhone.trim(),
@@ -158,43 +170,38 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         productId: item.productId,
         quantity: item.quantity,
         price: item.price,
+        itemNote: item.itemOption?.trim() || undefined,
       })),
       status: 'confirmed',
     };
 
-    try {
       const isOnline = window.electronAPI ? await window.electronAPI.checkOnline() : navigator.onLine;
-      
+
       if (isOnline) {
-        // Try to submit online
         try {
           const response = await createOrder(orderData, token);
-          set({ isSubmitting: false });
           return { success: true, orderId: response.id };
         } catch (error: any) {
-          // If online submission fails, save offline
           console.warn('Online submission failed, saving offline:', error);
         }
       }
 
       // Save offline
-      let orderId: number;
       const baseURL = API_BASE_URL;
       if (window.electronAPI) {
         const result = await window.electronAPI.saveOfflineOrder(orderData, token, baseURL);
         if (result.success && result.orderId) {
-          orderId = result.orderId;
-        } else {
-          orderId = await saveOfflineOrder(orderData, token, baseURL);
+          return { success: true, orderId: result.orderId, offline: true };
         }
-      } else {
-        orderId = await saveOfflineOrder(orderData, token, baseURL);
+        const orderId = await saveOfflineOrder(orderData, token, baseURL);
+        return { success: true, orderId, offline: true };
       }
-      set({ isSubmitting: false });
+      const orderId = await saveOfflineOrder(orderData, token, baseURL);
       return { success: true, orderId, offline: true };
     } catch (error: any) {
-      set({ isSubmitting: false });
       return { success: false, error: error.message || 'خطا در ثبت سفارش' };
+    } finally {
+      set({ isSubmitting: false });
     }
   },
 

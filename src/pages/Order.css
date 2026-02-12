@@ -56,6 +56,14 @@
   text-align: center;
 }
 
+.success-banner {
+  background: #d4edda;
+  color: #155724;
+  padding: 15px;
+  text-align: center;
+  border-bottom: 1px solid #c3e6cb;
+}
+
 .order-content {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -69,19 +77,58 @@
   background: white;
   border-radius: 10px;
   padding: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  direction: ltr; /* دسته‌بندی‌ها همیشه سمت راست */
+}
+
+.products-main {
+  flex: 1;
   overflow-y: auto;
+  min-width: 0;
 }
 
-.category-filter {
-  margin-bottom: 20px;
+.categories-sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  border-left: 1px solid #eee;
+  padding-left: 20px;
+  margin-left: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
 }
 
-.category-filter select {
-  width: 100%;
-  padding: 10px;
+.categories-sidebar-title {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.category-chip {
+  padding: 10px 14px;
   border: 1px solid #ddd;
-  border-radius: 5px;
-  font-size: 16px;
+  border-radius: 8px;
+  background: #f9f9f9;
+  cursor: pointer;
+  font-size: 14px;
+  text-align: right;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.category-chip:hover {
+  background: #f0f0f0;
+  border-color: #ccc;
+}
+
+.category-chip.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
 }
 
 .loading {
@@ -151,6 +198,12 @@
   color: #333;
 }
 
+.customer-section--compact {
+  display: flex;
+  justify-content: center;
+  padding: 15px;
+}
+
 .empty-cart {
   text-align: center;
   color: #999;
@@ -165,15 +218,153 @@
 
 .cart-item {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   padding: 10px;
   background: #f9f9f9;
   border-radius: 5px;
 }
 
+.cart-item-qty-input {
+  width: 44px;
+  padding: 4px 6px;
+  text-align: center;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  -moz-appearance: textfield;
+}
+
+.cart-item-qty-input::-webkit-inner-spin-button,
+.cart-item-qty-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .cart-item-info {
   flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.cart-item-note-trigger {
+  width: 100%;
+  font-size: 11px;
+  color: #888;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  cursor: pointer;
+  text-align: right;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cart-item-note-trigger:hover {
+  color: #667eea;
+}
+
+.cart-item-note-trigger.has-note {
+  color: #555;
+  font-weight: 500;
+}
+
+.cart-item-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 180px;
+  max-width: 280px;
+}
+
+.cart-item-select {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background: white;
+  font-size: 13px;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.cart-item-option-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 13px;
+}
+
+.cart-item-note {
+  width: 100%;
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+  padding: 8px 0 0;
+  border-top: 1px solid #eee;
+}
+
+.cart-item-note-label {
+  display: block;
+  font-size: 12px;
+  color: #555;
+  margin: 0;
+}
+
+.cart-item-note-close {
+  align-self: flex-end;
+  font-size: 11px;
+  color: #888;
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.cart-item-note-close:hover {
+  color: #667eea;
+}
+
+.cart-item-option-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cart-item-option-chip {
+  padding: 4px 10px;
+  border: 1px solid #ddd;
+  border-radius: 999px;
+  background: white;
+  font-size: 12px;
+  cursor: pointer;
+  color: #555;
+}
+
+.cart-item-option-chip:hover {
+  background: #f0f0f0;
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.cart-item-note-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 13px;
+  resize: vertical;
+  min-height: 44px;
+  font-family: inherit;
 }
 
 .cart-item-controls {
@@ -351,6 +542,108 @@
 }
 
 .submit-order-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* پاپ‌آپ تکمیل سفارش */
+.order-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.order-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.order-modal-title {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  color: #333;
+  text-align: center;
+}
+
+.order-modal .form-group {
+  margin-bottom: 14px;
+}
+
+.form-group--required .required-mark {
+  color: #dc3545;
+  font-size: 11px;
+  font-weight: normal;
+}
+
+.form-group--required input,
+.form-group--required select,
+.form-group--required textarea {
+  border-bottom: 2px solid #dc3545;
+}
+
+.form-group--required .input-with-button input {
+  border-bottom: 2px solid #dc3545;
+}
+
+.order-modal-totals {
+  margin: 16px 0;
+  padding: 12px 0;
+  border-top: 1px solid #eee;
+}
+
+.order-modal-totals .total-row {
+  margin: 6px 0;
+}
+
+.order-modal-totals .total-row.final {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 2px solid #667eea;
+}
+
+.order-modal-print-note {
+  font-size: 12px;
+  color: #28a745;
+  margin: 0 0 12px 0;
+}
+
+.order-modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.order-modal-actions .submit-order-button {
+  flex: 1;
+  margin-top: 0;
+}
+
+.order-modal-cancel {
+  padding: 12px 20px;
+  background: #f0f0f0;
+  color: #555;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.order-modal-cancel:hover:not(:disabled) {
+  background: #e5e5e5;
+}
+
+.order-modal-cancel:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

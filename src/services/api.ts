@@ -76,6 +76,24 @@ export async function checkUser(mobile: string) {
   return response.data;
 }
 
+export async function getRestaurantByName(restaurantName: string, token?: string) {
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get(`/restaurant/name/${encodeURIComponent(restaurantName)}`, { headers });
+  return response.data;
+}
+
+export async function getRestaurantById(restaurantId: number, token?: string) {
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await api.get(`/restaurant/${restaurantId}`, { headers });
+  return response.data;
+}
+
 export async function getProducts(restaurantName?: string, restaurantId?: number, token?: string) {
   const headers: any = {};
   if (token) {
