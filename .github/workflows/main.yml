@@ -32,5 +32,10 @@ jobs:
             sudo -E git pull
             yarn install
             yarn build
-            yarn dist
+            yarn dist:win
+            EXE=$(ls release/*.exe 2>/dev/null | head -1)
+            if [ -n "$EXE" ]; then
+              mkdir -p ../Menus_FE/public/downloads
+              cp "$EXE" ../Menus_FE/public/downloads/menus-electron-setup-latest.exe
+            fi
           EOF
