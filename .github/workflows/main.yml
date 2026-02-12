@@ -1,11 +1,9 @@
-name: Deploy and Release
+name: Deploy to Server
 
 on:
   push:
     branches:
       - master
-    tags:
-      - 'v*'
 
 jobs:
   deploy:
@@ -14,16 +12,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Get version
-        id: version
-        run: |
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
-          else
-            V=$(node -p "require('./Menus_Electron/package.json').version" 2>/dev/null || node -p "require('./package.json').version" 2>/dev/null || echo "1.0.0")
-            echo "version=${V}" >> $GITHUB_OUTPUT
-          fi
 
       - name: Install sshpass
         run: |
@@ -37,7 +25,7 @@ jobs:
           SERVER_IP: ${{ secrets.SERVER_IP }}
         run: |
           sshpass -p $SERVER_PASSWORD ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP << 'EOF'
-            cd /root/Menus_Electron
+            cd Menus_Electron
             eval "$(ssh-agent -s)"
             ssh-add ~/gith
             git stash
@@ -45,46 +33,4 @@ jobs:
             yarn install
             yarn build
             yarn dist:win
-            mkdir -p /root/Menus_FE/public/downloads
-            for f in /root/Menus_Electron/release/*.exe; do [ -f "$f" ] && cp "$f" /root/Menus_FE/public/downloads/menus-electron-setup-latest.exe && break; done
           EOF
-
-      - name: Download exe from Server
-        env:
-          SERVER_USERNAME: ${{ secrets.SERVER_USERNAME }}
-          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
-          SERVER_IP: ${{ secrets.SERVER_IP }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          mkdir -p release-artifact
-          sshpass -p "$SERVER_PASSWORD" scp -o StrictHostKeyChecking=no \
-            "$SERVER_USERNAME@$SERVER_IP:/root/Menus_Electron/release/Menus Order Manager Setup $VERSION.exe" \
-            ./release-artifact/ || true
-
-      - name: Upload Artifact (master branch)
-        if: github.ref_type == 'branch' && github.ref == 'refs/heads/master'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Menus-Order-Manager-Setup-Windows
-          path: release-artifact/
-          if-no-files-found: warn
-
-      - name: Create GitHub Release and upload exe
-        if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          cd release-artifact
-          EXE=$(ls "Menus Order Manager Setup $VERSION.exe" 2>/dev/null || ls *.exe 2>/dev/null | head -1)
-          if [ -z "$EXE" ]; then
-            echo "No exe found"
-            exit 1
-          fi
-          ASSET_NAME="Menus-Order-Manager-Setup-$VERSION.exe"
-          cp "$EXE" "$ASSET_NAME"
-          gh release create "$GITHUB_REF_NAME" \
-            "$ASSET_NAME" \
-            --title "Menus Order Manager $VERSION" \
-            --notes "Windows installer for Menus Order Manager $VERSION" \
-            --repo "$GITHUB_REPOSITORY"
