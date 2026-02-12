@@ -14,6 +14,7 @@
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
+    "postdist:win": "node scripts/copy-env-example.js",
     "dist:linux": "npm run build && electron-builder --linux"
   },
   "keywords": [

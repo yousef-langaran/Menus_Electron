@@ -1,14 +1,31 @@
 import { config as dotenvConfig } from 'dotenv';
 import * as path from 'path';
+import * as fs from 'fs';
 
 import { app, BrowserWindow, ipcMain, dialog, session } from 'electron';
 
-// بارگذاری .env: در حالت dev از روت پروژه، در حالت packaged از کنار فایل exe
+// بارگذاری .env — در build: کنار exe یا در userData؛ در dev: روت پروژه
 function loadEnv() {
-  const devPath = path.join(__dirname, '..', '.env');
-  const packagedPath = path.join(path.dirname(app.getPath('exe')), '.env');
-  dotenvConfig({ path: packagedPath });
-  dotenvConfig({ path: devPath });
+  const exeDir = path.dirname(app.getPath('exe'));
+  const userDataDir = app.getPath('userData');
+  const envNextToExe = path.join(exeDir, '.env');
+  const envInUserData = path.join(userDataDir, '.env');
+  const envInCwd = path.join(process.cwd(), '.env');
+  const envNextToMain = path.join(__dirname, '..', '.env');
+
+  const paths = app.isPackaged
+    ? [envNextToExe, envInUserData, envInCwd]
+    : [envInCwd, envNextToMain, envNextToExe, envInUserData];
+
+  for (const p of paths) {
+    if (fs.existsSync(p)) {
+      dotenvConfig({ path: p });
+      break;
+    }
+  }
+  if (app.isPackaged && !process.env.API_BASE_URL && !process.env.NEXT_PUBLIC_API_BASE_URL && !process.env.VITE_API_BASE_URL) {
+    console.warn('[Menus] برای حالت build یک فایل .env قرار بده. مسیرهای چک‌شده: کنار exe =', exeDir, 'یا در userData =', userDataDir);
+  }
 }
 loadEnv();
 import { isOnline } from './utils/network';
