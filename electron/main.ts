@@ -49,7 +49,7 @@ import { getApiConfig } from './config/api';
 
 let mainWindow: BrowserWindow | null = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-const DEEP_LINK_PROTOCOL = 'menus-order-manager';
+const DEEP_LINK_PROTOCOL = 'hosh-menu';
 const PROTOCOL_PREFIX = `${DEEP_LINK_PROTOCOL}://`;
 let pendingDeepLinkUrl: string | null = null;
 
@@ -130,7 +130,7 @@ function createWindow() {
       contextIsolation: true,
     },
     icon: path.join(__dirname, '../assets/icon.png'),
-    title: 'Menus Order Manager',
+    title: 'hosh menu',
   });
 
   if (isDev) {

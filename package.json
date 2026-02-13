@@ -49,15 +49,15 @@
   },
   "build": {
     "appId": "com.menus.electron",
-    "productName": "Menus Order Manager",
+    "productName": "hosh menu",
     "directories": {
       "output": "release"
     },
     "protocols": [
       {
-        "name": "Menus Order Manager",
+        "name": "hosh menu",
         "schemes": [
-          "menus-order-manager"
+          "hosh-menu"
         ]
       }
     ],
