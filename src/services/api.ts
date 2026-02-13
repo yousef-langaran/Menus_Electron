@@ -202,3 +202,34 @@ export async function getActiveSubscription(restaurantId: number, token: string)
   return response.data;
 }
 
+export type ReceiptNumberSettings = {
+  nextNumber: number;
+  resetPolicy: string;
+  startNumber: number;
+  lastResetDate: string;
+  dailyResetTime: string;
+};
+
+export async function getReceiptNumberSettingsFromServer(
+  restaurantId: number,
+  token: string,
+): Promise<ReceiptNumberSettings | null> {
+  await apiConfigReady;
+  const response = await api.get('/settings/receipt-number', {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data ?? null;
+}
+
+export async function saveReceiptNumberSettingsToServer(
+  restaurantId: number,
+  settings: ReceiptNumberSettings,
+  token: string,
+): Promise<{ message: string }> {
+  await apiConfigReady;
+  const response = await api.post('/settings/receipt-number', { ...settings, restaurantId }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}

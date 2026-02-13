@@ -1,4 +1,5 @@
 import { BrowserWindow } from 'electron';
+import { getNextReceiptNumber, setReceiptNumbersForOrder } from '../database/preferences';
 
 export type ReceiptType = 'full' | 'kitchen';
 
@@ -15,13 +16,31 @@ export interface PrinterJob {
 interface ReceiptTemplateOptions {
   paperWidth?: number;
   margin?: number;
+  receiptNumber?: number;
 }
 
 const mmToMicrons = (value: number) => Math.max(1, Math.round(value * 1000));
 
-export async function printReceipt(orderData: any, printerJobs: PrinterJob[]): Promise<void> {
+export async function printReceipt(
+  orderData: any,
+  printerJobs: PrinterJob[],
+  orderKeys?: string | string[]
+): Promise<number> {
   if (!printerJobs || printerJobs.length === 0) {
     throw new Error('No printers selected');
+  }
+
+  let keys: string[] = Array.isArray(orderKeys) ? [...orderKeys] : orderKeys ? [orderKeys] : [];
+  if (!keys.length && orderData && (orderData.id != null || orderData.orderNumber)) {
+    keys = [String(orderData.id), orderData.orderNumber].filter(Boolean);
+  }
+  // اگر بک‌اند شماره فراخوانی داده (سفارش آنلاین)، همان را برای چاپ و ذخیره استفاده کن
+  const receiptNumber =
+    orderData?.receiptCallNumber != null && Number.isInteger(orderData.receiptCallNumber)
+      ? Number(orderData.receiptCallNumber)
+      : await getNextReceiptNumber();
+  if (keys.length) {
+    setReceiptNumbersForOrder(keys.map((k) => String(k)), receiptNumber);
   }
 
   // گروه‌بندی jobها بر اساس پرینتر و نوع رسید
@@ -53,15 +72,15 @@ export async function printReceipt(orderData: any, printerJobs: PrinterJob[]): P
       try {
         const receiptType = job.receiptType || 'full';
         const receiptHTML = receiptType === 'kitchen' 
-          ? generateKitchenReceiptHTML(orderData, { paperWidth, margin })
-          : generateReceiptHTML(orderData, { paperWidth, margin });
+          ? generateKitchenReceiptHTML(orderData, { paperWidth, margin, receiptNumber })
+          : generateReceiptHTML(orderData, { paperWidth, margin, receiptNumber });
 
         await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHTML)}`);
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         const width = mmToMicrons(paperWidth);
         const height = mmToMicrons(job.paperLength ?? 200);
-        const copies = job.copies && job.copies > 0 ? Math.floor(job.copies) : 1;
+        const copies = Math.max(1, Math.floor(job.copies ?? 1));
         const cssWidthValue = paperWidth.toFixed(2);
         const cssPaddingValue = Math.max(1, margin).toFixed(2);
 
@@ -114,6 +133,8 @@ export async function printReceipt(orderData: any, printerJobs: PrinterJob[]): P
 
     printWindow.close();
   }
+
+  return receiptNumber;
 }
 
 export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOptions = {}): string {
@@ -121,7 +142,7 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
   const totalAmount = orderData.totalAmount || 0;
   const discountAmount = orderData.discountAmount || 0;
   const finalAmount = orderData.finalAmount || totalAmount - discountAmount;
-  const orderNumber = orderData.orderNumber || orderData.id || 'N/A';
+  const orderNumber = orderData.orderNumber || orderData.order_number || orderData.id || 'N/A';
   const customerName = orderData.customerName || orderData.customerPhone || 'مشتری';
   const serviceType = orderData.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر';
   const tableNumber = orderData.tableNumber || '';
@@ -134,6 +155,8 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
   const printerMargin = typeof options.margin === 'number' ? Math.max(0, options.margin) : 5;
   const printableWidth = Math.max(30, paperWidth - printerMargin * 2);
   const contentPadding = Math.max(2, Math.min(6, printerMargin || 4));
+  const receiptNumber =
+    options && typeof options.receiptNumber === 'number' ? options.receiptNumber : 0;
 
   return `
 <!DOCTYPE html>
@@ -256,13 +279,59 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
       border-top: 2px dashed #000;
       font-size: 10px;
     }
+    .receipt-fish-row {
+      text-align: center;
+      margin: 8px 0;
+    }
+    .receipt-fish-label {
+      display: block;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+    .receipt-number-box {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22mm;
+      height: 22mm;
+      min-width: 60px;
+      min-height: 60px;
+      margin: 0 auto;
+      border: 3px solid #000;
+      font-size: 28px;
+      font-weight: bold;
+      line-height: 1;
+    }
+    .order-number-row {
+      margin: 8px 0;
+      font-size: 14px;
+    }
+    .order-number-label {
+      display: block;
+      font-size: 11px;
+      color: #333;
+      margin-bottom: 2px;
+    }
+    .order-number-value {
+      display: block;
+      font-size: 16px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
   </style>
 </head>
 <body>
   <div class="receipt-root">
     <div class="header">
       <h1>رسید سفارش</h1>
-      <div>شماره سفارش: #${orderNumber}</div>
+      <div class="receipt-fish-row">
+        <span class="receipt-fish-label">شماره فیش (فراخوانی)</span>
+        <div class="receipt-number-box">${receiptNumber > 0 ? receiptNumber : '—'}</div>
+      </div>
+      <div class="order-number-row">
+        <span class="order-number-label">شماره سفارش</span>
+        <span class="order-number-value">#${orderNumber}</span>
+      </div>
       <div>${date}</div>
     </div>
 
@@ -317,8 +386,12 @@ export async function renderReceiptPreview(
   options: ReceiptTemplateOptions = {}
 ): Promise<{ html: string; imageDataUrl?: string }> {
   const html = generateReceiptHTML(orderData, options);
+  const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
+  const widthPx = Math.max(320, Math.round((paperWidth / 25.4) * 96));
   const previewWindow = new BrowserWindow({
     show: false,
+    width: widthPx,
+    height: 900,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -327,7 +400,7 @@ export async function renderReceiptPreview(
   });
 
   await previewWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-  await new Promise((resolve) => setTimeout(resolve, 400));
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   let imageDataUrl: string | undefined;
   try {
@@ -358,7 +431,7 @@ function getPaymentMethodText(method: string): string {
 
 export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTemplateOptions = {}): string {
   const items = orderData.items || [];
-  const orderNumber = orderData.orderNumber || orderData.id || 'N/A';
+  const orderNumber = orderData.orderNumber || orderData.order_number || orderData.id || 'N/A';
   const serviceType = orderData.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر';
   const tableNumber = orderData.tableNumber || '';
   const customerAddress = orderData.customerAddress || '';
@@ -369,6 +442,7 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
   const printerMargin = typeof options.margin === 'number' ? Math.max(0, options.margin) : 5;
   const printableWidth = Math.max(30, paperWidth - printerMargin * 2);
   const contentPadding = Math.max(2, Math.min(6, printerMargin || 4));
+  const receiptNumber = typeof options.receiptNumber === 'number' ? options.receiptNumber : 0;
 
   return `
 <!DOCTYPE html>
@@ -436,9 +510,15 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
       font-weight: bold;
     }
     .order-number {
-      font-size: 24px;
+      font-size: 18px;
       font-weight: bold;
       margin: 8px 0;
+    }
+    .order-number-label {
+      display: block;
+      font-size: 11px;
+      color: #333;
+      margin-bottom: 2px;
     }
     .order-info {
       margin: 12px 0;
@@ -486,13 +566,31 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
       border-radius: 4px;
       font-size: 12px;
     }
+    .receipt-number-box {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22mm;
+      height: 22mm;
+      min-width: 22mm;
+      min-height: 22mm;
+      margin: 8px auto;
+      border: 3px solid #000;
+      font-size: 28px;
+      font-weight: bold;
+      line-height: 1;
+    }
   </style>
 </head>
 <body>
   <div class="receipt-root">
     <div class="header">
       <h1>رسید آشپزخانه</h1>
-      <div class="order-number">#${orderNumber}</div>
+      ${receiptNumber > 0 ? `<div class="receipt-number-box">${receiptNumber}</div>` : ''}
+      <div class="order-number">
+        <span class="order-number-label">شماره سفارش</span>
+        #${orderNumber}
+      </div>
       <div>${date}</div>
     </div>
 

@@ -19,7 +19,15 @@ export async function syncOfflineOrders(tokenOverride?: string) {
 
   for (const order of offlineOrders) {
     if (!order.id) continue;
-    
+
+    const items = order.orderData?.items;
+    if (!Array.isArray(items) || items.length === 0) {
+      await markOrderAsSynced(order.id);
+      results.failed++;
+      results.errors.push(`سفارش ${order.id}: رد شد (بدون آیتم)`);
+      continue;
+    }
+
     try {
       const targetBaseURL = order.baseURL || defaultBaseURL;
       const authToken = tokenOverride || order.token;

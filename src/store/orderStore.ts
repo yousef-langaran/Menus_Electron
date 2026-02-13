@@ -37,7 +37,17 @@ interface OrderState {
   setNotes: (notes: string) => void;
   setDiscountAmount: (amount: number) => void;
   setDiscountType: (type: DiscountType) => void;
-  submitOrder: () => Promise<{ success: boolean; orderId?: number; error?: string }>;
+  submitOrder: (options?: {
+    onOrderCreated?: (result: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean }) => void;
+  }) => Promise<{
+    success: boolean;
+    orderId?: number;
+    orderNumber?: string;
+    receiptCallNumber?: number;
+    error?: string;
+    offline?: boolean;
+    pending?: boolean;
+  }>;
   clearCart: () => void;
   getTotalAmount: () => number;
   getFinalAmount: () => number;
@@ -124,10 +134,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   setDiscountAmount: (amount) => set({ discountAmount: amount }),
   setDiscountType: (type) => set({ discountType: type }),
 
-  submitOrder: async () => {
+  submitOrder: async (options) => {
     const state = get();
     const { token, user } = useAuthStore.getState();
-    
+    const onOrderCreated = options?.onOrderCreated;
+
     if (!token) {
       return { success: false, error: 'لطفاً ابتدا وارد شوید' };
     }
@@ -140,17 +151,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       return { success: false, error: 'شماره تماس مشتری الزامی است' };
     }
 
-    if (state.serviceType === 'dine_in' && !state.tableNumber.trim()) {
-      return { success: false, error: 'شماره میز الزامی است' };
-    }
-
     if (state.serviceType === 'takeaway' && !state.customerAddress.trim()) {
       return { success: false, error: 'آدرس الزامی است' };
     }
 
     set({ isSubmitting: true });
 
-    try {
     const discountAmount = state.getDiscountAmount();
     const orderData = {
       customerPhone: state.customerPhone.trim(),
@@ -175,33 +181,60 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       status: 'confirmed',
     };
 
+    try {
       const isOnline = window.electronAPI ? await window.electronAPI.checkOnline() : navigator.onLine;
 
       if (isOnline) {
-        try {
-          const response = await createOrder(orderData, token);
-          return { success: true, orderId: response.id };
-        } catch (error: any) {
-          console.warn('Online submission failed, saving offline:', error);
-        }
+        // ارسال در پس‌زمینه — بلافاصله موفق برگرد و چاپ وقتی جواب آمد
+        createOrder(orderData, token)
+          .then((response) => {
+            onOrderCreated?.({
+              orderId: response.id,
+              orderNumber: response.orderNumber,
+              receiptCallNumber: response.receiptCallNumber,
+              offline: false,
+            });
+          })
+          .catch(async (error: any) => {
+            console.warn('Online submission failed, saving offline:', error);
+            const baseURL = API_BASE_URL;
+            try {
+              if (window.electronAPI) {
+                const res = await window.electronAPI.saveOfflineOrder(orderData, token, baseURL);
+                if (res.success && res.orderId) {
+                  onOrderCreated?.({ orderId: res.orderId, offline: true });
+                  return;
+                }
+              }
+              const orderId = await saveOfflineOrder(orderData, token, baseURL);
+              onOrderCreated?.({ orderId, offline: true });
+            } catch (_) {
+              // ignore
+            }
+          });
+        set({ isSubmitting: false });
+        return { success: true, pending: true };
       }
 
-      // Save offline
+      // آفلاین: ذخیره و برگرد (سریع)
       const baseURL = API_BASE_URL;
+      let orderId: number;
       if (window.electronAPI) {
         const result = await window.electronAPI.saveOfflineOrder(orderData, token, baseURL);
         if (result.success && result.orderId) {
-          return { success: true, orderId: result.orderId, offline: true };
+          orderId = result.orderId;
+        } else {
+          orderId = await saveOfflineOrder(orderData, token, baseURL);
         }
-        const orderId = await saveOfflineOrder(orderData, token, baseURL);
-        return { success: true, orderId, offline: true };
+      } else {
+        orderId = await saveOfflineOrder(orderData, token, baseURL);
       }
-      const orderId = await saveOfflineOrder(orderData, token, baseURL);
+      onOrderCreated?.({ orderId, offline: true });
+      set({ isSubmitting: false });
       return { success: true, orderId, offline: true };
     } catch (error: any) {
-      return { success: false, error: error.message || 'خطا در ثبت سفارش' };
-    } finally {
       set({ isSubmitting: false });
+      return { success: false, error: error.message || 'خطا در ثبت سفارش' };
     }
   },
 

@@ -5,6 +5,10 @@ import { getProducts, getRestaurantByName, getRestaurantById, checkUser, getAsse
 import { getCachedMenu, cacheMenu } from '../services/cache';
 import { useNavigate } from 'react-router-dom';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
+import {
+  saveReceiptNumbersToStorage,
+  getNextReceiptNumberBrowser,
+} from '../utils/receiptNumbersStorage';
 import './Order.css';
 
 export default function OrderPage() {
@@ -51,9 +55,10 @@ export default function OrderPage() {
   const [isCheckingUser, setIsCheckingUser] = useState(false);
   /** آیتمی که پنل توضیحاتش باز است (برای جمع‌وجور بودن صفحه) */
   const [expandedNoteProductId, setExpandedNoteProductId] = useState<number | null>(null);
-  const enabledPrinters = usePrinterSettingsStore((state) =>
-    Object.values(state.configs).filter((config) => config.enabled)
-  );
+  const { enabledPrinters, getPrinterReceipts } = usePrinterSettingsStore((state) => ({
+    enabledPrinters: Object.values(state.configs).filter((config) => config.enabled),
+    getPrinterReceipts: state.getPrinterReceipts,
+  }));
   const phoneInputRef = useRef<HTMLInputElement>(null);
   /** ref پنل توضیحات باز — برای تشخیص کلیک داخل پنل در onBlur */
   const notePanelRef = useRef<HTMLDivElement | null>(null);
@@ -63,6 +68,29 @@ export default function OrderPage() {
   useEffect(() => {
     loadProducts();
   }, []);
+
+  // با باز شدن مودال، فوکوس روی فیلد موبایل
+  useEffect(() => {
+    if (showOrderModal) {
+      const t = setTimeout(() => phoneInputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [showOrderModal]);
+
+  // وقتی مودال بسته است و سبد پر است، اینتر مودال را باز کن و فوکوس روی موبایل
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || showOrderModal) return;
+      const target = e.target as HTMLElement;
+      if (target.closest('.order-modal')) return;
+      if (cart.length > 0 && !target.closest('input') && !target.closest('textarea') && !target.closest('button')) {
+        setShowOrderModal(true);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showOrderModal, cart.length]);
 
   // Cache images when products change
   useEffect(() => {
@@ -208,72 +236,106 @@ export default function OrderPage() {
   };
 
   const handleSubmit = async () => {
+    if (!customerPhone.trim()) {
+      setError('شماره تماس را وارد کنید');
+      phoneInputRef.current?.focus();
+      return;
+    }
     setError('');
 
-    const result = await submitOrder();
-    
-    if (result.success) {
-      setShowOrderModal(false);
-      // Print receipt if printers are selected
-      if (enabledPrinters.length > 0 && window.electronAPI && result.orderId) {
+    // اسنپ‌شات برای چاپ رسید وقتی سرویس جواب داد (آنلاین در پس‌زمینه)
+    const snapshot = {
+      customerPhone,
+      serviceType,
+      tableNumber,
+      customerAddress,
+      paymentMethod,
+      notes,
+      discountAmount,
+      totalAmount: getTotalAmount(),
+      finalAmount: getFinalAmount(),
+      items: cart.map((item) => ({
+        product: item.product,
+        productName: item.product.name_fa || item.product.name,
+        quantity: item.quantity,
+        price: item.price,
+        itemOption: item.itemOption || undefined,
+      })),
+    };
+
+    const runPrint = (orderData: any, orderKeys: string[]) => {
+      (async () => {
         try {
-          const orderData = {
-            id: result.orderId,
-            orderNumber: `ORD-${result.orderId}`,
-            customerPhone,
-            customerName: customerPhone,
-            serviceType,
-            tableNumber,
-            customerAddress,
-            paymentMethod,
-            notes,
-            items: cart.map(item => ({
-              product: item.product,
-              productName: item.product.name_fa || item.product.name,
-              quantity: item.quantity,
-              price: item.price,
-              itemOption: item.itemOption || undefined,
-            })),
-            totalAmount: getTotalAmount(),
-            discountAmount,
-            finalAmount: getFinalAmount(),
-          };
-
-          // ایجاد لیست jobها برای هر پرینتر و هر نوع رسید
-          const printerJobs: any[] = [];
-          for (const printer of enabledPrinters) {
-            const receipts = getPrinterReceipts(printer.name);
-            for (const receipt of receipts) {
-              if (receipt.enabled) {
-                printerJobs.push({
-                  name: printer.name,
-                  displayName: printer.displayName,
-                  paperWidth: printer.paperWidth,
-                  paperLength: printer.paperLength,
-                  margin: printer.margin,
-                  receiptType: receipt.type,
-                  copies: receipt.copies,
-                });
+          if (window.electronAPI) {
+            let receiptNumber = 0;
+            if (enabledPrinters.length > 0) {
+              const printerJobs = enabledPrinters.flatMap((printer) =>
+                getPrinterReceipts(printer.name)
+                  .filter((r) => r.enabled)
+                  .map((receipt) => ({
+                    name: printer.name,
+                    displayName: printer.displayName,
+                    paperWidth: printer.paperWidth,
+                    paperLength: printer.paperLength,
+                    margin: printer.margin,
+                    receiptType: receipt.type,
+                    copies: receipt.copies,
+                  }))
+              );
+              if (printerJobs.length > 0) {
+                const res = await window.electronAPI.printReceipt(orderData, printerJobs, orderKeys);
+                receiptNumber = res?.receiptNumber ?? 0;
+              } else {
+                receiptNumber = await window.electronAPI.assignReceiptNumberForOrder(orderKeys);
               }
+            } else {
+              receiptNumber = await window.electronAPI.assignReceiptNumberForOrder(orderKeys);
             }
+            if (receiptNumber > 0 && orderKeys.length) saveReceiptNumbersToStorage(orderKeys, receiptNumber);
+          } else {
+            const receiptNumber = getNextReceiptNumberBrowser();
+            saveReceiptNumbersToStorage(orderKeys, receiptNumber);
           }
-
-          if (printerJobs.length > 0) {
-            await window.electronAPI.printReceipt(orderData, printerJobs);
-          }
-        } catch (error) {
-          console.error('Print error:', error);
+        } catch (err) {
+          console.error('Print / assign receipt number error:', err);
         }
-      }
+      })();
+    };
 
-      clearCart();
+    const onOrderCreated = (res: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean }) => {
+      const orderData = {
+        id: res.orderId,
+        orderNumber: res.orderNumber ?? `ORD-${res.orderId}`,
+        receiptCallNumber: res.receiptCallNumber ?? undefined,
+        customerPhone: snapshot.customerPhone,
+        customerName: snapshot.customerPhone,
+        serviceType: snapshot.serviceType,
+        tableNumber: snapshot.tableNumber,
+        customerAddress: snapshot.customerAddress,
+        paymentMethod: snapshot.paymentMethod,
+        notes: snapshot.notes,
+        items: snapshot.items,
+        totalAmount: snapshot.totalAmount,
+        discountAmount: snapshot.discountAmount,
+        finalAmount: snapshot.finalAmount,
+      };
+      const orderKeys = res.offline
+        ? [`offline-${res.orderId}`]
+        : [String(res.orderId), res.orderNumber, orderData.orderNumber].filter(Boolean);
+      runPrint(orderData, orderKeys);
+    };
+
+    const result = await submitOrder({ onOrderCreated });
+
+    if (result.success) {
+      console.log('[شماره رسید] ثبت سفارش. orderId:', result.orderId, 'offline:', result.offline, 'pending:', result.pending);
       setError('');
-      setSuccessMessage('سفارش با موفقیت ثبت شد' + (result.offline ? ' (آفلاین)' : ''));
-      // بدون استفاده از alert تا فوکوس و ورودی‌ها در الکترون قفل نشوند
-      setTimeout(() => {
-        phoneInputRef.current?.focus();
-      }, 50);
-      setTimeout(() => setSuccessMessage(''), 4000);
+      setSuccessMessage('سفارش ثبت شد' + (result.offline ? ' (آفلاین)' : ''));
+
+      setShowOrderModal(false);
+      clearCart();
+      setUserExists(null);
+      setTimeout(() => setSuccessMessage(''), 3000);
     } else {
       setError(result.error || 'خطا در ثبت سفارش');
     }
@@ -521,8 +583,19 @@ export default function OrderPage() {
 
           {showOrderModal && (
             <div className="order-modal-overlay" onClick={() => !isSubmitting && setShowOrderModal(false)}>
-              <div className="order-modal" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="order-modal"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return;
+                  const isTextarea = (e.target as HTMLElement).tagName === 'TEXTAREA';
+                  if (isTextarea) return;
+                  e.preventDefault();
+                  if (!isSubmitting && cart.length > 0 && customerPhone.trim()) handleSubmit();
+                }}
+              >
                 <h2 className="order-modal-title">تکمیل و ثبت سفارش</h2>
+                <p className="order-modal-hint">شماره موبایل را وارد کنید و Enter بزنید برای ثبت سریع</p>
 
                 <div className="form-group form-group--required">
                   <label>شماره تماس <span className="required-mark">(اجباری)</span></label>

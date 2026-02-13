@@ -27,7 +27,9 @@ declare global {
     electronAPI?: {
       checkOnline: () => Promise<boolean>;
       syncOrders: (token?: string) => Promise<any>;
-      printReceipt: (orderData: any, printerJobs: ElectronPrinterJob[]) => Promise<{ success: boolean; error?: string }>;
+      printReceipt: (orderData: any, printerJobs: ElectronPrinterJob[], orderKeys?: string | string[]) => Promise<{ success: boolean; receiptNumber?: number; error?: string }>;
+      getReceiptNumbersMap: () => Promise<Record<string, number>>;
+      assignReceiptNumberForOrder: (orderKeys: string[]) => Promise<number>;
       getPrinters: () => Promise<Array<{ name: string; displayName: string; description: string }>>;
       showMessageBox: (options: any) => Promise<any>;
       saveOfflineOrder: (

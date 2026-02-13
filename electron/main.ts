@@ -39,6 +39,11 @@ import {
   clearUserSession as clearUserSessionPrefs,
   loadPrinterConfigs as loadPrinterConfigsPrefs,
   savePrinterConfigs as savePrinterConfigsPrefs,
+  loadReceiptNumberSettings,
+  saveReceiptNumberSettings,
+  getNextReceiptNumberPreview,
+  getReceiptNumbersMap,
+  assignReceiptNumberForOrder,
 } from './database/preferences';
 import { getApiConfig } from './config/api';
 
@@ -203,20 +208,51 @@ ipcMain.handle('sync-orders', async (_event, token?: string) => {
   }
 });
 
-ipcMain.handle('print-receipt', async (event, orderData, printerJobs) => {
+ipcMain.handle('print-receipt', async (event, orderData, printerJobs, orderKeys) => {
   try {
-    await printReceipt(orderData, printerJobs);
-    return { success: true };
+    const receiptNumber = await printReceipt(orderData, printerJobs, orderKeys);
+    return { success: true, receiptNumber };
   } catch (error) {
     console.error('Print error:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', receiptNumber: 0 };
+  }
+});
+
+ipcMain.handle('get-receipt-numbers-map', async () => {
+  try {
+    const map = getReceiptNumbersMap();
+    console.log('[شماره رسید] خواندن نقشه از main. تعداد کلیدها:', Object.keys(map).length, 'کلیدها:', Object.keys(map));
+    return map;
+  } catch (error) {
+    console.error('get-receipt-numbers-map error:', error);
+    return {};
+  }
+});
+
+ipcMain.handle('assign-receipt-number-for-order', async (_event, orderKeys: string[]) => {
+  try {
+    return await assignReceiptNumberForOrder(orderKeys || []);
+  } catch (error) {
+    console.error('assign-receipt-number-for-order error:', error);
+    return 0;
   }
 });
 
 ipcMain.handle('generate-receipt-preview', async (_event, payload) => {
   try {
     const { orderData, options } = payload || {};
-    const { html, imageDataUrl } = await renderReceiptPreview(orderData, options);
+    let receiptNumber = 0;
+    if (orderData?.receiptCallNumber != null && Number.isInteger(orderData.receiptCallNumber)) {
+      receiptNumber = Number(orderData.receiptCallNumber);
+    } else {
+      try {
+        receiptNumber = await getNextReceiptNumberPreview();
+      } catch (e) {
+        console.warn('Receipt number preview failed, using 0:', e);
+      }
+    }
+    const mergedOptions = { ...(options || {}), receiptNumber };
+    const { html, imageDataUrl } = await renderReceiptPreview(orderData, mergedOptions);
     return { success: true, html, imageDataUrl };
   } catch (error) {
     console.error('Generate receipt preview error:', error);
@@ -346,6 +382,25 @@ ipcMain.handle('save-printer-configs', async (_event, configs) => {
     return { success: true };
   } catch (error) {
     console.error('Save printer configs error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('get-receipt-number-settings', async () => {
+  try {
+    return await loadReceiptNumberSettings();
+  } catch (error) {
+    console.error('Load receipt number settings error:', error);
+    return { nextNumber: 1, resetPolicy: 'never', startNumber: 1, lastResetDate: '', dailyResetTime: '00:00' };
+  }
+});
+
+ipcMain.handle('save-receipt-number-settings', async (_event, settings) => {
+  try {
+    await saveReceiptNumberSettings(settings);
+    return { success: true };
+  } catch (error) {
+    console.error('Save receipt number settings error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });

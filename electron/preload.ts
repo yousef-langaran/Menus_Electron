@@ -4,8 +4,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getApiConfig: () => ipcRenderer.invoke('get-api-config'),
   checkOnline: () => ipcRenderer.invoke('check-online'),
   syncOrders: (token?: string) => ipcRenderer.invoke('sync-orders', token),
-  printReceipt: (orderData: any, printerJobs: any[]) =>
-    ipcRenderer.invoke('print-receipt', orderData, printerJobs),
+  printReceipt: (orderData: any, printerJobs: any[], orderKeys?: string | string[]) =>
+    ipcRenderer.invoke('print-receipt', orderData, printerJobs, orderKeys),
   getPrinters: () => ipcRenderer.invoke('get-printers'),
   showMessageBox: (options: any) => ipcRenderer.invoke('show-message-box', options),
   saveOfflineOrder: (orderData: any, token: string, baseURL?: string) =>
@@ -27,6 +27,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadPrinterConfigs: () => ipcRenderer.invoke('load-printer-configs'),
   savePrinterConfigs: (configs: Record<string, any>) =>
     ipcRenderer.invoke('save-printer-configs', configs),
+  getReceiptNumberSettings: () => ipcRenderer.invoke('get-receipt-number-settings'),
+  saveReceiptNumberSettings: (settings: any) =>
+    ipcRenderer.invoke('save-receipt-number-settings', settings),
+  getReceiptNumbersMap: () => ipcRenderer.invoke('get-receipt-numbers-map'),
+  assignReceiptNumberForOrder: (orderKeys: string[]) =>
+    ipcRenderer.invoke('assign-receipt-number-for-order', orderKeys),
   cacheImage: (imageUrl: string) => ipcRenderer.invoke('cache-image', imageUrl),
   getCachedImage: (imageUrl: string) => ipcRenderer.invoke('get-cached-image', imageUrl),
   cacheImages: (imageUrls: string[]) => ipcRenderer.invoke('cache-images', imageUrls),
@@ -38,7 +44,7 @@ declare global {
       getApiConfig: () => Promise<{ baseURL: string; token?: string; restaurantName?: string; restaurantId?: number }>;
       checkOnline: () => Promise<boolean>;
       syncOrders: (token?: string) => Promise<any>;
-      printReceipt: (orderData: any, printerJobs: any[]) => Promise<{ success: boolean; error?: string }>;
+      printReceipt: (orderData: any, printerJobs: any[], orderKeys?: string | string[]) => Promise<{ success: boolean; receiptNumber?: number; error?: string }>;
       getPrinters: () => Promise<Array<{ name: string; displayName: string; description: string }>>;
       showMessageBox: (options: any) => Promise<any>;
       saveOfflineOrder: (
@@ -56,6 +62,10 @@ declare global {
       clearUserSession: () => Promise<{ success: boolean; error?: string }>;
       loadPrinterConfigs: () => Promise<Record<string, any>>;
       savePrinterConfigs: (configs: Record<string, any>) => Promise<{ success: boolean; error?: string }>;
+      getReceiptNumberSettings: () => Promise<{ nextNumber: number; resetPolicy: string; startNumber: number; lastResetDate: string; dailyResetTime: string }>;
+      saveReceiptNumberSettings: (settings: any) => Promise<{ success: boolean; error?: string }>;
+      getReceiptNumbersMap: () => Promise<Record<string, number>>;
+      assignReceiptNumberForOrder: (orderKeys: string[]) => Promise<number>;
       cacheImage: (imageUrl: string) => Promise<{ success: boolean; url?: string; error?: string }>;
       getCachedImage: (imageUrl: string) => Promise<{ success: boolean; url: string }>;
       cacheImages: (imageUrls: string[]) => Promise<{ success: boolean; urls?: Record<string, string>; error?: string }>;

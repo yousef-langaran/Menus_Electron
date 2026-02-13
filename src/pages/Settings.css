@@ -96,6 +96,39 @@
   color: #333;
 }
 
+.receipt-number-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.receipt-number-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.receipt-number-form label span {
+  font-weight: 500;
+  color: #333;
+}
+
+.receipt-number-form input,
+.receipt-number-form select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  max-width: 200px;
+}
+
+.receipt-number-form .sync-button {
+  max-width: 200px;
+  margin-top: 8px;
+}
+
 .logout-button {
   width: 100%;
   padding: 12px;

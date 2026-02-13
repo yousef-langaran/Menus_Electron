@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
+import { getReceiptNumberSettingsFromServer } from '../services/api';
 import './Settings.css';
 
 export default function SettingsPage() {
@@ -12,14 +13,14 @@ export default function SettingsPage() {
   const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
   const [printerError, setPrinterError] = useState('');
   const [availablePrinters, setAvailablePrinters] = useState<Array<{ name: string; displayName?: string; description?: string }>>([]);
-  const { 
-    configs, 
-    setPrinterEnabled, 
-    updatePrinterConfig, 
+  const {
+    configs,
+    setPrinterEnabled,
+    updatePrinterConfig,
     setReceiptEnabled,
     setReceiptCopies,
     getPrinterReceipts,
-    loadFromStorage 
+    loadFromStorage,
   } = usePrinterSettingsStore();
 
   useEffect(() => {
@@ -32,6 +33,34 @@ export default function SettingsPage() {
     loadFromStorage();
     loadPrinters();
   }, []);
+
+  // همگام‌سازی: از سرور فقط سیاست ریست و ساعت روزانه؛ شماره‌ها و تاریخ ریست محلی بازنویسی نمی‌شوند تا ذخیرهٔ کاربر با رفرش از بین نرود
+  useEffect(() => {
+    const sync = async () => {
+      const restaurantId = user?.restaurants?.[0]?.id;
+      if (!token || !restaurantId || !window.electronAPI?.getReceiptNumberSettings || !window.electronAPI?.saveReceiptNumberSettings) return;
+      try {
+        const [local, server] = await Promise.all([
+          window.electronAPI.getReceiptNumberSettings(),
+          getReceiptNumberSettingsFromServer(restaurantId, token),
+        ]);
+        if (server && local) {
+          const dailyResetTime =
+            server.dailyResetTime && /^\d{1,2}:\d{2}$/.test(server.dailyResetTime) ? server.dailyResetTime : '00:00';
+          await window.electronAPI.saveReceiptNumberSettings({
+            nextNumber: local.nextNumber,
+            lastResetDate: local.lastResetDate ?? '',
+            resetPolicy: server.resetPolicy,
+            startNumber: local.startNumber ?? server.startNumber,
+            dailyResetTime,
+          });
+        }
+      } catch (_) {
+        /* در صورت خطا از تنظیمات محلی قبلی استفاده می‌شود */
+      }
+    };
+    sync();
+  }, [token, user?.restaurants?.[0]?.id]);
 
   const checkOnlineStatus = async () => {
     if (window.electronAPI) {

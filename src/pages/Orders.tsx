@@ -5,6 +5,10 @@ import { fetchOrders, updateOrderStatus } from '../services/api';
 import { getAllOrders } from '../services/offlineStorage';
 import { connectOrdersSocket, disconnectOrdersSocket } from '../services/ordersSocket';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
+import {
+  getReceiptNumbersMapFromStorage,
+  saveReceiptNumbersToStorage,
+} from '../utils/receiptNumbersStorage';
 import './Orders.css';
 
 const STATUS_OPTIONS = [
@@ -53,6 +57,7 @@ export default function OrdersPage() {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
+  const [receiptNumbersMap, setReceiptNumbersMap] = useState<Record<string, number>>({});
 
   const restaurantName = useMemo(() => {
     const name = user?.restaurants?.[0]?.name;
@@ -82,6 +87,34 @@ export default function OrdersPage() {
     loadPrinterConfigs();
   }, [loadPrinterConfigs]);
 
+  const loadReceiptNumbersMap = async () => {
+    const fromStorage = getReceiptNumbersMapFromStorage();
+    if (window.electronAPI?.getReceiptNumbersMap) {
+      try {
+        const fromMain = (await window.electronAPI.getReceiptNumbersMap()) || {};
+        setReceiptNumbersMap({ ...fromStorage, ...fromMain });
+      } catch {
+        setReceiptNumbersMap(fromStorage);
+      }
+    } else {
+      setReceiptNumbersMap(fromStorage);
+    }
+  };
+
+  useEffect(() => {
+    loadReceiptNumbersMap();
+  }, []);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && window.electronAPI?.getReceiptNumbersMap) {
+        loadReceiptNumbersMap();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
 
@@ -90,7 +123,7 @@ export default function OrdersPage() {
       const current = await detectOnlineStatus();
       setIsOnline(current);
       if (current) {
-        await syncAndRefresh(true);
+        await loadOnlineOrders();
       }
     };
 
@@ -100,7 +133,7 @@ export default function OrdersPage() {
       const cleanup = window.electronAPI.onOnlineStatusChange(async (status) => {
         setIsOnline(status);
         if (status) {
-          await syncAndRefresh(true);
+          await loadOnlineOrders();
         } else {
           setOnlineOrders([]);
           setOnlineError('');
@@ -112,7 +145,7 @@ export default function OrdersPage() {
         unsubscribe = cleanup;
       }
     } else {
-      const handleOnline = () => syncAndRefresh(true);
+      const handleOnline = () => loadOnlineOrders();
       const handleOffline = () => {
         setIsOnline(false);
         setOnlineOrders([]);
@@ -242,6 +275,9 @@ export default function OrdersPage() {
       setOnlineError(error?.response?.data?.message || 'خطا در دریافت سفارشات آنلاین');
     } finally {
       setOnlineLoading(false);
+      if (window.electronAPI?.getReceiptNumbersMap) {
+        loadReceiptNumbersMap();
+      }
     }
   };
 
@@ -257,6 +293,9 @@ export default function OrdersPage() {
       setOfflineError('خطا در دریافت سفارشات آفلاین');
     } finally {
       setOfflineLoading(false);
+      if (window.electronAPI?.getReceiptNumbersMap) {
+        loadReceiptNumbersMap();
+      }
     }
   };
 
@@ -318,21 +357,25 @@ export default function OrdersPage() {
   };
 
   const normalizeOrderForReceipt = (order: any, isOffline = false) => {
-    if (!isOffline) {
-      return order;
+    if (isOffline) {
+      const payload = { ...(order?.orderData || {}) };
+      if (!payload.orderNumber) {
+        payload.orderNumber = order.orderData?.orderNumber || order.id;
+      }
+      if (!payload.id) {
+        payload.id = order.id;
+      }
+      if (!payload.createdAt) {
+        payload.createdAt = order.createdAt;
+      }
+      if (!payload.items && order.orderData?.items) {
+        payload.items = order.orderData.items;
+      }
+      return payload;
     }
-    const payload = { ...(order?.orderData || {}) };
-    if (!payload.orderNumber) {
-      payload.orderNumber = order.orderData?.orderNumber || order.id;
-    }
-    if (!payload.id) {
-      payload.id = order.id;
-    }
-    if (!payload.createdAt) {
-      payload.createdAt = order.createdAt;
-    }
-    if (!payload.items && order.orderData?.items) {
-      payload.items = order.orderData.items;
+    const payload = { ...order };
+    if (!payload.orderNumber && payload.id != null) {
+      payload.orderNumber = payload.orderNumber || payload.order_number || `ORD-${payload.id}`;
     }
     return payload;
   };
@@ -355,13 +398,7 @@ export default function OrdersPage() {
         setPreviewHtml(result.html || '');
         setPreviewImage(result.imageDataUrl || '');
       } else {
-        setPreviewHtml(
-          `<pre style="direction:rtl;font-family:inherit;padding:16px;margin:0;background:#fff">${JSON.stringify(
-            orderPayload,
-            null,
-            2
-          )}</pre>`
-        );
+        setPreviewError('پیش‌نمایش رسید فقط در نسخهٔ دسکتاپ (اپ الکترون) در دسترس است.');
       }
     } catch (error: any) {
       console.error('Preview error:', error);
@@ -373,6 +410,10 @@ export default function OrdersPage() {
 
   const handlePreviewOrder = (order: any, isOffline = false) => {
     const normalized = normalizeOrderForReceipt(order, isOffline);
+    if (!isOffline && normalized.receiptCallNumber == null) {
+      const fromMap = receiptNumbersMap[String(order.id)] ?? receiptNumbersMap[order.orderNumber];
+      if (fromMap != null) normalized.receiptCallNumber = fromMap;
+    }
     const title = isOffline
       ? `پیش‌نمایش سفارش آفلاین #${order?.id || ''}`
       : `پیش‌نمایش سفارش #${order?.orderNumber || order?.id || ''}`;
@@ -397,8 +438,26 @@ export default function OrdersPage() {
       copies: printer.copies,
     }));
     try {
-      await window.electronAPI.printReceipt(normalizeOrderForReceipt(order, isOffline), printerJobs);
+      const orderKeys = isOffline
+        ? [`offline-${order.id}`]
+        : [String(order.id), order.orderNumber].filter(Boolean);
+      const res = await window.electronAPI.printReceipt(
+        normalizeOrderForReceipt(order, isOffline),
+        printerJobs,
+        orderKeys
+      );
+      if (res?.receiptNumber && orderKeys.length) {
+        saveReceiptNumbersToStorage(orderKeys, res.receiptNumber);
+        setReceiptNumbersMap((prev) => {
+          const next = { ...prev };
+          orderKeys.forEach((k) => {
+            next[k] = res.receiptNumber!;
+          });
+          return next;
+        });
+      }
       setSyncMessage('دستور چاپ با موفقیت ارسال شد.');
+      loadReceiptNumbersMap();
     } catch (error: any) {
       console.error('Reprint error:', error);
       setSyncMessage(error?.message || 'خطا در ارسال به پرینتر');
@@ -435,6 +494,7 @@ export default function OrdersPage() {
               </span>
             </div>
             <div className="order-info-grid">
+              <div><strong>شماره رسید فراخوانی:</strong> {order.receiptCallNumber ?? receiptNumbersMap[String(order.id)] ?? receiptNumbersMap[order.orderNumber] ?? '—'}</div>
               <div>مشتری: {order.customerName || order.customerPhone || '---'}</div>
               <div>تلفن: {order.customerPhone || '---'}</div>
               <div>نوع: {order.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر'}</div>
@@ -509,6 +569,7 @@ export default function OrdersPage() {
               <span className="order-status status-pending">در انتظار ارسال</span>
             </div>
             <div className="order-info-grid">
+              <div><strong>شماره رسید فراخوانی:</strong> {receiptNumbersMap[`offline-${order.id}`] ?? '—'}</div>
               <div>مشتری: {order.orderData?.customerPhone || '---'}</div>
               <div>نوع: {order.orderData?.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر'}</div>
               <div>مبلغ کل: {formatPrice(order.orderData?.totalAmount)}</div>
@@ -590,6 +651,7 @@ export default function OrdersPage() {
           </div>
 
           {syncMessage && <div className="sync-status">{syncMessage}</div>}
+
           {!isOnline && offlineOrders.length > 0 && (
             <p className="muted">
               {offlineOrders.length} سفارش در صف ارسال قرار دارد و پس از اتصال به اینترنت به صورت خودکار ارسال می‌شود.
