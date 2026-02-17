@@ -465,6 +465,15 @@ export default function OrderPage() {
                         removeFromCart(item.productId);
                       }}
                     >
+                      {item.product.multiMedia?.url && (
+                        <div className="cart-item-thumb">
+                          <img
+                            src={`${getAssetBaseUrl()}${item.product.multiMedia.url}`}
+                            alt=""
+                            className="cart-item-image"
+                          />
+                        </div>
+                      )}
                       <div className="cart-item-info">
                         <span>{item.product.name_fa || item.product.name}</span>
                         <div className="cart-item-controls">
