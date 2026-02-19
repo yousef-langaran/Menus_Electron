@@ -303,10 +303,12 @@ export default function OrderPage() {
     };
 
     const onOrderCreated = (res: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean }) => {
+      const restaurantName = user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || '';
       const orderData = {
         id: res.orderId,
         orderNumber: res.orderNumber ?? `ORD-${res.orderId}`,
         receiptCallNumber: res.receiptCallNumber ?? undefined,
+        restaurantName,
         customerPhone: snapshot.customerPhone,
         customerName: snapshot.customerPhone,
         serviceType: snapshot.serviceType,

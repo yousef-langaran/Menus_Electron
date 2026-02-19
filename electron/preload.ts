@@ -11,8 +11,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveOfflineOrder: (orderData: any, token: string, baseURL?: string) =>
     ipcRenderer.invoke('save-offline-order', orderData, token, baseURL),
   getOfflineOrders: () => ipcRenderer.invoke('get-offline-orders'),
-  generateReceiptPreview: (orderData: any, options?: { paperWidth?: number; margin?: number }) =>
+  generateReceiptPreview: (orderData: any, options?: { paperWidth?: number; margin?: number; contentWidthMm?: number; receiptType?: 'full' | 'kitchen' }) =>
     ipcRenderer.invoke('generate-receipt-preview', { orderData, options }),
+  openPrintPreviewWindow: (orderData: any, options?: { paperWidth?: number; margin?: number; contentWidthMm?: number; receiptType?: 'full' | 'kitchen'; printerName?: string }) =>
+    ipcRenderer.invoke('open-print-preview-window', { orderData, options, printerName: options?.printerName }),
   onOnlineStatusChange: (callback: (isOnline: boolean) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, isOnline: boolean) => callback(isOnline);
     ipcRenderer.on('online-status-changed', handler);
@@ -55,8 +57,12 @@ declare global {
       getOfflineOrders: () => Promise<any[]>;
       generateReceiptPreview: (
         orderData: any,
-        options?: { paperWidth?: number; margin?: number }
+        options?: { paperWidth?: number; margin?: number; contentWidthMm?: number; receiptType?: 'full' | 'kitchen' }
       ) => Promise<{ success: boolean; html?: string; imageDataUrl?: string; error?: string }>;
+      openPrintPreviewWindow: (
+        orderData: any,
+        options?: { paperWidth?: number; margin?: number; contentWidthMm?: number; receiptType?: 'full' | 'kitchen' }
+      ) => Promise<{ success: boolean; error?: string }>;
       loadUserSession: () => Promise<{ user: any; token: string; cachedAt: string } | null>;
       saveUserSession: (data: { user: any; token: string }) => Promise<{ success: boolean; error?: string }>;
       clearUserSession: () => Promise<{ success: boolean; error?: string }>;

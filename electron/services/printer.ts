@@ -1,5 +1,9 @@
+import * as path from 'path';
 import { BrowserWindow } from 'electron';
 import { getNextReceiptNumber, setReceiptNumbersForOrder } from '../database/preferences';
+
+/** نگهداری تنظیمات چاپ پنجرهٔ پیش‌نمایش برای استفاده در IPC */
+export const printPreviewOptsMap = new Map<number, any>();
 
 export type ReceiptType = 'full' | 'kitchen';
 
@@ -15,8 +19,15 @@ export interface PrinterJob {
 
 interface ReceiptTemplateOptions {
   paperWidth?: number;
+  paperLength?: number;
   margin?: number;
   receiptNumber?: number;
+  /** عرض واقعی ناحیه چاپ (mm) تا محتوا بریده نشود */
+  contentWidthMm?: number;
+  /** فاصله خالی سمت راست کاغذ (mm) تا محتوا به چپ برود — با margin-right در CSS */
+  shiftLeftMm?: number;
+  /** برای پیش‌نمایش: رسید کامل یا آشپزخانه */
+  receiptType?: ReceiptType;
 }
 
 const mmToMicrons = (value: number) => Math.max(1, Math.round(value * 1000));
@@ -64,16 +75,23 @@ export async function printReceipt(
     });
 
     const defaultConfig = jobs[0];
-    const paperWidth = defaultConfig?.paperWidth ?? 80;
     const margin = defaultConfig?.margin ?? 5;
 
     // چاپ هر نوع رسید برای این پرینتر
     for (const job of jobs) {
       try {
+        const paperWidth = job.paperWidth ?? defaultConfig?.paperWidth ?? 80;
+        const isNarrow = paperWidth <= 62;
+        const marginSame = 5;
+        const shiftLeftMm = isNarrow ? 4 : 6;
+        const contentWidthMm = Math.max(32, paperWidth - marginSame * 2 - shiftLeftMm);
+        const marginTop = 0;
+        const marginBottom = 3;
+
         const receiptType = job.receiptType || 'full';
-        const receiptHTML = receiptType === 'kitchen' 
-          ? generateKitchenReceiptHTML(orderData, { paperWidth, margin, receiptNumber })
-          : generateReceiptHTML(orderData, { paperWidth, margin, receiptNumber });
+        const receiptHTML = receiptType === 'kitchen'
+          ? generateKitchenReceiptHTML(orderData, { paperWidth, margin, receiptNumber, contentWidthMm, shiftLeftMm })
+          : generateReceiptHTML(orderData, { paperWidth, margin, receiptNumber, contentWidthMm, shiftLeftMm });
 
         await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHTML)}`);
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -82,19 +100,18 @@ export async function printReceipt(
         const height = mmToMicrons(job.paperLength ?? 200);
         const copies = Math.max(1, Math.floor(job.copies ?? 1));
         const cssWidthValue = paperWidth.toFixed(2);
-        const cssPaddingValue = Math.max(1, margin).toFixed(2);
+        const cssContentWidth = contentWidthMm.toFixed(2);
 
         try {
           await printWindow.webContents.executeJavaScript(`
             document.documentElement.style.setProperty('--paper-width', '${cssWidthValue}mm');
-            document.documentElement.style.setProperty('--printer-margin', '${cssPaddingValue}mm');
-            document.documentElement.style.setProperty('--content-padding', '${Math.max(2, Math.min(6, margin)).toFixed(2)}mm');
+            document.documentElement.style.setProperty('--printable-width', '${cssContentWidth}mm');
+            document.documentElement.style.setProperty('--content-padding', '2mm');
           `);
         } catch (styleError) {
           console.warn('Failed to apply dynamic paper style variables:', styleError);
         }
 
-        // چاپ به تعداد copies
         for (let i = 0; i < copies; i++) {
           await new Promise<void>((resolve, reject) => {
             printWindow.webContents.print(
@@ -102,13 +119,13 @@ export async function printReceipt(
                 silent: true,
                 printBackground: true,
                 deviceName: printerName,
-                copies: 1, // چاپ یک به یک
+                copies: 1,
                 margins: {
                   marginType: 'custom',
-                  top: margin,
-                  bottom: margin,
-                  left: margin,
-                  right: margin,
+                  top: marginTop,
+                  bottom: marginBottom,
+                  left: marginSame,
+                  right: marginSame,
                 } as any,
                 pageSize: {
                   width,
@@ -144,6 +161,7 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
   const finalAmount = orderData.finalAmount || totalAmount - discountAmount;
   const orderNumber = orderData.orderNumber || orderData.order_number || orderData.id || 'N/A';
   const customerName = orderData.customerName || orderData.customerPhone || 'مشتری';
+  const restaurantName = orderData.restaurantName || '';
   const serviceType = orderData.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر';
   const tableNumber = orderData.tableNumber || '';
   const customerAddress = orderData.customerAddress || '';
@@ -153,8 +171,11 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
 
   const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
   const printerMargin = typeof options.margin === 'number' ? Math.max(0, options.margin) : 5;
-  const printableWidth = Math.max(30, paperWidth - printerMargin * 2);
-  const contentPadding = Math.max(2, Math.min(6, printerMargin || 4));
+  const printableWidth = typeof options.contentWidthMm === 'number'
+    ? options.contentWidthMm
+    : Math.max(30, paperWidth - printerMargin * 2);
+  const shiftLeftMm = typeof options.shiftLeftMm === 'number' ? options.shiftLeftMm : 0;
+  const contentPadding = 2;
   const receiptNumber =
     options && typeof options.receiptNumber === 'number' ? options.receiptNumber : 0;
 
@@ -170,18 +191,20 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
       --paper-width: ${paperWidth}mm;
       --printable-width: ${printableWidth}mm;
       --content-padding: ${contentPadding}mm;
-      --printer-margin: ${printerMargin}mm;
-      --print-safe-gap: 2mm;
+      --shift-left: ${shiftLeftMm}mm;
     }
     @page {
       size: var(--paper-width) auto;
       margin: 0;
     }
     html, body {
-  width: var(--printable-width);
-  margin: 0;
-  padding: 0;
-}
+      width: var(--paper-width);
+      max-width: var(--paper-width);
+      margin: 0;
+      padding: 0;
+      padding-top: 0 !important;
+      margin-right: var(--shift-left);
+    }
     body {
       font-family: 'Tahoma', 'Arial', sans-serif;
       font-size: 12px;
@@ -192,15 +215,16 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
       word-break: break-word;
       background: #fff;
       display: flex;
-      justify-content: center;
+      justify-content: flex-start;
     }
     .receipt-root {
-      width: calc(var(--printable-width) - var(--print-safe-gap));
-      max-width: calc(var(--printable-width) - var(--print-safe-gap));
+      width: var(--printable-width);
+      max-width: var(--printable-width);
       padding: var(--content-padding);
+      padding-top: 0;
       box-sizing: border-box;
       background: #fff;
-      margin: 0 auto;
+      margin: 0;
     }
     * {
       box-sizing: border-box;
@@ -216,8 +240,10 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
     .header {
       text-align: center;
       border-bottom: 2px dashed #000;
-      padding-bottom: 10px;
-      margin-bottom: 10px;
+      padding-top: 0 !important;
+      padding-bottom: 6px;
+      margin-top: 0 !important;
+      margin-bottom: 6px;
     }
     .header h1 {
       margin: 0;
@@ -281,6 +307,9 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
     }
     .receipt-fish-row {
       text-align: center;
+      display: flex;
+      gap: 4px;
+      justify-content: space-between;
       margin: 8px 0;
     }
     .receipt-fish-label {
@@ -301,6 +330,19 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
       font-size: 28px;
       font-weight: bold;
       line-height: 1;
+    }
+    .receipt-restaurant-name {
+      text-align: center;
+      margin-top: 4px;
+      font-size: 11px;
+      font-weight: bold;
+      max-width: 22mm;
+      line-height: 1.2;
+      word-break: break-word;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
     }
     .order-number-row {
       margin: 8px 0;
@@ -323,16 +365,16 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
 <body>
   <div class="receipt-root">
     <div class="header">
-      <h1>رسید سفارش</h1>
+<!--      <h1>بستنی حاج عبدالله</h1>-->
       <div class="receipt-fish-row">
-        <span class="receipt-fish-label">شماره فیش (فراخوانی)</span>
         <div class="receipt-number-box">${receiptNumber > 0 ? receiptNumber : '—'}</div>
+        <div class="receipt-restaurant-name">${restaurantName || 'رستوران'}</div>
       </div>
-      <div class="order-number-row">
-        <span class="order-number-label">شماره سفارش</span>
-        <span class="order-number-value">#${orderNumber}</span>
-      </div>
-      <div>${date}</div>
+<!--      <div class="order-number-row">-->
+<!--        <span class="order-number-label">شماره سفارش</span>-->
+<!--        <span class="order-number-value">#${orderNumber}</span>-->
+<!--      </div>-->
+<!--      <div>${date}</div>-->
     </div>
 
     <div class="order-info">
@@ -340,7 +382,7 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
       <div><strong>نوع سفارش:</strong> ${serviceType}</div>
       ${tableNumber ? `<div><strong>میز:</strong> ${tableNumber}</div>` : ''}
       ${customerAddress ? `<div><strong>آدرس:</strong> ${customerAddress}</div>` : ''}
-      <div><strong>روش پرداخت:</strong> ${paymentMethod}</div>
+<!--      <div><strong>روش پرداخت:</strong> ${paymentMethod}</div>-->
       ${notes ? `<div><strong>یادداشت:</strong> ${notes}</div>` : ''}
     </div>
 
@@ -385,9 +427,13 @@ export async function renderReceiptPreview(
   orderData: any,
   options: ReceiptTemplateOptions = {}
 ): Promise<{ html: string; imageDataUrl?: string }> {
-  const html = generateReceiptHTML(orderData, options);
+  const receiptType = options.receiptType || 'full';
+  const html = receiptType === 'kitchen'
+    ? generateKitchenReceiptHTML(orderData, options)
+    : generateReceiptHTML(orderData, options);
   const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
-  const widthPx = Math.max(320, Math.round((paperWidth / 25.4) * 96));
+  const contentWidthMm = typeof options.contentWidthMm === 'number' ? options.contentWidthMm : Math.max(30, paperWidth - 10);
+  const widthPx = Math.max(280, Math.round((contentWidthMm / 25.4) * 96));
   const previewWindow = new BrowserWindow({
     show: false,
     width: widthPx,
@@ -415,6 +461,88 @@ export async function renderReceiptPreview(
   return { html, imageDataUrl };
 }
 
+/**
+ * باز کردن پنجرهٔ پیش‌نمایش رسید؛ کاربر رسید را می‌بیند و با دکمه «چاپ» دیالوگ چاپ ویندوز باز می‌شود.
+ * (اپ الکترون پیش‌نمایش دیالوگ ویندوز را پشتیبانی نمی‌کند، پس پیش‌نمایش همان پنجرهٔ ماست.)
+ */
+export function showSystemPrintDialog(
+  orderData: any,
+  options: ReceiptTemplateOptions & { receiptType?: ReceiptType } = {},
+  printerName?: string
+): Promise<void> {
+  const receiptType = options.receiptType || 'full';
+  const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
+  const margin = typeof options.margin === 'number' ? Math.max(0, options.margin) : 5;
+  const isNarrow = paperWidth <= 62;
+  const marginSame = 5;
+  const shiftLeftMm = isNarrow ? 12 : 14;
+  const contentWidthMm = typeof options.contentWidthMm === 'number' ? options.contentWidthMm : Math.max(32, paperWidth - marginSame * 2 - shiftLeftMm);
+  const marginTop = 0;
+  const marginBottom = 3;
+
+  const html = receiptType === 'kitchen'
+    ? generateKitchenReceiptHTML(orderData, { ...options, paperWidth, margin, contentWidthMm, shiftLeftMm })
+    : generateReceiptHTML(orderData, { ...options, paperWidth, margin, contentWidthMm, shiftLeftMm });
+
+  const width = mmToMicrons(paperWidth);
+  const height = mmToMicrons(options.paperLength ?? 200);
+  const printOpts: any = {
+    silent: false,
+    printBackground: true,
+    copies: 1,
+    margins: {
+      marginType: 'custom',
+      top: marginTop,
+      bottom: marginBottom,
+      left: marginSame,
+      right: marginSame,
+    },
+    pageSize: { width, height },
+  };
+  if (printerName) printOpts.deviceName = printerName;
+
+  const widthPx = Math.max(320, Math.min(500, Math.round((contentWidthMm / 25.4) * 96)));
+  const preloadPath = path.join(__dirname, '..', 'preload-print-preview.js');
+  const printWindow = new BrowserWindow({
+    show: true,
+    width: widthPx + 60,
+    height: 680,
+    title: receiptType === 'kitchen' ? 'پیش‌نمایش رسید آشپزخانه' : 'پیش‌نمایش رسید — قبل از چاپ',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: preloadPath,
+    },
+  });
+  printWindow.setMenuBarVisibility(false);
+
+  printPreviewOptsMap.set(printWindow.webContents.id, printOpts);
+  printWindow.on('closed', () => {
+    printPreviewOptsMap.delete(printWindow.webContents.id);
+  });
+
+  printWindow.webContents.once('did-finish-load', () => {
+    const script = `
+      (function() {
+        if (document.getElementById('receipt-print-toolbar')) return;
+        document.body.style.paddingBottom = '52px';
+        var bar = document.createElement('div');
+        bar.id = 'receipt-print-toolbar';
+        bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;padding:10px;background:#f0f0f0;border-top:1px solid #ccc;text-align:center;direction:rtl;font-family:Tahoma;';
+        bar.innerHTML = '<button id="receipt-btn-print" style="margin:0 8px;padding:8px 16px;cursor:pointer;">چاپ</button><button id="receipt-btn-close" style="margin:0 8px;padding:8px 16px;cursor:pointer;">بستن</button>';
+        document.body.appendChild(bar);
+        document.getElementById('receipt-btn-print').onclick = function() { if (typeof window.receiptPrint === 'function') window.receiptPrint(); };
+        document.getElementById('receipt-btn-close').onclick = function() { window.close(); };
+      })();
+    `;
+    printWindow.webContents.executeJavaScript(script).catch(() => {});
+  });
+
+  printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`).catch(() => {});
+
+  return Promise.resolve();
+}
+
 function formatPrice(price: number): string {
   return new Intl.NumberFormat('fa-IR').format(price) + ' تومان';
 }
@@ -440,8 +568,11 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
 
   const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
   const printerMargin = typeof options.margin === 'number' ? Math.max(0, options.margin) : 5;
-  const printableWidth = Math.max(30, paperWidth - printerMargin * 2);
-  const contentPadding = Math.max(2, Math.min(6, printerMargin || 4));
+  const printableWidth = typeof options.contentWidthMm === 'number'
+    ? options.contentWidthMm
+    : Math.max(30, paperWidth - printerMargin * 2);
+  const shiftLeftMm = typeof options.shiftLeftMm === 'number' ? options.shiftLeftMm : 0;
+  const contentPadding = 2;
   const receiptNumber = typeof options.receiptNumber === 'number' ? options.receiptNumber : 0;
 
   return `
@@ -456,17 +587,19 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
       --paper-width: ${paperWidth}mm;
       --printable-width: ${printableWidth}mm;
       --content-padding: ${contentPadding}mm;
-      --printer-margin: ${printerMargin}mm;
-      --print-safe-gap: 2mm;
+      --shift-left: ${shiftLeftMm}mm;
     }
     @page {
       size: var(--paper-width) auto;
       margin: 0;
     }
     html, body {
-      width: var(--printable-width);
+      width: var(--paper-width);
+      max-width: var(--paper-width);
       margin: 0;
       padding: 0;
+      padding-top: 0 !important;
+      margin-right: var(--shift-left);
     }
     body {
       font-family: 'Tahoma', 'Arial', sans-serif;
@@ -478,15 +611,16 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
       word-break: break-word;
       background: #fff;
       display: flex;
-      justify-content: center;
+      justify-content: flex-start;
     }
     .receipt-root {
-      width: calc(var(--printable-width) - var(--print-safe-gap));
-      max-width: calc(var(--printable-width) - var(--print-safe-gap));
+      width: var(--printable-width);
+      max-width: var(--printable-width);
       padding: var(--content-padding);
+      padding-top: 0;
       box-sizing: border-box;
       background: #fff;
-      margin: 0 auto;
+      margin: 0;
     }
     * {
       box-sizing: border-box;
@@ -501,8 +635,10 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
     .header {
       text-align: center;
       border-bottom: 3px solid #000;
-      padding-bottom: 12px;
-      margin-bottom: 12px;
+      padding-top: 0 !important;
+      padding-bottom: 6px;
+      margin-top: 0 !important;
+      margin-bottom: 6px;
     }
     .header h1 {
       margin: 0;
@@ -536,7 +672,7 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
     .item {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
       margin: 10px 0;
       padding: 6px 0;
       width: 100%;
@@ -552,6 +688,7 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
       font-weight: bold;
       font-size: 16px;
     }
+    .item-price, .totals, .total-row { display: none !important; }
     .footer {
       text-align: center;
       margin-top: 20px;

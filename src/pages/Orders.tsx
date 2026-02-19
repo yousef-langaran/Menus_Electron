@@ -64,6 +64,10 @@ export default function OrdersPage() {
     console.log('[OrdersPage] Restaurant name resolved:', { name, userRestaurants: user?.restaurants });
     return name;
   }, [user]);
+  const restaurantNameFa = useMemo(
+    () => user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || '',
+    [user]
+  );
   const enabledPrinters = useMemo(
     () => Object.values(printerConfigs || {}).filter((config) => config.enabled),
     [printerConfigs]
@@ -371,13 +375,25 @@ export default function OrdersPage() {
       if (!payload.items && order.orderData?.items) {
         payload.items = order.orderData.items;
       }
+      payload.restaurantName = payload.restaurantName || restaurantNameFa || restaurantName || '';
       return payload;
     }
     const payload = { ...order };
     if (!payload.orderNumber && payload.id != null) {
       payload.orderNumber = payload.orderNumber || payload.order_number || `ORD-${payload.id}`;
     }
+    payload.restaurantName = payload.restaurantName || restaurantNameFa || restaurantName || '';
     return payload;
+  };
+
+  const getPreviewOptions = () => {
+    const paperWidth = primaryPrinter?.paperWidth ?? 80;
+    const margin = primaryPrinter?.margin ?? 5;
+    const isNarrow = paperWidth <= 62;
+    const marginSame = 5;
+    const shiftLeftMm = isNarrow ? 12 : 14;
+    const contentWidthMm = Math.max(32, paperWidth - marginSame * 2 - shiftLeftMm);
+    return { paperWidth, margin, contentWidthMm, shiftLeftMm, receiptType: 'full' as const };
   };
 
   const openReceiptPreview = async (orderPayload: any, title: string) => {
@@ -388,10 +404,9 @@ export default function OrdersPage() {
     setPreviewVisible(true);
     setPreviewLoading(true);
     try {
-      const width = primaryPrinter?.paperWidth ?? 80;
-      const margin = primaryPrinter?.margin ?? 5;
+      const options = getPreviewOptions();
       if (window.electronAPI?.generateReceiptPreview) {
-        const result = await window.electronAPI.generateReceiptPreview(orderPayload, { paperWidth: width, margin });
+        const result = await window.electronAPI.generateReceiptPreview(orderPayload, options);
         if (!result?.success) {
           throw new Error(result?.error || 'امکان ساخت پیش‌نمایش وجود ندارد.');
         }
@@ -405,6 +420,25 @@ export default function OrdersPage() {
       setPreviewError(error?.message || 'خطا در ساخت پیش‌نمایش رسید');
     } finally {
       setPreviewLoading(false);
+    }
+  };
+
+  const openPrintPreviewWindow = async (order: any, isOffline = false) => {
+    if (!window.electronAPI?.openPrintPreviewWindow) {
+      setSyncMessage('پیش‌نمایش چاپ فقط در نسخه دسکتاپ در دسترس است.');
+      return;
+    }
+    const normalized = normalizeOrderForReceipt(order, isOffline);
+    if (!isOffline && normalized.receiptCallNumber == null) {
+      const fromMap = receiptNumbersMap[String(order.id)] ?? receiptNumbersMap[order.orderNumber];
+      if (fromMap != null) normalized.receiptCallNumber = fromMap;
+    }
+    const options = { ...getPreviewOptions(), printerName: primaryPrinter?.name };
+    try {
+      const res = await window.electronAPI.openPrintPreviewWindow(normalized, options);
+      if (!res?.success) setSyncMessage(res?.error || 'خطا در باز کردن دیالوگ چاپ');
+    } catch (e: any) {
+      setSyncMessage(e?.message || 'خطا در باز کردن دیالوگ چاپ');
     }
   };
 
@@ -523,6 +557,16 @@ export default function OrdersPage() {
               <button type="button" className="ghost-button" onClick={() => handlePreviewOrder(order)}>
                 پیش‌نمایش رسید
               </button>
+              {isElectronEnv && (
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => openPrintPreviewWindow(order)}
+                  title="باز کردن پنجره چاپ ویندوز برای پیش‌نمایش و تست"
+                >
+                  پیش‌نمایش قبل از چاپ
+                </button>
+              )}
               <button
                 type="button"
                 className="ghost-button"
@@ -595,6 +639,16 @@ export default function OrdersPage() {
               <button type="button" className="ghost-button" onClick={() => handlePreviewOrder(order, true)}>
                 پیش‌نمایش رسید
               </button>
+              {isElectronEnv && (
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => openPrintPreviewWindow(order, true)}
+                  title="باز کردن پنجره چاپ ویندوز برای پیش‌نمایش و تست"
+                >
+                  پیش‌نمایش قبل از چاپ
+                </button>
+              )}
               <button
                 type="button"
                 className="ghost-button"

@@ -20,7 +20,8 @@ jobs:
 
       - name: Deploy to Server
         env:
-          SERVER_USERNAME: ${{ secrets.SERVER_USERNAME }}
+          SERVER_USERNAME: ${{ secrets.SERVER_USERNAME }}yarn dist:win
+
           SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
           SERVER_IP: ${{ secrets.SERVER_IP }}
         run: |

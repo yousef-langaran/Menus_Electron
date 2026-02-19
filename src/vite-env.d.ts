@@ -40,8 +40,12 @@ declare global {
       getOfflineOrders: () => Promise<any[]>;
       generateReceiptPreview: (
         orderData: any,
-        options?: { paperWidth?: number; margin?: number }
+        options?: { paperWidth?: number; margin?: number; contentWidthMm?: number; receiptType?: 'full' | 'kitchen' }
       ) => Promise<{ success: boolean; html?: string; imageDataUrl?: string; error?: string }>;
+      openPrintPreviewWindow: (
+        orderData: any,
+        options?: { paperWidth?: number; margin?: number; contentWidthMm?: number; receiptType?: 'full' | 'kitchen' }
+      ) => Promise<{ success: boolean; error?: string }>;
       loadUserSession: () => Promise<{ user: any; token: string; cachedAt: string } | null>;
       saveUserSession: (data: { user: any; token: string }) => Promise<{ success: boolean; error?: string }>;
       clearUserSession: () => Promise<{ success: boolean; error?: string }>;

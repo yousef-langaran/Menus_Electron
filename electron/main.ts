@@ -30,7 +30,7 @@ function loadEnv() {
 loadEnv();
 import { isOnline } from './utils/network';
 import { syncOfflineOrders } from './services/sync';
-import { printReceipt, generateReceiptHTML, renderReceiptPreview } from './services/printer';
+import { printReceipt, renderReceiptPreview, showSystemPrintDialog, printPreviewOptsMap } from './services/printer';
 import { cacheImage, getCachedImagePath, cacheImages, getImageUrl } from './services/imageCache';
 import { saveOfflineOrder as dbSaveOfflineOrder, getAllOrders } from './database/orders';
 import {
@@ -260,6 +260,35 @@ ipcMain.handle('generate-receipt-preview', async (_event, payload) => {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     };
+  }
+});
+
+ipcMain.handle('open-print-preview-window', async (_event, payload) => {
+  try {
+    const { orderData, options, printerName } = payload || {};
+    let receiptNumber = 0;
+    if (orderData?.receiptCallNumber != null && Number.isInteger(orderData.receiptCallNumber)) {
+      receiptNumber = Number(orderData.receiptCallNumber);
+    } else {
+      try {
+        receiptNumber = await getNextReceiptNumberPreview();
+      } catch (e) {
+        console.warn('Receipt number preview failed, using 0:', e);
+      }
+    }
+    const mergedOptions = { ...(options || {}), receiptNumber };
+    await showSystemPrintDialog(orderData, mergedOptions, printerName);
+    return { success: true };
+  } catch (error) {
+    console.error('Open print preview window error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.on('receipt-preview-print', (event) => {
+  const opts = printPreviewOptsMap.get(event.sender.id);
+  if (opts) {
+    event.sender.print(opts, () => {});
   }
 });
 
