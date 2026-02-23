@@ -3,6 +3,12 @@ import { saveOfflineOrder } from '../services/offlineStorage';
 import { createOrder, API_BASE_URL } from '../services/api';
 import { useAuthStore } from './authStore';
 
+/** نتیجهٔ ثبت کد تخفیف (بعد از اعتبارسنجی) */
+export interface AppliedDiscountCode {
+  code: string;
+  discountAmount: number;
+}
+
 interface CartItem {
   productId: number;
   product: any;
@@ -25,6 +31,8 @@ interface OrderState {
   discountAmount: number; // user input value (برای درصدی/تومانی)
   discountType: DiscountType;
   discountCode: string; // برای نوع «کد تخفیف»
+  /** کد تخفیف ثبت‌شده (بعد از زدن «ثبت») — برای نمایش مبلغ و ارسال به سرور */
+  appliedDiscountCode: AppliedDiscountCode | null;
   isSubmitting: boolean;
   addToCart: (product: any) => void;
   updateCartQuantity: (productId: number, quantity: number) => void;
@@ -39,6 +47,7 @@ interface OrderState {
   setDiscountAmount: (amount: number) => void;
   setDiscountType: (type: DiscountType) => void;
   setDiscountCode: (code: string) => void;
+  setAppliedDiscountCode: (applied: AppliedDiscountCode | null) => void;
   submitOrder: (options?: {
     onOrderCreated?: (result: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean; order?: any }) => void;
   }) => Promise<{
@@ -67,6 +76,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   discountAmount: 0,
   discountType: 'fixed',
   discountCode: '',
+  appliedDiscountCode: null,
   isSubmitting: false,
 
   addToCart: (product) => {
@@ -135,8 +145,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   setPaymentMethod: (method) => set({ paymentMethod: method }),
   setNotes: (notes) => set({ notes }),
   setDiscountAmount: (amount) => set({ discountAmount: amount }),
-  setDiscountType: (type) => set({ discountType: type }),
+  setDiscountType: (type) => set({ discountType: type, ...(type !== 'code' ? { appliedDiscountCode: null } : {}) }),
   setDiscountCode: (code) => set({ discountCode: (code || '').trim() }),
+  setAppliedDiscountCode: (applied) => set({ appliedDiscountCode: applied }),
 
   submitOrder: async (options) => {
     const state = get();
@@ -159,10 +170,14 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       return { success: false, error: 'آدرس الزامی است' };
     }
 
+    if (state.discountType === 'code' && state.discountCode.trim() && !state.appliedDiscountCode) {
+      return { success: false, error: 'لطفاً با زدن «ثبت» کد تخفیف را اعمال کنید.' };
+    }
+
     set({ isSubmitting: true });
 
     const discountAmount = state.getDiscountAmount();
-    const useDiscountCode = state.discountType === 'code' && state.discountCode.trim().length > 0;
+    const useDiscountCode = state.discountType === 'code' && (state.appliedDiscountCode?.code ?? state.discountCode.trim()).length > 0;
     const orderData = {
       customerPhone: state.customerPhone.trim(),
       customerAddress: state.serviceType === 'takeaway' ? state.customerAddress.trim() : undefined,
@@ -173,7 +188,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       finalAmount: useDiscountCode ? state.getTotalAmount() : state.getFinalAmount(),
       discountAmount: useDiscountCode ? 0 : discountAmount,
       ...(useDiscountCode
-        ? { discountCode: state.discountCode.trim() }
+        ? { discountCode: (state.appliedDiscountCode?.code ?? state.discountCode.trim()) }
         : {
             manualDiscountAmount: discountAmount,
             manualDiscountType: state.discountType,
@@ -258,6 +273,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       discountAmount: 0,
       discountType: 'fixed',
       discountCode: '',
+      appliedDiscountCode: null,
     });
   },
 
@@ -266,7 +282,10 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   getDiscountAmount: () => {
-    if (get().discountType === 'code') return 0; // مبلغ تخفیف کد در سرور محاسبه می‌شود
+    if (get().discountType === 'code') {
+      const applied = get().appliedDiscountCode;
+      return applied ? applied.discountAmount : 0;
+    }
     const total = get().getTotalAmount();
     const discountValue = get().discountAmount;
     if (!discountValue || discountValue <= 0) {

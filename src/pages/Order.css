@@ -480,6 +480,75 @@
   font-size: 0.85em;
 }
 
+.discount-code-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.discount-code-row input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.discount-code-row input:disabled {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.discount-code-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-apply-discount,
+.btn-cancel-discount {
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.95em;
+  border: 1px solid #ddd;
+}
+
+.btn-apply-discount {
+  background: #667eea;
+  color: #fff;
+  border-color: #667eea;
+}
+
+.btn-apply-discount:hover:not(:disabled) {
+  background: #5a6fd6;
+}
+
+.btn-apply-discount:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-cancel-discount {
+  background: #f7f7f7;
+  color: #555;
+}
+
+.btn-cancel-discount:hover {
+  background: #eee;
+}
+
+.discount-applied-amount {
+  color: #28a745;
+  font-weight: 500;
+}
+
+.discount-code-error {
+  display: block;
+  color: #dc3545;
+  font-size: 0.85em;
+}
+
 .discount-summary {
   display: block;
   margin-top: 6px;
