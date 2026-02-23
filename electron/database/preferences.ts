@@ -204,23 +204,42 @@ function getReceiptDayKey(now: Date, timeStr: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** کلید دوره جاری برای ریست هفتگی (دوشنبه همان هفته به صورت YYYY-MM-DD) */
+function getWeekKey(now: Date): string {
+  const d = new Date(now);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** کلید دوره جاری برای ریست ماهانه (YYYY-MM) */
+function getMonthKey(now: Date): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** کلید یکتا برای دورهٔ فعلی بر اساس سیاست ریست (برای مقایسه و ذخیرهٔ lastResetDate) */
+function getCurrentPeriodKey(
+  policy: ReceiptNumberResetPolicy,
+  now: Date,
+  dailyResetTime: string,
+): string {
+  if (policy === 'daily') return getReceiptDayKey(now, dailyResetTime);
+  if (policy === 'weekly') return getWeekKey(now);
+  if (policy === 'monthly') return getMonthKey(now);
+  return todayDateString();
+}
+
 function shouldReset(
   lastResetDate: string,
   policy: ReceiptNumberResetPolicy,
   dailyResetTime: string = '00:00',
 ): boolean {
-  if (policy === 'never' || !lastResetDate) return false;
+  if (policy === 'never') return false;
   const now = new Date();
-  if (policy === 'daily') {
-    const todayKey = getReceiptDayKey(now, dailyResetTime);
-    return lastResetDate !== todayKey;
-  }
-  const today = todayDateString();
-  if (today === lastResetDate) return false;
-  const last = new Date(lastResetDate);
-  if (policy === 'weekly') return now.getTime() - last.getTime() >= 7 * 24 * 60 * 60 * 1000;
-  if (policy === 'monthly') return last.getMonth() !== now.getMonth() || last.getFullYear() !== now.getFullYear();
-  return false;
+  const currentKey = getCurrentPeriodKey(policy, now, dailyResetTime);
+  if (!lastResetDate) return false;
+  return lastResetDate !== currentKey;
 }
 
 export async function getNextReceiptNumber(): Promise<number> {
@@ -241,9 +260,8 @@ export async function getNextReceiptNumber(): Promise<number> {
 
     const numberToUse = Math.max(1, next);
     const newNextNumber = numberToUse + 1;
-    const newLastResetDate = needReset ? receiptDayKey : lastReset;
-
-    writeCounterFileSync({ nextNumber: newNextNumber, lastResetDate: newLastResetDate });
+    const currentPeriodKey = getCurrentPeriodKey(policy, now, dailyResetTime);
+    writeCounterFileSync({ nextNumber: newNextNumber, lastResetDate: currentPeriodKey });
     return numberToUse;
   });
 }
@@ -257,12 +275,11 @@ export async function getNextReceiptNumberPreview(): Promise<number> {
   const startNumber = Math.max(1, s && typeof s.startNumber === 'number' ? s.startNumber : 1);
   const dailyResetTime =
     s && typeof s.dailyResetTime === 'string' && /^\d{1,2}:\d{2}$/.test(s.dailyResetTime) ? s.dailyResetTime : '00:00';
-  const lastReset = counter ? counter.lastResetDate : '';
-  const now = new Date();
-  const receiptDayKey = policy === 'daily' ? getReceiptDayKey(now, dailyResetTime) : todayDateString();
-  const needReset = shouldReset(lastReset, policy, dailyResetTime);
-  const next = needReset ? startNumber : (counter ? counter.nextNumber : startNumber);
-  return Math.max(1, next);
+    const lastReset = counter ? counter.lastResetDate : '';
+    const now = new Date();
+    const needReset = shouldReset(lastReset, policy, dailyResetTime);
+    const next = needReset ? startNumber : (counter ? counter.nextNumber : startNumber);
+    return Math.max(1, next);
 }
 
 /** نقشهٔ شناسه سفارش → شماره رسید فراخوانی (برای نمایش در لیست) */
