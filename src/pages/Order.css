@@ -467,6 +467,19 @@
   border-color: #667eea;
 }
 
+.discount-type-toggle button:disabled,
+.discount-type-toggle button.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.discount-code-hint {
+  display: block;
+  margin-top: 6px;
+  color: #6c757d;
+  font-size: 0.85em;
+}
+
 .discount-summary {
   display: block;
   margin-top: 6px;

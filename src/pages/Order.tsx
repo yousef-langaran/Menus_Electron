@@ -82,20 +82,53 @@ export default function OrderPage() {
   const [printOption, setPrintOption] = useState<'all' | 'none' | 'select'>('all');
   /** وقتی printOption === 'select'، نام پرینترهای انتخاب‌شده */
   const [selectedPrinterNames, setSelectedPrinterNames] = useState<string[]>([]);
+  /** وضعیت آنلاین برای فعال بودن گزینه کد تخفیف */
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   const isElectronWithPrinters = typeof window !== 'undefined' && Boolean(window.electronAPI) && enabledPrinters.length > 0;
+  /** کد تخفیف فقط وقتی فعال است که شماره موبایل وارد شده و اتصال آنلاین باشد */
+  const canUseDiscountCode = Boolean(customerPhone.trim()) && isOnline;
 
   useEffect(() => {
     loadProducts();
   }, []);
 
-  // با باز شدن مودال، فوکوس روی فیلد موبایل
+  // با باز شدن مودال، فوکوس روی فیلد موبایل و به‌روزرسانی وضعیت آنلاین
   useEffect(() => {
     if (showOrderModal) {
       const t = setTimeout(() => phoneInputRef.current?.focus(), 50);
+      const checkOnline = async () => {
+        try {
+          const online = window.electronAPI ? await window.electronAPI.checkOnline() : navigator.onLine;
+          setIsOnline(online);
+        } catch {
+          setIsOnline(navigator.onLine);
+        }
+      };
+      checkOnline();
       return () => clearTimeout(t);
     }
   }, [showOrderModal]);
+
+  // شنیدن رویداد آنلاین/آفلاین مرورگر
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
+  // اگر کد تخفیف انتخاب شده ولی شرط برقرار نیست، برگرد به تخفیف تومانی
+  useEffect(() => {
+    if (discountType === 'code' && !canUseDiscountCode) {
+      setDiscountType('fixed');
+      setDiscountCode('');
+    }
+  }, [discountType, canUseDiscountCode, setDiscountType, setDiscountCode]);
 
   // وقتی مودال بسته است و سبد پر است، اینتر مودال را باز کن و فوکوس روی موبایل
   useEffect(() => {
@@ -912,12 +945,17 @@ export default function OrderPage() {
                     </button>
                     <button
                       type="button"
-                      className={discountType === 'code' ? 'active' : ''}
-                      onClick={() => setDiscountType('code')}
+                      className={`${discountType === 'code' ? 'active' : ''} ${!canUseDiscountCode ? 'disabled' : ''}`}
+                      onClick={() => canUseDiscountCode && setDiscountType('code')}
+                      disabled={!canUseDiscountCode}
+                      title={!canUseDiscountCode ? 'برای استفاده از کد تخفیف شماره موبایل را وارد کنید و اتصال اینترنت برقرار باشد' : undefined}
                     >
                       کد تخفیف
                     </button>
                   </div>
+                  {!canUseDiscountCode && (
+                    <small className="discount-code-hint">کد تخفیف فقط با وارد کردن شماره موبایل و اتصال آنلاین فعال است.</small>
+                  )}
                   {discountType === 'code' ? (
                     <input
                       type="text"
