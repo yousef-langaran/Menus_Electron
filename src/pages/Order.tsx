@@ -24,6 +24,7 @@ export default function OrderPage() {
     notes,
     discountAmount,
     discountType,
+    discountCode,
     isSubmitting,
     addToCart,
     updateCartQuantity,
@@ -37,6 +38,7 @@ export default function OrderPage() {
     setNotes,
     setDiscountAmount,
     setDiscountType,
+    setDiscountCode,
     submitOrder,
     clearCart,
     getTotalAmount,
@@ -386,9 +388,10 @@ export default function OrderPage() {
       })();
     };
 
-    const onOrderCreated = (res: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean }) => {
+    const onOrderCreated = (res: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean; order?: any }) => {
       const restaurantName = user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || '';
       const fullName = [loadedCustomerFirstName, loadedCustomerLastName].filter(Boolean).join(' ').trim();
+      const serverOrder = res.order;
       const orderData = {
         id: res.orderId,
         orderNumber: res.orderNumber ?? `ORD-${res.orderId}`,
@@ -403,8 +406,8 @@ export default function OrderPage() {
         notes: snapshot.notes,
         items: snapshot.items,
         totalAmount: snapshot.totalAmount,
-        discountAmount: snapshot.discountAmount,
-        finalAmount: snapshot.finalAmount,
+        discountAmount: serverOrder?.discountAmount ?? snapshot.discountAmount,
+        finalAmount: serverOrder?.finalAmount ?? snapshot.finalAmount,
       };
       const orderKeys = res.offline
         ? [`offline-${res.orderId}`]
@@ -907,17 +910,37 @@ export default function OrderPage() {
                     >
                       تومانی
                     </button>
+                    <button
+                      type="button"
+                      className={discountType === 'code' ? 'active' : ''}
+                      onClick={() => setDiscountType('code')}
+                    >
+                      کد تخفیف
+                    </button>
                   </div>
-                  <input
-                    type="number"
-                    min={0}
-                    max={discountType === 'percentage' ? 100 : undefined}
-                    placeholder={discountType === 'percentage' ? 'مثال: 10' : 'مثال: 50000'}
-                    value={discountAmount || ''}
-                    onChange={(e) => setDiscountAmount(Number(e.target.value) || 0)}
-                  />
-                  {getDiscountAmount() > 0 && (
-                    <small className="discount-summary">مبلغ تخفیف: {formatPrice(getDiscountAmount())}</small>
+                  {discountType === 'code' ? (
+                    <input
+                      type="text"
+                      placeholder="کد تخفیف را وارد کنید"
+                      value={discountCode}
+                      onChange={(e) => setDiscountCode(e.target.value)}
+                      dir="ltr"
+                      style={{ textTransform: 'uppercase' }}
+                    />
+                  ) : (
+                    <>
+                      <input
+                        type="number"
+                        min={0}
+                        max={discountType === 'percentage' ? 100 : undefined}
+                        placeholder={discountType === 'percentage' ? 'مثال: 10' : 'مثال: 50000'}
+                        value={discountAmount || ''}
+                        onChange={(e) => setDiscountAmount(Number(e.target.value) || 0)}
+                      />
+                      {getDiscountAmount() > 0 && (
+                        <small className="discount-summary">مبلغ تخفیف: {formatPrice(getDiscountAmount())}</small>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -936,15 +959,24 @@ export default function OrderPage() {
                     <span>جمع کل:</span>
                     <span>{formatPrice(getTotalAmount())}</span>
                   </div>
-                  {getDiscountAmount() > 0 && (
+                  {discountType === 'code' && discountCode.trim() ? (
+                    <div className="total-row">
+                      <span>کد تخفیف:</span>
+                      <span>{discountCode.trim()}</span>
+                    </div>
+                  ) : getDiscountAmount() > 0 ? (
                     <div className="total-row">
                       <span>تخفیف:</span>
                       <span>- {formatPrice(getDiscountAmount())}</span>
                     </div>
-                  )}
+                  ) : null}
                   <div className="total-row final">
                     <span>مبلغ نهایی:</span>
-                    <span>{formatPrice(getFinalAmount())}</span>
+                    <span>
+                      {discountType === 'code' && discountCode.trim()
+                        ? '— (پس از ثبت، با اعمال کد محاسبه می‌شود)'
+                        : formatPrice(getFinalAmount())}
+                    </span>
                   </div>
                 </div>
 

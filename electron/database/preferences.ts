@@ -2,7 +2,7 @@ import { app } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 
-export type ReceiptNumberResetPolicy = 'never' | 'daily' | 'weekly' | 'monthly';
+export type ReceiptNumberResetPolicy = 'never' | 'minutely' | 'daily' | 'weekly' | 'monthly';
 
 export interface ReceiptNumberSettings {
   nextNumber: number;
@@ -161,7 +161,7 @@ export async function loadReceiptNumberSettings(): Promise<ReceiptNumberSettings
       : '00:00';
   const base = s && typeof s.nextNumber === 'number'
     ? {
-        resetPolicy: ['never', 'daily', 'weekly', 'monthly'].includes(s.resetPolicy) ? s.resetPolicy : 'never',
+        resetPolicy: ['never', 'minutely', 'daily', 'weekly', 'monthly'].includes(s.resetPolicy) ? s.resetPolicy : 'never',
         startNumber: Math.max(1, typeof s.startNumber === 'number' ? s.startNumber : 1),
         dailyResetTime,
       }
@@ -218,12 +218,18 @@ function getMonthKey(now: Date): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
+/** کلید دوره برای ریست هر دقیقه (فقط برای تست) — YYYY-MM-DD-HH-mm */
+function getMinuteKey(now: Date): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
 /** کلید یکتا برای دورهٔ فعلی بر اساس سیاست ریست (برای مقایسه و ذخیرهٔ lastResetDate) */
 function getCurrentPeriodKey(
   policy: ReceiptNumberResetPolicy,
   now: Date,
   dailyResetTime: string,
 ): string {
+  if (policy === 'minutely') return getMinuteKey(now);
   if (policy === 'daily') return getReceiptDayKey(now, dailyResetTime);
   if (policy === 'weekly') return getWeekKey(now);
   if (policy === 'monthly') return getMonthKey(now);
@@ -247,7 +253,7 @@ export async function getNextReceiptNumber(): Promise<number> {
     const prefs = await readPreferences();
     const counter = readCounterFileSync();
     const s = prefs.receiptNumberSettings;
-    const policy = s && ['never', 'daily', 'weekly', 'monthly'].includes(s.resetPolicy) ? s.resetPolicy : 'never';
+    const policy = s && ['never', 'minutely', 'daily', 'weekly', 'monthly'].includes(s.resetPolicy) ? s.resetPolicy : 'never';
     const startNumber = Math.max(1, s && typeof s.startNumber === 'number' ? s.startNumber : 1);
     const dailyResetTime =
       s && typeof s.dailyResetTime === 'string' && /^\d{1,2}:\d{2}$/.test(s.dailyResetTime) ? s.dailyResetTime : '00:00';
@@ -271,15 +277,15 @@ export async function getNextReceiptNumberPreview(): Promise<number> {
   const prefs = await readPreferences();
   const counter = readCounterFileSync();
   const s = prefs.receiptNumberSettings;
-  const policy = s && ['never', 'daily', 'weekly', 'monthly'].includes(s.resetPolicy) ? s.resetPolicy : 'never';
+  const policy = s && ['never', 'minutely', 'daily', 'weekly', 'monthly'].includes(s.resetPolicy) ? s.resetPolicy : 'never';
   const startNumber = Math.max(1, s && typeof s.startNumber === 'number' ? s.startNumber : 1);
   const dailyResetTime =
     s && typeof s.dailyResetTime === 'string' && /^\d{1,2}:\d{2}$/.test(s.dailyResetTime) ? s.dailyResetTime : '00:00';
-    const lastReset = counter ? counter.lastResetDate : '';
-    const now = new Date();
-    const needReset = shouldReset(lastReset, policy, dailyResetTime);
-    const next = needReset ? startNumber : (counter ? counter.nextNumber : startNumber);
-    return Math.max(1, next);
+  const lastReset = counter ? counter.lastResetDate : '';
+  const now = new Date();
+  const needReset = shouldReset(lastReset, policy, dailyResetTime);
+  const next = needReset ? startNumber : (counter ? counter.nextNumber : startNumber);
+  return Math.max(1, next);
 }
 
 /** نقشهٔ شناسه سفارش → شماره رسید فراخوانی (برای نمایش در لیست) */
