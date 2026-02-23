@@ -670,3 +670,140 @@
   cursor: not-allowed;
 }
 
+.address-load-hint {
+  font-size: 12px;
+  color: #888;
+  margin: 0 0 8px 0;
+}
+
+.address-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.address-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #f9f9f9;
+}
+
+.address-option input {
+  width: auto;
+  margin-top: 3px;
+}
+
+.address-option-text {
+  flex: 1;
+  font-size: 13px;
+  color: #333;
+}
+
+.address-option--new {
+  border-style: dashed;
+  background: #fff;
+}
+
+.add-customer-block {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.add-customer-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.add-customer-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 13px;
+}
+
+.add-customer-btn {
+  padding: 8px 12px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.add-customer-btn:hover:not(:disabled) {
+  background: #5a6fd6;
+}
+
+.add-customer-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.print-options-group {
+  margin-top: 4px;
+}
+
+.print-option-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.print-option-tab {
+  padding: 8px 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #f7f7f7;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.print-option-tab:hover {
+  background: #eee;
+  border-color: #ccc;
+}
+
+.print-option-tab.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.print-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0 0;
+  border-top: 1px solid #eee;
+}
+
+.print-select-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+}
+
+.print-select-item input {
+  width: auto;
+}
+
+.order-modal-print-note--muted {
+  color: #888;
+}
+

@@ -233,3 +233,54 @@ export async function saveReceiptNumberSettingsToServer(
   });
   return response.data;
 }
+
+// ——— مشتریان و آدرس‌ها (برای پنل الکترون) ———
+
+export interface CustomerAddressItem {
+  id: number;
+  restaurantId: number;
+  customerPhone: string;
+  label?: string;
+  address: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getCustomerAddresses(
+  params: { restaurantId?: number; restaurantName?: string; phone: string },
+  token: string,
+): Promise<CustomerAddressItem[]> {
+  await apiConfigReady;
+  const response = await api.get('/customers/addresses', {
+    params: { restaurantId: params.restaurantId, restaurantName: params.restaurantName, phone: params.phone },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function addCustomer(
+  params: { restaurantId?: number; restaurantName?: string },
+  body: { mobile: string; firstName?: string; lastName?: string },
+  token: string,
+): Promise<{ user: { id: number; mobile: string; firstName: string; lastName: string }; added: boolean }> {
+  await apiConfigReady;
+  const response = await api.post('/customers/add', body, {
+    params: { restaurantId: params.restaurantId, restaurantName: params.restaurantName },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function createCustomerAddress(
+  params: { restaurantId?: number; restaurantName?: string },
+  body: { customerPhone: string; label?: string; address: string; isDefault?: boolean },
+  token: string,
+): Promise<CustomerAddressItem> {
+  await apiConfigReady;
+  const response = await api.post('/customers/addresses', body, {
+    params: { restaurantId: params.restaurantId, restaurantName: params.restaurantName },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}

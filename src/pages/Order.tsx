@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useOrderStore } from '../store/orderStore';
-import { getProducts, getRestaurantByName, getRestaurantById, checkUser, getAssetBaseUrl } from '../services/api';
+import { getProducts, getRestaurantByName, getRestaurantById, checkUser, getAssetBaseUrl, getCustomerAddresses, addCustomer, createCustomerAddress } from '../services/api';
 import { getCachedMenu, cacheMenu } from '../services/cache';
 import { useNavigate } from 'react-router-dom';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
@@ -53,6 +53,9 @@ export default function OrderPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [userExists, setUserExists] = useState<boolean | null>(null);
   const [isCheckingUser, setIsCheckingUser] = useState(false);
+  /** نام مشتری لود شده بعد از تیک (چک کاربر) — برای نمایش و چاپ رسید */
+  const [loadedCustomerFirstName, setLoadedCustomerFirstName] = useState('');
+  const [loadedCustomerLastName, setLoadedCustomerLastName] = useState('');
   /** آیتمی که پنل توضیحاتش باز است (برای جمع‌وجور بودن صفحه) */
   const [expandedNoteProductId, setExpandedNoteProductId] = useState<number | null>(null);
   const { enabledPrinters, getPrinterReceipts } = usePrinterSettingsStore((state) => ({
@@ -64,6 +67,21 @@ export default function OrderPage() {
   const notePanelRef = useRef<HTMLDivElement | null>(null);
   /** نمایش پاپ‌آپ تکمیل سفارش (تخفیف + اطلاعات مشتری) */
   const [showOrderModal, setShowOrderModal] = useState(false);
+  /** آدرس‌های ذخیره‌شده مشتری (برای بیرون‌بر) */
+  const [customerAddresses, setCustomerAddresses] = useState<Array<{ id: number; address: string; label?: string; isDefault: boolean }>>([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  /** انتخاب آدرس: عدد = id آدرس ذخیره، 'new' = آدرس جدید تایپ شده */
+  const [selectedAddressId, setSelectedAddressId] = useState<number | 'new' | null>(null);
+  /** برای افزودن مشتری جدید */
+  const [addCustomerFirstName, setAddCustomerFirstName] = useState('');
+  const [addCustomerLastName, setAddCustomerLastName] = useState('');
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+  /** گزینه چاپ برای این سفارش: همه پرینترهای فعال، بدون چاپ، یا انتخاب پرینترها */
+  const [printOption, setPrintOption] = useState<'all' | 'none' | 'select'>('all');
+  /** وقتی printOption === 'select'، نام پرینترهای انتخاب‌شده */
+  const [selectedPrinterNames, setSelectedPrinterNames] = useState<string[]>([]);
+
+  const isElectronWithPrinters = typeof window !== 'undefined' && Boolean(window.electronAPI) && enabledPrinters.length > 0;
 
   useEffect(() => {
     loadProducts();
@@ -91,6 +109,59 @@ export default function OrderPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [showOrderModal, cart.length]);
+
+  // بارگذاری آدرس‌های مشتری وقتی موبایل عوض شد (بیرون‌بر + آنلاین)
+  useEffect(() => {
+    if (!showOrderModal || serviceType !== 'takeaway' || !token || !customerPhone.trim()) {
+      setCustomerAddresses([]);
+      setSelectedAddressId(null);
+      return;
+    }
+    const phone = customerPhone.trim().replace(/\s/g, '');
+    const normalized = phone.startsWith('9') && phone.length === 10 ? '0' + phone : phone;
+    if (normalized.length < 10) {
+      setCustomerAddresses([]);
+      setSelectedAddressId(null);
+      return;
+    }
+    const isOnline = window.electronAPI ? window.electronAPI.checkOnline() : Promise.resolve(navigator.onLine);
+    const restaurantId = user?.restaurants?.[0]?.id;
+    const restaurantName = user?.restaurants?.[0]?.name;
+    if (!restaurantId && !restaurantName) return;
+
+    let cancelled = false;
+    setLoadingAddresses(true);
+    isOnline.then((online) => {
+      if (!online || cancelled) {
+        setLoadingAddresses(false);
+        return;
+      }
+      getCustomerAddresses(
+        { restaurantId, restaurantName, phone: normalized },
+        token,
+      )
+        .then((list) => {
+          if (cancelled) return;
+          setCustomerAddresses(list);
+          const defaultOne = list.find((a) => a.isDefault) || list[0];
+          if (defaultOne) {
+            setSelectedAddressId(defaultOne.id);
+            setCustomerAddress(defaultOne.address);
+          } else {
+            setSelectedAddressId(list.length > 0 ? list[0].id : 'new');
+            if (list.length > 0) setCustomerAddress(list[0].address);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setCustomerAddresses([]);
+          if (!cancelled) setSelectedAddressId('new');
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingAddresses(false);
+        });
+    });
+    return () => { cancelled = true; };
+  }, [showOrderModal, serviceType, customerPhone, token, user?.restaurants]);
 
   // Cache images when products change
   useEffect(() => {
@@ -214,22 +285,30 @@ export default function OrderPage() {
 
   const handleCheckUser = async () => {
     if (!customerPhone.trim()) return;
-    
+
+    setLoadedCustomerFirstName('');
+    setLoadedCustomerLastName('');
     setIsCheckingUser(true);
     try {
-      const isOnline = window.electronAPI 
-        ? await window.electronAPI.checkOnline() 
+      const isOnline = window.electronAPI
+        ? await window.electronAPI.checkOnline()
         : navigator.onLine;
 
       if (isOnline) {
         const response = await checkUser(customerPhone.trim());
         setUserExists(response.userExists || false);
+        if (response.userExists && (response.firstName != null || response.lastName != null)) {
+          setLoadedCustomerFirstName(response.firstName ?? '');
+          setLoadedCustomerLastName(response.lastName ?? '');
+        }
       } else {
         setUserExists(null);
       }
     } catch (err) {
       console.error('Error checking user:', err);
       setUserExists(null);
+      setLoadedCustomerFirstName('');
+      setLoadedCustomerLastName('');
     } finally {
       setIsCheckingUser(false);
     }
@@ -263,13 +342,18 @@ export default function OrderPage() {
       })),
     };
 
-    const runPrint = (orderData: any, orderKeys: string[]) => {
+    const runPrint = (orderData: any, orderKeys: string[], options: { printOption: 'all' | 'none' | 'select'; selectedPrinterNames: string[] } = { printOption: 'all', selectedPrinterNames: [] }) => {
+      const { printOption: opt, selectedPrinterNames: names } = options;
       (async () => {
         try {
           if (window.electronAPI) {
             let receiptNumber = 0;
-            if (enabledPrinters.length > 0) {
-              const printerJobs = enabledPrinters.flatMap((printer) =>
+            const shouldPrint = opt !== 'none';
+            const printersToUse = opt === 'select' && names.length > 0
+              ? enabledPrinters.filter((p) => names.includes(p.name))
+              : opt === 'all' ? enabledPrinters : [];
+            if (shouldPrint && printersToUse.length > 0) {
+              const printerJobs = printersToUse.flatMap((printer) =>
                 getPrinterReceipts(printer.name)
                   .filter((r) => r.enabled)
                   .map((receipt) => ({
@@ -304,13 +388,14 @@ export default function OrderPage() {
 
     const onOrderCreated = (res: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean }) => {
       const restaurantName = user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || '';
+      const fullName = [loadedCustomerFirstName, loadedCustomerLastName].filter(Boolean).join(' ').trim();
       const orderData = {
         id: res.orderId,
         orderNumber: res.orderNumber ?? `ORD-${res.orderId}`,
         receiptCallNumber: res.receiptCallNumber ?? undefined,
         restaurantName,
         customerPhone: snapshot.customerPhone,
-        customerName: snapshot.customerPhone,
+        customerName: fullName || snapshot.customerPhone,
         serviceType: snapshot.serviceType,
         tableNumber: snapshot.tableNumber,
         customerAddress: snapshot.customerAddress,
@@ -324,7 +409,7 @@ export default function OrderPage() {
       const orderKeys = res.offline
         ? [`offline-${res.orderId}`]
         : [String(res.orderId), res.orderNumber, orderData.orderNumber].filter(Boolean);
-      runPrint(orderData, orderKeys);
+      runPrint(orderData, orderKeys, { printOption, selectedPrinterNames });
     };
 
     const result = await submitOrder({ onOrderCreated });
@@ -337,7 +422,34 @@ export default function OrderPage() {
       setShowOrderModal(false);
       clearCart();
       setUserExists(null);
+      setLoadedCustomerFirstName('');
+      setLoadedCustomerLastName('');
+      setPrintOption('all');
+      setSelectedPrinterNames([]);
       setTimeout(() => setSuccessMessage(''), 3000);
+
+      // اگر بیرون‌بر و آدرس جدید بود، آن را در لیست آدرس‌های مشتری ذخیره کن
+      const addressIsNew =
+        snapshot.serviceType === 'takeaway' &&
+        snapshot.customerAddress?.trim() &&
+        (selectedAddressId === 'new' || customerAddresses.length === 0);
+      if (
+        addressIsNew &&
+        token &&
+        (window.electronAPI ? await window.electronAPI.checkOnline() : navigator.onLine)
+      ) {
+        const restaurantId = user?.restaurants?.[0]?.id;
+        const restaurantName = user?.restaurants?.[0]?.name;
+        const phone = snapshot.customerPhone.trim().replace(/\s/g, '');
+        const normalized = phone.startsWith('9') && phone.length === 10 ? '0' + phone : phone;
+        if ((restaurantId || restaurantName) && normalized.length >= 10) {
+          createCustomerAddress(
+            { restaurantId, restaurantName },
+            { customerPhone: normalized, address: snapshot.customerAddress.trim() },
+            token,
+          ).catch((err) => console.warn('Failed to save new address:', err));
+        }
+      }
     } else {
       setError(result.error || 'خطا در ثبت سفارش');
     }
@@ -618,6 +730,8 @@ export default function OrderPage() {
                       onChange={(e) => {
                         setCustomerPhone(e.target.value);
                         setUserExists(null);
+                        setLoadedCustomerFirstName('');
+                        setLoadedCustomerLastName('');
                         setSuccessMessage('');
                       }}
                       placeholder="09123456789"
@@ -627,8 +741,66 @@ export default function OrderPage() {
                       {isCheckingUser ? '...' : '✓'}
                     </button>
                   </div>
-                  {userExists === true && <span className="user-status success">مشتری ثبت‌نام شده</span>}
-                  {userExists === false && <span className="user-status warning">مشتری جدید</span>}
+                  {userExists === true && (
+                    <span className="user-status success">
+                      {[loadedCustomerFirstName, loadedCustomerLastName].filter(Boolean).join(' ').trim() || 'مشتری ثبت‌نام شده'}
+                    </span>
+                  )}
+                  {userExists === false && (
+                    <div className="add-customer-block">
+                      <span className="user-status warning">مشتری جدید</span>
+                      <div className="add-customer-fields">
+                        <input
+                          type="text"
+                          placeholder="نام (اختیاری)"
+                          value={addCustomerFirstName}
+                          onChange={(e) => setAddCustomerFirstName(e.target.value)}
+                          className="add-customer-input"
+                        />
+                        <input
+                          type="text"
+                          placeholder="نام خانوادگی (اختیاری)"
+                          value={addCustomerLastName}
+                          onChange={(e) => setAddCustomerLastName(e.target.value)}
+                          className="add-customer-input"
+                        />
+                        <button
+                          type="button"
+                          className="add-customer-btn"
+                          onClick={async () => {
+                            const phone = customerPhone.trim().replace(/\s/g, '');
+                            const normalized = phone.startsWith('9') && phone.length === 10 ? '0' + phone : phone;
+                            if (normalized.length < 10) return;
+                            const restaurantId = user?.restaurants?.[0]?.id;
+                            const restaurantName = user?.restaurants?.[0]?.name;
+                            if (!token || (!restaurantId && !restaurantName)) return;
+                            setIsAddingCustomer(true);
+                            try {
+                              await addCustomer(
+                                { restaurantId, restaurantName },
+                                {
+                                  mobile: normalized,
+                                  firstName: addCustomerFirstName.trim() || undefined,
+                                  lastName: addCustomerLastName.trim() || undefined,
+                                },
+                                token,
+                              );
+                              setUserExists(true);
+                              setAddCustomerFirstName('');
+                              setAddCustomerLastName('');
+                            } catch (err) {
+                              console.error('Add customer failed:', err);
+                            } finally {
+                              setIsAddingCustomer(false);
+                            }
+                          }}
+                          disabled={isAddingCustomer}
+                        >
+                          {isAddingCustomer ? '...' : 'افزودن به مشتریان'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -639,6 +811,8 @@ export default function OrderPage() {
                       setServiceType(e.target.value as 'dine_in' | 'takeaway');
                       setTableNumber('');
                       setCustomerAddress('');
+                      setCustomerAddresses([]);
+                      setSelectedAddressId(null);
                     }}
                   >
                     <option value="dine_in">داخل سالن</option>
@@ -659,12 +833,50 @@ export default function OrderPage() {
                 ) : (
                   <div className="form-group form-group--required">
                     <label>آدرس <span className="required-mark">(اجباری)</span></label>
-                    <textarea
-                      value={customerAddress}
-                      onChange={(e) => setCustomerAddress(e.target.value)}
-                      placeholder="آدرس تحویل"
-                      rows={2}
-                    />
+                    {loadingAddresses && <p className="address-load-hint">در حال بارگذاری آدرس‌ها...</p>}
+                    {!loadingAddresses && customerAddresses.length > 0 && (
+                      <div className="address-list">
+                        {customerAddresses.map((addr) => (
+                          <label key={addr.id} className="address-option">
+                            <input
+                              type="radio"
+                              name="customerAddress"
+                              checked={selectedAddressId === addr.id}
+                              onChange={() => {
+                                setSelectedAddressId(addr.id);
+                                setCustomerAddress(addr.address);
+                              }}
+                            />
+                            <span className="address-option-text">
+                              {addr.label ? `${addr.label}: ` : ''}{addr.address}
+                            </span>
+                          </label>
+                        ))}
+                        <label className="address-option address-option--new">
+                          <input
+                            type="radio"
+                            name="customerAddress"
+                            checked={selectedAddressId === 'new'}
+                            onChange={() => {
+                              setSelectedAddressId('new');
+                              setCustomerAddress('');
+                            }}
+                          />
+                          <span className="address-option-text">آدرس جدید</span>
+                        </label>
+                      </div>
+                    )}
+                    {(selectedAddressId === 'new' || customerAddresses.length === 0) && (
+                      <textarea
+                        value={customerAddress}
+                        onChange={(e) => {
+                          setCustomerAddress(e.target.value);
+                          if (customerAddresses.length > 0) setSelectedAddressId('new');
+                        }}
+                        placeholder="آدرس تحویل"
+                        rows={2}
+                      />
+                    )}
                   </div>
                 )}
 
@@ -736,9 +948,68 @@ export default function OrderPage() {
                   </div>
                 </div>
 
-                {enabledPrinters.length > 0 && (
+                {isElectronWithPrinters && (
+                  <div className="form-group print-options-group">
+                    <label>چاپ رسید</label>
+                    <div className="print-option-tabs">
+                      <button
+                        type="button"
+                        className={`print-option-tab ${printOption === 'all' ? 'active' : ''}`}
+                        onClick={() => setPrintOption('all')}
+                      >
+                        چاپ روی همه
+                      </button>
+                      <button
+                        type="button"
+                        className={`print-option-tab ${printOption === 'none' ? 'active' : ''}`}
+                        onClick={() => setPrintOption('none')}
+                      >
+                        بدون چاپ
+                      </button>
+                      <button
+                        type="button"
+                        className={`print-option-tab ${printOption === 'select' ? 'active' : ''}`}
+                        onClick={() => {
+                          setPrintOption('select');
+                          if (selectedPrinterNames.length === 0) {
+                            setSelectedPrinterNames(enabledPrinters.map((p) => p.name));
+                          }
+                        }}
+                      >
+                        انتخاب پرینتر
+                      </button>
+                    </div>
+                    {printOption === 'select' && (
+                      <div className="print-select-list">
+                        {enabledPrinters.map((printer) => (
+                          <label key={printer.name} className="print-select-item">
+                            <input
+                              type="checkbox"
+                              checked={selectedPrinterNames.includes(printer.name)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedPrinterNames((prev) => [...prev, printer.name]);
+                                } else {
+                                  setSelectedPrinterNames((prev) => prev.filter((n) => n !== printer.name));
+                                }
+                              }}
+                            />
+                            <span>{printer.displayName || printer.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {enabledPrinters.length > 0 && printOption === 'all' && (
                   <p className="order-modal-print-note">
                     {enabledPrinters.length} پرینتر برای چاپ رسید فعال است.
+                  </p>
+                )}
+                {isElectronWithPrinters && printOption === 'none' && (
+                  <p className="order-modal-print-note order-modal-print-note--muted">
+                    این سفارش بدون چاپ رسید ثبت می‌شود.
                   </p>
                 )}
 
