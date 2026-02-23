@@ -154,6 +154,20 @@ export default function SettingsPage() {
           )}
         </div>
 
+        {window.electronAPI?.checkForUpdates && (
+          <div className="settings-section">
+            <h2>بروزرسانی برنامه</h2>
+            <p className="text-muted text-sm">در صورت وجود نسخه جدید، بنر بروزرسانی در بالای صفحه نمایش داده می‌شود.</p>
+            <button
+              type="button"
+              onClick={() => window.electronAPI?.checkForUpdates?.()}
+              className="sync-button"
+            >
+              بررسی بروزرسانی
+            </button>
+          </div>
+        )}
+
         <div className="settings-section">
           <div className="section-header">
             <h2>تنظیمات پرینتر</h2>

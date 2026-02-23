@@ -7,6 +7,7 @@ import { useAuthStore } from './store/authStore';
 import { usePrinterSettingsStore } from './store/printerSettingsStore';
 import { useEffect } from 'react';
 import { OrdersSocketManager } from './components/OrdersSocketManager';
+import { UpdateBanner } from './components/UpdateBanner';
 
 function App() {
   const { user, loadCachedUser, isHydrated } = useAuthStore();
@@ -27,6 +28,7 @@ function App() {
 
   return (
     <HashRouter>
+      <UpdateBanner />
       <OrdersSocketManager />
       <Routes>
         <Route

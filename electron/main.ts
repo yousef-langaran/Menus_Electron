@@ -46,6 +46,7 @@ import {
   assignReceiptNumberForOrder,
 } from './database/preferences';
 import { getApiConfig } from './config/api';
+import { setupAutoUpdater, checkForUpdates, startUpdateDownload, quitAndInstall } from './updater';
 
 let mainWindow: BrowserWindow | null = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -165,10 +166,12 @@ app.whenReady().then(() => {
   });
 
   createWindow();
+  setupAutoUpdater(mainWindow);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+      setupAutoUpdater(mainWindow);
     }
   });
 
@@ -474,5 +477,16 @@ ipcMain.handle('cache-images', async (_event, imageUrls: string[]) => {
     console.error('Cache images error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
+});
+
+// بروزرسانی خودکار
+ipcMain.handle('check-for-updates', async () => {
+  await checkForUpdates();
+});
+ipcMain.handle('start-update-download', () => {
+  startUpdateDownload();
+});
+ipcMain.handle('quit-and-install', () => {
+  quitAndInstall();
 });
 

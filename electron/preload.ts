@@ -38,6 +38,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cacheImage: (imageUrl: string) => ipcRenderer.invoke('cache-image', imageUrl),
   getCachedImage: (imageUrl: string) => ipcRenderer.invoke('get-cached-image', imageUrl),
   cacheImages: (imageUrls: string[]) => ipcRenderer.invoke('cache-images', imageUrls),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  startUpdateDownload: () => ipcRenderer.invoke('start-update-download'),
+  quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
+  onUpdateAvailable: (callback: (info: { version: string }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, info: { version: string }) => callback(info);
+    ipcRenderer.on('update-available', handler);
+    return () => ipcRenderer.removeListener('update-available', handler);
+  },
+  onUpdateDownloaded: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('update-downloaded', handler);
+    return () => ipcRenderer.removeListener('update-downloaded', handler);
+  },
+  onUpdateError: (callback: (message: string) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, message: string) => callback(message);
+    ipcRenderer.on('update-error', handler);
+    return () => ipcRenderer.removeListener('update-error', handler);
+  },
 });
 
 declare global {
@@ -76,6 +94,12 @@ declare global {
       getCachedImage: (imageUrl: string) => Promise<{ success: boolean; url: string }>;
       cacheImages: (imageUrls: string[]) => Promise<{ success: boolean; urls?: Record<string, string>; error?: string }>;
       onOnlineStatusChange: (callback: (isOnline: boolean) => void) => void | (() => void);
+      checkForUpdates: () => Promise<void>;
+      startUpdateDownload: () => Promise<void>;
+      quitAndInstall: () => Promise<void>;
+      onUpdateAvailable: (callback: (info: { version: string }) => void) => () => void;
+      onUpdateDownloaded: (callback: () => void) => () => void;
+      onUpdateError: (callback: (message: string) => void) => () => void;
     };
   }
 }

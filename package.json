@@ -17,18 +17,14 @@
     "postdist:win": "node scripts/copy-env-example.js",
     "dist:linux": "npm run build && electron-builder --linux"
   },
-  "keywords": [
-    "electron",
-    "restaurant",
-    "orders",
-    "offline"
-  ],
+  "keywords": ["electron", "restaurant", "orders", "offline"],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "axios": "^1.7.9",
     "dexie": "^3.2.4",
     "dotenv": "^17.2.4",
+    "electron-updater": "^6.3.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.0",
@@ -50,39 +46,12 @@
   "build": {
     "appId": "com.menus.electron",
     "productName": "hosh menu",
-    "directories": {
-      "output": "release"
-    },
-    "protocols": [
-      {
-        "name": "hosh menu",
-        "schemes": [
-          "hosh-menu"
-        ]
-      }
-    ],
-    "files": [
-      "dist/**/*",
-      "dist-react/**/*",
-      "node_modules/**/*"
-    ],
-    "win": {
-      "target": [
-        "nsis"
-      ],
-      "icon": "assets/icon.ico"
-    },
-    "mac": {
-      "target": [
-        "dmg"
-      ],
-      "icon": "assets/icon.icns"
-    },
-    "linux": {
-      "target": [
-        "AppImage"
-      ],
-      "icon": "assets/icon.png"
-    }
+    "directories": { "output": "release" },
+    "publish": [{ "provider": "generic", "url": "https://your-update-server.com/releases" }],
+    "protocols": [{ "name": "hosh menu", "schemes": ["hosh-menu"] }],
+    "files": ["dist/**/*", "dist-react/**/*", "node_modules/**/*"],
+    "win": { "target": ["nsis"], "icon": "assets/icon.ico" },
+    "mac": { "target": ["dmg"], "icon": "assets/icon.icns" },
+    "linux": { "target": ["AppImage"], "icon": "assets/icon.png" }
   }
 }
