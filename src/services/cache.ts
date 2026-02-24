@@ -11,7 +11,8 @@ export async function cacheMenu(
   restaurantName: string,
   products: any[],
   categories: any[],
-  cartItemOptions?: string[]
+  cartItemOptions?: string[],
+  isMobileRequiredInElectronPanel?: boolean
 ) {
   menuCache = {
     restaurantId,
@@ -19,6 +20,7 @@ export async function cacheMenu(
     products,
     categories,
     cartItemOptions: cartItemOptions || [],
+    isMobileRequiredInElectronPanel: isMobileRequiredInElectronPanel || false,
     cachedAt: new Date().toISOString(),
   };
 

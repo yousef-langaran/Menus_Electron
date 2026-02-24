@@ -48,6 +48,7 @@ export default function OrderPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [cartItemOptions, setCartItemOptions] = useState<string[]>([]);
+  const [isMobileRequired, setIsMobileRequired] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -235,6 +236,7 @@ export default function OrderPage() {
         setProducts(productsData);
         setCategories(cached.categories);
         setCartItemOptions(Array.isArray(cached.cartItemOptions) ? cached.cartItemOptions : []);
+        setIsMobileRequired(cached.isMobileRequiredInElectronPanel ?? true);
         setIsLoading(false);
       }
 
@@ -249,15 +251,19 @@ export default function OrderPage() {
           setProducts(productsData);
 
           let options: string[] = [];
+          let mobileReq = true;
           try {
             const restaurant = restaurantId
               ? await getRestaurantById(Number(restaurantId), token)
               : await getRestaurantByName(restaurantName || '', token);
             const raw = restaurant?.cartItemOptions;
             options = Array.isArray(raw) ? raw.filter((s: any) => s != null && String(s).trim()) : [];
+            mobileReq = restaurant?.panelSettings?.isMobileRequiredInElectronPanel ?? true;
             setCartItemOptions(options);
+            setIsMobileRequired(mobileReq);
           } catch (_) {
             setCartItemOptions((prev) => prev);
+            setIsMobileRequired((prev) => prev);
           }
 
           const uniqueCategories = Array.from(
@@ -266,7 +272,7 @@ export default function OrderPage() {
           setCategories(uniqueCategories as string[]);
 
           // Cache the menu (including cart item options for offline)
-          await cacheMenu(restaurantId || 0, restaurantName || '', productsData, uniqueCategories as string[], options);
+          await cacheMenu(restaurantId || 0, restaurantName || '', productsData, uniqueCategories as string[], options, mobileReq);
         } catch (err) {
           console.warn('Failed to fetch products from server:', err);
           if (productsData.length === 0) {
@@ -315,7 +321,7 @@ export default function OrderPage() {
   };
 
   const handleSubmit = async () => {
-    if (!customerPhone.trim()) {
+    if (isMobileRequired && !customerPhone.trim()) {
       setError('شماره تماس را وارد کنید');
       phoneInputRef.current?.focus();
       return;
@@ -714,14 +720,14 @@ export default function OrderPage() {
                   const isTextarea = (e.target as HTMLElement).tagName === 'TEXTAREA';
                   if (isTextarea) return;
                   e.preventDefault();
-                  if (!isSubmitting && cart.length > 0 && customerPhone.trim()) handleSubmit();
+                  if (!isSubmitting && cart.length > 0 && (!isMobileRequired || customerPhone.trim())) handleSubmit();
                 }}
               >
                 <h2 className="order-modal-title">تکمیل و ثبت سفارش</h2>
                 <p className="order-modal-hint">شماره موبایل را وارد کنید و Enter بزنید برای ثبت سریع</p>
 
-                <div className="form-group form-group--required">
-                  <label>شماره تماس <span className="required-mark">(اجباری)</span></label>
+                <div className={`form-group ${isMobileRequired ? 'form-group--required' : ''}`}>
+                  <label>شماره تماس {isMobileRequired && <span className="required-mark">(اجباری)</span>}</label>
                   <div className="input-with-button">
                     <input
                       ref={phoneInputRef}
