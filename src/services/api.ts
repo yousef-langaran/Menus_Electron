@@ -159,6 +159,18 @@ export async function createOrder(orderData: any, token: string) {
   return response.data;
 }
 
+/** اعتبارسنجی کد تخفیف و دریافت مبلغ تخفیف */
+export async function validateDiscountCode(
+  params: { code: string; restaurantName: string; totalAmount: number; userPhone?: string },
+  token?: string,
+) {
+  await apiConfigReady;
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await api.post('/discount-codes/validate', params, { headers });
+  return response.data as { valid: boolean; discountAmount?: number; message?: string };
+}
+
 export async function fetchOrders(
   params: { restaurantName?: string; status?: string } = {},
   token?: string,

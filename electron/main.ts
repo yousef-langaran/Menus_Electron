@@ -489,4 +489,3 @@ ipcMain.handle('start-update-download', () => {
 ipcMain.handle('quit-and-install', () => {
   quitAndInstall();
 });
-

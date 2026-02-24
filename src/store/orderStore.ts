@@ -3,6 +3,12 @@ import { saveOfflineOrder } from '../services/offlineStorage';
 import { createOrder, API_BASE_URL } from '../services/api';
 import { useAuthStore } from './authStore';
 
+/** نتیجهٔ ثبت کد تخفیف (بعد از اعتبارسنجی) */
+export interface AppliedDiscountCode {
+  code: string;
+  discountAmount: number;
+}
+
 interface CartItem {
   productId: number;
   product: any;
@@ -12,7 +18,7 @@ interface CartItem {
   itemOption?: string;
 }
 
-type DiscountType = 'percentage' | 'fixed';
+type DiscountType = 'percentage' | 'fixed' | 'code';
 
 interface OrderState {
   cart: CartItem[];
@@ -22,8 +28,11 @@ interface OrderState {
   customerAddress: string;
   paymentMethod: 'cash' | 'card' | 'online' | 'mixed';
   notes: string;
-  discountAmount: number; // user input value
+  discountAmount: number; // user input value (برای درصدی/تومانی)
   discountType: DiscountType;
+  discountCode: string; // برای نوع «کد تخفیف»
+  /** کد تخفیف ثبت‌شده (بعد از زدن «ثبت») — برای نمایش مبلغ و ارسال به سرور */
+  appliedDiscountCode: AppliedDiscountCode | null;
   isSubmitting: boolean;
   addToCart: (product: any) => void;
   updateCartQuantity: (productId: number, quantity: number) => void;
@@ -37,8 +46,10 @@ interface OrderState {
   setNotes: (notes: string) => void;
   setDiscountAmount: (amount: number) => void;
   setDiscountType: (type: DiscountType) => void;
+  setDiscountCode: (code: string) => void;
+  setAppliedDiscountCode: (applied: AppliedDiscountCode | null) => void;
   submitOrder: (options?: {
-    onOrderCreated?: (result: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean }) => void;
+    onOrderCreated?: (result: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean; order?: any }) => void;
   }) => Promise<{
     success: boolean;
     orderId?: number;
@@ -64,6 +75,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   notes: '',
   discountAmount: 0,
   discountType: 'fixed',
+  discountCode: '',
+  appliedDiscountCode: null,
   isSubmitting: false,
 
   addToCart: (product) => {
@@ -132,7 +145,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   setPaymentMethod: (method) => set({ paymentMethod: method }),
   setNotes: (notes) => set({ notes }),
   setDiscountAmount: (amount) => set({ discountAmount: amount }),
-  setDiscountType: (type) => set({ discountType: type }),
+  setDiscountType: (type) => set({ discountType: type, ...(type !== 'code' ? { appliedDiscountCode: null } : {}) }),
+  setDiscountCode: (code) => set({ discountCode: (code || '').trim() }),
+  setAppliedDiscountCode: (applied) => set({ appliedDiscountCode: applied }),
 
   submitOrder: async (options) => {
     const state = get();
@@ -155,9 +170,14 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       return { success: false, error: 'آدرس الزامی است' };
     }
 
+    if (state.discountType === 'code' && state.discountCode.trim() && !state.appliedDiscountCode) {
+      return { success: false, error: 'لطفاً با زدن «ثبت» کد تخفیف را اعمال کنید.' };
+    }
+
     set({ isSubmitting: true });
 
     const discountAmount = state.getDiscountAmount();
+    const useDiscountCode = state.discountType === 'code' && (state.appliedDiscountCode?.code ?? state.discountCode.trim()).length > 0;
     const orderData = {
       customerPhone: state.customerPhone.trim(),
       customerAddress: state.serviceType === 'takeaway' ? state.customerAddress.trim() : undefined,
@@ -165,11 +185,15 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       serviceType: state.serviceType,
       paymentMethod: state.paymentMethod,
       totalAmount: state.getTotalAmount(),
-      finalAmount: state.getFinalAmount(),
-      discountAmount,
-      manualDiscountAmount: discountAmount,
-      manualDiscountType: state.discountType,
-      manualDiscountValue: state.discountAmount,
+      finalAmount: useDiscountCode ? state.getTotalAmount() : state.getFinalAmount(),
+      discountAmount: useDiscountCode ? 0 : discountAmount,
+      ...(useDiscountCode
+        ? { discountCode: (state.appliedDiscountCode?.code ?? state.discountCode.trim()) }
+        : {
+            manualDiscountAmount: discountAmount,
+            manualDiscountType: state.discountType,
+            manualDiscountValue: state.discountAmount,
+          }),
       notes: state.notes.trim() || undefined,
       restaurantName: user?.restaurants?.[0]?.name || '',
       items: state.cart.map(item => ({
@@ -193,6 +217,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
               orderNumber: response.orderNumber,
               receiptCallNumber: response.receiptCallNumber,
               offline: false,
+              order: response,
             });
           })
           .catch(async (error: any) => {
@@ -247,6 +272,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       notes: '',
       discountAmount: 0,
       discountType: 'fixed',
+      discountCode: '',
+      appliedDiscountCode: null,
     });
   },
 
@@ -255,6 +282,10 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   getDiscountAmount: () => {
+    if (get().discountType === 'code') {
+      const applied = get().appliedDiscountCode;
+      return applied ? applied.discountAmount : 0;
+    }
     const total = get().getTotalAmount();
     const discountValue = get().discountAmount;
     if (!discountValue || discountValue <= 0) {

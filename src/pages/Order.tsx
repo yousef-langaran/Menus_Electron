@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useOrderStore } from '../store/orderStore';
-import { getProducts, getRestaurantByName, getRestaurantById, checkUser, getAssetBaseUrl, getCustomerAddresses, addCustomer, createCustomerAddress } from '../services/api';
+import { getProducts, getRestaurantByName, getRestaurantById, checkUser, getAssetBaseUrl, getCustomerAddresses, addCustomer, createCustomerAddress, validateDiscountCode } from '../services/api';
 import { getCachedMenu, cacheMenu } from '../services/cache';
 import { useNavigate } from 'react-router-dom';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
@@ -24,6 +24,8 @@ export default function OrderPage() {
     notes,
     discountAmount,
     discountType,
+    discountCode,
+    appliedDiscountCode,
     isSubmitting,
     addToCart,
     updateCartQuantity,
@@ -37,6 +39,8 @@ export default function OrderPage() {
     setNotes,
     setDiscountAmount,
     setDiscountType,
+    setDiscountCode,
+    setAppliedDiscountCode,
     submitOrder,
     clearCart,
     getTotalAmount,
@@ -81,20 +85,96 @@ export default function OrderPage() {
   const [printOption, setPrintOption] = useState<'all' | 'none' | 'select'>('all');
   /** وقتی printOption === 'select'، نام پرینترهای انتخاب‌شده */
   const [selectedPrinterNames, setSelectedPrinterNames] = useState<string[]>([]);
+  /** وضعیت آنلاین برای فعال بودن گزینه کد تخفیف */
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  /** در حال اعتبارسنجی کد تخفیف */
+  const [discountCodeValidating, setDiscountCodeValidating] = useState(false);
+  /** خطای اعتبارسنجی کد تخفیف */
+  const [discountCodeError, setDiscountCodeError] = useState('');
 
   const isElectronWithPrinters = typeof window !== 'undefined' && Boolean(window.electronAPI) && enabledPrinters.length > 0;
+  /** کد تخفیف فقط وقتی فعال است که شماره موبایل وارد شده و اتصال آنلاین باشد */
+  const canUseDiscountCode = Boolean(customerPhone.trim()) && isOnline;
 
   useEffect(() => {
     loadProducts();
   }, []);
 
-  // با باز شدن مودال، فوکوس روی فیلد موبایل
+  // با باز شدن مودال، فوکوس روی فیلد موبایل و به‌روزرسانی وضعیت آنلاین
   useEffect(() => {
     if (showOrderModal) {
       const t = setTimeout(() => phoneInputRef.current?.focus(), 50);
+      const checkOnline = async () => {
+        try {
+          const online = window.electronAPI ? await window.electronAPI.checkOnline() : navigator.onLine;
+          setIsOnline(online);
+        } catch {
+          setIsOnline(navigator.onLine);
+        }
+      };
+      checkOnline();
       return () => clearTimeout(t);
     }
   }, [showOrderModal]);
+
+  // شنیدن رویداد آنلاین/آفلاین مرورگر
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
+  // اگر کد تخفیف انتخاب شده ولی شرط برقرار نیست، برگرد به تخفیف تومانی
+  useEffect(() => {
+    if (discountType === 'code' && !canUseDiscountCode) {
+      setDiscountType('fixed');
+      setDiscountCode('');
+      setAppliedDiscountCode(null);
+      setDiscountCodeError('');
+    }
+  }, [discountType, canUseDiscountCode, setDiscountType, setDiscountCode, setAppliedDiscountCode]);
+
+  const handleApplyDiscountCode = async () => {
+    const code = discountCode.trim();
+    if (!code || !token || !user?.restaurants?.[0]?.name) return;
+    setDiscountCodeError('');
+    setDiscountCodeValidating(true);
+    try {
+      const totalAmount = getTotalAmount();
+      const result = await validateDiscountCode(
+        {
+          code,
+          restaurantName: user.restaurants[0].name,
+          totalAmount,
+          userPhone: customerPhone.trim() || undefined,
+        },
+        token,
+      );
+      if (result?.valid && typeof result.discountAmount === 'number') {
+        setAppliedDiscountCode({ code, discountAmount: result.discountAmount });
+      } else {
+        setDiscountCodeError(result?.message || 'کد تخفیف معتبر نیست');
+        setAppliedDiscountCode(null);
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'خطا در اعتبارسنجی کد تخفیف';
+      setDiscountCodeError(msg);
+      setAppliedDiscountCode(null);
+    } finally {
+      setDiscountCodeValidating(false);
+    }
+  };
+
+  const handleCancelDiscountCode = () => {
+    setAppliedDiscountCode(null);
+    setDiscountCode('');
+    setDiscountCodeError('');
+  };
 
   // وقتی مودال بسته است و سبد پر است، اینتر مودال را باز کن و فوکوس روی موبایل
   useEffect(() => {
@@ -392,9 +472,10 @@ export default function OrderPage() {
       })();
     };
 
-    const onOrderCreated = (res: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean }) => {
+    const onOrderCreated = (res: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean; order?: any }) => {
       const restaurantName = user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || '';
       const fullName = [loadedCustomerFirstName, loadedCustomerLastName].filter(Boolean).join(' ').trim();
+      const serverOrder = res.order;
       const orderData = {
         id: res.orderId,
         orderNumber: res.orderNumber ?? `ORD-${res.orderId}`,
@@ -409,8 +490,8 @@ export default function OrderPage() {
         notes: snapshot.notes,
         items: snapshot.items,
         totalAmount: snapshot.totalAmount,
-        discountAmount: snapshot.discountAmount,
-        finalAmount: snapshot.finalAmount,
+        discountAmount: serverOrder?.discountAmount ?? snapshot.discountAmount,
+        finalAmount: serverOrder?.finalAmount ?? snapshot.finalAmount,
       };
       const orderKeys = res.offline
         ? [`offline-${res.orderId}`]
@@ -913,17 +994,74 @@ export default function OrderPage() {
                     >
                       تومانی
                     </button>
+                    <button
+                      type="button"
+                      className={`${discountType === 'code' ? 'active' : ''} ${!canUseDiscountCode ? 'disabled' : ''}`}
+                      onClick={() => canUseDiscountCode && setDiscountType('code')}
+                      disabled={!canUseDiscountCode}
+                      title={!canUseDiscountCode ? 'برای استفاده از کد تخفیف شماره موبایل را وارد کنید و اتصال اینترنت برقرار باشد' : undefined}
+                    >
+                      کد تخفیف
+                    </button>
                   </div>
-                  <input
-                    type="number"
-                    min={0}
-                    max={discountType === 'percentage' ? 100 : undefined}
-                    placeholder={discountType === 'percentage' ? 'مثال: 10' : 'مثال: 50000'}
-                    value={discountAmount || ''}
-                    onChange={(e) => setDiscountAmount(Number(e.target.value) || 0)}
-                  />
-                  {getDiscountAmount() > 0 && (
-                    <small className="discount-summary">مبلغ تخفیف: {formatPrice(getDiscountAmount())}</small>
+                  {!canUseDiscountCode && (
+                    <small className="discount-code-hint">کد تخفیف فقط با وارد کردن شماره موبایل و اتصال آنلاین فعال است.</small>
+                  )}
+                  {discountType === 'code' ? (
+                    <div className="discount-code-row">
+                      <input
+                        type="text"
+                        placeholder="کد تخفیف را وارد کنید"
+                        value={discountCode}
+                        onChange={(e) => {
+                          setDiscountCode(e.target.value);
+                          setDiscountCodeError('');
+                        }}
+                        dir="ltr"
+                        style={{ textTransform: 'uppercase' }}
+                        disabled={!!appliedDiscountCode}
+                      />
+                      <div className="discount-code-actions">
+                        {!appliedDiscountCode ? (
+                          <button
+                            type="button"
+                            className="btn-apply-discount"
+                            onClick={handleApplyDiscountCode}
+                            disabled={discountCodeValidating || !discountCode.trim()}
+                          >
+                            {discountCodeValidating ? 'در حال بررسی...' : 'ثبت'}
+                          </button>
+                        ) : (
+                          <>
+                            <span className="discount-applied-amount">تخفیف: {formatPrice(appliedDiscountCode.discountAmount)}</span>
+                            <button
+                              type="button"
+                              className="btn-cancel-discount"
+                              onClick={handleCancelDiscountCode}
+                            >
+                              لغو
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      {discountCodeError && (
+                        <small className="discount-code-error">{discountCodeError}</small>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        type="number"
+                        min={0}
+                        max={discountType === 'percentage' ? 100 : undefined}
+                        placeholder={discountType === 'percentage' ? 'مثال: 10' : 'مثال: 50000'}
+                        value={discountAmount || ''}
+                        onChange={(e) => setDiscountAmount(Number(e.target.value) || 0)}
+                      />
+                      {getDiscountAmount() > 0 && (
+                        <small className="discount-summary">مبلغ تخفیف: {formatPrice(getDiscountAmount())}</small>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -942,15 +1080,24 @@ export default function OrderPage() {
                     <span>جمع کل:</span>
                     <span>{formatPrice(getTotalAmount())}</span>
                   </div>
-                  {getDiscountAmount() > 0 && (
+                  {discountType === 'code' && appliedDiscountCode ? (
+                    <div className="total-row">
+                      <span>کد تخفیف ({appliedDiscountCode.code}):</span>
+                      <span>- {formatPrice(appliedDiscountCode.discountAmount)}</span>
+                    </div>
+                  ) : getDiscountAmount() > 0 ? (
                     <div className="total-row">
                       <span>تخفیف:</span>
                       <span>- {formatPrice(getDiscountAmount())}</span>
                     </div>
-                  )}
+                  ) : null}
                   <div className="total-row final">
                     <span>مبلغ نهایی:</span>
-                    <span>{formatPrice(getFinalAmount())}</span>
+                    <span>
+                      {discountType === 'code' && !appliedDiscountCode && discountCode.trim()
+                        ? '— (کد را وارد کنید و «ثبت» بزنید)'
+                        : formatPrice(getFinalAmount())}
+                    </span>
                   </div>
                 </div>
 
