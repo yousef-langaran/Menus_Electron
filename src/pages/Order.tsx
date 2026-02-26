@@ -439,22 +439,25 @@ export default function OrderPage() {
               ? enabledPrinters.filter((p) => names.includes(p.name))
               : opt === 'all' ? enabledPrinters : [];
             if (shouldPrint && printersToUse.length > 0) {
-              const defaultTemplate = window.electronAPI?.getDefaultPrintTemplate
-                ? await window.electronAPI.getDefaultPrintTemplate()
-                : null;
-              const printerJobs = printersToUse.flatMap((printer) =>
-                getPrinterReceipts(printer.name)
+              const [templatesMap, defaultTemplate] = await Promise.all([
+                window.electronAPI?.getPrintTemplatesMap?.() ?? Promise.resolve({}),
+                window.electronAPI?.getDefaultPrintTemplate?.() ?? Promise.resolve(null),
+              ]);
+              const printerJobs = printersToUse.flatMap((printer) => {
+                const template = templatesMap?.[printer.name] ?? defaultTemplate ?? null;
+                return getPrinterReceipts(printer.name)
                   .filter((r) => r.enabled)
                   .map((receipt) => ({
                     name: printer.name,
                     displayName: printer.displayName,
-                    paperWidth: defaultTemplate?.paperWidth ?? printer.paperWidth,
-                    paperLength: defaultTemplate?.paperLength ?? printer.paperLength,
-                    margin: defaultTemplate?.margin ?? printer.margin,
+                    paperWidth: template?.paperWidth ?? printer.paperWidth,
+                    paperLength: template?.paperLength ?? printer.paperLength,
+                    margin: template?.margin ?? printer.margin,
                     receiptType: receipt.type,
                     copies: receipt.copies,
-                  }))
-              );
+                    layout: template?.layout ?? undefined,
+                  }));
+              });
               if (printerJobs.length > 0) {
                 const res = await window.electronAPI.printReceipt(orderData, printerJobs, orderKeys);
                 receiptNumber = res?.receiptNumber ?? 0;

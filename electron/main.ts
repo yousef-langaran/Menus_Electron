@@ -43,6 +43,8 @@ import {
   saveReceiptNumberSettings,
   loadDefaultPrintTemplate,
   saveDefaultPrintTemplate,
+  loadPrintTemplatesMap,
+  setPrintTemplateForPrinter,
   getNextReceiptNumberPreview,
   getReceiptNumbersMap,
   assignReceiptNumberForOrder,
@@ -435,6 +437,25 @@ ipcMain.handle('set-default-print-template', async (_event, template: any) => {
     return { success: true };
   } catch (error) {
     console.error('Save default print template error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('get-print-templates-map', async () => {
+  try {
+    return await loadPrintTemplatesMap();
+  } catch (error) {
+    console.error('Load print templates map error:', error);
+    return {};
+  }
+});
+
+ipcMain.handle('set-print-template-for-printer', async (_event, printerName: string, template: any) => {
+  try {
+    await setPrintTemplateForPrinter(printerName ?? '', template ?? null);
+    return { success: true };
+  } catch (error) {
+    console.error('Set print template for printer error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });

@@ -14,9 +14,10 @@ export default function SettingsPage() {
   const [printerError, setPrinterError] = useState('');
   const [availablePrinters, setAvailablePrinters] = useState<Array<{ name: string; displayName?: string; description?: string }>>([]);
   const [printTemplates, setPrintTemplates] = useState<PrintTemplateItem[]>([]);
-  const [defaultPrintTemplateId, setDefaultPrintTemplateId] = useState<number | ''>('');
+  /** قالب انتخاب‌شده برای هر پرینتر (نام پرینتر → اسنپ‌شات قالب) — از Electron بارگذاری می‌شود */
+  const [printerTemplatesMap, setPrinterTemplatesMap] = useState<Record<string, { id: number; name: string; paperWidth: number; paperLength: number; margin: number; layout?: any } | null>>({});
   const [loadingTemplates, setLoadingTemplates] = useState(false);
-  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [savingTemplateForPrinter, setSavingTemplateForPrinter] = useState<string | null>(null);
   const {
     configs,
     setPrinterEnabled,
@@ -39,37 +40,36 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    const loadTemplatesAndDefault = async () => {
+    const loadTemplatesAndPerPrinter = async () => {
       const restaurantId = user?.restaurants?.[0]?.id;
       if (!token || !restaurantId) return;
-      if (window.electronAPI?.getDefaultPrintTemplate) {
-        try {
-          const saved = await window.electronAPI.getDefaultPrintTemplate();
-          if (saved?.id) setDefaultPrintTemplateId(saved.id);
-        } catch (_) {}
-      }
       setLoadingTemplates(true);
       try {
-        const list = await getPrintTemplates(restaurantId, token);
+        const [list, map] = await Promise.all([
+          getPrintTemplates(restaurantId, token),
+          window.electronAPI?.getPrintTemplatesMap?.() ?? Promise.resolve({}),
+        ]);
         setPrintTemplates(list);
+        setPrinterTemplatesMap(map ?? {});
       } catch (_) {
         setPrintTemplates([]);
+        setPrinterTemplatesMap({});
       } finally {
         setLoadingTemplates(false);
       }
     };
-    loadTemplatesAndDefault();
+    loadTemplatesAndPerPrinter();
   }, [token, user?.restaurants?.[0]?.id]);
 
-  const handleDefaultPrintTemplateChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handlePrinterTemplateChange = async (printerName: string, e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     const id = val === '' ? '' : parseInt(val, 10);
-    if (!window.electronAPI?.setDefaultPrintTemplate) return;
-    setSavingTemplate(true);
+    if (!window.electronAPI?.setPrintTemplateForPrinter) return;
+    setSavingTemplateForPrinter(printerName);
     try {
       if (id === '') {
-        await window.electronAPI.setDefaultPrintTemplate(null);
-        setDefaultPrintTemplateId('');
+        await window.electronAPI.setPrintTemplateForPrinter(printerName, null);
+        setPrinterTemplatesMap((prev) => ({ ...prev, [printerName]: null }));
       } else {
         const t = printTemplates.find((x) => x.id === id);
         if (t) {
@@ -84,12 +84,12 @@ export default function SettingsPage() {
             shiftLeftMm: t.shiftLeftMm,
             layout: t.layout,
           };
-          await window.electronAPI.setDefaultPrintTemplate(snapshot);
-          setDefaultPrintTemplateId(t.id);
+          await window.electronAPI.setPrintTemplateForPrinter(printerName, snapshot);
+          setPrinterTemplatesMap((prev) => ({ ...prev, [printerName]: snapshot }));
         }
       }
     } finally {
-      setSavingTemplate(false);
+      setSavingTemplateForPrinter(null);
     }
   };
 
@@ -228,32 +228,6 @@ export default function SettingsPage() {
         )}
 
         <div className="settings-section">
-          <h2>قالب چاپ پیش‌فرض</h2>
-          <p className="text-muted text-sm">قالب‌های چاپ از پنل ادمین رستوران (مدیریت قالب‌های چاپ) بارگذاری می‌شوند. با انتخاب یک قالب، اندازه کاغذ و حاشیه از همان قالب برای چاپ استفاده می‌شود.</p>
-          {loadingTemplates ? (
-            <p>در حال بارگذاری قالب‌ها...</p>
-          ) : (
-            <div className="printer-config-grid" style={{ maxWidth: 320 }}>
-              <label>
-                قالب پیش‌فرض
-                <select
-                  value={defaultPrintTemplateId === '' ? '' : String(defaultPrintTemplateId)}
-                  onChange={handleDefaultPrintTemplateChange}
-                  disabled={savingTemplate}
-                >
-                  <option value="">بدون قالب (استفاده از تنظیمات دستی هر پرینتر)</option>
-                  {printTemplates.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.paperWidth}×{t.paperLength} mm)
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          )}
-        </div>
-
-        <div className="settings-section">
           <div className="section-header">
             <h2>تنظیمات پرینتر</h2>
             <button onClick={loadPrinters} className="link-button">
@@ -286,6 +260,27 @@ export default function SettingsPage() {
                     </div>
                     {isEnabled && (
                       <div className="printer-config">
+                        {loadingTemplates ? (
+                          <p className="text-muted text-sm">در حال بارگذاری قالب‌ها...</p>
+                        ) : (
+                          <div className="printer-config-grid" style={{ marginBottom: 8 }}>
+                            <label>
+                              قالب چاپ
+                              <select
+                                value={printerTemplatesMap[printer.name] ? String(printerTemplatesMap[printer.name]!.id) : ''}
+                                onChange={(e) => handlePrinterTemplateChange(printer.name, e)}
+                                disabled={savingTemplateForPrinter === printer.name}
+                              >
+                                <option value="">بدون قالب (تنظیمات دستی زیر)</option>
+                                {printTemplates.map((t) => (
+                                  <option key={t.id} value={t.id}>
+                                    {t.name} ({t.paperWidth}×{t.paperLength} mm)
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                        )}
                         <div className="printer-config-grid">
                           <label>
                             عرض کاغذ (میلی‌متر)
@@ -382,7 +377,7 @@ export default function SettingsPage() {
             </div>
           )}
           <p className="text-muted small">
-            تنظیمات بالا برای چاپ خودکار رسید هنگام ثبت سفارش استفاده می‌شود.
+            برای هر پرینتر می‌توانید قالب چاپ و نوع/تعداد رسید را جداگانه تنظیم کنید. این تنظیمات برای چاپ خودکار رسید هنگام ثبت سفارش استفاده می‌شود.
           </p>
         </div>
 

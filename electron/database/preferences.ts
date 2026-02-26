@@ -34,6 +34,9 @@ export interface DefaultPrintTemplateSnapshot {
   layout?: any[] | null;
 }
 
+/** قالب چاپ به‌ازای هر پرینتر (نام پرینتر → اسنپ‌شات قالب) */
+export type PrinterTemplatesMap = Record<string, DefaultPrintTemplateSnapshot>;
+
 interface PreferencesFile {
   userSession?: {
     user: any;
@@ -43,6 +46,8 @@ interface PreferencesFile {
   printerConfigs?: Record<string, any>;
   receiptNumberSettings?: ReceiptNumberSettings;
   defaultPrintTemplate?: DefaultPrintTemplateSnapshot;
+  /** قالب چاپ برای هر پرینتر (fallback وقتی پرینتر قالب ندارد: defaultPrintTemplate) */
+  printerTemplates?: PrinterTemplatesMap;
 }
 
 const FILE_NAME = 'menus-preferences.json';
@@ -198,6 +203,26 @@ export async function saveDefaultPrintTemplate(template: DefaultPrintTemplateSna
     prefs.defaultPrintTemplate = template;
   } else {
     delete prefs.defaultPrintTemplate;
+  }
+  await writePreferences(prefs);
+}
+
+export async function loadPrintTemplatesMap(): Promise<Record<string, DefaultPrintTemplateSnapshot | null>> {
+  const prefs = await readPreferences();
+  const map = prefs.printerTemplates ?? {};
+  return { ...map };
+}
+
+export async function setPrintTemplateForPrinter(
+  printerName: string,
+  template: DefaultPrintTemplateSnapshot | null
+): Promise<void> {
+  const prefs = await readPreferences();
+  if (!prefs.printerTemplates) prefs.printerTemplates = {};
+  if (template) {
+    prefs.printerTemplates[printerName] = template;
+  } else {
+    delete prefs.printerTemplates[printerName];
   }
   await writePreferences(prefs);
 }

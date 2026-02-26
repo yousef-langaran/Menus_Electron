@@ -20,6 +20,8 @@ type ElectronPrinterJob = {
   margin?: number;
   receiptType?: 'full' | 'kitchen';
   copies?: number;
+  /** قالب طراح (نسخه ۲) برای چاپ بر اساس layout */
+  layout?: { version: 2; rows: any[] };
 };
 
 declare global {
@@ -51,8 +53,10 @@ declare global {
       clearUserSession: () => Promise<{ success: boolean; error?: string }>;
       loadPrinterConfigs: () => Promise<Record<string, any>>;
       savePrinterConfigs: (configs: Record<string, any>) => Promise<{ success: boolean; error?: string }>;
-      getDefaultPrintTemplate: () => Promise<{ id: number; name: string; receiptType: string; paperWidth: number; paperLength: number; margin: number } | null>;
+      getDefaultPrintTemplate: () => Promise<{ id: number; name: string; receiptType: string; paperWidth: number; paperLength: number; margin: number; layout?: any } | null>;
       setDefaultPrintTemplate: (template: any) => Promise<{ success: boolean; error?: string }>;
+      getPrintTemplatesMap: () => Promise<Record<string, { id: number; name: string; paperWidth: number; paperLength: number; margin: number; layout?: any } | null>>;
+      setPrintTemplateForPrinter: (printerName: string, template: any) => Promise<{ success: boolean; error?: string }>;
       getReceiptNumberSettings: () => Promise<{ nextNumber: number; resetPolicy: string; startNumber: number; lastResetDate: string; dailyResetTime: string }>;
       saveReceiptNumberSettings: (settings: any) => Promise<{ success: boolean; error?: string }>;
       cacheImage: (imageUrl: string) => Promise<{ success: boolean; url?: string; error?: string }>;

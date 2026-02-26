@@ -7,6 +7,31 @@ export const printPreviewOptsMap = new Map<number, any>();
 
 export type ReceiptType = 'full' | 'kitchen';
 
+/** قالب نسخه ۲ از طراح فیش (ردیف/ستون) */
+export interface ReceiptLayoutV2 {
+  version: 2;
+  rows: ReceiptLayoutRow[];
+}
+
+interface ReceiptLayoutRow {
+  id: string;
+  type: 'single' | 'columns';
+  order: number;
+  blocks: ReceiptLayoutModule[] | ReceiptLayoutModule[][];
+  columnCount?: number;
+  /** نسبت عرض ستون‌ها (مثلاً [2, 1]) */
+  columnWidths?: number[];
+}
+
+interface ReceiptLayoutModule {
+  id: string;
+  type: string;
+  label: string;
+  visible: boolean;
+  order: number;
+  options?: Record<string, unknown>;
+}
+
 export interface PrinterJob {
   name: string;
   displayName?: string;
@@ -15,6 +40,8 @@ export interface PrinterJob {
   margin?: number; // mm
   receiptType?: ReceiptType;
   copies?: number;
+  /** اگر قالب طراح (نسخه ۲) باشد، چاپ بر اساس layout انجام می‌شود */
+  layout?: ReceiptLayoutV2;
 }
 
 interface ReceiptTemplateOptions {
@@ -89,9 +116,12 @@ export async function printReceipt(
         const marginBottom = 3;
 
         const receiptType = job.receiptType || 'full';
-        const receiptHTML = receiptType === 'kitchen'
-          ? generateKitchenReceiptHTML(orderData, { paperWidth, margin, receiptNumber, contentWidthMm, shiftLeftMm })
-          : generateReceiptHTML(orderData, { paperWidth, margin, receiptNumber, contentWidthMm, shiftLeftMm });
+        const opts = { paperWidth, margin, receiptNumber, contentWidthMm, shiftLeftMm, receiptType };
+        const receiptHTML = job.layout?.version === 2
+          ? generateReceiptHTMLFromLayout(orderData, job.layout, opts)
+          : receiptType === 'kitchen'
+            ? generateKitchenReceiptHTML(orderData, opts)
+            : generateReceiptHTML(orderData, opts);
 
         await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHTML)}`);
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -555,6 +585,187 @@ function getPaymentMethodText(method: string): string {
     mixed: 'ترکیبی',
   };
   return methods[method] || method;
+}
+
+function getValueForLayoutModule(type: string, orderData: any, module?: ReceiptLayoutModule): { value: string | number; isEmpty: boolean } {
+  switch (type) {
+    case 'call_number':
+      return { value: orderData?.receiptCallNumber ?? 0, isEmpty: orderData?.receiptCallNumber == null };
+    case 'restaurant_name':
+      return { value: orderData?.restaurantName ?? '', isEmpty: !orderData?.restaurantName };
+    case 'order_number':
+      return { value: orderData?.orderNumber ?? orderData?.id ?? '—', isEmpty: !orderData?.orderNumber && orderData?.id == null };
+    case 'date_time':
+      return { value: new Date().toLocaleString('fa-IR'), isEmpty: false };
+    case 'customer_name':
+      return { value: orderData?.customerName ?? '', isEmpty: !orderData?.customerName };
+    case 'customer_phone':
+      return { value: orderData?.customerPhone ?? '', isEmpty: !orderData?.customerPhone };
+    case 'address':
+      return { value: orderData?.customerAddress ?? '', isEmpty: !orderData?.customerAddress };
+    case 'order_info': {
+      const st = orderData?.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر';
+      const parts = [`نوع: ${st}`];
+      if (orderData?.tableNumber) parts.push(`میز: ${orderData.tableNumber}`);
+      if (orderData?.paymentMethod) parts.push(`پرداخت: ${getPaymentMethodText(orderData.paymentMethod)}`);
+      return { value: parts.join(' | '), isEmpty: false };
+    }
+    case 'items':
+      return { value: '', isEmpty: !orderData?.items?.length };
+    case 'totals':
+      return { value: '', isEmpty: false };
+    case 'footer':
+      return { value: 'با تشکر از انتخاب شما', isEmpty: false };
+    case 'custom_text':
+      return { value: (module?.options?.customText as string) ?? '', isEmpty: !(module?.options?.customText) };
+    case 'divider':
+      return { value: '—', isEmpty: false };
+    case 'image':
+      return { value: orderData?.logoUrl ?? '', isEmpty: !orderData?.logoUrl };
+    default:
+      return { value: '', isEmpty: false };
+  }
+}
+
+function renderLayoutModuleHtml(module: ReceiptLayoutModule, orderData: any): string {
+  const opt = module.options || {};
+  const hideWhenEmpty = opt.hideWhenEmpty === true;
+  const { value, isEmpty } = getValueForLayoutModule(module.type, orderData, module);
+  if (!module.visible || (hideWhenEmpty && isEmpty)) return '';
+
+  const fontSize = (opt.fontSize as number) ?? 11;
+  const align = (opt.align as string) ?? 'right';
+  const bold = opt.bold ? 'font-weight:bold;' : '';
+  const padding = (opt.paddingMm as number) ?? 2;
+  const borderWidth = opt.borderWidth as number | undefined;
+  const borderStyle = (opt.borderStyle as string) ?? 'solid';
+  const borderRadius = (opt.borderRadiusMm as number) ?? 0;
+  let style = `font-size:${fontSize}pt;text-align:${align};padding:${padding}mm;border-radius:${borderRadius}mm;${bold}`;
+  if (borderWidth) style += `border:${borderWidth}px ${borderStyle} #333;`;
+
+  if (module.type === 'call_number') {
+    const box = opt.showCallNumberBox !== false;
+    const size = (opt.callNumberBoxSize as number) ?? 22;
+    const v = orderData?.receiptCallNumber ?? value;
+    if (box) {
+      const boxBw = (opt.borderWidth as number) ?? 2;
+      const boxBs = (opt.borderStyle as string) || 'solid';
+      const boxBr = (opt.borderRadiusMm as number) ?? 0;
+      const boxStyle = `display:inline-flex;align-items:center;justify-content:center;width:${size}mm;min-height:${size}mm;border:${boxBw}px ${boxBs} #333;border-radius:${boxBr}mm;font-weight:bold;`;
+      return `<div style="${style.replace(/border:[^;]+;?/g, '')}display:flex;justify-content:center;"><span style="${boxStyle}">${v}</span></div>`;
+    }
+    return `<div style="${style}">${v}</div>`;
+  }
+
+  if (module.type === 'divider') {
+    const lineStyle = (opt.lineStyle as string) ?? 'dashed';
+    const thickness = (opt.lineThickness as number) ?? 1;
+    return `<div style="${style}"><hr style="border:none;border-top:${thickness}px ${lineStyle} #333"/></div>`;
+  }
+
+  if (module.type === 'items' && orderData?.items?.length) {
+    const showPrice = opt.showPrice !== false;
+    const tableStyle = (opt.itemsTableStyle as string) ?? 'simple';
+    const rows = orderData.items.map((item: any) => {
+      const name = item.product?.name_fa || item.productName || 'محصول';
+      const note = item.itemNote ? ` (${item.itemNote})` : '';
+      const price = showPrice ? `<td style="padding:2px 4px">${formatPrice(item.price)}</td>` : '';
+      const border = tableStyle === 'bordered' ? 'border-bottom:1px solid #ccc' : '';
+      return `<tr style="${border}"><td style="padding:2px 4px">${name}${note}</td><td style="padding:2px 4px;white-space:nowrap">${item.quantity} ×</td>${price}</tr>`;
+    }).join('');
+    return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse"><tbody>${rows}</tbody></table></div>`;
+  }
+
+  if (module.type === 'totals') {
+    const showPrice = opt.showPrice !== false;
+    if (!showPrice) return `<div style="${style}"></div>`;
+    const total = orderData?.totalAmount ?? 0;
+    const discount = orderData?.discountAmount ?? 0;
+    const final = orderData?.finalAmount ?? total - discount;
+    let html = `<div style="${style}"><div style="display:flex;justify-content:space-between;padding:2px 0">جمع: ${formatPrice(total)}</div>`;
+    if (discount > 0) html += `<div style="display:flex;justify-content:space-between;padding:2px 0">تخفیف: -${formatPrice(discount)}</div>`;
+    html += `<div style="display:flex;justify-content:space-between;padding:4px 0;font-weight:bold;border-top:2px solid #000;margin-top:4px">مبلغ نهایی: ${formatPrice(final)}</div></div>`;
+    return html;
+  }
+
+  if (module.type === 'image' && (opt.imageUrl || orderData?.logoUrl)) {
+    const url = (opt.imageUrl as string) || orderData?.logoUrl;
+    const w = (opt.widthMm as number) ?? 40;
+    const h = (opt.heightMm as number) ?? 25;
+    return `<div style="${style};display:flex;justify-content:center"><img src="${url}" alt="" style="max-width:${w}mm;max-height:${h}mm;object-fit:contain"/></div>`;
+  }
+
+  if (module.type === 'custom_text') {
+    return `<div style="${style}">${(opt.customText as string) || 'متن دلخواه'}</div>`;
+  }
+
+  if (typeof value === 'string' && value) return `<div style="${style}">${value}</div>`;
+  if (typeof value === 'number') return `<div style="${style}">${value}</div>`;
+  return '';
+}
+
+export function generateReceiptHTMLFromLayout(
+  orderData: any,
+  layout: ReceiptLayoutV2,
+  options: ReceiptTemplateOptions = {}
+): string {
+  const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
+  const margin = typeof options.margin === 'number' ? Math.max(0, options.margin) : 5;
+  const printableWidth = typeof options.contentWidthMm === 'number' ? options.contentWidthMm : Math.max(30, paperWidth - margin * 2);
+  const shiftLeftMm = typeof options.shiftLeftMm === 'number' ? options.shiftLeftMm : 0;
+  const contentPadding = 2;
+
+  const receiptNumber = typeof options.receiptNumber === 'number' ? options.receiptNumber : 0;
+  if (orderData && orderData.receiptCallNumber == null && receiptNumber > 0) {
+    orderData = { ...orderData, receiptCallNumber: receiptNumber };
+  }
+
+  const rows = (layout.rows || []).slice().sort((a, b) => a.order - b.order);
+  const parts: string[] = [];
+  for (const row of rows) {
+    if (row.type === 'single') {
+      const blocks = Array.isArray(row.blocks) && !Array.isArray(row.blocks[0]) ? (row.blocks as ReceiptLayoutModule[]) : [];
+      for (const m of blocks) {
+        const html = renderLayoutModuleHtml(m, orderData);
+        if (html) parts.push(html);
+      }
+    } else if (row.type === 'columns' && Array.isArray(row.blocks)) {
+      const cols = row.blocks as ReceiptLayoutModule[][];
+      const gridCols = row.columnWidths?.length
+        ? row.columnWidths.map((w) => w + 'fr').join(' ')
+        : 'repeat(' + (row.columnCount || cols.length) + ',1fr)';
+      parts.push('<div style="display:grid;grid-template-columns:' + gridCols + ';gap:6px;margin-bottom:4px">');
+      for (const col of cols) {
+        parts.push('<div>');
+        for (const m of col) {
+          const html = renderLayoutModuleHtml(m, orderData);
+          if (html) parts.push(html);
+        }
+        parts.push('</div>');
+      }
+      parts.push('</div>');
+    }
+  }
+
+  const bodyContent = parts.join('');
+  return `<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>رسید سفارش</title>
+  <style>
+    :root { --paper-width: ${paperWidth}mm; --printable-width: ${printableWidth}mm; --content-padding: ${contentPadding}mm; --shift-left: ${shiftLeftMm}mm; }
+    @page { size: var(--paper-width) auto; margin: 0; }
+    html, body { width: var(--paper-width); max-width: var(--paper-width); margin: 0; padding: 0; margin-right: var(--shift-left); font-family: Tahoma, Arial, sans-serif; box-sizing: border-box; direction: rtl; text-align: right; word-break: break-word; background: #fff; }
+    .receipt-root { width: var(--printable-width); max-width: var(--printable-width); padding: var(--content-padding); box-sizing: border-box; background: #fff; margin: 0; }
+    * { box-sizing: border-box; max-width: 100%; }
+  </style>
+</head>
+<body>
+  <div class="receipt-root">${bodyContent}</div>
+</body>
+</html>`;
 }
 
 export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTemplateOptions = {}): string {
