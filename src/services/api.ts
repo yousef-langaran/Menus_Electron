@@ -296,3 +296,33 @@ export async function createCustomerAddress(
   });
   return response.data;
 }
+
+// ——— قالب‌های چاپ (از پنل ادمین رستوران) ———
+
+export interface PrintTemplateItem {
+  id: number;
+  restaurantId: number;
+  name: string;
+  receiptType: 'full' | 'kitchen';
+  paperWidth: number;
+  paperLength: number;
+  margin: number;
+  contentWidthMm: number | null;
+  shiftLeftMm: number | null;
+  layout: any[] | null;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getPrintTemplates(
+  restaurantId: number,
+  token: string,
+): Promise<PrintTemplateItem[]> {
+  await apiConfigReady;
+  const response = await api.get('/print-templates', {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+}

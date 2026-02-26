@@ -463,13 +463,17 @@ export default function OrdersPage() {
       setSyncMessage('ابتدا در صفحه تنظیمات، حداقل یک پرینتر را فعال کنید.');
       return;
     }
+    const defaultTemplate = window.electronAPI?.getDefaultPrintTemplate
+      ? await window.electronAPI.getDefaultPrintTemplate()
+      : null;
     const printerJobs = enabledPrinters.map((printer) => ({
       name: printer.name,
       displayName: printer.displayName,
-      paperWidth: printer.paperWidth,
-      paperLength: printer.paperLength,
-      margin: printer.margin,
-      copies: printer.copies,
+      paperWidth: defaultTemplate?.paperWidth ?? printer.paperWidth,
+      paperLength: defaultTemplate?.paperLength ?? printer.paperLength,
+      margin: defaultTemplate?.margin ?? printer.margin,
+      receiptType: 'full' as const,
+      copies: 1,
     }));
     try {
       const orderKeys = isOffline

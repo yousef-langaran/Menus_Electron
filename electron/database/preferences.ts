@@ -21,6 +21,19 @@ const DEFAULT_RECEIPT_SETTINGS: ReceiptNumberSettings = {
   dailyResetTime: '00:00',
 };
 
+/** قالب چاپ پیش‌فرض انتخاب‌شده از سرور (کپی برای استفاده آفلاین) */
+export interface DefaultPrintTemplateSnapshot {
+  id: number;
+  name: string;
+  receiptType: 'full' | 'kitchen';
+  paperWidth: number;
+  paperLength: number;
+  margin: number;
+  contentWidthMm?: number | null;
+  shiftLeftMm?: number | null;
+  layout?: any[] | null;
+}
+
 interface PreferencesFile {
   userSession?: {
     user: any;
@@ -29,6 +42,7 @@ interface PreferencesFile {
   };
   printerConfigs?: Record<string, any>;
   receiptNumberSettings?: ReceiptNumberSettings;
+  defaultPrintTemplate?: DefaultPrintTemplateSnapshot;
 }
 
 const FILE_NAME = 'menus-preferences.json';
@@ -171,6 +185,21 @@ export async function loadReceiptNumberSettings(): Promise<ReceiptNumberSettings
     nextNumber: counter ? counter.nextNumber : (s?.nextNumber ?? DEFAULT_RECEIPT_SETTINGS.nextNumber),
     lastResetDate: counter ? counter.lastResetDate : (typeof s?.lastResetDate === 'string' ? s.lastResetDate : ''),
   };
+}
+
+export async function loadDefaultPrintTemplate(): Promise<DefaultPrintTemplateSnapshot | null> {
+  const prefs = await readPreferences();
+  return prefs.defaultPrintTemplate ?? null;
+}
+
+export async function saveDefaultPrintTemplate(template: DefaultPrintTemplateSnapshot | null): Promise<void> {
+  const prefs = await readPreferences();
+  if (template) {
+    prefs.defaultPrintTemplate = template;
+  } else {
+    delete prefs.defaultPrintTemplate;
+  }
+  await writePreferences(prefs);
 }
 
 export async function saveReceiptNumberSettings(settings: ReceiptNumberSettings) {

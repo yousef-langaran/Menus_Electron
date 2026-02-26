@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadPrinterConfigs: () => ipcRenderer.invoke('load-printer-configs'),
   savePrinterConfigs: (configs: Record<string, any>) =>
     ipcRenderer.invoke('save-printer-configs', configs),
+  getDefaultPrintTemplate: () => ipcRenderer.invoke('get-default-print-template'),
+  setDefaultPrintTemplate: (template: any) => ipcRenderer.invoke('set-default-print-template', template),
   getReceiptNumberSettings: () => ipcRenderer.invoke('get-receipt-number-settings'),
   saveReceiptNumberSettings: (settings: any) =>
     ipcRenderer.invoke('save-receipt-number-settings', settings),

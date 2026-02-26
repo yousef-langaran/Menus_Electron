@@ -51,6 +51,10 @@ declare global {
       clearUserSession: () => Promise<{ success: boolean; error?: string }>;
       loadPrinterConfigs: () => Promise<Record<string, any>>;
       savePrinterConfigs: (configs: Record<string, any>) => Promise<{ success: boolean; error?: string }>;
+      getDefaultPrintTemplate: () => Promise<{ id: number; name: string; receiptType: string; paperWidth: number; paperLength: number; margin: number } | null>;
+      setDefaultPrintTemplate: (template: any) => Promise<{ success: boolean; error?: string }>;
+      getReceiptNumberSettings: () => Promise<{ nextNumber: number; resetPolicy: string; startNumber: number; lastResetDate: string; dailyResetTime: string }>;
+      saveReceiptNumberSettings: (settings: any) => Promise<{ success: boolean; error?: string }>;
       cacheImage: (imageUrl: string) => Promise<{ success: boolean; url?: string; error?: string }>;
       getCachedImage: (imageUrl: string) => Promise<{ success: boolean; url: string }>;
       cacheImages: (imageUrls: string[]) => Promise<{ success: boolean; urls?: Record<string, string>; error?: string }>;

@@ -439,15 +439,18 @@ export default function OrderPage() {
               ? enabledPrinters.filter((p) => names.includes(p.name))
               : opt === 'all' ? enabledPrinters : [];
             if (shouldPrint && printersToUse.length > 0) {
+              const defaultTemplate = window.electronAPI?.getDefaultPrintTemplate
+                ? await window.electronAPI.getDefaultPrintTemplate()
+                : null;
               const printerJobs = printersToUse.flatMap((printer) =>
                 getPrinterReceipts(printer.name)
                   .filter((r) => r.enabled)
                   .map((receipt) => ({
                     name: printer.name,
                     displayName: printer.displayName,
-                    paperWidth: printer.paperWidth,
-                    paperLength: printer.paperLength,
-                    margin: printer.margin,
+                    paperWidth: defaultTemplate?.paperWidth ?? printer.paperWidth,
+                    paperLength: defaultTemplate?.paperLength ?? printer.paperLength,
+                    margin: defaultTemplate?.margin ?? printer.margin,
                     receiptType: receipt.type,
                     copies: receipt.copies,
                   }))

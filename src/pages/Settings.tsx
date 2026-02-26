@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
-import { getReceiptNumberSettingsFromServer } from '../services/api';
+import { getReceiptNumberSettingsFromServer, getPrintTemplates, type PrintTemplateItem } from '../services/api';
 import './Settings.css';
 
 export default function SettingsPage() {
@@ -13,6 +13,10 @@ export default function SettingsPage() {
   const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
   const [printerError, setPrinterError] = useState('');
   const [availablePrinters, setAvailablePrinters] = useState<Array<{ name: string; displayName?: string; description?: string }>>([]);
+  const [printTemplates, setPrintTemplates] = useState<PrintTemplateItem[]>([]);
+  const [defaultPrintTemplateId, setDefaultPrintTemplateId] = useState<number | ''>('');
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const {
     configs,
     setPrinterEnabled,
@@ -33,6 +37,61 @@ export default function SettingsPage() {
     loadFromStorage();
     loadPrinters();
   }, []);
+
+  useEffect(() => {
+    const loadTemplatesAndDefault = async () => {
+      const restaurantId = user?.restaurants?.[0]?.id;
+      if (!token || !restaurantId) return;
+      if (window.electronAPI?.getDefaultPrintTemplate) {
+        try {
+          const saved = await window.electronAPI.getDefaultPrintTemplate();
+          if (saved?.id) setDefaultPrintTemplateId(saved.id);
+        } catch (_) {}
+      }
+      setLoadingTemplates(true);
+      try {
+        const list = await getPrintTemplates(restaurantId, token);
+        setPrintTemplates(list);
+      } catch (_) {
+        setPrintTemplates([]);
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
+    loadTemplatesAndDefault();
+  }, [token, user?.restaurants?.[0]?.id]);
+
+  const handleDefaultPrintTemplateChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    const id = val === '' ? '' : parseInt(val, 10);
+    if (!window.electronAPI?.setDefaultPrintTemplate) return;
+    setSavingTemplate(true);
+    try {
+      if (id === '') {
+        await window.electronAPI.setDefaultPrintTemplate(null);
+        setDefaultPrintTemplateId('');
+      } else {
+        const t = printTemplates.find((x) => x.id === id);
+        if (t) {
+          const snapshot = {
+            id: t.id,
+            name: t.name,
+            receiptType: t.receiptType,
+            paperWidth: t.paperWidth,
+            paperLength: t.paperLength,
+            margin: t.margin,
+            contentWidthMm: t.contentWidthMm,
+            shiftLeftMm: t.shiftLeftMm,
+            layout: t.layout,
+          };
+          await window.electronAPI.setDefaultPrintTemplate(snapshot);
+          setDefaultPrintTemplateId(t.id);
+        }
+      }
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
 
   // همگام‌سازی: از سرور فقط سیاست ریست و ساعت روزانه؛ شماره‌ها و تاریخ ریست محلی بازنویسی نمی‌شوند تا ذخیرهٔ کاربر با رفرش از بین نرود
   useEffect(() => {
@@ -167,6 +226,32 @@ export default function SettingsPage() {
             </button>
           </div>
         )}
+
+        <div className="settings-section">
+          <h2>قالب چاپ پیش‌فرض</h2>
+          <p className="text-muted text-sm">قالب‌های چاپ از پنل ادمین رستوران (مدیریت قالب‌های چاپ) بارگذاری می‌شوند. با انتخاب یک قالب، اندازه کاغذ و حاشیه از همان قالب برای چاپ استفاده می‌شود.</p>
+          {loadingTemplates ? (
+            <p>در حال بارگذاری قالب‌ها...</p>
+          ) : (
+            <div className="printer-config-grid" style={{ maxWidth: 320 }}>
+              <label>
+                قالب پیش‌فرض
+                <select
+                  value={defaultPrintTemplateId === '' ? '' : String(defaultPrintTemplateId)}
+                  onChange={handleDefaultPrintTemplateChange}
+                  disabled={savingTemplate}
+                >
+                  <option value="">بدون قالب (استفاده از تنظیمات دستی هر پرینتر)</option>
+                  {printTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.paperWidth}×{t.paperLength} mm)
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
+        </div>
 
         <div className="settings-section">
           <div className="section-header">
