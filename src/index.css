@@ -1,79 +1,105 @@
+@import 'tailwindcss';
+
+@config '../tailwind.config.mjs';
+
 /* فونت ایران‌یکان مثل پنل فرانت (Menus_FE) */
-@font-face {
-  font-family: iranyekan;
-  font-style: normal;
-  font-weight: 100;
-  src: url('./assets/fonts/iranyekanwebthinfanum.woff') format('woff');
-}
-@font-face {
-  font-family: iranyekan;
-  font-style: normal;
-  font-weight: 300;
-  src: url('./assets/fonts/iranyekanweblightfanum.woff') format('woff');
-}
-@font-face {
-  font-family: iranyekan;
-  font-style: normal;
-  font-weight: normal;
-  src: url('./assets/fonts/iranyekanwebregularfanum.woff') format('woff');
-}
-@font-face {
-  font-family: iranyekan;
-  font-style: normal;
-  font-weight: 500;
-  src: url('./assets/fonts/iranyekanwebmediumfanum.woff') format('woff');
-}
-@font-face {
-  font-family: iranyekan;
-  font-style: normal;
-  font-weight: bold;
-  src: url('./assets/fonts/iranyekanwebboldfanum.woff') format('woff');
-}
-@font-face {
-  font-family: iranyekan;
-  font-style: normal;
-  font-weight: 800;
-  src: url('./assets/fonts/iranyekanwebextraboldfanum.woff') format('woff');
-}
-@font-face {
-  font-family: iranyekan;
-  font-style: normal;
-  font-weight: 850;
-  src: url('./assets/fonts/iranyekanwebblackfanum.woff') format('woff');
-}
-@font-face {
-  font-family: iranyekan;
-  font-style: normal;
-  font-weight: 900;
-  src: url('./assets/fonts/iranyekanwebextrablackfanum.woff') format('woff');
+@layer base {
+  @font-face {
+    font-family: iranyekan;
+    font-style: normal;
+    font-weight: 100;
+    src: url('./assets/fonts/iranyekanwebthinfanum.woff') format('woff');
+  }
+  @font-face {
+    font-family: iranyekan;
+    font-style: normal;
+    font-weight: 300;
+    src: url('./assets/fonts/iranyekanweblightfanum.woff') format('woff');
+  }
+  @font-face {
+    font-family: iranyekan;
+    font-style: normal;
+    font-weight: normal;
+    src: url('./assets/fonts/iranyekanwebregularfanum.woff') format('woff');
+  }
+  @font-face {
+    font-family: iranyekan;
+    font-style: normal;
+    font-weight: 500;
+    src: url('./assets/fonts/iranyekanwebmediumfanum.woff') format('woff');
+  }
+  @font-face {
+    font-family: iranyekan;
+    font-style: normal;
+    font-weight: bold;
+    src: url('./assets/fonts/iranyekanwebboldfanum.woff') format('woff');
+  }
+  @font-face {
+    font-family: iranyekan;
+    font-style: normal;
+    font-weight: 800;
+    src: url('./assets/fonts/iranyekanwebextraboldfanum.woff') format('woff');
+  }
+  @font-face {
+    font-family: iranyekan;
+    font-style: normal;
+    font-weight: 850;
+    src: url('./assets/fonts/iranyekanwebblackfanum.woff') format('woff');
+  }
+  @font-face {
+    font-family: iranyekan;
+    font-style: normal;
+    font-weight: 900;
+    src: url('./assets/fonts/iranyekanwebextrablackfanum.woff') format('woff');
+  }
+
+  html {
+    direction: rtl;
+    text-align: right;
+  }
+
+  body {
+    @apply font-sans antialiased;
+    line-height: 1.5;
+    direction: rtl;
+    text-align: right;
+    background-color: #f5f5f5;
+  }
+
+  #root {
+    width: 100%;
+    height: 100vh;
+    direction: rtl;
+    text-align: right;
+  }
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: "iranyekan", system-ui, sans-serif;
-  line-height: 1.5;
+/* HeroUI و کل اپ: جهت RTL (مودال و پورتال هم) */
+#root,
+#root *,
+[role="dialog"],
+[role="dialog"] * {
   direction: rtl;
+}
+#root,
+[role="dialog"] {
   text-align: right;
-  background-color: #f5f5f5;
 }
 
-/* دکمه‌ها و inputها همان فونت body */
-button,
-input,
-select,
-textarea,
-optgroup {
-  font-family: "iranyekan", system-ui, sans-serif;
+/* HeroUI و Tailwind خیلی جاها .text-left می‌گذارند؛ در RTL همه را راست‌چین کن */
+#root .text-left,
+#root [class*="text-left"],
+[role="dialog"] .text-left,
+[role="dialog"] [class*="text-left"],
+.text-left {
+  text-align: right !important;
 }
 
-#root {
-  width: 100%;
-  height: 100vh;
+/* استثنا: فقط المان‌هایی که صریحاً dir="ltr" دارند (مثلاً گرید محصولات) */
+[dir="ltr"],
+[dir="ltr"] * {
+  direction: ltr;
+  text-align: left;
 }
 
 .app-loading-screen {

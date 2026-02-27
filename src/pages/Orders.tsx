@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { fetchOrders, updateOrderStatus } from '../services/api';
+
+const ORDERS_PAGE_SIZE = 50;
 import { getAllOrders } from '../services/offlineStorage';
 import { connectOrdersSocket, disconnectOrdersSocket } from '../services/ordersSocket';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
@@ -9,7 +11,7 @@ import {
   getReceiptNumbersMapFromStorage,
   saveReceiptNumbersToStorage,
 } from '../utils/receiptNumbersStorage';
-import './Orders.css';
+import { Card, CardBody, Button, Select, SelectItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Chip, Checkbox } from '@heroui/react';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'همه وضعیت‌ها' },
@@ -58,6 +60,19 @@ export default function OrdersPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
   const [receiptNumbersMap, setReceiptNumbersMap] = useState<Record<string, number>>({});
+  /** پرینتری که تنظیماتش برای پیش‌نمایش استفاده می‌شود */
+  const [previewPrinterName, setPreviewPrinterName] = useState<string>('');
+  /** دادهٔ سفارش برای بازسازی پیش‌نمایش هنگام تعویض پرینتر */
+  const [previewOrderPayload, setPreviewOrderPayload] = useState<any>(null);
+  /** مودال چاپ مجدد: سفارش و پرینترهای انتخاب‌شده */
+  const [reprintModalOpen, setReprintModalOpen] = useState(false);
+  const [reprintOrder, setReprintOrder] = useState<any>(null);
+  const [reprintIsOffline, setReprintIsOffline] = useState(false);
+  const [reprintSelectedPrinters, setReprintSelectedPrinters] = useState<string[]>([]);
+  const [reprintLoading, setReprintLoading] = useState(false);
+  /** آیا صفحهٔ بعدی سفارشات آنلاین وجود دارد */
+  const [hasMoreOrders, setHasMoreOrders] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const restaurantName = useMemo(() => {
     const name = user?.restaurants?.[0]?.name;
@@ -75,6 +90,13 @@ export default function OrdersPage() {
   const primaryPrinter = enabledPrinters[0];
   const isElectronEnv = typeof window !== 'undefined' && Boolean(window.electronAPI);
   const canPrint = isElectronEnv && enabledPrinters.length > 0;
+
+  // وقتی پرینترها لود شدند، پرینتر پیش‌نمایش را روی اولین پرینتر بگذار
+  useEffect(() => {
+    if (enabledPrinters.length > 0 && !previewPrinterName) {
+      setPreviewPrinterName(enabledPrinters[0].name);
+    }
+  }, [enabledPrinters, previewPrinterName]);
 
   const detectOnlineStatus = async () => {
     try {
@@ -126,30 +148,27 @@ export default function OrdersPage() {
       await loadOfflineOrders();
       const current = await detectOnlineStatus();
       setIsOnline(current);
-      if (current) {
-        await loadOnlineOrders();
-      }
+      // بارگذاری سفارشات آنلاین فقط از طریق useEffect زیر انجام می‌شود تا دوباره فراخوانی نشود
     };
 
     initialize();
 
     if (window.electronAPI?.onOnlineStatusChange) {
-      const cleanup = window.electronAPI.onOnlineStatusChange(async (status) => {
+      const cleanup = window.electronAPI.onOnlineStatusChange((status) => {
         setIsOnline(status);
-        if (status) {
-          await loadOnlineOrders();
-        } else {
+        if (!status) {
           setOnlineOrders([]);
           setOnlineError('');
           setSyncMessage('شما آفلاین هستید. سفارشات جدید در حافظه نگهداری می‌شوند.');
-          await loadOfflineOrders();
+          loadOfflineOrders();
         }
+        // وقتی آنلاین شد، useEffect با وابستگی isOnline خودش loadOnlineOrders را یک بار صدا می‌زند
       });
       if (typeof cleanup === 'function') {
         unsubscribe = cleanup;
       }
     } else {
-      const handleOnline = () => loadOnlineOrders();
+      const handleOnline = () => setIsOnline(true);
       const handleOffline = () => {
         setIsOnline(false);
         setOnlineOrders([]);
@@ -170,6 +189,7 @@ export default function OrdersPage() {
     };
   }, []);
 
+  // فقط یک منبع برای بارگذاری سفارشات آنلاین (با تغییر وضعیت آنلاین یا فیلتر)
   useEffect(() => {
     if (isOnline) {
       loadOnlineOrders();
@@ -226,7 +246,7 @@ export default function OrdersPage() {
     };
 
     const handleConnect = () => {
-      setSyncMessage('اتصال زنده سفارش‌ها برقرار شد.');
+      // اتصال زنده برقرار است؛ پیام جداگانه نشان داده نمی‌شود.
     };
 
     const handleConnectError = (error: Error) => {
@@ -255,25 +275,28 @@ export default function OrdersPage() {
     if (!token) {
       setOnlineError('برای مشاهده سفارشات آنلاین، ابتدا وارد شوید.');
       setOnlineOrders([]);
+      setHasMoreOrders(false);
       return;
     }
     setOnlineLoading(true);
     setOnlineError('');
+    setHasMoreOrders(false);
     try {
-      const params: Record<string, string> = {};
-      if (restaurantName) {
-        params.restaurantName = restaurantName;
-      }
-      if (statusFilter !== 'all') {
-        params.status = statusFilter;
-      }
+      const params: Record<string, string | number> = {
+        limit: ORDERS_PAGE_SIZE + 1,
+        offset: 0,
+      };
+      if (restaurantName) params.restaurantName = restaurantName;
+      if (statusFilter !== 'all') params.status = statusFilter;
       const response = await fetchOrders(params, token);
       const data = Array.isArray(response)
         ? response
         : Array.isArray(response?.data)
           ? response.data
           : [];
-      setOnlineOrders(data);
+      const hasMore = data.length > ORDERS_PAGE_SIZE;
+      setOnlineOrders(hasMore ? data.slice(0, ORDERS_PAGE_SIZE) : data);
+      setHasMoreOrders(hasMore);
     } catch (error: any) {
       console.error('Failed to fetch orders:', error);
       setOnlineError(error?.response?.data?.message || 'خطا در دریافت سفارشات آنلاین');
@@ -282,6 +305,33 @@ export default function OrdersPage() {
       if (window.electronAPI?.getReceiptNumbersMap) {
         loadReceiptNumbersMap();
       }
+    }
+  };
+
+  const loadMoreOrders = async () => {
+    if (!token || loadingMore || !hasMoreOrders) return;
+    setLoadingMore(true);
+    try {
+      const params: Record<string, string | number> = {
+        limit: ORDERS_PAGE_SIZE + 1,
+        offset: onlineOrders.length,
+      };
+      if (restaurantName) params.restaurantName = restaurantName;
+      if (statusFilter !== 'all') params.status = statusFilter;
+      const response = await fetchOrders(params, token);
+      const data = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.data)
+          ? response.data
+          : [];
+      const hasMore = data.length > ORDERS_PAGE_SIZE;
+      const next = hasMore ? data.slice(0, ORDERS_PAGE_SIZE) : data;
+      setOnlineOrders((prev) => [...prev, ...next]);
+      setHasMoreOrders(hasMore);
+    } catch (error: any) {
+      console.error('Failed to load more orders:', error);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -386,25 +436,47 @@ export default function OrdersPage() {
     return payload;
   };
 
-  const getPreviewOptions = () => {
-    const paperWidth = primaryPrinter?.paperWidth ?? 80;
-    const margin = primaryPrinter?.margin ?? 5;
+  /** تنظیمات پیش‌نمایش بر اساس پرینتر انتخاب‌شده (قالب/کاغذ آن پرینتر) */
+  const getPreviewOptionsForPrinter = async (printerName: string) => {
+    const printer = enabledPrinters.find((p) => p.name === printerName) || primaryPrinter;
+    let paperWidth = printer?.paperWidth ?? 80;
+    let margin = printer?.margin ?? 5;
+    let layout: { version: 2; rows: any[] } | undefined;
+    if (window.electronAPI?.getPrintTemplatesMap) {
+      const templatesMap = await window.electronAPI.getPrintTemplatesMap();
+      const template = templatesMap?.[printerName] ?? null;
+      if (template) {
+        paperWidth = template.paperWidth ?? paperWidth;
+        margin = template.margin ?? margin;
+        if (template.layout != null) {
+          const raw = template.layout;
+          if (Array.isArray(raw) && raw.length > 0) {
+            layout = { version: 2, rows: raw };
+          } else if (typeof raw === 'object' && raw.version === 2 && Array.isArray((raw as any).rows)) {
+            layout = raw as { version: 2; rows: any[] };
+          }
+        }
+      }
+    }
     const isNarrow = paperWidth <= 62;
-    const marginSame = 5;
     const shiftLeftMm = isNarrow ? 12 : 14;
-    const contentWidthMm = Math.max(32, paperWidth - marginSame * 2 - shiftLeftMm);
-    return { paperWidth, margin, contentWidthMm, shiftLeftMm, receiptType: 'full' as const };
+    const contentWidthMm = Math.max(32, paperWidth - margin * 2 - shiftLeftMm);
+    const options: Record<string, unknown> = {
+      paperWidth,
+      margin,
+      contentWidthMm,
+      shiftLeftMm,
+      receiptType: 'full' as const,
+    };
+    if (layout) options.layout = layout;
+    return options;
   };
 
-  const openReceiptPreview = async (orderPayload: any, title: string) => {
-    setPreviewTitle(title);
-    setPreviewHtml('');
-    setPreviewError('');
-    setPreviewImage('');
-    setPreviewVisible(true);
+  const runPreviewWithPrinter = async (orderPayload: any, printerName: string) => {
     setPreviewLoading(true);
+    setPreviewError('');
     try {
-      const options = getPreviewOptions();
+      const options = await getPreviewOptionsForPrinter(printerName);
       if (window.electronAPI?.generateReceiptPreview) {
         const result = await window.electronAPI.generateReceiptPreview(orderPayload, options);
         if (!result?.success) {
@@ -423,22 +495,22 @@ export default function OrdersPage() {
     }
   };
 
-  const openPrintPreviewWindow = async (order: any, isOffline = false) => {
-    if (!window.electronAPI?.openPrintPreviewWindow) {
-      setSyncMessage('پیش‌نمایش چاپ فقط در نسخه دسکتاپ در دسترس است.');
-      return;
-    }
-    const normalized = normalizeOrderForReceipt(order, isOffline);
-    if (!isOffline && normalized.receiptCallNumber == null) {
-      const fromMap = receiptNumbersMap[String(order.id)] ?? receiptNumbersMap[order.orderNumber];
-      if (fromMap != null) normalized.receiptCallNumber = fromMap;
-    }
-    const options = { ...getPreviewOptions(), printerName: primaryPrinter?.name };
-    try {
-      const res = await window.electronAPI.openPrintPreviewWindow(normalized, options);
-      if (!res?.success) setSyncMessage(res?.error || 'خطا در باز کردن دیالوگ چاپ');
-    } catch (e: any) {
-      setSyncMessage(e?.message || 'خطا در باز کردن دیالوگ چاپ');
+  const openReceiptPreview = async (orderPayload: any, title: string, printerName?: string) => {
+    const targetPrinter = printerName || previewPrinterName || primaryPrinter?.name || '';
+    setPreviewOrderPayload(orderPayload);
+    setPreviewTitle(title);
+    setPreviewPrinterName(targetPrinter);
+    setPreviewHtml('');
+    setPreviewImage('');
+    setPreviewError('');
+    setPreviewVisible(true);
+    await runPreviewWithPrinter(orderPayload, targetPrinter);
+  };
+
+  const handlePreviewPrinterChange = async (newPrinterName: string) => {
+    setPreviewPrinterName(newPrinterName);
+    if (previewOrderPayload) {
+      await runPreviewWithPrinter(previewOrderPayload, newPrinterName);
     }
   };
 
@@ -454,38 +526,46 @@ export default function OrdersPage() {
     openReceiptPreview(normalized, title);
   };
 
-  const handleReprint = async (order: any, isOffline = false) => {
-    if (!window.electronAPI?.printReceipt) {
-      setSyncMessage('چاپ فقط در نسخه دسکتاپ قابل استفاده است.');
-      return;
-    }
+  const openReprintModal = (order: any, isOffline = false) => {
     if (!enabledPrinters.length) {
       setSyncMessage('ابتدا در صفحه تنظیمات، حداقل یک پرینتر را فعال کنید.');
       return;
     }
-    const [templatesMap, defaultTemplate] = await Promise.all([
-      window.electronAPI?.getPrintTemplatesMap?.() ?? Promise.resolve({}),
-      window.electronAPI?.getDefaultPrintTemplate?.() ?? Promise.resolve(null),
-    ]);
-    const printerJobs = enabledPrinters.map((printer) => {
-      const template = templatesMap?.[printer.name] ?? defaultTemplate ?? null;
-      return {
-        name: printer.name,
-        displayName: printer.displayName,
-        paperWidth: template?.paperWidth ?? printer.paperWidth,
-        paperLength: template?.paperLength ?? printer.paperLength,
-        margin: template?.margin ?? printer.margin,
-        receiptType: 'full' as const,
-        copies: 1,
-        layout: template?.layout ?? undefined,
-      };
-    });
+    setReprintOrder(order);
+    setReprintIsOffline(isOffline);
+    setReprintSelectedPrinters(enabledPrinters.map((p) => p.name));
+    setReprintModalOpen(true);
+  };
+
+  const doReprint = async () => {
+    if (!window.electronAPI?.printReceipt || !reprintOrder || reprintSelectedPrinters.length === 0) {
+      return;
+    }
+    setReprintLoading(true);
     try {
-      const orderKeys = isOffline
-        ? [`offline-${order.id}`]
-        : [String(order.id), order.orderNumber].filter(Boolean);
+      const [templatesMap, defaultTemplate] = await Promise.all([
+        window.electronAPI?.getPrintTemplatesMap?.() ?? Promise.resolve({}),
+        window.electronAPI?.getDefaultPrintTemplate?.() ?? Promise.resolve(null),
+      ]);
+      const printersToUse = enabledPrinters.filter((p) => reprintSelectedPrinters.includes(p.name));
+      const printerJobs = printersToUse.map((printer) => {
+        const template = templatesMap?.[printer.name] ?? defaultTemplate ?? null;
+        return {
+          name: printer.name,
+          displayName: printer.displayName,
+          paperWidth: template?.paperWidth ?? printer.paperWidth,
+          paperLength: template?.paperLength ?? printer.paperLength,
+          margin: template?.margin ?? printer.margin,
+          receiptType: 'full' as const,
+          copies: 1,
+          layout: template?.layout ?? undefined,
+        };
+      });
+      const orderKeys = reprintIsOffline
+        ? [`offline-${reprintOrder.id}`]
+        : [String(reprintOrder.id), reprintOrder.orderNumber].filter(Boolean);
       const res = await window.electronAPI.printReceipt(
-        normalizeOrderForReceipt(order, isOffline),
+        normalizeOrderForReceipt(reprintOrder, reprintIsOffline),
         printerJobs,
         orderKeys
       );
@@ -499,11 +579,15 @@ export default function OrdersPage() {
           return next;
         });
       }
-      setSyncMessage('دستور چاپ با موفقیت ارسال شد.');
+      setSyncMessage(`چاپ مجدد با ${printersToUse.map((p) => p.displayName || p.name).join('، ')} انجام شد.`);
+      setReprintModalOpen(false);
+      setReprintOrder(null);
       loadReceiptNumbersMap();
     } catch (error: any) {
       console.error('Reprint error:', error);
       setSyncMessage(error?.message || 'خطا در ارسال به پرینتر');
+    } finally {
+      setReprintLoading(false);
     }
   };
 
@@ -513,258 +597,299 @@ export default function OrdersPage() {
     setPreviewError('');
     setPreviewImage('');
     setPreviewTitle('');
+    setPreviewOrderPayload(null);
     setPreviewLoading(false);
+  };
+
+  const statusColorMap: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'danger'> = {
+    pending: 'warning',
+    confirmed: 'primary',
+    preparing: 'primary',
+    ready: 'success',
+    delivered: 'success',
+    cancelled: 'danger',
   };
 
   const renderOnlineOrders = () => {
     if (onlineLoading) {
-      return <div className="empty-state">در حال بارگذاری...</div>;
+      return <div className="py-12 text-center text-default-500">در حال بارگذاری...</div>;
     }
     if (onlineError) {
-      return <div className="error-text">{onlineError}</div>;
+      return <div className="py-4 text-danger text-center">{onlineError}</div>;
     }
     if (!onlineOrders.length) {
-      return <div className="empty-state">سفارشی برای نمایش وجود ندارد.</div>;
+      return <div className="py-12 text-center text-default-500">سفارشی برای نمایش وجود ندارد.</div>;
     }
     return (
-      <div className="orders-list">
+      <div className="flex flex-col gap-4">
         {onlineOrders.map((order: any) => (
-          <div key={order.id} className="order-card">
-            <div className="order-card-header">
-              <h3>سفارش #{order.orderNumber || order.id}</h3>
-              <span className={`order-status status-${order.status}`}>
-                {STATUS_LABELS[order.status] || order.status}
-              </span>
-            </div>
-            <div className="order-info-grid">
-              <div><strong>شماره رسید فراخوانی:</strong> {order.receiptCallNumber ?? receiptNumbersMap[String(order.id)] ?? receiptNumbersMap[order.orderNumber] ?? '—'}</div>
-              <div>مشتری: {order.customerName || order.customerPhone || '---'}</div>
-              <div>تلفن: {order.customerPhone || '---'}</div>
-              <div>نوع: {order.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر'}</div>
-              <div>پرداخت: {order.paymentMethod || '---'}</div>
-              <div>مبلغ کل: {formatPrice(order.totalAmount)}</div>
-              <div>تخفیف: {formatPrice(order.discountAmount)}</div>
-              <div>مبلغ نهایی: {formatPrice(order.finalAmount)}</div>
-              <div>تاریخ: {formatDate(order.createdAt)}</div>
-            </div>
-            {order.notes && (
-              <p className="muted">
-                <strong>یادداشت:</strong> {order.notes}
-              </p>
-            )}
-            {order.items?.length > 0 && (
-              <ul className="order-items">
-                {order.items.map((item: any, idx: number) => (
-                  <li key={idx}>
-                    {item.product?.name_fa || item.productName || 'محصول'} - {item.quantity} ×{' '}
-                    {formatPrice(item.price)}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="order-actions">
-              <button type="button" className="ghost-button" onClick={() => handlePreviewOrder(order)}>
-                پیش‌نمایش رسید
-              </button>
-              {isElectronEnv && (
-                <button
-                  type="button"
-                  className="ghost-button"
-                  onClick={() => openPrintPreviewWindow(order)}
-                  title="باز کردن پنجره چاپ ویندوز برای پیش‌نمایش و تست"
-                >
-                  پیش‌نمایش قبل از چاپ
-                </button>
+          <Card key={order.id} shadow="sm" className="border border-default-200">
+            <CardBody className="gap-3">
+              <div className="flex justify-between items-center flex-wrap gap-2">
+                <h3 className="font-semibold text-foreground">سفارش #{order.orderNumber || order.id}</h3>
+                <Chip size="sm" color={statusColorMap[order.status] || 'default'} variant="flat">
+                  {STATUS_LABELS[order.status] || order.status}
+                </Chip>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-foreground">
+                <div><strong>شماره رسید فراخوانی:</strong> {order.receiptCallNumber ?? receiptNumbersMap[String(order.id)] ?? receiptNumbersMap[order.orderNumber] ?? '—'}</div>
+                <div>مشتری: {order.customerName || order.customerPhone || '---'}</div>
+                <div>تلفن: {order.customerPhone || '---'}</div>
+                <div>نوع: {order.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر'}</div>
+                <div>پرداخت: {order.paymentMethod || '---'}</div>
+                <div>مبلغ کل: {formatPrice(order.totalAmount)}</div>
+                <div>تخفیف: {formatPrice(order.discountAmount)}</div>
+                <div>مبلغ نهایی: {formatPrice(order.finalAmount)}</div>
+                <div>تاریخ: {formatDate(order.createdAt)}</div>
+              </div>
+              {order.notes && (
+                <p className="text-default-500 text-sm"><strong>یادداشت:</strong> {order.notes}</p>
               )}
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => handleReprint(order)}
-                disabled={!canPrint}
-              >
-                چاپ مجدد
-              </button>
-              <select
-                value={order.status}
-                onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                disabled={statusUpdateLoading === order.id}
-              >
-                {STATUS_OPTIONS.filter((opt) => opt.value !== 'all').map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <span className="muted">وضعیت سفارش را به‌روزرسانی کنید.</span>
-            </div>
-          </div>
+              {order.items?.length > 0 && (
+                <ul className="list-disc list-inside text-sm text-foreground">
+                  {order.items.map((item: any, idx: number) => (
+                    <li key={idx}>
+                      {item.product?.name_fa || item.productName || 'محصول'} - {item.quantity} × {formatPrice(item.price)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-default-200">
+                <Button size="sm" variant="flat" onPress={() => handlePreviewOrder(order)}>پیش‌نمایش رسید</Button>
+                <Button size="sm" variant="flat" color="primary" onPress={() => openReprintModal(order)} isDisabled={!canPrint}>چاپ مجدد</Button>
+                <Select
+                  size="sm"
+                  className="max-w-40"
+                  selectedKeys={[order.status]}
+                  onSelectionChange={(keys) => { const v = Array.from(keys)[0]; if (v) handleStatusChange(order.id, v as string); }}
+                  isDisabled={statusUpdateLoading === order.id}
+                  variant="bordered"
+                  label="وضعیت"
+                >
+                  {STATUS_OPTIONS.filter((opt) => opt.value !== 'all').map((option) => (
+                    <SelectItem key={option.value} textValue={option.label}>{option.label}</SelectItem>
+                  ))}
+                </Select>
+              </div>
+            </CardBody>
+          </Card>
         ))}
+        {hasMoreOrders && (
+          <div className="flex justify-center py-4">
+            <Button
+              variant="flat"
+              color="primary"
+              onPress={loadMoreOrders}
+              isLoading={loadingMore}
+              isDisabled={loadingMore}
+            >
+              {loadingMore ? 'در حال بارگذاری...' : 'بارگذاری بیشتر'}
+            </Button>
+          </div>
+        )}
       </div>
     );
   };
 
   const renderOfflineOrders = () => {
     if (offlineLoading) {
-      return <div className="empty-state">در حال بارگذاری سفارشات آفلاین...</div>;
+      return <div className="py-12 text-center text-default-500">در حال بارگذاری سفارشات آفلاین...</div>;
     }
     if (offlineError) {
-      return <div className="error-text">{offlineError}</div>;
+      return <div className="py-4 text-danger text-center">{offlineError}</div>;
     }
     if (!offlineOrders.length) {
-      return <div className="empty-state">سفارشی در حافظه آفلاین وجود ندارد.</div>;
+      return <div className="py-12 text-center text-default-500">سفارشی در حافظه آفلاین وجود ندارد.</div>;
     }
     return (
-      <div className="orders-list">
+      <div className="flex flex-col gap-4">
         {offlineOrders.map((order: any) => (
-          <div key={order.id} className="order-card offline-order-card">
-            <div className="order-card-header">
-              <h3>سفارش آفلاین #{order.id}</h3>
-              <span className="order-status status-pending">در انتظار ارسال</span>
-            </div>
-            <div className="order-info-grid">
-              <div><strong>شماره رسید فراخوانی:</strong> {receiptNumbersMap[`offline-${order.id}`] ?? '—'}</div>
-              <div>مشتری: {order.orderData?.customerPhone || '---'}</div>
-              <div>نوع: {order.orderData?.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر'}</div>
-              <div>مبلغ کل: {formatPrice(order.orderData?.totalAmount)}</div>
-              <div>مبلغ نهایی: {formatPrice(order.orderData?.finalAmount)}</div>
-              <div>تاریخ ثبت: {formatDate(order.createdAt)}</div>
-            </div>
-            {order.orderData?.notes && (
-              <p className="muted">
-                <strong>یادداشت:</strong> {order.orderData.notes}
-              </p>
-            )}
-            {order.orderData?.items?.length > 0 && (
-              <ul className="order-items">
-                {order.orderData.items.map((item: any, idx: number) => (
-                  <li key={idx}>
-                    {item.product?.name_fa || item.productName || 'محصول'} - {item.quantity} ×{' '}
-                    {formatPrice(item.price)}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="order-actions">
-              <button type="button" className="ghost-button" onClick={() => handlePreviewOrder(order, true)}>
-                پیش‌نمایش رسید
-              </button>
-              {isElectronEnv && (
-                <button
-                  type="button"
-                  className="ghost-button"
-                  onClick={() => openPrintPreviewWindow(order, true)}
-                  title="باز کردن پنجره چاپ ویندوز برای پیش‌نمایش و تست"
-                >
-                  پیش‌نمایش قبل از چاپ
-                </button>
+          <Card key={order.id} shadow="sm" className="border border-default-200 bg-warning-50/30">
+            <CardBody className="gap-3">
+              <div className="flex justify-between items-center flex-wrap gap-2">
+                <h3 className="font-semibold text-foreground">سفارش آفلاین #{order.id}</h3>
+                <Chip size="sm" color="warning" variant="flat">در انتظار ارسال</Chip>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-foreground">
+                <div><strong>شماره رسید فراخوانی:</strong> {receiptNumbersMap[`offline-${order.id}`] ?? '—'}</div>
+                <div>مشتری: {order.orderData?.customerPhone || '---'}</div>
+                <div>نوع: {order.orderData?.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر'}</div>
+                <div>مبلغ کل: {formatPrice(order.orderData?.totalAmount)}</div>
+                <div>مبلغ نهایی: {formatPrice(order.orderData?.finalAmount)}</div>
+                <div>تاریخ ثبت: {formatDate(order.createdAt)}</div>
+              </div>
+              {order.orderData?.notes && (
+                <p className="text-default-500 text-sm"><strong>یادداشت:</strong> {order.orderData.notes}</p>
               )}
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => handleReprint(order, true)}
-                disabled={!canPrint}
-              >
-                چاپ مجدد
-              </button>
-              <span className="muted">این سفارش به محض اتصال ارسال می‌شود.</span>
-            </div>
-          </div>
+              {order.orderData?.items?.length > 0 && (
+                <ul className="list-disc list-inside text-sm text-foreground">
+                  {order.orderData.items.map((item: any, idx: number) => (
+                    <li key={idx}>
+                      {item.product?.name_fa || item.productName || 'محصول'} - {item.quantity} × {formatPrice(item.price)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-default-200">
+                <Button size="sm" variant="flat" onPress={() => handlePreviewOrder(order, true)}>پیش‌نمایش رسید</Button>
+                <Button size="sm" variant="flat" color="primary" onPress={() => openReprintModal(order, true)} isDisabled={!canPrint}>چاپ مجدد</Button>
+                <span className="text-default-500 text-sm">این سفارش به محض اتصال ارسال می‌شود.</span>
+              </div>
+            </CardBody>
+          </Card>
         ))}
       </div>
     );
   };
 
   return (
-    <div className="orders-page">
-      <header className="orders-header">
-        <h1>لیست سفارشات</h1>
-        <div className="orders-header-actions">
-          <button className="secondary" onClick={() => navigate('/order')}>
-            ثبت سفارش
-          </button>
-          <button className="secondary" onClick={() => navigate('/settings')}>
-            تنظیمات
-          </button>
-          <button className="primary" onClick={logout}>
-            خروج
-          </button>
+    <div className="min-h-screen flex flex-col bg-default-100">
+      <header className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
+        <h1 className="text-xl font-bold text-foreground">لیست سفارشات</h1>
+        <div className="flex gap-2">
+          <Button variant="flat" color="default" onPress={() => navigate('/order')}>ثبت سفارش</Button>
+          <Button variant="flat" color="default" onPress={() => navigate('/settings')}>تنظیمات</Button>
+          <Button color="danger" variant="flat" onPress={logout}>خروج</Button>
         </div>
       </header>
 
-      <div className="orders-content">
-        <div className="orders-section">
-          <div className="orders-mode">
-            <div className={`connection-status ${isOnline ? 'online' : 'offline'}`}>
-              <span className="status-dot" />
-              <span>{isOnline ? 'شما آنلاین هستید' : 'شما آفلاین هستید'}</span>
+      <div className="flex-1 overflow-auto p-6 max-w-4xl mx-auto w-full">
+        <Card>
+          <CardBody className="gap-4">
+            <div className="flex flex-wrap justify-between items-center gap-4">
+              <div className={`flex items-center gap-2 font-semibold ${isOnline ? 'text-success' : 'text-danger'}`}>
+                <span className="w-2.5 h-2.5 rounded-full bg-current" />
+                {isOnline ? 'شما آنلاین هستید' : 'شما آفلاین هستید'}
+              </div>
             </div>
-            <div className="orders-mode-actions">
-              <button
-                className="sync-button"
-                onClick={handleManualSync}
-                disabled={syncInProgress || !isOnline}
-              >
-                {syncInProgress
-                  ? 'در حال همگام‌سازی...'
-                  : isOnline
-                    ? 'ارسال سفارشات آفلاین'
-                    : 'در انتظار اتصال'}
-              </button>
-            </div>
-          </div>
 
-          {syncMessage && <div className="sync-status">{syncMessage}</div>}
+            {syncMessage && (
+              <div className="px-4 py-2 rounded-lg bg-primary-50 text-primary-700 text-sm">{syncMessage}</div>
+            )}
 
-          {!isOnline && offlineOrders.length > 0 && (
-            <p className="muted">
-              {offlineOrders.length} سفارش در صف ارسال قرار دارد و پس از اتصال به اینترنت به صورت خودکار ارسال می‌شود.
-            </p>
-          )}
+            {!isOnline && offlineOrders.length > 0 && (
+              <p className="text-default-500 text-sm">
+                {offlineOrders.length} سفارش در صف ارسال قرار دارد و پس از اتصال به اینترنت به صورت خودکار ارسال می‌شود.
+              </p>
+            )}
 
-          {isOnline && (
-            <div className="orders-filters">
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                {STATUS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <button onClick={loadOnlineOrders}>بروزرسانی</button>
-            </div>
-          )}
+            {isOnline && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Select
+                  size="sm"
+                  className="max-w-48"
+                  selectedKeys={[statusFilter]}
+                  onSelectionChange={(keys) => { const v = Array.from(keys)[0]; if (v) setStatusFilter(v as string); }}
+                  variant="bordered"
+                  label="وضعیت"
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} textValue={option.label}>{option.label}</SelectItem>
+                  ))}
+                </Select>
+                <Button size="sm" variant="flat" onPress={loadOnlineOrders}>بروزرسانی</Button>
+              </div>
+            )}
 
-          <h2>{isOnline ? 'سفارشات آنلاین' : 'سفارشات آفلاین (در انتظار اتصال)'}</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              {isOnline ? 'سفارشات آنلاین' : 'سفارشات آفلاین (در انتظار اتصال)'}
+            </h2>
 
-          {isOnline ? renderOnlineOrders() : renderOfflineOrders()}
-        </div>
+            {isOnline ? renderOnlineOrders() : renderOfflineOrders()}
+          </CardBody>
+        </Card>
       </div>
-      {previewVisible && (
-        <div className="receipt-preview-backdrop">
-          <div className="receipt-preview-modal">
-            <div className="preview-header">
-              <h3>{previewTitle || 'پیش‌نمایش رسید'}</h3>
-              <button className="preview-close-btn" onClick={closePreview}>
-                ×
-              </button>
+
+      <Modal isOpen={previewVisible} onOpenChange={(open) => !open && closePreview()} size="3xl" scrollBehavior="inside">
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-2">
+            <div className="flex flex-row justify-between items-center w-full">
+              <h3 className="text-lg font-semibold">{previewTitle || 'پیش‌نمایش رسید'}</h3>
+              <Button size="sm" variant="light" isIconOnly onPress={closePreview}>×</Button>
             </div>
-            <div className="preview-body">
-              {previewLoading ? (
-                <div className="empty-state">در حال آماده‌سازی پیش‌نمایش...</div>
-              ) : previewError ? (
-                <div className="error-text">{previewError}</div>
-              ) : previewImage ? (
-                <img src={previewImage} alt="receipt-preview" className="receipt-preview-image" />
-              ) : (
-                <iframe title="receipt-preview" className="receipt-preview-frame" srcDoc={previewHtml || ''} />
-              )}
+            {enabledPrinters.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 w-full">
+                <span className="text-sm text-default-500">پیش‌نمایش با تنظیمات پرینتر:</span>
+                <Select
+                  size="sm"
+                  className="max-w-56"
+                  selectedKeys={previewPrinterName ? [previewPrinterName] : []}
+                  onSelectionChange={(keys) => {
+                    const v = Array.from(keys)[0] as string;
+                    if (v) handlePreviewPrinterChange(v);
+                  }}
+                  variant="bordered"
+                  placeholder="انتخاب پرینتر"
+                >
+                  {enabledPrinters.map((p) => (
+                    <SelectItem key={p.name} textValue={p.displayName || p.name}>
+                      {p.displayName || p.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </div>
+            )}
+          </ModalHeader>
+          <ModalBody>
+            {previewLoading ? (
+              <div className="py-12 text-center text-default-500">در حال آماده‌سازی پیش‌نمایش...</div>
+            ) : previewError ? (
+              <div className="py-4 text-danger text-center">{previewError}</div>
+            ) : previewImage ? (
+              <img src={previewImage} alt="receipt-preview" className="max-w-full h-auto mx-auto" />
+            ) : (
+              <iframe title="receipt-preview" className="w-full min-h-[400px] border-0 rounded-lg" srcDoc={previewHtml || ''} />
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="flat" onPress={closePreview}>بستن</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={reprintModalOpen} onOpenChange={setReprintModalOpen} size="md">
+        <ModalContent>
+          <ModalHeader>چاپ مجدد – انتخاب پرینتر</ModalHeader>
+          <ModalBody className="gap-3">
+            <p className="text-sm text-default-500">
+              با کدام پرینتر چاپ مجدد انجام شود؟
+            </p>
+            {reprintOrder && (
+              <p className="text-sm font-medium">
+                سفارش #{reprintIsOffline ? reprintOrder.id : (reprintOrder.orderNumber || reprintOrder.id)}
+              </p>
+            )}
+            <div className="flex flex-col gap-2">
+              {enabledPrinters.map((printer) => (
+                <Checkbox
+                  key={printer.name}
+                  isSelected={reprintSelectedPrinters.includes(printer.name)}
+                  onValueChange={(checked) => {
+                    if (checked) {
+                      setReprintSelectedPrinters((prev) => [...prev, printer.name]);
+                    } else {
+                      setReprintSelectedPrinters((prev) => prev.filter((n) => n !== printer.name));
+                    }
+                  }}
+                >
+                  {printer.displayName || printer.name}
+                </Checkbox>
+              ))}
             </div>
-            <div className="preview-actions">
-              <button onClick={closePreview}>بستن</button>
-            </div>
-          </div>
-        </div>
-      )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="flat" onPress={() => setReprintModalOpen(false)}>انصراف</Button>
+            <Button
+              color="primary"
+              onPress={doReprint}
+              isDisabled={reprintSelectedPrinters.length === 0}
+              isLoading={reprintLoading}
+            >
+              چاپ با پرینترهای انتخاب‌شده
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

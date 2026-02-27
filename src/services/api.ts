@@ -171,8 +171,10 @@ export async function validateDiscountCode(
   return response.data as { valid: boolean; discountAmount?: number; message?: string };
 }
 
+const DEFAULT_ORDERS_PAGE_SIZE = 50;
+
 export async function fetchOrders(
-  params: { restaurantName?: string; status?: string } = {},
+  params: { restaurantName?: string; status?: string; limit?: number; offset?: number } = {},
   token?: string,
 ) {
   await apiConfigReady;
@@ -180,7 +182,10 @@ export async function fetchOrders(
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.get('/orders', { params, headers });
+  const query = { ...params };
+  if (query.limit == null) query.limit = DEFAULT_ORDERS_PAGE_SIZE;
+  if (query.offset == null) query.offset = 0;
+  const response = await api.get('/orders', { params: query, headers });
   return response.data;
 }
 

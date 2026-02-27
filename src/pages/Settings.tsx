@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Card, CardBody, Button, Input, Select, SelectItem, Checkbox } from '@heroui/react';
 import { useAuthStore } from '../store/authStore';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
 import { getReceiptNumberSettingsFromServer, getPrintTemplates, type PrintTemplateItem } from '../services/api';
-import './Settings.css';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -14,8 +14,7 @@ export default function SettingsPage() {
   const [printerError, setPrinterError] = useState('');
   const [availablePrinters, setAvailablePrinters] = useState<Array<{ name: string; displayName?: string; description?: string }>>([]);
   const [printTemplates, setPrintTemplates] = useState<PrintTemplateItem[]>([]);
-  /** قالب انتخاب‌شده برای هر پرینتر (نام پرینتر → اسنپ‌شات قالب) — از Electron بارگذاری می‌شود */
-  const [printerTemplatesMap, setPrinterTemplatesMap] = useState<Record<string, { id: number; name: string; paperWidth: number; paperLength: number; margin: number; layout?: any } | null>>({});
+  const [printerTemplatesMap, setPrinterTemplatesMap] = useState<Record<string, { id: number; name: string; paperWidth: number; paperLength: number; margin: number; layout?: unknown } | null>>({});
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [savingTemplateForPrinter, setSavingTemplateForPrinter] = useState<string | null>(null);
   const {
@@ -51,7 +50,7 @@ export default function SettingsPage() {
         ]);
         setPrintTemplates(list);
         setPrinterTemplatesMap(map ?? {});
-      } catch (_) {
+      } catch {
         setPrintTemplates([]);
         setPrinterTemplatesMap({});
       } finally {
@@ -61,16 +60,15 @@ export default function SettingsPage() {
     loadTemplatesAndPerPrinter();
   }, [token, user?.restaurants?.[0]?.id]);
 
-  const handlePrinterTemplateChange = async (printerName: string, e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    const id = val === '' ? '' : parseInt(val, 10);
+  const handlePrinterTemplateChange = async (printerName: string, templateId: string | null) => {
     if (!window.electronAPI?.setPrintTemplateForPrinter) return;
     setSavingTemplateForPrinter(printerName);
     try {
-      if (id === '') {
+      if (!templateId || templateId === '') {
         await window.electronAPI.setPrintTemplateForPrinter(printerName, null);
         setPrinterTemplatesMap((prev) => ({ ...prev, [printerName]: null }));
       } else {
+        const id = parseInt(templateId, 10);
         const t = printTemplates.find((x) => x.id === id);
         if (t) {
           const snapshot = {
@@ -93,7 +91,6 @@ export default function SettingsPage() {
     }
   };
 
-  // همگام‌سازی: از سرور فقط سیاست ریست و ساعت روزانه؛ شماره‌ها و تاریخ ریست محلی بازنویسی نمی‌شوند تا ذخیرهٔ کاربر با رفرش از بین نرود
   useEffect(() => {
     const sync = async () => {
       const restaurantId = user?.restaurants?.[0]?.id;
@@ -114,8 +111,8 @@ export default function SettingsPage() {
             dailyResetTime,
           });
         }
-      } catch (_) {
-        /* در صورت خطا از تنظیمات محلی قبلی استفاده می‌شود */
+      } catch {
+        /* ignore */
       }
     };
     sync();
@@ -135,20 +132,16 @@ export default function SettingsPage() {
       setSyncStatus('این قابلیت فقط در Electron در دسترس است');
       return;
     }
-
     setSyncStatus('در حال همگام‌سازی...');
-      if (!token) {
-        setSyncStatus('برای ارسال سفارشات ابتدا وارد شوید.');
-        return;
-      }
-
-      try {
-        const result = await window.electronAPI.syncOrders(token);
-      setSyncStatus(
-        `همگام‌سازی انجام شد: ${result.success} موفق، ${result.failed} ناموفق`
-      );
-    } catch (error: any) {
-      setSyncStatus(`خطا در همگام‌سازی: ${error.message}`);
+    if (!token) {
+      setSyncStatus('برای ارسال سفارشات ابتدا وارد شوید.');
+      return;
+    }
+    try {
+      const result = await window.electronAPI.syncOrders(token);
+      setSyncStatus(`همگام‌سازی انجام شد: ${result.success} موفق، ${result.failed} ناموفق`);
+    } catch (err: unknown) {
+      setSyncStatus(`خطا در همگام‌سازی: ${err instanceof Error ? err.message : 'نامشخص'}`);
     }
   };
 
@@ -159,235 +152,242 @@ export default function SettingsPage() {
     try {
       const printers = await window.electronAPI.getPrinters();
       setAvailablePrinters(printers);
-    } catch (error: any) {
-      console.error('Printer load error:', error);
-      setPrinterError(error?.message || 'خطا در دریافت لیست پرینترها');
+    } catch (err: unknown) {
+      console.error('Printer load error:', err);
+      setPrinterError(err instanceof Error ? err.message : 'خطا در دریافت لیست پرینترها');
     } finally {
       setIsLoadingPrinters(false);
     }
   };
 
   return (
-    <div className="settings-page">
-      <header className="settings-header">
-        <h1>تنظیمات</h1>
-        <button onClick={() => navigate('/order')} className="back-button">
+    <div className="min-h-screen flex flex-col bg-default-100">
+      <header className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
+        <h1 className="text-xl font-bold text-foreground">تنظیمات</h1>
+        <Button color="primary" variant="flat" onPress={() => navigate('/order')}>
           بازگشت
-        </button>
+        </Button>
       </header>
 
-      <div className="settings-content">
-        <div className="settings-section">
-          <h2>اطلاعات کاربر</h2>
-          <div className="info-item">
-            <span>نام:</span>
-            <span>{user?.firstName} {user?.lastName}</span>
-          </div>
-          <div className="info-item">
-            <span>موبایل:</span>
-            <span>{user?.mobile}</span>
-          </div>
-          <div className="info-item">
-            <span>رستوران:</span>
-            <span>{user?.restaurants?.[0]?.name || 'تعیین نشده'}</span>
-          </div>
-        </div>
+      <div className="flex-1 overflow-auto p-6 max-w-3xl mx-auto w-full space-y-6">
+        <Card>
+          <CardBody className="gap-3">
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">اطلاعات کاربر</h2>
+            <div className="flex justify-between py-2 border-b border-default-200">
+              <span className="text-default-500">نام:</span>
+              <span>{user?.firstName} {user?.lastName}</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-default-200">
+              <span className="text-default-500">موبایل:</span>
+              <span>{user?.mobile}</span>
+            </div>
+            <div className="flex justify-between py-2">
+              <span className="text-default-500">رستوران:</span>
+              <span>{user?.restaurants?.[0]?.name || 'تعیین نشده'}</span>
+            </div>
+          </CardBody>
+        </Card>
 
-        <div className="settings-section">
-          <h2>وضعیت اتصال</h2>
-          <div className="status-item">
-            <span>وضعیت:</span>
-            <span className={isOnline ? 'status-online' : 'status-offline'}>
-              {isOnline ? 'آنلاین' : 'آفلاین'}
-            </span>
-          </div>
-        </div>
+        <Card>
+          <CardBody className="gap-3">
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">وضعیت اتصال</h2>
+            <div className="flex justify-between items-center py-2">
+              <span className="text-default-500">وضعیت:</span>
+              <span className={isOnline ? 'text-success font-bold' : 'text-danger font-bold'}>
+                {isOnline ? 'آنلاین' : 'آفلاین'}
+              </span>
+            </div>
+          </CardBody>
+        </Card>
 
-        <div className="settings-section">
-          <h2>همگام‌سازی</h2>
-          <button onClick={handleSync} className="sync-button">
-            همگام‌سازی سفارشات آفلاین
-          </button>
-          {syncStatus && (
-            <div className="sync-status">{syncStatus}</div>
-          )}
-        </div>
+        <Card>
+          <CardBody className="gap-3">
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">همگام‌سازی</h2>
+            <Button color="primary" onPress={handleSync} className="w-full">
+              همگام‌سازی سفارشات آفلاین
+            </Button>
+            {syncStatus && (
+              <p className="px-3 py-2 rounded-lg bg-default-100 text-foreground text-center text-sm">{syncStatus}</p>
+            )}
+          </CardBody>
+        </Card>
 
         {window.electronAPI?.checkForUpdates && (
-          <div className="settings-section">
-            <h2>بروزرسانی برنامه</h2>
-            <p className="text-muted text-sm">در صورت وجود نسخه جدید، بنر بروزرسانی در بالای صفحه نمایش داده می‌شود.</p>
-            <button
-              type="button"
-              onClick={() => window.electronAPI?.checkForUpdates?.()}
-              className="sync-button"
-            >
-              بررسی بروزرسانی
-            </button>
-          </div>
+          <Card>
+            <CardBody className="gap-3">
+              <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">بروزرسانی برنامه</h2>
+              <p className="text-default-500 text-sm">در صورت وجود نسخه جدید، بنر بروزرسانی در بالای صفحه نمایش داده می‌شود.</p>
+              <Button color="primary" variant="flat" onPress={() => window.electronAPI?.checkForUpdates?.()}>
+                بررسی بروزرسانی
+              </Button>
+            </CardBody>
+          </Card>
         )}
 
-        <div className="settings-section">
-          <div className="section-header">
-            <h2>تنظیمات پرینتر</h2>
-            <button onClick={loadPrinters} className="link-button">
-              بروزرسانی لیست
-            </button>
-          </div>
-          {isLoadingPrinters ? (
-            <p>در حال دریافت لیست پرینترها...</p>
-          ) : printerError ? (
-            <p className="text-danger">{printerError}</p>
-          ) : availablePrinters.length === 0 ? (
-            <p>هیچ پرینتری یافت نشد.</p>
-          ) : (
-            <div className="printer-settings">
-              {availablePrinters.map((printer) => {
-                const config = configs[printer.name];
-                const isEnabled = !!config?.enabled;
-                return (
-                  <div key={printer.name} className="printer-card">
-                    <div className="printer-card-header">
-                      <label className="printer-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={isEnabled}
-                          onChange={(e) => setPrinterEnabled(printer, e.target.checked)}
-                        />
-                        <span>{printer.displayName || printer.name}</span>
-                      </label>
-                      <span className="printer-description">{printer.description}</span>
-                    </div>
-                    {isEnabled && (
-                      <div className="printer-config">
-                        {loadingTemplates ? (
-                          <p className="text-muted text-sm">در حال بارگذاری قالب‌ها...</p>
-                        ) : (
-                          <div className="printer-config-grid" style={{ marginBottom: 8 }}>
-                            <label>
-                              قالب چاپ
-                              <select
-                                value={printerTemplatesMap[printer.name] ? String(printerTemplatesMap[printer.name]!.id) : ''}
-                                onChange={(e) => handlePrinterTemplateChange(printer.name, e)}
-                                disabled={savingTemplateForPrinter === printer.name}
+        <Card>
+          <CardBody className="gap-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">تنظیمات پرینتر</h2>
+              <Button size="sm" variant="light" color="primary" onPress={loadPrinters}>
+                بروزرسانی لیست
+              </Button>
+            </div>
+            {isLoadingPrinters ? (
+              <p className="text-default-500">در حال دریافت لیست پرینترها...</p>
+            ) : printerError ? (
+              <p className="text-danger">{printerError}</p>
+            ) : availablePrinters.length === 0 ? (
+              <p className="text-default-500">هیچ پرینتری یافت نشد.</p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {availablePrinters.map((printer) => {
+                  const config = configs[printer.name];
+                  const isEnabled = !!config?.enabled;
+                  const receipts = getPrinterReceipts(printer.name);
+                  const fullReceipt = receipts.find((r) => r.type === 'full');
+                  const kitchenReceipt = receipts.find((r) => r.type === 'kitchen');
+                  const templateValue = printerTemplatesMap[printer.name] ? String(printerTemplatesMap[printer.name]!.id) : 'none';
+                  return (
+                    <Card key={printer.name} shadow="sm" className="border border-default-200">
+                      <CardBody className="gap-4">
+                        <div className="flex flex-col gap-1">
+                          <Checkbox
+                            isSelected={isEnabled}
+                            onValueChange={(checked) => setPrinterEnabled(printer, checked)}
+                            classNames={{ label: 'font-semibold' }}
+                          >
+                            {printer.displayName || printer.name}
+                          </Checkbox>
+                          {printer.description && (
+                            <p className="text-sm text-default-500 mr-6">{printer.description}</p>
+                          )}
+                        </div>
+                        {isEnabled && (
+                          <div className="flex flex-col gap-4 pr-6 border-t border-default-200 pt-4">
+                            {loadingTemplates ? (
+                              <p className="text-sm text-default-500">در حال بارگذاری قالب‌ها...</p>
+                            ) : (
+                              <Select
+                                label="قالب چاپ"
+                                placeholder="بدون قالب (تنظیمات دستی زیر)"
+                                selectedKeys={[templateValue]}
+                                onSelectionChange={(keys) => {
+                                  const v = Array.from(keys)[0] as string | undefined;
+                                  handlePrinterTemplateChange(printer.name, v === 'none' || !v ? null : v);
+                                }}
+                                isDisabled={savingTemplateForPrinter === printer.name}
+                                variant="bordered"
+                                size="sm"
                               >
-                                <option value="">بدون قالب (تنظیمات دستی زیر)</option>
+                                <SelectItem key="none" textValue="بدون قالب">
+                                  بدون قالب (تنظیمات دستی زیر)
+                                </SelectItem>
                                 {printTemplates.map((t) => (
-                                  <option key={t.id} value={t.id}>
+                                  <SelectItem key={String(t.id)} textValue={`${t.name} (${t.paperWidth}×${t.paperLength} mm)`}>
                                     {t.name} ({t.paperWidth}×{t.paperLength} mm)
-                                  </option>
+                                  </SelectItem>
                                 ))}
-                              </select>
-                            </label>
+                              </Select>
+                            )}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                              <Input
+                                type="number"
+                                label="عرض کاغذ (mm)"
+                                value={String(config?.paperWidth ?? 80)}
+                                onValueChange={(v) => updatePrinterConfig(printer.name, { paperWidth: Number(v) || 80 })}
+                                min={40}
+                                max={120}
+                                variant="bordered"
+                                size="sm"
+                              />
+                              <Input
+                                type="number"
+                                label="طول کاغذ (mm)"
+                                value={String(config?.paperLength ?? 200)}
+                                onValueChange={(v) => updatePrinterConfig(printer.name, { paperLength: Number(v) || 200 })}
+                                min={80}
+                                max={800}
+                                variant="bordered"
+                                size="sm"
+                              />
+                              <Input
+                                type="number"
+                                label="حاشیه (mm)"
+                                value={String(config?.margin ?? 5)}
+                                onValueChange={(v) => updatePrinterConfig(printer.name, { margin: Number(v) || 5 })}
+                                min={0}
+                                max={20}
+                                variant="bordered"
+                                size="sm"
+                              />
+                            </div>
+                            <div className="border-t border-default-200 pt-4 space-y-3">
+                              <h3 className="text-sm font-medium text-foreground">نوع رسید</h3>
+                              <div className="flex flex-col gap-3">
+                                <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-default-50 border border-default-200">
+                                  <Checkbox
+                                    isSelected={fullReceipt?.enabled ?? true}
+                                    onValueChange={(checked) => setReceiptEnabled(printer.name, 'full', checked)}
+                                  >
+                                    رسید کامل (با قیمت)
+                                  </Checkbox>
+                                  {(fullReceipt?.enabled ?? true) && (
+                                    <Input
+                                      type="number"
+                                      size="sm"
+                                      className="w-20"
+                                      min={1}
+                                      max={5}
+                                      value={String(fullReceipt?.copies ?? 1)}
+                                      onValueChange={(v) => setReceiptCopies(printer.name, 'full', Number(v) || 1)}
+                                      aria-label="تعداد رسید کامل"
+                                    />
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-default-50 border border-default-200">
+                                  <Checkbox
+                                    isSelected={kitchenReceipt?.enabled ?? false}
+                                    onValueChange={(checked) => setReceiptEnabled(printer.name, 'kitchen', checked)}
+                                  >
+                                    رسید آشپزخانه (بدون قیمت)
+                                  </Checkbox>
+                                  {(kitchenReceipt?.enabled ?? false) && (
+                                    <Input
+                                      type="number"
+                                      size="sm"
+                                      className="w-20"
+                                      min={1}
+                                      max={5}
+                                      value={String(kitchenReceipt?.copies ?? 1)}
+                                      onValueChange={(v) => setReceiptCopies(printer.name, 'kitchen', Number(v) || 1)}
+                                      aria-label="تعداد رسید آشپزخانه"
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
-                        <div className="printer-config-grid">
-                          <label>
-                            عرض کاغذ (میلی‌متر)
-                            <input
-                              type="number"
-                              value={config?.paperWidth ?? 80}
-                              min={40}
-                              max={120}
-                              onChange={(e) =>
-                                updatePrinterConfig(printer.name, { paperWidth: Number(e.target.value) || 80 })
-                              }
-                            />
-                          </label>
-                          <label>
-                            طول کاغذ (میلی‌متر)
-                            <input
-                              type="number"
-                              value={config?.paperLength ?? 200}
-                              min={80}
-                              max={800}
-                              onChange={(e) =>
-                                updatePrinterConfig(printer.name, { paperLength: Number(e.target.value) || 200 })
-                              }
-                            />
-                          </label>
-                          <label>
-                            حاشیه (میلی‌متر)
-                            <input
-                              type="number"
-                              value={config?.margin ?? 5}
-                              min={0}
-                              max={20}
-                              onChange={(e) =>
-                                updatePrinterConfig(printer.name, { margin: Number(e.target.value) || 5 })
-                              }
-                            />
-                          </label>
-                        </div>
-                        
-                        <div className="receipt-types-section">
-                          <h3>نوع رسید</h3>
-                          <div className="receipt-types">
-                            <div className="receipt-type-item">
-                              <label className="receipt-type-checkbox">
-                                <input
-                                  type="checkbox"
-                                  checked={getPrinterReceipts(printer.name).find(r => r.type === 'full')?.enabled ?? true}
-                                  onChange={(e) => setReceiptEnabled(printer.name, 'full', e.target.checked)}
-                                />
-                                <span>رسید کامل (با قیمت)</span>
-                              </label>
-                              {getPrinterReceipts(printer.name).find(r => r.type === 'full')?.enabled && (
-                                <label className="receipt-copies">
-                                  تعداد:
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    max={5}
-                                    value={getPrinterReceipts(printer.name).find(r => r.type === 'full')?.copies ?? 1}
-                                    onChange={(e) => setReceiptCopies(printer.name, 'full', Number(e.target.value) || 1)}
-                                  />
-                                </label>
-                              )}
-                            </div>
-                            <div className="receipt-type-item">
-                              <label className="receipt-type-checkbox">
-                                <input
-                                  type="checkbox"
-                                  checked={getPrinterReceipts(printer.name).find(r => r.type === 'kitchen')?.enabled ?? false}
-                                  onChange={(e) => setReceiptEnabled(printer.name, 'kitchen', e.target.checked)}
-                                />
-                                <span>رسید آشپزخانه (بدون قیمت)</span>
-                              </label>
-                              {getPrinterReceipts(printer.name).find(r => r.type === 'kitchen')?.enabled && (
-                                <label className="receipt-copies">
-                                  تعداد:
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    max={5}
-                                    value={getPrinterReceipts(printer.name).find(r => r.type === 'kitchen')?.copies ?? 1}
-                                    onChange={(e) => setReceiptCopies(printer.name, 'kitchen', Number(e.target.value) || 1)}
-                                  />
-                                </label>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <p className="text-muted small">
-            برای هر پرینتر می‌توانید قالب چاپ و نوع/تعداد رسید را جداگانه تنظیم کنید. این تنظیمات برای چاپ خودکار رسید هنگام ثبت سفارش استفاده می‌شود.
-          </p>
-        </div>
+                      </CardBody>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-default-500 text-sm">
+              برای هر پرینتر می‌توانید قالب چاپ و نوع/تعداد رسید را جداگانه تنظیم کنید. این تنظیمات برای چاپ خودکار رسید هنگام ثبت سفارش استفاده می‌شود.
+            </p>
+          </CardBody>
+        </Card>
 
-        <div className="settings-section">
-          <button onClick={logout} className="logout-button">
-            خروج از حساب کاربری
-          </button>
-        </div>
+        <Card>
+          <CardBody>
+            <Button color="danger" variant="flat" className="w-full" onPress={logout}>
+              خروج از حساب کاربری
+            </Button>
+          </CardBody>
+        </Card>
       </div>
     </div>
   );
 }
-

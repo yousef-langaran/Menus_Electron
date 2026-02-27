@@ -1,4 +1,5 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { HeroUIProvider } from '@heroui/system';
 import LoginPage from './pages/Login';
 import OrderPage from './pages/Order';
 import SettingsPage from './pages/Settings';
@@ -9,25 +10,11 @@ import { useEffect } from 'react';
 import { OrdersSocketManager } from './components/OrdersSocketManager';
 import { UpdateBanner } from './components/UpdateBanner';
 
-function App() {
-  const { user, loadCachedUser, isHydrated } = useAuthStore();
-  const loadPrinterConfigs = usePrinterSettingsStore((state) => state.loadFromStorage);
-
-  useEffect(() => {
-    loadCachedUser();
-    loadPrinterConfigs();
-  }, [loadCachedUser, loadPrinterConfigs]);
-
-  if (!isHydrated) {
-    return (
-      <div className="app-loading-screen">
-        <p>در حال بارگذاری...</p>
-      </div>
-    );
-  }
-
+function AppRoutes() {
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
   return (
-    <HashRouter>
+    <HeroUIProvider navigate={navigate} locale="fa-IR">
       <UpdateBanner />
       <OrdersSocketManager />
       <Routes>
@@ -47,8 +34,34 @@ function App() {
           path="/settings"
           element={user ? <SettingsPage /> : <Navigate to="/login" replace />}
         />
-        <Route path="/" element={<Navigate to={user ? "/order" : "/login"} replace />} />
+        <Route path="/" element={<Navigate to={user ? '/order' : '/login'} replace />} />
       </Routes>
+    </HeroUIProvider>
+  );
+}
+
+function App() {
+  const { loadCachedUser, isHydrated } = useAuthStore();
+  const loadPrinterConfigs = usePrinterSettingsStore((state) => state.loadFromStorage);
+
+  useEffect(() => {
+    loadCachedUser();
+    loadPrinterConfigs();
+  }, [loadCachedUser, loadPrinterConfigs]);
+
+  if (!isHydrated) {
+    return (
+      <div className="app-loading-screen" dir="rtl">
+        <p>در حال بارگذاری...</p>
+      </div>
+    );
+  }
+
+  return (
+    <HashRouter>
+      <div dir="rtl" className="h-full w-full">
+        <AppRoutes />
+      </div>
     </HashRouter>
   );
 }

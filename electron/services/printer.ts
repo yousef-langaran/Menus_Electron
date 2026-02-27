@@ -53,6 +53,8 @@ interface ReceiptTemplateOptions {
   contentWidthMm?: number;
   /** فاصله خالی سمت راست کاغذ (mm) تا محتوا به چپ برود — با margin-right در CSS */
   shiftLeftMm?: number;
+  /** قالب طراح (نسخه ۲) برای پیش‌نمایش/چاپ هماهنگ با چاپ واقعی */
+  layout?: ReceiptLayoutV2;
   /** برای پیش‌نمایش: رسید کامل یا آشپزخانه */
   receiptType?: ReceiptType;
 }
@@ -458,16 +460,23 @@ export async function renderReceiptPreview(
   options: ReceiptTemplateOptions = {}
 ): Promise<{ html: string; imageDataUrl?: string }> {
   const receiptType = options.receiptType || 'full';
+  const layout = options.layout;
+  const useLayout = layout?.version === 2 && Array.isArray(layout?.rows) && layout.rows.length > 0;
   const html = receiptType === 'kitchen'
     ? generateKitchenReceiptHTML(orderData, options)
-    : generateReceiptHTML(orderData, options);
-  const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
-  const contentWidthMm = typeof options.contentWidthMm === 'number' ? options.contentWidthMm : Math.max(30, paperWidth - 10);
-  const widthPx = Math.max(280, Math.round((contentWidthMm / 25.4) * 96));
+    : useLayout
+      ? generateReceiptHTMLFromLayout(orderData, layout, options)
+      : generateReceiptHTML(orderData, options);
+  // برای پیش‌نمایش حاشیهٔ چپ و راست اضافه می‌کنیم تا محتوا از هیچ طرف بریده نشود
+  const previewHtml = html.replace(
+    '</head>',
+    '<style id="preview-padding">html, body { padding-left: 24px !important; padding-right: 24px !important; box-sizing: border-box; }</style></head>'
+  );
+
   const previewWindow = new BrowserWindow({
     show: false,
-    width: widthPx,
-    height: 900,
+    width: 800,
+    height: 3500,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -475,12 +484,31 @@ export async function renderReceiptPreview(
     },
   });
 
-  await previewWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  await previewWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(previewHtml)}`);
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   let imageDataUrl: string | undefined;
   try {
-    const image = await previewWindow.webContents.capturePage();
+    // از getBoundingClientRect بدنه دقیقاً همان ناحیه‌ای را ضبط می‌کنیم که رسید رندر شده (با حاشیه امن)
+    const rect = await previewWindow.webContents.executeJavaScript(
+      `(function() {
+        var body = document.body;
+        var r = body.getBoundingClientRect();
+        var pad = 16;
+        return {
+          x: Math.max(0, Math.round(r.left) - pad),
+          y: Math.max(0, Math.round(r.top) - pad),
+          width: Math.round(r.width) + pad * 2,
+          height: Math.round(r.height) + pad * 2
+        };
+      })()`
+    ).catch(() => ({ x: 0, y: 0, width: 400, height: 900 })) as { x: number; y: number; width: number; height: number };
+
+    const x = Math.max(0, rect.x);
+    const y = Math.max(0, rect.y);
+    const w = Math.min(800, Math.max(280, rect.width));
+    const h = Math.min(5000, Math.max(400, rect.height));
+    const image = await previewWindow.webContents.capturePage({ x, y, width: w, height: h });
     imageDataUrl = image?.toDataURL();
   } catch (error) {
     console.warn('Failed to capture preview image:', error);

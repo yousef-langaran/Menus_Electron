@@ -2,34 +2,38 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-export default defineConfig({
-  plugins: [
-    react({
+export default defineConfig(async () => {
+  const { default: tailwindcss } = await import('@tailwindcss/vite');
+  return {
+    plugins: [
+      tailwindcss(),
+      react({
       babel: {
         parserOpts: {
           plugins: ['typescript'],
         },
       },
     }),
-  ],
-  base: './',
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
+    ],
+    base: './',
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
     },
-  },
-  server: {
-    port: 3002,
-    open: false, // Don't open browser automatically
-  },
-  build: {
-    outDir: 'dist-react',
-    emptyOutDir: true,
-  },
-  root: '.', // Ensure root is current directory
-  envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
-  define: {
-    'process.env': {},
-  },
+    server: {
+      port: 3002,
+      open: false, // Don't open browser automatically
+    },
+    build: {
+      outDir: 'dist-react',
+      emptyOutDir: true,
+    },
+    root: '.', // Ensure root is current directory
+    envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
+    define: {
+      'process.env': {},
+    },
+  };
 });
 

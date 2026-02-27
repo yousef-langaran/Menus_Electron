@@ -21,8 +21,12 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@heroui/react": "^2.6.13",
+    "@heroui/system": "^2.4.18",
+    "@heroui/theme": "^2.4.24",
     "axios": "^1.7.9",
     "dexie": "^3.2.4",
+    "framer-motion": "^11.16.4",
     "dotenv": "^17.2.4",
     "electron-updater": "^6.3.9",
     "react": "^18.3.1",
@@ -32,6 +36,8 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "tailwindcss": "^4.1.18",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

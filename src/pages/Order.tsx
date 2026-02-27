@@ -9,7 +9,7 @@ import {
   saveReceiptNumbersToStorage,
   getNextReceiptNumberBrowser,
 } from '../utils/receiptNumbersStorage';
-import './Order.css';
+import { Card, CardBody, Button, Input, Select, SelectItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Checkbox, Textarea } from '@heroui/react';
 
 export default function OrderPage() {
   const { user, token, logout } = useAuthStore();
@@ -557,90 +557,104 @@ export default function OrderPage() {
   };
 
   return (
-    <div className="order-page">
-      <header className="order-header">
-        <h1>ثبت سفارش</h1>
-        <div className="header-actions">
-          <button onClick={() => navigate('/orders')} className="secondary-button">
+    <div className="min-h-screen flex flex-col bg-default-100">
+      <header className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
+        <h1 className="text-xl font-bold text-foreground">ثبت سفارش</h1>
+        <div className="flex gap-2">
+          <Button variant="flat" color="default" onPress={() => navigate('/orders')}>
             سفارشات
-          </button>
-          <button onClick={() => navigate('/settings')} className="settings-button">
+          </Button>
+          <Button color="primary" variant="flat" onPress={() => navigate('/settings')}>
             تنظیمات
-          </button>
-          <button onClick={logout} className="logout-button">
+          </Button>
+          <Button color="danger" variant="flat" onPress={logout}>
             خروج
-          </button>
+          </Button>
         </div>
       </header>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && (
+        <div className="px-6 py-3 bg-danger-50 text-danger border-b border-danger-200 text-center" role="alert">
+          {error}
+        </div>
+      )}
       {successMessage && (
-        <div className="success-banner" role="alert">
+        <div className="px-6 py-3 bg-success-50 text-success-700 border-b border-success-200 text-center" role="alert">
           {successMessage}
         </div>
       )}
 
-      <div className="order-content">
-        <div className="products-section">
-          <div className="products-main">
-            {isLoading ? (
-              <div className="loading">در حال بارگذاری...</div>
-            ) : (
-              <div className="products-grid">
-                {filteredProducts.map(product => (
-                  <div
-                    key={product.id}
-                    className="product-card"
-                    onClick={() => {
-                      setSuccessMessage('');
-                      addToCart(product);
-                    }}
-                  >
-                    {product.multiMedia?.url && (
-                      <img
-                        src={`${getAssetBaseUrl()}${product.multiMedia.url}`}
-                        alt={product.name_fa || product.name}
-                        className="product-image"
-                      />
-                    )}
-                    <div className="product-info">
-                      <h3>{product.name_fa || product.name}</h3>
-                      <p className="product-price">{formatPrice(product.price)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <aside className="categories-sidebar">
-            <div className="categories-sidebar-title">دسته‌بندی‌ها</div>
-            <button
-              type="button"
-              className={`category-chip ${selectedCategory === '' ? 'active' : ''}`}
-              onClick={() => setSelectedCategory('')}
-            >
-              همه
-            </button>
-            {categories.map(cat => (
-              <button
-                key={cat}
-                type="button"
-                className={`category-chip ${selectedCategory === cat ? 'active' : ''}`}
-                onClick={() => setSelectedCategory(cat)}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-5 p-5 overflow-hidden min-h-0">
+        <Card className="overflow-hidden flex flex-col min-h-0">
+          <CardBody className="flex-1 overflow-hidden flex flex-row gap-0 p-0">
+            <div className="flex-1 overflow-y-auto p-5 min-w-0" >
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12 text-default-500">در حال بارگذاری...</div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                  {filteredProducts.map(product => (
+                    <Card
+                      key={product.id}
+                      isPressable
+                      className="border border-default-200"
+                      onPress={() => {
+                        setSuccessMessage('');
+                        addToCart(product);
+                      }}
+                    >
+                      <CardBody className="p-0 overflow-hidden">
+                        {product.multiMedia?.url && (
+                          <img
+                            src={`${getAssetBaseUrl()}${product.multiMedia.url}`}
+                            alt={product.name_fa || product.name}
+                            className="w-full aspect-square object-cover"
+                          />
+                        )}
+                        <div className="p-3 text-right">
+                          <h3 className="font-semibold text-foreground text-sm">{product.name_fa || product.name}</h3>
+                          <p className="text-primary text-sm mt-1">{formatPrice(product.price)}</p>
+                        </div>
+                      </CardBody>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+            <aside className="w-52 flex-shrink-0 border-r border-default-200 p-4 flex flex-col gap-2">
+              <span className="font-semibold text-foreground text-sm mb-1">دسته‌بندی‌ها</span>
+              <Button
+                size="sm"
+                variant={selectedCategory === '' ? 'solid' : 'bordered'}
+                color="primary"
+                className="justify-start"
+                onPress={() => setSelectedCategory('')}
               >
-                {cat}
-              </button>
-            ))}
-          </aside>
-        </div>
+                همه
+              </Button>
+              {categories.map(cat => (
+                <Button
+                  key={cat}
+                  size="sm"
+                  variant={selectedCategory === cat ? 'solid' : 'bordered'}
+                  color="primary"
+                  className="justify-start"
+                  onPress={() => setSelectedCategory(cat)}
+                >
+                  {cat}
+                </Button>
+              ))}
+            </aside>
+          </CardBody>
+        </Card>
 
-        <div className="order-form-section">
-          <div className="cart-section">
-            <h2>سبد خرید</h2>
-            {cart.length === 0 ? (
-              <p className="empty-cart">سبد خرید خالی است</p>
-            ) : (
-              <div className="cart-items">
+        <div className="flex flex-col gap-4 overflow-hidden min-h-0">
+          <Card className="flex-1 overflow-hidden min-h-0">
+            <CardBody className="overflow-y-auto">
+              <h2 className="text-lg font-semibold text-foreground mb-3">سبد خرید</h2>
+              {cart.length === 0 ? (
+                <p className="text-default-500 py-6 text-center">سبد خرید خالی است</p>
+              ) : (
+              <div className="flex flex-col gap-3">
                 {cart.map(item => {
                   const noteValue = item.itemOption || '';
                   const isNoteOpen = expandedNoteProductId === item.productId;
@@ -656,7 +670,7 @@ export default function OrderPage() {
                   return (
                     <div
                       key={item.productId}
-                      className="cart-item"
+                      className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-default-200 bg-content1"
                       onClick={(e) => {
                         if (isInteractive(e)) return;
                         updateCartQuantity(item.productId, item.quantity + 1);
@@ -673,33 +687,30 @@ export default function OrderPage() {
                       }}
                     >
                       {item.product.multiMedia?.url && (
-                        <div className="cart-item-thumb">
+                        <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0">
                           <img
                             src={`${getAssetBaseUrl()}${item.product.multiMedia.url}`}
                             alt=""
-                            className="cart-item-image"
+                            className="w-full h-full object-cover"
                           />
                         </div>
                       )}
-                      <div className="cart-item-info">
-                        <span>{item.product.name_fa || item.product.name}</span>
-                        <div className="cart-item-controls">
-                          <button onClick={() => updateCartQuantity(item.productId, Math.max(0.1, item.quantity - 1))}>
-                            -
-                          </button>
-                          <input
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-foreground block">{item.product.name_fa || item.product.name}</span>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Button size="sm" isIconOnly variant="flat" onPress={() => updateCartQuantity(item.productId, Math.max(0.1, item.quantity - 1))}>−</Button>
+                          <Input
                             type="number"
                             min={0.1}
-                            step="0.1"
-                            className="cart-item-qty-input"
-                            value={item.quantity}
-                            onChange={(e) => {
-                              const raw = e.target.value;
-                              if (raw === '') return;
-                              const v = parseFloat(raw.replace(',', '.'));
-                              if (!Number.isNaN(v)) {
-                                if (v <= 0) removeFromCart(item.productId);
-                                else updateCartQuantity(item.productId, v);
+                            step={0.1}
+                            size="sm"
+                            className="w-16 text-center"
+                            value={String(item.quantity)}
+                            onValueChange={(v) => {
+                              const val = parseFloat(String(v).replace(',', '.'));
+                              if (!Number.isNaN(val)) {
+                                if (val <= 0) removeFromCart(item.productId);
+                                else updateCartQuantity(item.productId, val);
                               }
                             }}
                             onBlur={(e) => {
@@ -709,158 +720,124 @@ export default function OrderPage() {
                             }}
                             onClick={(e) => e.stopPropagation()}
                           />
-                          <button onClick={() => updateCartQuantity(item.productId, item.quantity + 1)}>
-                            +
-                          </button>
+                          <Button size="sm" isIconOnly variant="flat" onPress={() => updateCartQuantity(item.productId, item.quantity + 1)}>+</Button>
                         </div>
-                        <button
-                          type="button"
-                          className={`cart-item-note-trigger ${notePreview ? 'has-note' : ''}`}
-                          onClick={() => setExpandedNoteProductId((id) => (id === item.productId ? null : item.productId))}
+                        <Button
+                          size="sm"
+                          variant="light"
+                          className={`mt-1 ${notePreview ? 'text-primary' : ''}`}
+                          onPress={() => setExpandedNoteProductId((id) => (id === item.productId ? null : item.productId))}
                           title={notePreview || 'افزودن توضیحات'}
                         >
                           {notePreview ? notePreviewShort : 'توضیحات'}
-                        </button>
+                        </Button>
                       </div>
                       {isNoteOpen && (
-                        <div
-                          ref={notePanelRef}
-                          className="cart-item-note"
-                        >
+                        <div ref={notePanelRef} className="w-full mt-2 p-2 rounded-lg bg-default-100 border border-default-200 space-y-2">
                           {cartItemOptions.length > 0 && (
-                            <div className="cart-item-option-chips">
+                            <div className="flex flex-wrap gap-1">
                               {cartItemOptions.map(opt => (
-                                <button
-                                  key={opt}
-                                  type="button"
-                                  className="cart-item-option-chip"
-                                  onClick={() => appendOption(opt)}
-                                  title={`افزودن: ${opt}`}
-                                >
+                                <Button key={opt} size="sm" variant="bordered" onPress={() => appendOption(opt)} title={`افزودن: ${opt}`}>
                                   + {opt}
-                                </button>
+                                </Button>
                               ))}
                             </div>
                           )}
-                          <textarea
+                          <Textarea
                             value={noteValue}
-                            onChange={(e) => updateCartItemOption(item.productId, e.target.value)}
+                            onValueChange={(v) => updateCartItemOption(item.productId, v)}
                             onBlur={(e) => {
                               const next = e.relatedTarget;
                               if (next != null && notePanelRef.current?.contains(next as Node)) return;
                               setExpandedNoteProductId(null);
                             }}
                             placeholder="توضیح دستی (اختیاری)"
-                            rows={2}
-                            className="cart-item-note-textarea"
-                            autoFocus
+                            minRows={2}
+                            size="sm"
+                            classNames={{ input: 'text-right' }}
                           />
-                          <button
-                            type="button"
-                            className="cart-item-note-close"
-                            onClick={() => setExpandedNoteProductId(null)}
-                          >
-                            بستن
-                          </button>
+                          <Button size="sm" variant="flat" onPress={() => setExpandedNoteProductId(null)}>بستن</Button>
                         </div>
                       )}
-                      <div className="cart-item-price">
-                        {formatPrice(item.totalPrice)}
-                        <button
-                          onClick={() => removeFromCart(item.productId)}
-                          className="remove-button"
-                        >
-                          ×
-                        </button>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-foreground">{formatPrice(item.totalPrice)}</span>
+                        <Button size="sm" color="danger" variant="light" isIconOnly onPress={() => removeFromCart(item.productId)}>×</Button>
                       </div>
                     </div>
                   );
                 })}
-                <div className="cart-totals">
-                  <div className="total-row">
+                <div className="border-t border-default-200 pt-3 mt-3">
+                  <div className="flex justify-between font-semibold text-foreground">
                     <span>جمع کل:</span>
                     <span>{formatPrice(getTotalAmount())}</span>
                   </div>
                 </div>
               </div>
             )}
-          </div>
+            </CardBody>
+          </Card>
 
-          <div className="customer-section customer-section--compact">
-            <button
-              type="button"
-              onClick={() => setShowOrderModal(true)}
-              disabled={cart.length === 0}
-              className="submit-order-button"
-            >
-              ثبت سفارش
-            </button>
-          </div>
+          <Button
+            color="primary"
+            size="lg"
+            className="w-full font-semibold"
+            onPress={() => setShowOrderModal(true)}
+            isDisabled={cart.length === 0}
+          >
+            ثبت سفارش
+          </Button>
+        </div>
+      </div>
 
-          {showOrderModal && (
-            <div className="order-modal-overlay" onClick={() => !isSubmitting && setShowOrderModal(false)}>
-              <div
-                className="order-modal"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => {
-                  if (e.key !== 'Enter') return;
-                  const isTextarea = (e.target as HTMLElement).tagName === 'TEXTAREA';
-                  if (isTextarea) return;
-                  e.preventDefault();
-                  if (!isSubmitting && cart.length > 0 && (!isMobileRequired || customerPhone.trim())) handleSubmit();
-                }}
-              >
-                <h2 className="order-modal-title">تکمیل و ثبت سفارش</h2>
-                <p className="order-modal-hint">شماره موبایل را وارد کنید و Enter بزنید برای ثبت سریع</p>
-
-                <div className={`form-group ${isMobileRequired ? 'form-group--required' : ''}`}>
-                  <label>شماره تماس {isMobileRequired && <span className="required-mark">(اجباری)</span>}</label>
-                  <div className="input-with-button">
-                    <input
-                      ref={phoneInputRef}
-                      type="text"
-                      value={customerPhone}
-                      onChange={(e) => {
-                        setCustomerPhone(e.target.value);
-                        setUserExists(null);
-                        setLoadedCustomerFirstName('');
-                        setLoadedCustomerLastName('');
-                        setSuccessMessage('');
-                      }}
-                      placeholder="09123456789"
-                      autoComplete="tel"
-                    />
-                    <button type="button" onClick={handleCheckUser} disabled={isCheckingUser || !customerPhone.trim()}>
-                      {isCheckingUser ? '...' : '✓'}
-                    </button>
-                  </div>
+      <Modal isOpen={showOrderModal} onOpenChange={setShowOrderModal} size="2xl" scrollBehavior="inside" classNames={{ base: 'order-modal' }}>
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-1 text-right">
+            <h2 className="text-lg font-semibold">تکمیل و ثبت سفارش</h2>
+            <p className="text-sm text-default-500 font-normal">شماره موبایل را وارد کنید و Enter بزنید برای ثبت سریع</p>
+          </ModalHeader>
+          <ModalBody className="gap-4" onKeyDown={(e) => {
+            if (e.key !== 'Enter') return;
+            const isTextarea = (e.target as HTMLElement).tagName === 'TEXTAREA';
+            if (isTextarea) return;
+            e.preventDefault();
+            if (!isSubmitting && cart.length > 0 && (!isMobileRequired || customerPhone.trim())) handleSubmit();
+          }}>
+                <div className="flex flex-col gap-2">
+                  <Input
+                    ref={phoneInputRef}
+                    label={`شماره تماس ${isMobileRequired ? '(اجباری)' : ''}`}
+                    placeholder="09123456789"
+                    value={customerPhone}
+                    onValueChange={(v) => {
+                      setCustomerPhone(v);
+                      setUserExists(null);
+                      setLoadedCustomerFirstName('');
+                      setLoadedCustomerLastName('');
+                      setSuccessMessage('');
+                    }}
+                    autoComplete="tel"
+                    variant="bordered"
+                    endContent={
+                      <Button size="sm" isDisabled={isCheckingUser || !customerPhone.trim()} onPress={handleCheckUser}>
+                        {isCheckingUser ? '...' : '✓'}
+                      </Button>
+                    }
+                    classNames={{ input: 'text-right' }}
+                  />
                   {userExists === true && (
-                    <span className="user-status success">
-                      {[loadedCustomerFirstName, loadedCustomerLastName].filter(Boolean).join(' ').trim() || 'مشتری ثبت‌نام شده'}
-                    </span>
+                    <span className="text-success text-sm">{[loadedCustomerFirstName, loadedCustomerLastName].filter(Boolean).join(' ').trim() || 'مشتری ثبت‌نام شده'}</span>
                   )}
                   {userExists === false && (
-                    <div className="add-customer-block">
-                      <span className="user-status warning">مشتری جدید</span>
-                      <div className="add-customer-fields">
-                        <input
-                          type="text"
-                          placeholder="نام (اختیاری)"
-                          value={addCustomerFirstName}
-                          onChange={(e) => setAddCustomerFirstName(e.target.value)}
-                          className="add-customer-input"
-                        />
-                        <input
-                          type="text"
-                          placeholder="نام خانوادگی (اختیاری)"
-                          value={addCustomerLastName}
-                          onChange={(e) => setAddCustomerLastName(e.target.value)}
-                          className="add-customer-input"
-                        />
-                        <button
-                          type="button"
-                          className="add-customer-btn"
-                          onClick={async () => {
+                    <div className="flex flex-col gap-3 p-3 rounded-lg bg-warning-50 border border-warning-200">
+                      <span className="text-warning-700 text-sm font-medium">مشتری جدید</span>
+                      <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
+                        <Input placeholder="نام (اختیاری)" value={addCustomerFirstName} onValueChange={setAddCustomerFirstName} size="sm" variant="bordered" classNames={{ input: 'text-right' }} />
+                        <Input placeholder="نام خانوادگی (اختیاری)" value={addCustomerLastName} onValueChange={setAddCustomerLastName} size="sm" variant="bordered" classNames={{ input: 'text-right' }} />
+                        <Button
+                          size="sm"
+                          color="primary"
+                          isLoading={isAddingCustomer}
+                          onPress={async () => {
                             const phone = customerPhone.trim().replace(/\s/g, '');
                             const normalized = phone.startsWith('9') && phone.length === 10 ? '0' + phone : phone;
                             if (normalized.length < 10) return;
@@ -871,11 +848,7 @@ export default function OrderPage() {
                             try {
                               await addCustomer(
                                 { restaurantId, restaurantName },
-                                {
-                                  mobile: normalized,
-                                  firstName: addCustomerFirstName.trim() || undefined,
-                                  lastName: addCustomerLastName.trim() || undefined,
-                                },
+                                { mobile: normalized, firstName: addCustomerFirstName.trim() || undefined, lastName: addCustomerLastName.trim() || undefined },
                                 token,
                               );
                               setUserExists(true);
@@ -887,314 +860,139 @@ export default function OrderPage() {
                               setIsAddingCustomer(false);
                             }
                           }}
-                          disabled={isAddingCustomer}
                         >
                           {isAddingCustomer ? '...' : 'افزودن به مشتریان'}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="form-group">
-                  <label>نوع سفارش</label>
-                  <select
-                    value={serviceType}
-                    onChange={(e) => {
-                      setServiceType(e.target.value as 'dine_in' | 'takeaway');
+                <Select
+                  label="نوع سفارش"
+                  selectedKeys={[serviceType]}
+                  onSelectionChange={(keys) => {
+                    const v = Array.from(keys)[0] as 'dine_in' | 'takeaway';
+                    if (v) {
+                      setServiceType(v);
                       setTableNumber('');
                       setCustomerAddress('');
                       setCustomerAddresses([]);
                       setSelectedAddressId(null);
-                    }}
-                  >
-                    <option value="dine_in">داخل سالن</option>
-                    <option value="takeaway">بیرون‌بر</option>
-                  </select>
-                </div>
+                    }
+                  }}
+                  variant="bordered"
+                >
+                  <SelectItem key="dine_in" textValue="داخل سالن">داخل سالن</SelectItem>
+                  <SelectItem key="takeaway" textValue="بیرون‌بر">بیرون‌بر</SelectItem>
+                </Select>
 
                 {serviceType === 'dine_in' ? (
-                  <div className="form-group">
-                    <label>شماره میز (اختیاری)</label>
-                    <input
-                      type="text"
-                      value={tableNumber}
-                      onChange={(e) => setTableNumber(e.target.value)}
-                      placeholder="A12"
-                    />
-                  </div>
+                  <Input label="شماره میز (اختیاری)" placeholder="A12" value={tableNumber} onValueChange={setTableNumber} variant="bordered" classNames={{ input: 'text-right' }} />
                 ) : (
-                  <div className="form-group form-group--required">
-                    <label>آدرس <span className="required-mark">(اجباری)</span></label>
-                    {loadingAddresses && <p className="address-load-hint">در حال بارگذاری آدرس‌ها...</p>}
+                  <div className="flex flex-col gap-2">
+                    <span className="text-sm font-medium text-foreground">آدرس (اجباری)</span>
+                    {loadingAddresses && <p className="text-default-500 text-sm">در حال بارگذاری آدرس‌ها...</p>}
                     {!loadingAddresses && customerAddresses.length > 0 && (
-                      <div className="address-list">
+                      <div className="flex flex-col gap-2">
                         {customerAddresses.map((addr) => (
-                          <label key={addr.id} className="address-option">
-                            <input
-                              type="radio"
-                              name="customerAddress"
-                              checked={selectedAddressId === addr.id}
-                              onChange={() => {
-                                setSelectedAddressId(addr.id);
-                                setCustomerAddress(addr.address);
-                              }}
-                            />
-                            <span className="address-option-text">
-                              {addr.label ? `${addr.label}: ` : ''}{addr.address}
-                            </span>
-                          </label>
+                          <Checkbox key={addr.id} isSelected={selectedAddressId === addr.id} onValueChange={() => { setSelectedAddressId(addr.id); setCustomerAddress(addr.address); }}>
+                            <span className="text-sm">{addr.label ? `${addr.label}: ` : ''}{addr.address}</span>
+                          </Checkbox>
                         ))}
-                        <label className="address-option address-option--new">
-                          <input
-                            type="radio"
-                            name="customerAddress"
-                            checked={selectedAddressId === 'new'}
-                            onChange={() => {
-                              setSelectedAddressId('new');
-                              setCustomerAddress('');
-                            }}
-                          />
-                          <span className="address-option-text">آدرس جدید</span>
-                        </label>
+                        <Checkbox isSelected={selectedAddressId === 'new'} onValueChange={() => { setSelectedAddressId('new'); setCustomerAddress(''); }}>
+                          آدرس جدید
+                        </Checkbox>
                       </div>
                     )}
                     {(selectedAddressId === 'new' || customerAddresses.length === 0) && (
-                      <textarea
-                        value={customerAddress}
-                        onChange={(e) => {
-                          setCustomerAddress(e.target.value);
-                          if (customerAddresses.length > 0) setSelectedAddressId('new');
-                        }}
-                        placeholder="آدرس تحویل"
-                        rows={2}
-                      />
+                      <Textarea placeholder="آدرس تحویل" value={customerAddress} onValueChange={(v) => { setCustomerAddress(v); if (customerAddresses.length > 0) setSelectedAddressId('new'); }} minRows={2} variant="bordered" classNames={{ input: 'text-right' }} />
                     )}
                   </div>
                 )}
 
-                <div className="form-group">
-                  <label>روش پرداخت</label>
-                  <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as any)}>
-                    <option value="cash">نقد</option>
-                    <option value="card">کارت</option>
-                    <option value="online">آنلاین</option>
-                    <option value="mixed">ترکیبی</option>
-                  </select>
-                </div>
+                <Select label="روش پرداخت" selectedKeys={[paymentMethod]} onSelectionChange={(keys) => { const v = Array.from(keys)[0]; if (v) setPaymentMethod(v as any); }} variant="bordered">
+                  <SelectItem key="cash" textValue="نقد">نقد</SelectItem>
+                  <SelectItem key="card" textValue="کارت">کارت</SelectItem>
+                  <SelectItem key="online" textValue="آنلاین">آنلاین</SelectItem>
+                  <SelectItem key="mixed" textValue="ترکیبی">ترکیبی</SelectItem>
+                </Select>
 
-                <div className="form-group">
-                  <label>تخفیف</label>
-                  <div className="discount-type-toggle">
-                    <button
-                      type="button"
-                      className={discountType === 'percentage' ? 'active' : ''}
-                      onClick={() => setDiscountType('percentage')}
-                    >
-                      درصدی
-                    </button>
-                    <button
-                      type="button"
-                      className={discountType === 'fixed' ? 'active' : ''}
-                      onClick={() => setDiscountType('fixed')}
-                    >
-                      تومانی
-                    </button>
-                    <button
-                      type="button"
-                      className={`${discountType === 'code' ? 'active' : ''} ${!canUseDiscountCode ? 'disabled' : ''}`}
-                      onClick={() => canUseDiscountCode && setDiscountType('code')}
-                      disabled={!canUseDiscountCode}
-                      title={!canUseDiscountCode ? 'برای استفاده از کد تخفیف شماره موبایل را وارد کنید و اتصال اینترنت برقرار باشد' : undefined}
-                    >
-                      کد تخفیف
-                    </button>
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm font-medium text-foreground">تخفیف</span>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant={discountType === 'percentage' ? 'solid' : 'bordered'} color="primary" onPress={() => setDiscountType('percentage')}>درصدی</Button>
+                    <Button size="sm" variant={discountType === 'fixed' ? 'solid' : 'bordered'} color="primary" onPress={() => setDiscountType('fixed')}>تومانی</Button>
+                    <Button size="sm" variant={discountType === 'code' ? 'solid' : 'bordered'} color="primary" isDisabled={!canUseDiscountCode} onPress={() => canUseDiscountCode && setDiscountType('code')} title={!canUseDiscountCode ? 'شماره موبایل و اتصال آنلاین لازم است' : undefined}>کد تخفیف</Button>
                   </div>
-                  {!canUseDiscountCode && (
-                    <small className="discount-code-hint">کد تخفیف فقط با وارد کردن شماره موبایل و اتصال آنلاین فعال است.</small>
-                  )}
+                  {!canUseDiscountCode && <small className="text-default-500 text-xs">کد تخفیف فقط با وارد کردن شماره موبایل و اتصال آنلاین فعال است.</small>}
                   {discountType === 'code' ? (
-                    <div className="discount-code-row">
-                      <input
-                        type="text"
-                        placeholder="کد تخفیف را وارد کنید"
-                        value={discountCode}
-                        onChange={(e) => {
-                          setDiscountCode(e.target.value);
-                          setDiscountCodeError('');
-                        }}
-                        dir="ltr"
-                        style={{ textTransform: 'uppercase' }}
-                        disabled={!!appliedDiscountCode}
-                      />
-                      <div className="discount-code-actions">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2 flex-wrap items-end">
+                        <Input type="text" placeholder="کد تخفیف" value={discountCode} onValueChange={(v) => { setDiscountCode(v); setDiscountCodeError(''); }} isDisabled={!!appliedDiscountCode} variant="bordered" classNames={{ input: 'text-right uppercase' }} />
                         {!appliedDiscountCode ? (
-                          <button
-                            type="button"
-                            className="btn-apply-discount"
-                            onClick={handleApplyDiscountCode}
-                            disabled={discountCodeValidating || !discountCode.trim()}
-                          >
-                            {discountCodeValidating ? 'در حال بررسی...' : 'ثبت'}
-                          </button>
+                          <Button size="sm" color="primary" onPress={handleApplyDiscountCode} isLoading={discountCodeValidating} isDisabled={!discountCode.trim()}>{discountCodeValidating ? 'در حال بررسی...' : 'ثبت'}</Button>
                         ) : (
                           <>
-                            <span className="discount-applied-amount">تخفیف: {formatPrice(appliedDiscountCode.discountAmount)}</span>
-                            <button
-                              type="button"
-                              className="btn-cancel-discount"
-                              onClick={handleCancelDiscountCode}
-                            >
-                              لغو
-                            </button>
+                            <span className="text-success text-sm">تخفیف: {formatPrice(appliedDiscountCode.discountAmount)}</span>
+                            <Button size="sm" variant="flat" color="danger" onPress={handleCancelDiscountCode}>لغو</Button>
                           </>
                         )}
                       </div>
-                      {discountCodeError && (
-                        <small className="discount-code-error">{discountCodeError}</small>
-                      )}
+                      {discountCodeError && <small className="text-danger text-xs">{discountCodeError}</small>}
                     </div>
                   ) : (
                     <>
-                      <input
-                        type="number"
-                        min={0}
-                        max={discountType === 'percentage' ? 100 : undefined}
-                        placeholder={discountType === 'percentage' ? 'مثال: 10' : 'مثال: 50000'}
-                        value={discountAmount || ''}
-                        onChange={(e) => setDiscountAmount(Number(e.target.value) || 0)}
-                      />
-                      {getDiscountAmount() > 0 && (
-                        <small className="discount-summary">مبلغ تخفیف: {formatPrice(getDiscountAmount())}</small>
-                      )}
+                      <Input type="number" min={0} max={discountType === 'percentage' ? 100 : undefined} placeholder={discountType === 'percentage' ? 'مثال: 10' : 'مثال: 50000'} value={discountAmount ? String(discountAmount) : ''} onValueChange={(v) => setDiscountAmount(Number(v) || 0)} variant="bordered" classNames={{ input: 'text-right' }} />
+                      {getDiscountAmount() > 0 && <small className="text-default-500">مبلغ تخفیف: {formatPrice(getDiscountAmount())}</small>}
                     </>
                   )}
                 </div>
 
-                <div className="form-group">
-                  <label>یادداشت (اختیاری)</label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="یادداشت برای آشپزخانه"
-                    rows={2}
-                  />
-                </div>
+                <Textarea label="یادداشت (اختیاری)" placeholder="یادداشت برای آشپزخانه" value={notes} onValueChange={setNotes} minRows={2} variant="bordered" classNames={{ input: 'text-right' }} />
 
-                <div className="order-modal-totals">
-                  <div className="total-row">
-                    <span>جمع کل:</span>
-                    <span>{formatPrice(getTotalAmount())}</span>
-                  </div>
+                <div className="rounded-lg bg-default-100 p-4 space-y-2">
+                  <div className="flex justify-between text-foreground"><span>جمع کل:</span><span>{formatPrice(getTotalAmount())}</span></div>
                   {discountType === 'code' && appliedDiscountCode ? (
-                    <div className="total-row">
-                      <span>کد تخفیف ({appliedDiscountCode.code}):</span>
-                      <span>- {formatPrice(appliedDiscountCode.discountAmount)}</span>
-                    </div>
+                    <div className="flex justify-between text-foreground"><span>کد تخفیف ({appliedDiscountCode.code}):</span><span>- {formatPrice(appliedDiscountCode.discountAmount)}</span></div>
                   ) : getDiscountAmount() > 0 ? (
-                    <div className="total-row">
-                      <span>تخفیف:</span>
-                      <span>- {formatPrice(getDiscountAmount())}</span>
-                    </div>
+                    <div className="flex justify-between text-foreground"><span>تخفیف:</span><span>- {formatPrice(getDiscountAmount())}</span></div>
                   ) : null}
-                  <div className="total-row final">
+                  <div className="flex justify-between font-bold text-foreground pt-2 border-t border-default-200">
                     <span>مبلغ نهایی:</span>
-                    <span>
-                      {discountType === 'code' && !appliedDiscountCode && discountCode.trim()
-                        ? '— (کد را وارد کنید و «ثبت» بزنید)'
-                        : formatPrice(getFinalAmount())}
-                    </span>
+                    <span>{discountType === 'code' && !appliedDiscountCode && discountCode.trim() ? '— (کد را ثبت کنید)' : formatPrice(getFinalAmount())}</span>
                   </div>
                 </div>
 
                 {isElectronWithPrinters && (
-                  <div className="form-group print-options-group">
-                    <label>چاپ رسید</label>
-                    <div className="print-option-tabs">
-                      <button
-                        type="button"
-                        className={`print-option-tab ${printOption === 'all' ? 'active' : ''}`}
-                        onClick={() => setPrintOption('all')}
-                      >
-                        چاپ روی همه
-                      </button>
-                      <button
-                        type="button"
-                        className={`print-option-tab ${printOption === 'none' ? 'active' : ''}`}
-                        onClick={() => setPrintOption('none')}
-                      >
-                        بدون چاپ
-                      </button>
-                      <button
-                        type="button"
-                        className={`print-option-tab ${printOption === 'select' ? 'active' : ''}`}
-                        onClick={() => {
-                          setPrintOption('select');
-                          if (selectedPrinterNames.length === 0) {
-                            setSelectedPrinterNames(enabledPrinters.map((p) => p.name));
-                          }
-                        }}
-                      >
-                        انتخاب پرینتر
-                      </button>
+                  <div className="flex flex-col gap-2">
+                    <span className="text-sm font-medium text-foreground">چاپ رسید</span>
+                    <div className="flex gap-2 flex-wrap">
+                      <Button size="sm" variant={printOption === 'all' ? 'solid' : 'bordered'} color="primary" onPress={() => setPrintOption('all')}>چاپ روی همه</Button>
+                      <Button size="sm" variant={printOption === 'none' ? 'solid' : 'bordered'} color="primary" onPress={() => setPrintOption('none')}>بدون چاپ</Button>
+                      <Button size="sm" variant={printOption === 'select' ? 'solid' : 'bordered'} color="primary" onPress={() => { setPrintOption('select'); if (selectedPrinterNames.length === 0) setSelectedPrinterNames(enabledPrinters.map((p) => p.name)); }}>انتخاب پرینتر</Button>
                     </div>
                     {printOption === 'select' && (
-                      <div className="print-select-list">
+                      <div className="flex flex-col gap-2">
                         {enabledPrinters.map((printer) => (
-                          <label key={printer.name} className="print-select-item">
-                            <input
-                              type="checkbox"
-                              checked={selectedPrinterNames.includes(printer.name)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedPrinterNames((prev) => [...prev, printer.name]);
-                                } else {
-                                  setSelectedPrinterNames((prev) => prev.filter((n) => n !== printer.name));
-                                }
-                              }}
-                            />
-                            <span>{printer.displayName || printer.name}</span>
-                          </label>
+                          <Checkbox key={printer.name} isSelected={selectedPrinterNames.includes(printer.name)} onValueChange={(checked) => { if (checked) setSelectedPrinterNames((prev) => [...prev, printer.name]); else setSelectedPrinterNames((prev) => prev.filter((n) => n !== printer.name)); }}>
+                            {printer.displayName || printer.name}
+                          </Checkbox>
                         ))}
                       </div>
                     )}
                   </div>
                 )}
 
-                {enabledPrinters.length > 0 && printOption === 'all' && (
-                  <p className="order-modal-print-note">
-                    {enabledPrinters.length} پرینتر برای چاپ رسید فعال است.
-                  </p>
-                )}
-                {isElectronWithPrinters && printOption === 'none' && (
-                  <p className="order-modal-print-note order-modal-print-note--muted">
-                    این سفارش بدون چاپ رسید ثبت می‌شود.
-                  </p>
-                )}
-
-                <div className="order-modal-actions">
-                  <button
-                    type="button"
-                    className="order-modal-cancel"
-                    onClick={() => setShowOrderModal(false)}
-                    disabled={isSubmitting}
-                  >
-                    انصراف
-                  </button>
-                  <button
-                    type="button"
-                    className="submit-order-button"
-                    onClick={handleSubmit}
-                    disabled={isSubmitting || cart.length === 0}
-                  >
-                    {isSubmitting ? 'در حال ثبت...' : 'ثبت نهایی'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+                {enabledPrinters.length > 0 && printOption === 'all' && <p className="text-default-500 text-sm">{enabledPrinters.length} پرینتر برای چاپ رسید فعال است.</p>}
+                {isElectronWithPrinters && printOption === 'none' && <p className="text-default-400 text-sm">این سفارش بدون چاپ رسید ثبت می‌شود.</p>}
+          </ModalBody>
+          <ModalFooter className="gap-2">
+            <Button variant="flat" onPress={() => setShowOrderModal(false)} isDisabled={isSubmitting}>انصراف</Button>
+            <Button color="primary" onPress={handleSubmit} isLoading={isSubmitting} isDisabled={cart.length === 0}>{isSubmitting ? 'در حال ثبت...' : 'ثبت نهایی'}</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
