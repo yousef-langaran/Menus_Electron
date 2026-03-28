@@ -302,9 +302,25 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
       padding: 5px 0;
       width: 100%;
     }
-    .item-name {
+    .item-name-col {
       flex: 1;
+      min-width: 0;
       padding-left: 4px;
+    }
+    .item-name {
+      display: block;
+    }
+    .item-description {
+      font-size: 10px;
+      color: #555;
+      margin-top: 3px;
+      line-height: 1.35;
+    }
+    .item-line-note {
+      font-size: 10px;
+      color: #333;
+      margin-top: 3px;
+      line-height: 1.3;
     }
     .item-quantity {
       margin: 0 6px;
@@ -419,13 +435,22 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
     </div>
 
     <div class="items">
-      ${items.map((item: any) => `
+      ${items.map((item: any) => {
+        const title = item.product?.name_fa || item.productName || 'محصول';
+        const desc = getProductDescription(item);
+        const lineNote = getLineItemNote(item);
+        return `
         <div class="item">
-          <span class="item-name">${item.product?.name_fa || item.productName || 'محصول'}</span>
+          <div class="item-name-col">
+            <span class="item-name">${title}</span>
+            ${desc ? `<div class="item-description">${desc}</div>` : ''}
+            ${lineNote ? `<div class="item-line-note">یادداشت خط: ${lineNote}</div>` : ''}
+          </div>
           <span class="item-quantity">${item.quantity} ×</span>
           <span class="item-price">${formatPrice(item.price)}</span>
         </div>
-      `).join('')}
+      `;
+      }).join('')}
     </div>
 
     <div class="totals">
@@ -605,6 +630,18 @@ function formatPrice(price: number): string {
   return new Intl.NumberFormat('fa-IR').format(price) + ' تومان';
 }
 
+/** یادداشت خط سفارش — در اسنپ‌شات الکترون `itemOption` است، از API معمولاً `itemNote` */
+function getLineItemNote(item: any): string {
+  const n = item?.itemNote ?? item?.itemOption;
+  return n != null ? String(n).trim() : '';
+}
+
+/** توضیحات ثبت‌شده در کارت محصول (منو) */
+function getProductDescription(item: any): string {
+  const d = item?.product?.description;
+  return d != null ? String(d).trim() : '';
+}
+
 function getPaymentMethodText(method: string): string {
   const methods: { [key: string]: string } = {
     cash: 'نقد',
@@ -693,13 +730,21 @@ function renderLayoutModuleHtml(module: ReceiptLayoutModule, orderData: any): st
 
   if (module.type === 'items' && orderData?.items?.length) {
     const showPrice = opt.showPrice !== false;
+    const showDesc = opt.showDescription !== false;
+    const showLineNote = opt.showItemNote !== false;
     const tableStyle = (opt.itemsTableStyle as string) ?? 'simple';
     const rows = orderData.items.map((item: any) => {
       const name = item.product?.name_fa || item.productName || 'محصول';
-      const note = item.itemNote ? ` (${item.itemNote})` : '';
-      const price = showPrice ? `<td style="padding:2px 4px">${formatPrice(item.price)}</td>` : '';
+      const desc = showDesc ? getProductDescription(item) : '';
+      const lineNote = showLineNote ? getLineItemNote(item) : '';
+      const notePart = lineNote ? ` (${lineNote})` : '';
+      const descBlock = desc
+        ? `<div style="font-size:9pt;color:#555;margin-top:2px;line-height:1.3">${desc}</div>`
+        : '';
+      const price = showPrice ? `<td style="padding:2px 4px;vertical-align:top">${formatPrice(item.price)}</td>` : '';
       const border = tableStyle === 'bordered' ? 'border-bottom:1px solid #ccc' : '';
-      return `<tr style="${border}"><td style="padding:2px 4px">${name}${note}</td><td style="padding:2px 4px;white-space:nowrap">${item.quantity} ×</td>${price}</tr>`;
+      const titleCell = `<span>${name}</span>${notePart}${descBlock}`;
+      return `<tr style="${border}"><td style="padding:2px 4px;vertical-align:top">${titleCell}</td><td style="padding:2px 4px;white-space:nowrap;vertical-align:top">${item.quantity} ×</td>${price}</tr>`;
     }).join('');
     return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse"><tbody>${rows}</tbody></table></div>`;
   }
@@ -911,15 +956,30 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
     .item {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       margin: 10px 0;
       padding: 6px 0;
       width: 100%;
       font-size: 14px;
     }
-    .item-name {
+    .item-name-col {
       flex: 1;
+      min-width: 0;
       font-weight: 500;
+    }
+    .item-description {
+      font-size: 11px;
+      color: #444;
+      font-weight: normal;
+      margin-top: 4px;
+      line-height: 1.35;
+    }
+    .item-line-note {
+      font-size: 11px;
+      color: #333;
+      font-weight: normal;
+      margin-top: 4px;
+      line-height: 1.3;
     }
     .item-quantity {
       margin: 0 8px;
@@ -977,12 +1037,21 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
     </div>
 
     <div class="items">
-      ${items.map((item: any) => `
+      ${items.map((item: any) => {
+        const title = item.product?.name_fa || item.productName || 'محصول';
+        const desc = getProductDescription(item);
+        const lineNote = getLineItemNote(item);
+        return `
         <div class="item">
-          <span class="item-name">${item.product?.name_fa || item.productName || 'محصول'}</span>
+          <div class="item-name-col">
+            <span class="item-name">${title}</span>
+            ${desc ? `<div class="item-description">${desc}</div>` : ''}
+            ${lineNote ? `<div class="item-line-note">یادداشت خط: ${lineNote}</div>` : ''}
+          </div>
           <span class="item-quantity">${item.quantity} ×</span>
         </div>
-      `).join('')}
+      `;
+      }).join('')}
     </div>
 
     ${notes ? `

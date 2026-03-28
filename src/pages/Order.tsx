@@ -425,6 +425,8 @@ export default function OrderPage() {
         productName: item.product.name_fa || item.product.name,
         quantity: item.quantity,
         price: item.price,
+        /** برای چاپ رسید (همان فیلد ارسالی به API) */
+        itemNote: item.itemOption?.trim() || undefined,
         itemOption: item.itemOption || undefined,
       })),
     };

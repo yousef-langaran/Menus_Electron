@@ -9,6 +9,7 @@ import { usePrinterSettingsStore } from './store/printerSettingsStore';
 import { useEffect } from 'react';
 import { OrdersSocketManager } from './components/OrdersSocketManager';
 import { UpdateBanner } from './components/UpdateBanner';
+import { OfflineOrdersSync } from './components/OfflineOrdersSync';
 
 function AppRoutes() {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ function AppRoutes() {
   return (
     <HeroUIProvider navigate={navigate} locale="fa-IR">
       <UpdateBanner />
+      <OfflineOrdersSync />
       <OrdersSocketManager />
       <Routes>
         <Route
