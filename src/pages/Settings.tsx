@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardBody, Button, Input, Select, SelectItem, Checkbox } from '@heroui/react';
+import { Card, CardBody, Button, Input, Select, SelectItem, Checkbox, Switch } from '@heroui/react';
 import { useAuthStore } from '../store/authStore';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
+import { useThemeStore } from '../store/themeStore';
 import { getReceiptNumberSettingsFromServer, getPrintTemplates, type PrintTemplateItem } from '../services/api';
 
 export default function SettingsPage() {
@@ -26,6 +27,7 @@ export default function SettingsPage() {
     getPrinterReceipts,
     loadFromStorage,
   } = usePrinterSettingsStore();
+  const { theme, setTheme } = useThemeStore();
 
   useEffect(() => {
     checkOnlineStatus();
@@ -184,6 +186,20 @@ export default function SettingsPage() {
             <div className="flex justify-between py-2">
               <span className="text-default-500">رستوران:</span>
               <span>{user?.restaurants?.[0]?.name || 'تعیین نشده'}</span>
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody className="gap-3">
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">ظاهر</h2>
+            <div className="flex justify-between items-center py-2">
+              <span className="text-default-500">حالت تاریک (دارک)</span>
+              <Switch
+                isSelected={theme === 'dark'}
+                onValueChange={(isDark) => setTheme(isDark ? 'dark' : 'light')}
+                aria-label="حالت تاریک"
+              />
             </div>
           </CardBody>
         </Card>

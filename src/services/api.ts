@@ -215,6 +215,7 @@ export async function getActiveSubscription(restaurantId: number, token: string)
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    timeout: 12000,
   });
   return response.data;
 }

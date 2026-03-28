@@ -58,6 +58,7 @@ export default function OrderPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [userExists, setUserExists] = useState<boolean | null>(null);
   const [isCheckingUser, setIsCheckingUser] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   /** نام مشتری لود شده بعد از تیک (چک کاربر) — برای نمایش و چاپ رسید */
   const [loadedCustomerFirstName, setLoadedCustomerFirstName] = useState('');
   const [loadedCustomerLastName, setLoadedCustomerLastName] = useState('');
@@ -307,10 +308,10 @@ export default function OrderPage() {
       // Try to get cached menu first
       const restaurantName = user?.restaurants?.[0]?.name;
       const restaurantId = user?.restaurants?.[0]?.id;
-      
+
       let productsData: any[] = [];
       const cached = await getCachedMenu(restaurantId, restaurantName);
-      
+
       if (cached) {
         productsData = cached.products;
         setProducts(productsData);
@@ -321,11 +322,11 @@ export default function OrderPage() {
       }
 
       // Try to fetch from server if online
-      const isOnline = window.electronAPI 
-        ? await window.electronAPI.checkOnline() 
+      const isOnline = window.electronAPI
+        ? await window.electronAPI.checkOnline()
         : navigator.onLine;
 
-      if (isOnline && token) {
+      if (token && isOnline) {
         try {
           productsData = await getProducts(restaurantName, restaurantId, token);
           setProducts(productsData);
@@ -548,18 +549,43 @@ export default function OrderPage() {
     }
   };
 
-  const filteredProducts = selectedCategory
-    ? products.filter(p => p.category?.name_fa === selectedCategory)
-    : products;
+  const filteredProducts = products.filter((p) => {
+    const categoryMatch =
+        !selectedCategory || p.category?.name_fa === selectedCategory;
+
+    const term = searchTerm.trim();
+
+    const searchMatch = term
+        ? (p.name_fa || "").includes(term) ||
+        (p.name || "").toLowerCase().includes(term.toLowerCase())
+        : true;
+
+    return categoryMatch && searchMatch;
+  });
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('fa-IR').format(price) + ' تومان';
   };
 
+
+
   return (
     <div className="min-h-screen flex flex-col bg-default-100">
       <header className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
-        <h1 className="text-xl font-bold text-foreground">ثبت سفارش</h1>
+        <div className={'flex items-center justify-center gap-4'}>
+        <h1 className="text-xl font-bold text-foreground whitespace-nowrap">ثبت سفارش</h1>
+          <Input
+              placeholder="جستجوی محصول..."
+              value={searchTerm}
+              onValueChange={(value)=> {
+                setSelectedCategory('')
+                setSearchTerm(value)
+              }}
+              variant="bordered"
+              classNames={{ input: "text-right" }}
+          />
+        </div>
+
         <div className="flex gap-2">
           <Button variant="flat" color="default" onPress={() => navigate('/orders')}>
             سفارشات
@@ -584,8 +610,8 @@ export default function OrderPage() {
         </div>
       )}
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-5 p-5 overflow-hidden min-h-0">
-        <Card className="overflow-hidden flex flex-col min-h-0">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-5 p-5 overflow-hidden">
+        <Card className="overflow-hidden flex flex-col min-h-0 h-[calc(100vh_-60px)]">
           <CardBody className="flex-1 overflow-hidden flex flex-row gap-0 p-0">
             <div className="flex-1 overflow-y-auto p-5 min-w-0" >
               {isLoading ? (
@@ -620,7 +646,7 @@ export default function OrderPage() {
                 </div>
               )}
             </div>
-            <aside className="w-52 flex-shrink-0 border-r border-default-200 p-4 flex flex-col gap-2">
+            <aside className="w-52 flex-shrink-0 border-r border-default-200 p-4 flex flex-col gap-2 overflow-y-auto">
               <span className="font-semibold text-foreground text-sm mb-1">دسته‌بندی‌ها</span>
               <Button
                 size="sm"

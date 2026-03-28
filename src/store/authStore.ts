@@ -238,45 +238,36 @@ async function checkSubscription(user: User | null, token: string): Promise<{ va
   const storageKey = `subscription_check_${restaurantId}`;
   const storageDataKey = `subscription_data_${restaurantId}`;
 
-  // بررسی آنلاین بودن
-  const isOnline = window.electronAPI 
-    ? await window.electronAPI.checkOnline() 
-    : navigator.onLine;
+  // همیشه ابتدا API را امتحان می‌کنیم. چک «آنلاین» در الکترون فقط به google.com است و
+  // اغلب false منفی می‌دهد (مسدود بودن گوگل، فقط دسترسی به LAN/localhost و غیره) در حالی
+  // که همان لحظه login و profile به سرور می‌رسد.
+  try {
+    const subscription: Subscription = await getActiveSubscription(restaurantId, token);
 
-  if (isOnline) {
-    try {
-      // تلاش برای دریافت اشتراک از سرور
-      const subscription: Subscription = await getActiveSubscription(restaurantId, token);
-      
-      if (!subscription) {
-        // پاک کردن اطلاعات کش شده
-        localStorage.removeItem(storageKey);
-        localStorage.removeItem(storageDataKey);
-        return { valid: false, message: 'اشتراک فعالی یافت نشد' };
-      }
-
-      const now = new Date();
-      const expiresAt = new Date(subscription.expiresAt);
-      
-      if (expiresAt < now || subscription.status !== 'active') {
-        // پاک کردن اطلاعات کش شده
-        localStorage.removeItem(storageKey);
-        localStorage.removeItem(storageDataKey);
-        return { valid: false, message: 'اشتراک شما منقضی شده است' };
-      }
-
-      // ذخیره اطلاعات اشتراک و زمان بررسی
-      localStorage.setItem(storageKey, now.toISOString());
-      localStorage.setItem(storageDataKey, JSON.stringify({
-        expiresAt: subscription.expiresAt,
-        status: subscription.status,
-      }));
-
-      return { valid: true };
-    } catch (error: any) {
-      console.warn('[AuthStore] Failed to check subscription online:', error);
-      // اگر خطا در دریافت اشتراک بود، از کش استفاده می‌کنیم
+    if (!subscription) {
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(storageDataKey);
+      return { valid: false, message: 'اشتراک فعالی یافت نشد' };
     }
+
+    const now = new Date();
+    const expiresAt = new Date(subscription.expiresAt);
+
+    if (expiresAt < now || subscription.status !== 'active') {
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(storageDataKey);
+      return { valid: false, message: 'اشتراک شما منقضی شده است' };
+    }
+
+    localStorage.setItem(storageKey, now.toISOString());
+    localStorage.setItem(storageDataKey, JSON.stringify({
+      expiresAt: subscription.expiresAt,
+      status: subscription.status,
+    }));
+
+    return { valid: true };
+  } catch (error: any) {
+    console.warn('[AuthStore] Failed to check subscription online:', error);
   }
 
   // در حالت آفلاین، از اطلاعات کش شده استفاده می‌کنیم
