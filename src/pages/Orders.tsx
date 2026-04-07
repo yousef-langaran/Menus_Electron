@@ -569,6 +569,9 @@ export default function OrdersPage() {
         printerJobs,
         orderKeys
       );
+      if (res?.status !== 'PRINT_OK') {
+        throw new Error(res?.code || 'PRINT_UNKNOWN_ERROR');
+      }
       if (res?.receiptNumber && orderKeys.length) {
         saveReceiptNumbersToStorage(orderKeys, res.receiptNumber);
         setReceiptNumbersMap((prev) => {

@@ -1,5 +1,6 @@
 import * as path from 'path';
 import { BrowserWindow } from 'electron';
+import type { PrinterInfo } from 'electron';
 import { getNextReceiptNumber, setReceiptNumbersForOrder } from '../database/preferences';
 
 /** نگهداری تنظیمات چاپ پنجرهٔ پیش‌نمایش برای استفاده در IPC */
@@ -61,14 +62,287 @@ interface ReceiptTemplateOptions {
 
 const mmToMicrons = (value: number) => Math.max(1, Math.round(value * 1000));
 
+export type PrinterStatusCode = 'PRINTER_READY' | 'PRINTER_OFFLINE';
+export type PrintStatusCode = 'PRINT_OK' | 'PRINT_ERROR';
+export type PrintErrorCode =
+  | 'PRINT_NO_PRINTER_SELECTED'
+  | 'PRINT_PRINTER_DISCOVERY_FAILED'
+  | 'PRINT_PRINTER_NOT_FOUND'
+  | 'PRINT_PRINTER_OFFLINE'
+  | 'PRINT_PRINTER_BUSY'
+  | 'PRINT_JOB_DROPPED'
+  | 'PRINT_JOB_FAILED'
+  | 'PRINT_UNKNOWN_ERROR';
+
+export interface PrinterDiscoveryItem {
+  name: string;
+  displayName: string;
+  description: string;
+  statusCode: PrinterStatusCode;
+}
+
+export interface PrintFailureDetail {
+  printerName: string;
+  receiptType: ReceiptType;
+  code: PrintErrorCode;
+}
+
+export class PrintOperationError extends Error {
+  readonly code: PrintErrorCode;
+  readonly details: PrintFailureDetail[];
+
+  constructor(code: PrintErrorCode, details: PrintFailureDetail[] = []) {
+    super(code);
+    this.code = code;
+    this.details = details;
+  }
+}
+
+type RawPrinter = {
+  name?: string;
+  displayName?: string;
+  description?: string;
+  status?: unknown;
+  options?: Record<string, unknown>;
+};
+
+const toRawPrinter = (printer: PrinterInfo): RawPrinter => ({
+  name: printer.name,
+  displayName: printer.displayName,
+  description: printer.description,
+  status: printer.status,
+  options: printer.options as unknown as Record<string, unknown> | undefined,
+});
+
+const printerQueueChains = new Map<string, Promise<void>>();
+const printerQueueSizes = new Map<string, number>();
+const PRINTER_QUEUE_MAX_PENDING = 20;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const toStatusText = (raw: RawPrinter): string => {
+  const fields = [raw.status, raw.options?.['printer-state'], raw.options?.['printer-state-message']];
+  return fields
+    .filter((value) => value != null)
+    .map((value) => String(value).toLowerCase())
+    .join(' ');
+};
+
+const inferPrinterStatusCode = (raw: RawPrinter): PrinterStatusCode => {
+  const statusText = toStatusText(raw);
+  if (statusText.includes('offline') || statusText.includes('stopped') || statusText.includes('unavailable')) {
+    return 'PRINTER_OFFLINE';
+  }
+  return 'PRINTER_READY';
+};
+
+const mapFailureReasonToCode = (failureReason?: string): PrintErrorCode => {
+  const text = String(failureReason || '').toLowerCase();
+  if (text.includes('offline') || text.includes('unavailable')) {
+    return 'PRINT_PRINTER_OFFLINE';
+  }
+  if (text.includes('dropped') || text.includes('cancel') || text.includes('aborted')) {
+    return 'PRINT_JOB_DROPPED';
+  }
+  return 'PRINT_JOB_FAILED';
+};
+
+const enqueuePrinterTask = async <T>(printerName: string, task: () => Promise<T>): Promise<T> => {
+  const pending = printerQueueSizes.get(printerName) ?? 0;
+  if (pending >= PRINTER_QUEUE_MAX_PENDING) {
+    throw new PrintOperationError('PRINT_PRINTER_BUSY', []);
+  }
+  printerQueueSizes.set(printerName, pending + 1);
+  const previous = printerQueueChains.get(printerName) ?? Promise.resolve();
+  const runTask = previous.catch(() => undefined).then(task);
+  const queueTail = runTask.then(() => undefined, () => undefined).finally(() => {
+    if (printerQueueChains.get(printerName) === queueTail) {
+      printerQueueChains.delete(printerName);
+    }
+    const current = printerQueueSizes.get(printerName) ?? 1;
+    if (current <= 1) {
+      printerQueueSizes.delete(printerName);
+    } else {
+      printerQueueSizes.set(printerName, current - 1);
+    }
+  });
+  printerQueueChains.set(printerName, queueTail);
+  return runTask;
+};
+
+const createPrintWindow = () =>
+  new BrowserWindow({
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+export async function detectPrinters(): Promise<PrinterDiscoveryItem[]> {
+  const tempWindow = createPrintWindow();
+  try {
+    await tempWindow.loadURL('data:text/html,<html><body></body></html>');
+    let printers: RawPrinter[] = [];
+    if (typeof tempWindow.webContents.getPrintersAsync === 'function') {
+      printers = (await tempWindow.webContents.getPrintersAsync()).map(toRawPrinter);
+    } else if (typeof (tempWindow.webContents as any).getPrinters === 'function') {
+      printers = (tempWindow.webContents as any).getPrinters() as RawPrinter[];
+    }
+    const mapped = printers
+      .map((rawPrinter) => ({
+      name: rawPrinter.name || '',
+      displayName: rawPrinter.displayName || rawPrinter.name || '',
+      description: rawPrinter.description || '',
+      statusCode: inferPrinterStatusCode(rawPrinter),
+      }))
+      .filter((printer) => Boolean(printer.name));
+
+    const unique = new Map<string, PrinterDiscoveryItem>();
+    for (const printer of mapped) {
+      if (!unique.has(printer.name)) {
+        unique.set(printer.name, printer);
+      }
+    }
+    return [...unique.values()];
+  } catch {
+    throw new PrintOperationError('PRINT_PRINTER_DISCOVERY_FAILED');
+  } finally {
+    if (!tempWindow.isDestroyed()) {
+      tempWindow.close();
+    }
+  }
+}
+
+const printCopyWithRetry = async (
+  printWindow: BrowserWindow,
+  printOptions: Record<string, unknown>
+): Promise<void> => {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        printWindow.webContents.print(
+          printOptions as any,
+          (success: boolean, failureReason: string) => {
+            if (success) {
+              resolve();
+            } else {
+              reject(new PrintOperationError(mapFailureReasonToCode(failureReason), []));
+            }
+          }
+        );
+      });
+      return;
+    } catch (error) {
+      if (attempt === 1) {
+        throw error instanceof PrintOperationError
+          ? error
+          : new PrintOperationError('PRINT_JOB_FAILED');
+      }
+      await sleep(400);
+    }
+  }
+};
+
+const runPrinterJobs = async (
+  orderData: any,
+  printerName: string,
+  jobs: PrinterJob[],
+  receiptNumber: number
+): Promise<PrintFailureDetail[]> => {
+  const printWindow = createPrintWindow();
+  const failures: PrintFailureDetail[] = [];
+  const defaultConfig = jobs[0];
+  const margin = defaultConfig?.margin ?? 5;
+  const marginSame = 5;
+  const marginTop = 0;
+  const marginBottom = 3;
+
+  try {
+    for (const job of jobs) {
+      const receiptType = job.receiptType || 'full';
+      try {
+        const refresh = await detectPrinters();
+        const current = refresh.find((printer) => printer.name === printerName);
+        if (!current) {
+          throw new PrintOperationError('PRINT_PRINTER_NOT_FOUND', []);
+        }
+        if (current.statusCode === 'PRINTER_OFFLINE') {
+          throw new PrintOperationError('PRINT_PRINTER_OFFLINE', []);
+        }
+        const paperWidth = job.paperWidth ?? defaultConfig?.paperWidth ?? 80;
+        const isNarrow = paperWidth <= 62;
+        const shiftLeftMm = isNarrow ? 4 : 6;
+        const contentWidthMm = Math.max(32, paperWidth - marginSame * 2 - shiftLeftMm);
+        const opts = { paperWidth, margin, receiptNumber, contentWidthMm, shiftLeftMm, receiptType };
+        const receiptHTML = job.layout?.version === 2
+          ? generateReceiptHTMLFromLayout(orderData, job.layout, opts)
+          : receiptType === 'kitchen'
+            ? generateKitchenReceiptHTML(orderData, opts)
+            : generateReceiptHTML(orderData, opts);
+
+        await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHTML)}`);
+        await sleep(800);
+
+        const width = mmToMicrons(paperWidth);
+        const height = mmToMicrons(job.paperLength ?? 200);
+        const copies = Math.max(1, Math.floor(job.copies ?? 1));
+
+        try {
+          await printWindow.webContents.executeJavaScript(`
+            document.documentElement.style.setProperty('--paper-width', '${paperWidth.toFixed(2)}mm');
+            document.documentElement.style.setProperty('--printable-width', '${contentWidthMm.toFixed(2)}mm');
+            document.documentElement.style.setProperty('--content-padding', '2mm');
+          `);
+        } catch {
+          // ignore style mutation failures
+        }
+
+        for (let copyIndex = 0; copyIndex < copies; copyIndex += 1) {
+          await printCopyWithRetry(printWindow, {
+            silent: true,
+            printBackground: true,
+            deviceName: printerName,
+            copies: 1,
+            margins: {
+              marginType: 'custom',
+              top: marginTop,
+              bottom: marginBottom,
+              left: marginSame,
+              right: marginSame,
+            } as any,
+            pageSize: {
+              width,
+              height,
+            },
+          });
+          await sleep(300);
+        }
+      } catch (error) {
+        const code = error instanceof PrintOperationError ? error.code : 'PRINT_UNKNOWN_ERROR';
+        failures.push({ printerName, receiptType, code });
+      }
+    }
+  } finally {
+    if (!printWindow.isDestroyed()) {
+      printWindow.close();
+    }
+  }
+
+  return failures;
+};
+
 export async function printReceipt(
   orderData: any,
   printerJobs: PrinterJob[],
   orderKeys?: string | string[]
 ): Promise<number> {
   if (!printerJobs || printerJobs.length === 0) {
-    throw new Error('No printers selected');
+    throw new PrintOperationError('PRINT_NO_PRINTER_SELECTED');
   }
+
+  const detectedPrinters = await detectPrinters();
+  const discoveredMap = new Map(detectedPrinters.map((printer) => [printer.name, printer]));
 
   let keys: string[] = Array.isArray(orderKeys) ? [...orderKeys] : orderKeys ? [orderKeys] : [];
   if (!keys.length && orderData && (orderData.id != null || orderData.orderNumber)) {
@@ -93,94 +367,66 @@ export async function printReceipt(
     jobsByPrinter.get(key)!.push(job);
   }
 
-  // چاپ برای هر پرینتر
+  const preflightFailures: PrintFailureDetail[] = [];
+  const queuedPrintTasks: Promise<PrintFailureDetail[]>[] = [];
   for (const [printerName, jobs] of jobsByPrinter.entries()) {
-    const printWindow = new BrowserWindow({
-      show: false,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-      },
-    });
-
-    const defaultConfig = jobs[0];
-    const margin = defaultConfig?.margin ?? 5;
-
-    // چاپ هر نوع رسید برای این پرینتر
-    for (const job of jobs) {
-      try {
-        const paperWidth = job.paperWidth ?? defaultConfig?.paperWidth ?? 80;
-        const isNarrow = paperWidth <= 62;
-        const marginSame = 5;
-        const shiftLeftMm = isNarrow ? 4 : 6;
-        const contentWidthMm = Math.max(32, paperWidth - marginSame * 2 - shiftLeftMm);
-        const marginTop = 0;
-        const marginBottom = 3;
-
-        const receiptType = job.receiptType || 'full';
-        const opts = { paperWidth, margin, receiptNumber, contentWidthMm, shiftLeftMm, receiptType };
-        const receiptHTML = job.layout?.version === 2
-          ? generateReceiptHTMLFromLayout(orderData, job.layout, opts)
-          : receiptType === 'kitchen'
-            ? generateKitchenReceiptHTML(orderData, opts)
-            : generateReceiptHTML(orderData, opts);
-
-        await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHTML)}`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        const width = mmToMicrons(paperWidth);
-        const height = mmToMicrons(job.paperLength ?? 200);
-        const copies = Math.max(1, Math.floor(job.copies ?? 1));
-        const cssWidthValue = paperWidth.toFixed(2);
-        const cssContentWidth = contentWidthMm.toFixed(2);
-
-        try {
-          await printWindow.webContents.executeJavaScript(`
-            document.documentElement.style.setProperty('--paper-width', '${cssWidthValue}mm');
-            document.documentElement.style.setProperty('--printable-width', '${cssContentWidth}mm');
-            document.documentElement.style.setProperty('--content-padding', '2mm');
-          `);
-        } catch (styleError) {
-          console.warn('Failed to apply dynamic paper style variables:', styleError);
-        }
-
-        for (let i = 0; i < copies; i++) {
-          await new Promise<void>((resolve, reject) => {
-            printWindow.webContents.print(
-              {
-                silent: true,
-                printBackground: true,
-                deviceName: printerName,
-                copies: 1,
-                margins: {
-                  marginType: 'custom',
-                  top: marginTop,
-                  bottom: marginBottom,
-                  left: marginSame,
-                  right: marginSame,
-                } as any,
-                pageSize: {
-                  width,
-                  height,
-                },
-              },
-              (success: boolean, failureReason: string) => {
-                if (success) {
-                  resolve();
-                } else {
-                  reject(new Error(`Failed to print to ${printerName}: ${failureReason}`));
-                }
-              }
-            );
-          });
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        }
-      } catch (error) {
-        console.error(`Error printing ${job.receiptType || 'full'} receipt to ${printerName}:`, error);
+    const detected = discoveredMap.get(printerName);
+    if (!detected) {
+      for (const job of jobs) {
+        preflightFailures.push({
+          printerName,
+          receiptType: job.receiptType || 'full',
+          code: 'PRINT_PRINTER_NOT_FOUND',
+        });
       }
+      continue;
     }
+    if (detected.statusCode === 'PRINTER_OFFLINE') {
+      for (const job of jobs) {
+        preflightFailures.push({
+          printerName,
+          receiptType: job.receiptType || 'full',
+          code: 'PRINT_PRINTER_OFFLINE',
+        });
+      }
+      continue;
+    }
+    queuedPrintTasks.push(
+      enqueuePrinterTask(printerName, () => runPrinterJobs(orderData, printerName, jobs, receiptNumber)).catch(
+        (error) => {
+          if (error instanceof PrintOperationError) {
+            return jobs.map((job) => ({
+              printerName,
+              receiptType: job.receiptType || 'full',
+              code: error.code,
+            }));
+          }
+          return jobs.map((job) => ({
+            printerName,
+            receiptType: job.receiptType || 'full',
+            code: 'PRINT_UNKNOWN_ERROR' as PrintErrorCode,
+          }));
+        }
+      )
+    );
+  }
 
-    printWindow.close();
+  const settled = await Promise.allSettled(queuedPrintTasks);
+  const runtimeFailures = settled.flatMap((result) => {
+    if (result.status === 'fulfilled') {
+      return result.value;
+    }
+    return [
+      {
+        printerName: 'unknown',
+        receiptType: 'full' as ReceiptType,
+        code: 'PRINT_UNKNOWN_ERROR' as PrintErrorCode,
+      },
+    ];
+  });
+  const allFailures = [...preflightFailures, ...runtimeFailures];
+  if (allFailures.length > 0) {
+    throw new PrintOperationError(allFailures[0].code, allFailures);
   }
 
   return receiptNumber;

@@ -24,15 +24,38 @@ type ElectronPrinterJob = {
   layout?: { version: 2; rows: any[] };
 };
 
+type ElectronPrintErrorCode =
+  | 'PRINT_NO_PRINTER_SELECTED'
+  | 'PRINT_PRINTER_DISCOVERY_FAILED'
+  | 'PRINT_PRINTER_NOT_FOUND'
+  | 'PRINT_PRINTER_OFFLINE'
+  | 'PRINT_JOB_DROPPED'
+  | 'PRINT_JOB_FAILED'
+  | 'PRINT_UNKNOWN_ERROR';
+
+type ElectronPrintReceiptType = 'full' | 'kitchen';
+
+type ElectronPrintFailureDetail = {
+  printerName: string;
+  receiptType: ElectronPrintReceiptType;
+  code: ElectronPrintErrorCode;
+};
+
+type ElectronPrintResult =
+  | { status: 'PRINT_OK'; receiptNumber: number }
+  | { status: 'PRINT_ERROR'; code: ElectronPrintErrorCode; details: ElectronPrintFailureDetail[]; receiptNumber: 0 };
+
+type ElectronPrinterStatusCode = 'PRINTER_READY' | 'PRINTER_OFFLINE';
+
 declare global {
   interface Window {
     electronAPI?: {
       checkOnline: () => Promise<boolean>;
       syncOrders: (token?: string) => Promise<any>;
-      printReceipt: (orderData: any, printerJobs: ElectronPrinterJob[], orderKeys?: string | string[]) => Promise<{ success: boolean; receiptNumber?: number; error?: string }>;
+      printReceipt: (orderData: any, printerJobs: ElectronPrinterJob[], orderKeys?: string | string[]) => Promise<ElectronPrintResult>;
       getReceiptNumbersMap: () => Promise<Record<string, number>>;
       assignReceiptNumberForOrder: (orderKeys: string[]) => Promise<number>;
-      getPrinters: () => Promise<Array<{ name: string; displayName: string; description: string }>>;
+      getPrinters: () => Promise<Array<{ name: string; displayName: string; description: string; statusCode: ElectronPrinterStatusCode }>>;
       showMessageBox: (options: any) => Promise<any>;
       saveOfflineOrder: (
         orderData: any,

@@ -30,7 +30,13 @@ function loadEnv() {
 loadEnv();
 import { isOnline } from './utils/network';
 import { syncOfflineOrders } from './services/sync';
-import { printReceipt, renderReceiptPreview, printPreviewOptsMap } from './services/printer';
+import {
+  printReceipt,
+  renderReceiptPreview,
+  printPreviewOptsMap,
+  detectPrinters,
+  PrintOperationError,
+} from './services/printer';
 import { cacheImage, getCachedImagePath, cacheImages, getImageUrl } from './services/imageCache';
 import { saveOfflineOrder as dbSaveOfflineOrder, getAllOrders } from './database/orders';
 import {
@@ -218,10 +224,18 @@ ipcMain.handle('sync-orders', async (_event, token?: string) => {
 ipcMain.handle('print-receipt', async (event, orderData, printerJobs, orderKeys) => {
   try {
     const receiptNumber = await printReceipt(orderData, printerJobs, orderKeys);
-    return { success: true, receiptNumber };
+    return { status: 'PRINT_OK', receiptNumber };
   } catch (error) {
     console.error('Print error:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error', receiptNumber: 0 };
+    if (error instanceof PrintOperationError) {
+      return {
+        status: 'PRINT_ERROR',
+        code: error.code,
+        details: error.details,
+        receiptNumber: 0,
+      };
+    }
+    return { status: 'PRINT_ERROR', code: 'PRINT_UNKNOWN_ERROR', details: [], receiptNumber: 0 };
   }
 });
 
@@ -279,43 +293,7 @@ ipcMain.on('receipt-preview-print', (event) => {
 
 ipcMain.handle('get-printers', async () => {
   try {
-    if (!mainWindow) {
-      return [];
-    }
-    // In Electron, we need to use a different approach to get printers
-    // Create a temporary hidden window to access printer list
-    const tempWindow = new BrowserWindow({ 
-      show: false,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-      }
-    });
-    
-    // Load a blank page to initialize webContents
-    await tempWindow.loadURL('data:text/html,<html><body></body></html>');
-    
-    // Get printers using the webContents
-    let printers: any[] = [];
-    try {
-      // Try getPrintersAsync first (Electron 20+)
-      if (typeof tempWindow.webContents.getPrintersAsync === 'function') {
-        printers = await tempWindow.webContents.getPrintersAsync();
-      } else if (typeof (tempWindow.webContents as any).getPrinters === 'function') {
-        // Fallback for older Electron versions
-        printers = (tempWindow.webContents as any).getPrinters();
-      }
-    } catch (err) {
-      console.warn('Could not get printers:', err);
-    }
-    
-    tempWindow.close();
-    
-    return printers.map((p: any) => ({
-      name: p.name || '',
-      displayName: p.displayName || p.name || '',
-      description: p.description || '',
-    }));
+    return await detectPrinters();
   } catch (error) {
     console.error('Get printers error:', error);
     return [];

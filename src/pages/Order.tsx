@@ -463,7 +463,11 @@ export default function OrderPage() {
               });
               if (printerJobs.length > 0) {
                 const res = await window.electronAPI.printReceipt(orderData, printerJobs, orderKeys);
-                receiptNumber = res?.receiptNumber ?? 0;
+                if (res?.status === 'PRINT_OK') {
+                  receiptNumber = res.receiptNumber ?? 0;
+                } else {
+                  throw new Error(res?.code || 'PRINT_UNKNOWN_ERROR');
+                }
               } else {
                 receiptNumber = await window.electronAPI.assignReceiptNumberForOrder(orderKeys);
               }
@@ -477,6 +481,7 @@ export default function OrderPage() {
           }
         } catch (err) {
           console.error('Print / assign receipt number error:', err);
+          setError(`خطا در چاپ رسید (${err instanceof Error ? err.message : 'PRINT_UNKNOWN_ERROR'})`);
         }
       })();
     };
