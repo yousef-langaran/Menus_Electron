@@ -118,6 +118,23 @@ const printerQueueChains = new Map<string, Promise<void>>();
 const printerQueueSizes = new Map<string, number>();
 const PRINTER_QUEUE_MAX_PENDING = 20;
 
+// Global print queue: serializes ALL print operations across all printers to prevent
+// race conditions when multiple BrowserWindows access Electron's printing subsystem.
+let globalPrintChain = Promise.resolve<void>();
+const globalPrintLock = async <T>(task: () => Promise<T>): Promise<T> => {
+  const previous = globalPrintChain;
+  const runTask = previous.catch(() => undefined).then(task);
+  globalPrintChain = runTask.then(() => undefined, () => undefined);
+  return runTask;
+};
+
+// Prevents stuck print jobs from blocking the queue forever.
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, errorMsg: string): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMsg)), timeoutMs)),
+  ]);
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const toStatusText = (raw: RawPrinter): string => {
@@ -216,30 +233,41 @@ export async function detectPrinters(): Promise<PrinterDiscoveryItem[]> {
 
 const printCopyWithRetry = async (
   printWindow: BrowserWindow,
-  printOptions: Record<string, unknown>
+  printOptions: Record<string, unknown>,
+  printerName: string,
+  receiptType: ReceiptType
 ): Promise<void> => {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      await new Promise<void>((resolve, reject) => {
-        printWindow.webContents.print(
-          printOptions as any,
-          (success: boolean, failureReason: string) => {
-            if (success) {
-              resolve();
-            } else {
-              reject(new PrintOperationError(mapFailureReasonToCode(failureReason), []));
+      console.log(`[PRINT] Sending print command to "${printerName}" (${receiptType}), attempt ${attempt + 1}/3`);
+      await withTimeout(
+        new Promise<void>((resolve, reject) => {
+          printWindow.webContents.print(
+            printOptions as any,
+            (success: boolean, failureReason: string) => {
+              if (success) {
+                console.log(`[PRINT] ✓ Print success: "${printerName}" (${receiptType})`);
+                resolve();
+              } else {
+                console.error(`[PRINT] ✗ Print failed: "${printerName}" (${receiptType}), reason: ${failureReason}`);
+                reject(new PrintOperationError(mapFailureReasonToCode(failureReason), []));
+              }
             }
-          }
-        );
-      });
+          );
+        }),
+        30000,
+        `Print timeout after 30s for printer "${printerName}"`
+      );
       return;
     } catch (error) {
-      if (attempt === 1) {
+      if (attempt === 2) {
+        console.error(`[PRINT] ✗ All retries exhausted for "${printerName}" (${receiptType})`, error);
         throw error instanceof PrintOperationError
           ? error
           : new PrintOperationError('PRINT_JOB_FAILED');
       }
-      await sleep(400);
+      console.warn(`[PRINT] Retry ${attempt + 1} failed for "${printerName}", waiting 600ms before retry...`);
+      await sleep(600);
     }
   }
 };
@@ -250,6 +278,7 @@ const runPrinterJobs = async (
   jobs: PrinterJob[],
   receiptNumber: number
 ): Promise<PrintFailureDetail[]> => {
+  console.log(`[PRINT] Starting runPrinterJobs for "${printerName}", ${jobs.length} job(s), receipt #${receiptNumber}`);
   const printWindow = createPrintWindow();
   const failures: PrintFailureDetail[] = [];
   const defaultConfig = jobs[0];
@@ -261,13 +290,16 @@ const runPrinterJobs = async (
   try {
     for (const job of jobs) {
       const receiptType = job.receiptType || 'full';
+      console.log(`[PRINT] Processing job: "${printerName}" (${receiptType})`);
       try {
         const refresh = await detectPrinters();
         const current = refresh.find((printer) => printer.name === printerName);
         if (!current) {
+          console.error(`[PRINT] ✗ Printer not found: "${printerName}"`);
           throw new PrintOperationError('PRINT_PRINTER_NOT_FOUND', []);
         }
         if (current.statusCode === 'PRINTER_OFFLINE') {
+          console.error(`[PRINT] ✗ Printer offline: "${printerName}"`);
           throw new PrintOperationError('PRINT_PRINTER_OFFLINE', []);
         }
         const paperWidth = job.paperWidth ?? defaultConfig?.paperWidth ?? 80;
@@ -281,8 +313,13 @@ const runPrinterJobs = async (
             ? generateKitchenReceiptHTML(orderData, opts)
             : generateReceiptHTML(orderData, opts);
 
-        await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHTML)}`);
-        await sleep(800);
+        console.log(`[PRINT] Loading HTML for "${printerName}" (${receiptType}), length: ${receiptHTML.length} chars`);
+        await withTimeout(
+          printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHTML)}`),
+          10000,
+          `HTML load timeout for printer "${printerName}"`
+        );
+        await sleep(1000);
 
         const width = mmToMicrons(paperWidth);
         const height = mmToMicrons(job.paperLength ?? 200);
@@ -299,6 +336,7 @@ const runPrinterJobs = async (
         }
 
         for (let copyIndex = 0; copyIndex < copies; copyIndex += 1) {
+          console.log(`[PRINT] Printing copy ${copyIndex + 1}/${copies} for "${printerName}" (${receiptType})`);
           await printCopyWithRetry(printWindow, {
             silent: true,
             printBackground: true,
@@ -315,11 +353,13 @@ const runPrinterJobs = async (
               width,
               height,
             },
-          });
+          }, printerName, receiptType);
           await sleep(300);
         }
+        console.log(`[PRINT] ✓ Job completed: "${printerName}" (${receiptType})`);
       } catch (error) {
         const code = error instanceof PrintOperationError ? error.code : 'PRINT_UNKNOWN_ERROR';
+        console.error(`[PRINT] ✗ Job failed: "${printerName}" (${receiptType}), code: ${code}`, error);
         failures.push({ printerName, receiptType, code });
       }
     }
@@ -337,11 +377,17 @@ export async function printReceipt(
   printerJobs: PrinterJob[],
   orderKeys?: string | string[]
 ): Promise<number> {
+  const orderNumber = orderData?.orderNumber || orderData?.order_number || orderData?.id || 'N/A';
+  console.log(`[PRINT] ===== Starting print job for order #${orderNumber} =====`);
+  console.log(`[PRINT] Total printer jobs: ${printerJobs.length}`);
+  
   if (!printerJobs || printerJobs.length === 0) {
+    console.error('[PRINT] ✗ No printers selected');
     throw new PrintOperationError('PRINT_NO_PRINTER_SELECTED');
   }
 
   const detectedPrinters = await detectPrinters();
+  console.log(`[PRINT] Detected ${detectedPrinters.length} printer(s):`, detectedPrinters.map(p => `${p.name} (${p.statusCode})`).join(', '));
   const discoveredMap = new Map(detectedPrinters.map((printer) => [printer.name, printer]));
 
   let keys: string[] = Array.isArray(orderKeys) ? [...orderKeys] : orderKeys ? [orderKeys] : [];
