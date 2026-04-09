@@ -600,6 +600,7 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
       padding-left: 4px;
     }
     .item-name {
+    font-weight: bold;
       display: block;
     }
     .item-description {
@@ -728,10 +729,10 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
 
     <div class="items">
       ${items.map((item: any) => {
-        const title = item.product?.name_fa || item.productName || 'محصول';
-        const desc = getProductDescription(item);
-        const lineNote = getLineItemNote(item);
-        return `
+    const title = item.product?.name_fa || item.productName || 'محصول';
+    const desc = getProductDescription(item);
+    const lineNote = getLineItemNote(item);
+    return `
         <div class="item">
           <div class="item-name-col">
             <span class="item-name">${title}</span>
@@ -742,7 +743,7 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
           <span class="item-price">${formatPrice(item.price)}</span>
         </div>
       `;
-      }).join('')}
+  }).join('')}
     </div>
 
     <div class="totals">
@@ -1260,14 +1261,14 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
       font-weight: 500;
     }
     .item-description {
-      font-size: 11px;
+      font-size: 13px;
       color: #444;
       font-weight: normal;
       margin-top: 4px;
       line-height: 1.35;
     }
     .item-line-note {
-      font-size: 11px;
+      font-size: 13px;
       color: #333;
       font-weight: normal;
       margin-top: 4px;
