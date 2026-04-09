@@ -120,7 +120,7 @@ const PRINTER_QUEUE_MAX_PENDING = 20;
 
 // Global print queue: serializes ALL print operations across all printers to prevent
 // race conditions when multiple BrowserWindows access Electron's printing subsystem.
-let globalPrintChain = Promise.resolve<void>();
+let globalPrintChain: Promise<void> = Promise.resolve();
 const globalPrintLock = async <T>(task: () => Promise<T>): Promise<T> => {
   const previous = globalPrintChain;
   const runTask = previous.catch(() => undefined).then(task);
