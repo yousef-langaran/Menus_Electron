@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { fetchOrders, updateOrderStatus } from '../services/api';
-
-const ORDERS_PAGE_SIZE = 50;
 import { getAllOrders } from '../services/offlineStorage';
 import { connectOrdersSocket, disconnectOrdersSocket } from '../services/ordersSocket';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
@@ -12,6 +10,9 @@ import {
   saveReceiptNumbersToStorage,
 } from '../utils/receiptNumbersStorage';
 import { Card, CardBody, Button, Select, SelectItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Chip, Checkbox } from '@heroui/react';
+
+const ORDERS_PAGE_SIZE = 20;
+const ORDERS_PAGE_SIZE_OPTIONS = [20, 50, 100];
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'همه وضعیت‌ها' },
@@ -36,6 +37,16 @@ const formatPrice = (price?: number) =>
   typeof price === 'number' ? `${new Intl.NumberFormat('fa-IR').format(price)} تومان` : '-';
 
 const formatDate = (value?: string) => (value ? new Date(value).toLocaleString('fa-IR') : '-');
+
+const DEFAULT_ONLINE_META = {
+  page: 1,
+  limit: ORDERS_PAGE_SIZE,
+  offset: 0,
+  total: 0,
+  totalPages: 1,
+  hasNextPage: false,
+  hasPreviousPage: false,
+};
 
 export default function OrdersPage() {
   const navigate = useNavigate();
@@ -70,9 +81,9 @@ export default function OrdersPage() {
   const [reprintIsOffline, setReprintIsOffline] = useState(false);
   const [reprintSelectedPrinters, setReprintSelectedPrinters] = useState<string[]>([]);
   const [reprintLoading, setReprintLoading] = useState(false);
-  /** آیا صفحهٔ بعدی سفارشات آنلاین وجود دارد */
-  const [hasMoreOrders, setHasMoreOrders] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(ORDERS_PAGE_SIZE);
+  const [onlineMeta, setOnlineMeta] = useState(DEFAULT_ONLINE_META);
 
   const restaurantName = useMemo(() => {
     const name = user?.restaurants?.[0]?.name;
@@ -194,7 +205,7 @@ export default function OrdersPage() {
     if (isOnline) {
       loadOnlineOrders();
     }
-  }, [statusFilter, isOnline]);
+  }, [statusFilter, isOnline, currentPage, pageSize, restaurantName, token]);
 
   useEffect(() => {
     console.log('[OrdersPage] Socket effect triggered', {
@@ -219,24 +230,12 @@ export default function OrdersPage() {
     console.log('[OrdersPage] Socket created, setting up listeners');
 
     const handleNewOrder = (order: any) => {
-      setOnlineOrders((prev) => {
-        const withoutCurrent = prev.filter((item) => item.id !== order.id);
-        if (statusFilter !== 'all' && order.status !== statusFilter) {
-          return withoutCurrent;
-        }
-        return [order, ...withoutCurrent];
-      });
       setSyncMessage(`سفارش جدید ${order.orderNumber || order.id} ثبت شد.`);
+      loadOnlineOrders();
     };
 
-    const handleOrderUpdated = (order: any) => {
-      setOnlineOrders((prev) => {
-        const withoutCurrent = prev.filter((item) => item.id !== order.id);
-        if (statusFilter !== 'all' && order.status !== statusFilter) {
-          return withoutCurrent;
-        }
-        return [order, ...withoutCurrent];
-      });
+    const handleOrderUpdated = (_order: any) => {
+      loadOnlineOrders();
     };
 
     const handleSocketError = (message: any) => {
@@ -268,23 +267,22 @@ export default function OrdersPage() {
       socket.off('connect_error', handleConnectError);
       disconnectOrdersSocket();
     };
-  }, [token, restaurantName, isOnline, statusFilter]);
+  }, [token, restaurantName, isOnline, statusFilter, currentPage, pageSize]);
 
   const loadOnlineOrders = async () => {
     if (!isOnline) return;
     if (!token) {
       setOnlineError('برای مشاهده سفارشات آنلاین، ابتدا وارد شوید.');
       setOnlineOrders([]);
-      setHasMoreOrders(false);
+      setOnlineMeta(DEFAULT_ONLINE_META);
       return;
     }
     setOnlineLoading(true);
     setOnlineError('');
-    setHasMoreOrders(false);
     try {
       const params: Record<string, string | number> = {
-        limit: ORDERS_PAGE_SIZE + 1,
-        offset: 0,
+        page: currentPage,
+        limit: pageSize,
       };
       if (restaurantName) params.restaurantName = restaurantName;
       if (statusFilter !== 'all') params.status = statusFilter;
@@ -294,44 +292,30 @@ export default function OrdersPage() {
         : Array.isArray(response?.data)
           ? response.data
           : [];
-      const hasMore = data.length > ORDERS_PAGE_SIZE;
-      setOnlineOrders(hasMore ? data.slice(0, ORDERS_PAGE_SIZE) : data);
-      setHasMoreOrders(hasMore);
+      const meta = !Array.isArray(response) && response?.meta
+        ? response.meta
+        : {
+            ...DEFAULT_ONLINE_META,
+            page: currentPage,
+            limit: pageSize,
+            total: data.length,
+          };
+      setOnlineOrders(data);
+      setOnlineMeta(meta);
+
+      if (meta.totalPages > 0 && currentPage > meta.totalPages) {
+        setCurrentPage(meta.totalPages);
+      }
     } catch (error: any) {
       console.error('Failed to fetch orders:', error);
       setOnlineError(error?.response?.data?.message || 'خطا در دریافت سفارشات آنلاین');
+      setOnlineOrders([]);
+      setOnlineMeta(DEFAULT_ONLINE_META);
     } finally {
       setOnlineLoading(false);
       if (window.electronAPI?.getReceiptNumbersMap) {
         loadReceiptNumbersMap();
       }
-    }
-  };
-
-  const loadMoreOrders = async () => {
-    if (!token || loadingMore || !hasMoreOrders) return;
-    setLoadingMore(true);
-    try {
-      const params: Record<string, string | number> = {
-        limit: ORDERS_PAGE_SIZE + 1,
-        offset: onlineOrders.length,
-      };
-      if (restaurantName) params.restaurantName = restaurantName;
-      if (statusFilter !== 'all') params.status = statusFilter;
-      const response = await fetchOrders(params, token);
-      const data = Array.isArray(response)
-        ? response
-        : Array.isArray(response?.data)
-          ? response.data
-          : [];
-      const hasMore = data.length > ORDERS_PAGE_SIZE;
-      const next = hasMore ? data.slice(0, ORDERS_PAGE_SIZE) : data;
-      setOnlineOrders((prev) => [...prev, ...next]);
-      setHasMoreOrders(hasMore);
-    } catch (error: any) {
-      console.error('Failed to load more orders:', error);
-    } finally {
-      setLoadingMore(false);
     }
   };
 
@@ -677,17 +661,51 @@ export default function OrdersPage() {
             </CardBody>
           </Card>
         ))}
-        {hasMoreOrders && (
-          <div className="flex justify-center py-4">
-            <Button
-              variant="flat"
-              color="primary"
-              onPress={loadMoreOrders}
-              isLoading={loadingMore}
-              isDisabled={loadingMore}
-            >
-              {loadingMore ? 'در حال بارگذاری...' : 'بارگذاری بیشتر'}
-            </Button>
+        {onlineMeta.total > 0 && (
+          <div className="flex flex-col gap-3 border-t border-default-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-default-500 text-center sm:text-right">
+              نمایش {onlineMeta.offset + 1} تا {Math.min(onlineMeta.offset + onlineMeta.limit, onlineMeta.total)} از {onlineMeta.total} سفارش
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Select
+                size="sm"
+                className="min-w-36"
+                selectedKeys={[String(pageSize)]}
+                onSelectionChange={(keys) => {
+                  const value = Number(Array.from(keys)[0]);
+                  if (!Number.isNaN(value)) {
+                    setPageSize(value);
+                    setCurrentPage(1);
+                  }
+                }}
+                variant="bordered"
+                label="تعداد در صفحه"
+              >
+                {ORDERS_PAGE_SIZE_OPTIONS.map((size) => (
+                  <SelectItem key={String(size)} textValue={`${size} در صفحه`}>{size} در صفحه</SelectItem>
+                ))}
+              </Select>
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="flat"
+                  isDisabled={!onlineMeta.hasPreviousPage || onlineLoading}
+                  onPress={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                >
+                  قبلی
+                </Button>
+                <span className="text-sm text-default-500 whitespace-nowrap">
+                  {onlineMeta.page} / {onlineMeta.totalPages}
+                </span>
+                <Button
+                  variant="flat"
+                  color="primary"
+                  isDisabled={!onlineMeta.hasNextPage || onlineLoading}
+                  onPress={() => setCurrentPage((prev) => prev + 1)}
+                >
+                  بعدی
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -782,7 +800,13 @@ export default function OrdersPage() {
                   size="sm"
                   className="max-w-48"
                   selectedKeys={[statusFilter]}
-                  onSelectionChange={(keys) => { const v = Array.from(keys)[0]; if (v) setStatusFilter(v as string); }}
+                  onSelectionChange={(keys) => {
+                    const v = Array.from(keys)[0];
+                    if (v) {
+                      setStatusFilter(v as string);
+                      setCurrentPage(1);
+                    }
+                  }}
                   variant="bordered"
                   label="وضعیت"
                 >

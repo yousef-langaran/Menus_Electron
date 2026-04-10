@@ -496,12 +496,12 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
   const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
   const printerMargin = typeof options.margin === 'number' ? Math.max(0, options.margin) : 5;
   const printableWidth = typeof options.contentWidthMm === 'number'
-    ? options.contentWidthMm
-    : Math.max(30, paperWidth - printerMargin * 2);
+      ? options.contentWidthMm
+      : Math.max(30, paperWidth - printerMargin * 2);
   const shiftLeftMm = typeof options.shiftLeftMm === 'number' ? options.shiftLeftMm : 0;
   const contentPadding = 2;
   const receiptNumber =
-    options && typeof options.receiptNumber === 'number' ? options.receiptNumber : 0;
+      options && typeof options.receiptNumber === 'number' ? options.receiptNumber : 0;
 
   return `
 <!DOCTYPE html>
@@ -517,234 +517,131 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
       --content-padding: ${contentPadding}mm;
       --shift-left: ${shiftLeftMm}mm;
     }
-    @page {
-      size: var(--paper-width) auto;
-      margin: 0;
-    }
+    @page { size: var(--paper-width) auto; margin: 0; }
     html, body {
       width: var(--paper-width);
       max-width: var(--paper-width);
-      margin: 0;
-      padding: 0;
-      padding-top: 0 !important;
+      margin: 0; padding: 0; padding-top: 0 !important;
       margin-right: var(--shift-left);
     }
     body {
       font-family: 'Tahoma', 'Arial', sans-serif;
-      font-size: 12px;
-      box-sizing: border-box;
-      direction: rtl;
-      text-align: right;
-      overflow-wrap: break-word;
-      word-break: break-word;
+      font-size: 10pt;
+      color: #000 !important;
+      -webkit-font-smoothing: none;
+      text-rendering: geometricPrecision;
+      box-sizing: border-box; direction: rtl; text-align: right;
+      overflow-wrap: break-word; word-break: break-word;
       background: #fff;
-      display: flex;
-      justify-content: flex-start;
     }
     .receipt-root {
-      width: var(--printable-width);
-      max-width: var(--printable-width);
-      padding: var(--content-padding);
-      padding-top: 0;
-      box-sizing: border-box;
-      background: #fff;
-      margin: 0;
+      width: var(--printable-width); max-width: var(--printable-width);
+      padding: var(--content-padding); padding-top: 0;
+      box-sizing: border-box; background: #fff; margin: 0;
     }
-    * {
-      box-sizing: border-box;
-      max-width: 100%;
-    }
-    .header,
-    .order-info,
-    .items,
-    .totals,
-    .footer {
-      width: 100%;
-    }
-    .header {
-      text-align: center;
-      border-bottom: 2px dashed #000;
-      padding-top: 0 !important;
-      padding-bottom: 6px;
-      margin-top: 0 !important;
-      margin-bottom: 6px;
-    }
-    .header h1 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: bold;
-    }
-    .order-info {
-      margin: 10px 0;
-    }
-    .order-info div {
-      margin: 5px 0;
-    }
-    .items {
-      margin: 15px 0;
-      border-top: 1px dashed #000;
-      border-bottom: 1px dashed #000;
-      padding: 10px 0;
-    }
-    .item {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin: 8px 0;
-      padding: 5px 0;
-      width: 100%;
-    }
-    .item-name-col {
-      flex: 1;
-      min-width: 0;
-      padding-left: 4px;
-    }
-    .item-name {
-    font-weight: bold;
-      display: block;
-    }
-    .item-description {
-      font-size: 10px;
-      color: #555;
-      margin-top: 3px;
-      line-height: 1.35;
-    }
-    .item-line-note {
-      font-size: 10px;
-      color: #333;
-      margin-top: 3px;
-      line-height: 1.3;
-    }
-    .item-quantity {
-      margin: 0 6px;
-      white-space: nowrap;
-    }
-    .item-price {
-      font-weight: bold;
-      white-space: nowrap;
-      margin-left: 4px;
-    }
-    .totals {
-      margin: 15px 0;
-    }
-    .total-row {
-      display: flex;
-      justify-content: space-between;
-      margin: 8px 0;
-    }
-    .total-row.final {
-      font-size: 16px;
-      font-weight: bold;
-      border-top: 2px solid #000;
-      padding-top: 10px;
-      margin-top: 10px;
-    }
-    .footer {
-      text-align: center;
-      margin-top: 20px;
-      padding-top: 10px;
-      border-top: 2px dashed #000;
-      font-size: 10px;
-    }
-    .receipt-fish-row {
-      text-align: center;
-      display: flex;
-      gap: 4px;
-      justify-content: space-between;
-      margin: 8px 0;
-    }
-    .receipt-fish-label {
-      display: block;
-      font-size: 11px;
-      margin-bottom: 4px;
-    }
+    * { box-sizing: border-box; max-width: 100%; color: #000 !important; }
+    
+    .divider { border-bottom: 2px dashed #000; margin: 8px 0; }
+    .divider-solid { border-bottom: 2px solid #000; margin: 8px 0; }
+
+    .header { text-align: center; padding-bottom: 4px; }
+    
+    .receipt-fish-row { text-align: center; margin: 8px 0; }
     .receipt-number-box {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 22mm;
-      height: 22mm;
-      min-width: 60px;
-      min-height: 60px;
-      margin: 0 auto;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22mm; height: 22mm; margin: 0 auto;
       border: 3px solid #000;
-      font-size: 28px;
-      font-weight: bold;
-      line-height: 1;
+      font-size: 24pt; font-weight: bold; line-height: 1;
     }
     .receipt-restaurant-name {
-      text-align: center;
-      margin-top: 4px;
-      font-size: 11px;
-      font-weight: bold;
-      max-width: 22mm;
-      line-height: 1.2;
-      word-break: break-word;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
+      text-align: center; margin-top: 6px; font-size: 11pt; font-weight: bold;
     }
-    .order-number-row {
-      margin: 8px 0;
-      font-size: 14px;
+
+    .order-info { margin: 8px 0; font-size: 9pt; }
+    .order-info div { margin: 4px 0; display: flex; justify-content: space-between; }
+    .order-info strong { font-weight: bold; }
+
+    .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9pt; }
+    .items-table th { border-bottom: 1px solid #000; padding-bottom: 4px; text-align: right; font-weight: bold; }
+    .items-table td { padding: 6px 0; vertical-align: top; border-bottom: 1px dashed #000; }
+    .items-table tr:last-child td { border-bottom: none; }
+    
+    .item-name { font-weight: bold; font-size: 10pt; display: block; }
+    .item-details { font-size: 8pt; margin-top: 3px; line-height: 1.4; white-space: pre-wrap; }
+    
+    .col-qty { text-align: center; width: 15%; font-weight: bold; font-size: 11pt; white-space: nowrap; }
+    .col-price { text-align: center; width: 30%; font-weight: bold; white-space: nowrap; }
+
+    .totals { margin: 10px 0; font-size: 10pt; }
+    .total-row { display: flex; justify-content: space-between; margin: 6px 0; }
+    .total-row.final { font-size: 13pt; font-weight: bold; margin-top: 8px; padding-top: 8px; border-top: 2px solid #000; }
+
+    /* --- تغییرات اصلی اینجاست --- */
+    .notes-box {
+      border: 1px solid #000; 
+      padding: 6px; 
+      margin: 10px 0;
+      font-size: 9pt; 
+      font-weight: bold; 
+      border-radius: 4px;
+      white-space: pre-wrap; /* اعمال اینترها و رفتن تا انتهای خط */
+      word-break: normal; /* جلوگیری از رفتار عجیب روی اعداد */
+      line-height: 1.6;
+      text-align: justify; /* پر کردن کامل عرض */
+      text-align-last: right; /* خط آخر راست‌چین بماند */
     }
-    .order-number-label {
-      display: block;
-      font-size: 11px;
-      color: #333;
-      margin-bottom: 2px;
-    }
-    .order-number-value {
-      display: block;
-      font-size: 16px;
-      font-weight: bold;
-      letter-spacing: 0.5px;
-    }
+
+    .footer { text-align: center; margin-top: 15px; font-size: 8pt; font-weight: bold; }
   </style>
 </head>
 <body>
   <div class="receipt-root">
     <div class="header">
-<!--      <h1>بستنی حاج عبدالله</h1>-->
       <div class="receipt-fish-row">
         <div class="receipt-number-box">${receiptNumber > 0 ? receiptNumber : '—'}</div>
         <div class="receipt-restaurant-name">${restaurantName || 'رستوران'}</div>
       </div>
-<!--      <div class="order-number-row">-->
-<!--        <span class="order-number-label">شماره سفارش</span>-->
-<!--        <span class="order-number-value">#${orderNumber}</span>-->
-<!--      </div>-->
-<!--      <div>${date}</div>-->
     </div>
+    
+    <div class="divider"></div>
 
     <div class="order-info">
-      <div><strong>مشتری:</strong> ${customerName}</div>
-      <div><strong>نوع سفارش:</strong> ${serviceType}</div>
-      ${tableNumber ? `<div><strong>میز:</strong> ${tableNumber}</div>` : ''}
-      ${customerAddress ? `<div><strong>آدرس:</strong> ${customerAddress}</div>` : ''}
-<!--      <div><strong>روش پرداخت:</strong> ${paymentMethod}</div>-->
-      ${notes ? `<div><strong>یادداشت:</strong> ${notes}</div>` : ''}
+      <div><span>مشتری:</span> <strong>${customerName}</strong></div>
+      <div><span>سفارش:</span> <strong>${serviceType}</strong></div>
+      ${tableNumber ? `<div><span>میز:</span> <strong>${tableNumber}</strong></div>` : ''}
+      ${customerAddress ? `<div style="display:block"><span>آدرس:</span> <strong>${customerAddress}</strong></div>` : ''}
     </div>
 
-    <div class="items">
+    ${notes ? `<div class="notes-box">یادداشت: ${notes}</div>` : ''}
+
+    <div class="divider-solid"></div>
+
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>شرح سفارش</th>
+          <th class="col-qty">تعداد</th>
+          <th class="col-price">مبلغ</th>
+        </tr>
+      </thead>
+      <tbody>
       ${items.map((item: any) => {
     const title = item.product?.name_fa || item.productName || 'محصول';
     const desc = getProductDescription(item);
     const lineNote = getLineItemNote(item);
     return `
-        <div class="item">
-          <div class="item-name-col">
+        <tr>
+          <td>
             <span class="item-name">${title}</span>
-            ${desc ? `<div class="item-description">${desc}</div>` : ''}
-            ${lineNote ? `<div class="item-line-note">یادداشت خط: ${lineNote}</div>` : ''}
-          </div>
-          <span class="item-quantity">${item.quantity} ×</span>
-          <span class="item-price">${formatPrice(item.price)}</span>
-        </div>
-      `;
+          </td>
+          <td class="col-qty">${item.quantity}</td>
+          <td class="col-price">${formatPrice(item.price)}</td>
+        </tr>`;
   }).join('')}
-    </div>
+      </tbody>
+    </table>
+
+    <div class="divider-solid"></div>
 
     <div class="totals">
       <div class="total-row">
@@ -763,9 +660,11 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
       </div>
     </div>
 
+    <div class="divider"></div>
+
     <div class="footer">
-      <div>با تشکر از انتخاب شما</div>
-      <div>${date}</div>
+      <div>با تشکر از انتخاب شما نرم افزار هوشمنو hoshmenu.ir </div>
+      <div style="margin-top: 4px;">${date}</div>
     </div>
   </div>
 </body>
@@ -1032,10 +931,10 @@ function renderLayoutModuleHtml(module: ReceiptLayoutModule, orderData: any): st
       const lineNote = showLineNote ? getLineItemNote(item) : '';
       const notePart = lineNote ? ` (${lineNote})` : '';
       const descBlock = desc
-        ? `<div style="font-size:9pt;color:#555;margin-top:2px;line-height:1.3">${desc}</div>`
+        ? `<div style="font-size:9pt;margin-top:2px;line-height:1.3">${desc}</div>`
         : '';
       const price = showPrice ? `<td style="padding:2px 4px;vertical-align:top">${formatPrice(item.price)}</td>` : '';
-      const border = tableStyle === 'bordered' ? 'border-bottom:1px solid #ccc' : '';
+      const border = tableStyle === 'bordered' ? 'border-bottom:1px solid #000' : '';
       const titleCell = `<span>${name}</span>${notePart}${descBlock}`;
       return `<tr style="${border}"><td style="padding:2px 4px;vertical-align:top">${titleCell}</td><td style="padding:2px 4px;white-space:nowrap;vertical-align:top">${item.quantity} ×</td>${price}</tr>`;
     }).join('');
@@ -1123,9 +1022,16 @@ export function generateReceiptHTMLFromLayout(
   <style>
     :root { --paper-width: ${paperWidth}mm; --printable-width: ${printableWidth}mm; --content-padding: ${contentPadding}mm; --shift-left: ${shiftLeftMm}mm; }
     @page { size: var(--paper-width) auto; margin: 0; }
-    html, body { width: var(--paper-width); max-width: var(--paper-width); margin: 0; padding: 0; margin-right: var(--shift-left); font-family: Tahoma, Arial, sans-serif; box-sizing: border-box; direction: rtl; text-align: right; word-break: break-word; background: #fff; }
+    html, body { 
+      width: var(--paper-width); max-width: var(--paper-width); margin: 0; padding: 0; 
+      margin-right: var(--shift-left); font-family: Tahoma, Arial, sans-serif; box-sizing: border-box; 
+      direction: rtl; text-align: right; word-break: break-word; background: #fff;
+      color: #000 !important; /* حیاتی برای کیفیت چاپ */
+      -webkit-font-smoothing: none; /* حیاتی برای کیفیت چاپ */
+      text-rendering: geometricPrecision;
+    }
     .receipt-root { width: var(--printable-width); max-width: var(--printable-width); padding: var(--content-padding); box-sizing: border-box; background: #fff; margin: 0; }
-    * { box-sizing: border-box; max-width: 100%; }
+    * { box-sizing: border-box; max-width: 100%; color: #000 !important; }
   </style>
 </head>
 <body>
@@ -1146,8 +1052,8 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
   const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
   const printerMargin = typeof options.margin === 'number' ? Math.max(0, options.margin) : 5;
   const printableWidth = typeof options.contentWidthMm === 'number'
-    ? options.contentWidthMm
-    : Math.max(30, paperWidth - printerMargin * 2);
+      ? options.contentWidthMm
+      : Math.max(30, paperWidth - printerMargin * 2);
   const shiftLeftMm = typeof options.shiftLeftMm === 'number' ? options.shiftLeftMm : 0;
   const contentPadding = 2;
   const receiptNumber = typeof options.receiptNumber === 'number' ? options.receiptNumber : 0;
@@ -1166,192 +1072,106 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
       --content-padding: ${contentPadding}mm;
       --shift-left: ${shiftLeftMm}mm;
     }
-    @page {
-      size: var(--paper-width) auto;
-      margin: 0;
-    }
+    @page { size: var(--paper-width) auto; margin: 0; }
     html, body {
-      width: var(--paper-width);
-      max-width: var(--paper-width);
-      margin: 0;
-      padding: 0;
-      padding-top: 0 !important;
-      margin-right: var(--shift-left);
+      width: var(--paper-width); max-width: var(--paper-width);
+      margin: 0; padding: 0; padding-top: 0 !important; margin-right: var(--shift-left);
     }
     body {
       font-family: 'Tahoma', 'Arial', sans-serif;
-      font-size: 14px;
-      box-sizing: border-box;
-      direction: rtl;
-      text-align: right;
-      overflow-wrap: break-word;
-      word-break: break-word;
-      background: #fff;
-      display: flex;
-      justify-content: flex-start;
+      color: #000 !important;
+      -webkit-font-smoothing: none;
+      text-rendering: geometricPrecision;
+      font-size: 12pt; font-weight: bold;
+      box-sizing: border-box; direction: rtl; text-align: right; background: #fff;
     }
-    .receipt-root {
-      width: var(--printable-width);
-      max-width: var(--printable-width);
-      padding: var(--content-padding);
-      padding-top: 0;
-      box-sizing: border-box;
-      background: #fff;
-      margin: 0;
-    }
-    * {
-      box-sizing: border-box;
-      max-width: 100%;
-    }
-    .header,
-    .order-info,
-    .items,
-    .footer {
-      width: 100%;
-    }
-    .header {
-      text-align: center;
-      border-bottom: 3px solid #000;
-      padding-top: 0 !important;
-      padding-bottom: 6px;
-      margin-top: 0 !important;
-      margin-bottom: 6px;
-    }
-    .header h1 {
-      margin: 0;
-      font-size: 20px;
-      font-weight: bold;
-    }
-    .order-number {
-      font-size: 18px;
-      font-weight: bold;
-      margin: 8px 0;
-    }
-    .order-number-label {
-      display: block;
-      font-size: 11px;
-      color: #333;
-      margin-bottom: 2px;
-    }
-    .order-info {
-      margin: 12px 0;
-      font-size: 13px;
-    }
-    .order-info div {
-      margin: 6px 0;
-    }
-    .items {
-      margin: 15px 0;
-      border-top: 2px solid #000;
-      border-bottom: 2px solid #000;
-      padding: 12px 0;
-    }
-    .item {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin: 10px 0;
-      padding: 6px 0;
-      width: 100%;
-      font-size: 14px;
-    }
-    .item-name-col {
-      flex: 1;
-      min-width: 0;
-      font-weight: 500;
-    }
-    .item-description {
-      font-size: 13px;
-      color: #444;
-      font-weight: normal;
-      margin-top: 4px;
-      line-height: 1.35;
-    }
-    .item-line-note {
-      font-size: 13px;
-      color: #333;
-      font-weight: normal;
-      margin-top: 4px;
-      line-height: 1.3;
-    }
-    .item-quantity {
-      margin: 0 8px;
-      white-space: nowrap;
-      font-weight: bold;
-      font-size: 16px;
-    }
-    .item-price, .totals, .total-row { display: none !important; }
-    .footer {
-      text-align: center;
-      margin-top: 20px;
-      padding-top: 12px;
-      border-top: 2px dashed #000;
-      font-size: 11px;
-    }
-    .notes {
-      margin-top: 12px;
-      padding: 8px;
-      background: #f5f5f5;
-      border-radius: 4px;
-      font-size: 12px;
-    }
+    .receipt-root { width: var(--printable-width); max-width: var(--printable-width); padding: var(--content-padding); margin: 0; }
+    * { box-sizing: border-box; max-width: 100%; color: #000 !important; }
+
+    .divider-solid { border-bottom: 3px solid #000; margin: 10px 0; }
+
+    .header { text-align: center; }
+    
     .receipt-number-box {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 22mm;
-      height: 22mm;
-      min-width: 22mm;
-      min-height: 22mm;
-      margin: 8px auto;
-      border: 3px solid #000;
-      font-size: 28px;
-      font-weight: bold;
-      line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 25mm; height: 25mm; margin: 5px auto;
+      border: 4px solid #000;
+      font-size: 32pt; font-weight: bold; line-height: 1;
     }
+
+    .order-info { margin: 12px 0; font-size: 12pt; border: 2px dashed #000; padding: 8px; border-radius: 4px; }
+    .order-info div { margin: 6px 0; }
+
+    .items { margin: 15px 0; }
+    .item { display: flex; justify-content: space-between; align-items: flex-start; padding: 8px 0; border-bottom: 2px solid #000; }
+    .item-name-col { flex: 1; padding-left: 10px; }
+    .item-name { font-size: 10pt; }
+    
+    /* --- مشکل یادداشت زیر محصولات در این کلاس حل شد --- */
+    .item-details { 
+      font-size: 10pt; 
+      margin-top: 4px; 
+      font-weight: normal; 
+      white-space: pre-wrap; 
+      word-break: normal; 
+      text-align: justify; 
+      text-align-last: right;
+      line-height: 1.6;
+    }
+    
+    .item-quantity { font-size: 20pt; font-weight: bold; white-space: nowrap; margin-right: 10px; }
+
+    .notes { 
+      margin-top: 15px; 
+      padding: 10px; 
+      border: 3px solid #000; 
+      font-size: 12pt;
+      white-space: pre-wrap; 
+      word-break: normal; 
+      line-height: 1.6;
+      text-align: justify; 
+      text-align-last: right; 
+    }
+    
+    .footer { text-align: center; margin-top: 20px; font-size: 10pt; }
   </style>
 </head>
 <body>
   <div class="receipt-root">
     <div class="header">
-      <h1>رسید آشپزخانه</h1>
       ${receiptNumber > 0 ? `<div class="receipt-number-box">${receiptNumber}</div>` : ''}
-      <div class="order-number">
-        <span class="order-number-label">شماره سفارش</span>
-        #${orderNumber}
-      </div>
-      <div>${date}</div>
     </div>
 
-    <div class="order-info">
-      <div><strong>نوع سفارش:</strong> ${serviceType}</div>
+        <div class="order-info">
+      <div>${serviceType}</div>
       ${tableNumber ? `<div><strong>میز:</strong> ${tableNumber}</div>` : ''}
       ${customerAddress ? `<div><strong>آدرس:</strong> ${customerAddress}</div>` : ''}
     </div>
 
+    ${notes ? `
+    <div class="notes">
+      ${notes} 
+    </div>
+    ` : ''}
+
+    <div class="divider-solid"></div>
+
     <div class="items">
       ${items.map((item: any) => {
-        const title = item.product?.name_fa || item.productName || 'محصول';
-        const desc = getProductDescription(item);
-        const lineNote = getLineItemNote(item);
-        return `
+    const title = item.product?.name_fa || item.productName || 'محصول';
+    const desc = getProductDescription(item);
+    const lineNote = getLineItemNote(item);
+    return `
         <div class="item">
           <div class="item-name-col">
             <span class="item-name">${title}</span>
-            ${desc ? `<div class="item-description">${desc}</div>` : ''}
-            ${lineNote ? `<div class="item-line-note">یادداشت خط: ${lineNote}</div>` : ''}
+            ${lineNote ? `<div class="item-details">${lineNote}</div>` : ''}
           </div>
-          <span class="item-quantity">${item.quantity} ×</span>
+          <div class="item-quantity">${item.quantity} ×</div>
         </div>
       `;
-      }).join('')}
+  }).join('')}
     </div>
-
-    ${notes ? `
-    <div class="notes">
-      <strong>یادداشت:</strong> ${notes}
-    </div>
-    ` : ''}
 
     <div class="footer">
       <div>${date}</div>
