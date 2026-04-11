@@ -337,6 +337,7 @@ export default function OrderPage() {
             const restaurant = restaurantId
               ? await getRestaurantById(Number(restaurantId), token)
               : await getRestaurantByName(restaurantName || '', token);
+
             const raw = restaurant?.cartItemOptions;
             options = Array.isArray(raw) ? raw.filter((s: any) => s != null && String(s).trim()) : [];
             mobileReq = restaurant?.panelSettings?.isMobileRequiredInElectronPanel ?? true;
