@@ -54,6 +54,8 @@ import {
   getNextReceiptNumberPreview,
   getReceiptNumbersMap,
   assignReceiptNumberForOrder,
+  loadReceiptPriceDisplayUnit,
+  saveReceiptPriceDisplayUnit,
 } from './database/preferences';
 import { getApiConfig } from './config/api';
 import { setupAutoUpdater, checkForUpdates, startUpdateDownload, quitAndInstall } from './updater';
@@ -431,6 +433,25 @@ ipcMain.handle('save-receipt-number-settings', async (_event, settings) => {
     return { success: true };
   } catch (error) {
     console.error('Save receipt number settings error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('get-receipt-price-display-unit', async () => {
+  try {
+    return await loadReceiptPriceDisplayUnit();
+  } catch (error) {
+    console.error('get-receipt-price-display-unit error:', error);
+    return 'toman';
+  }
+});
+
+ipcMain.handle('save-receipt-price-display-unit', async (_event, unit: string) => {
+  try {
+    await saveReceiptPriceDisplayUnit(unit === 'rial' ? 'rial' : 'toman');
+    return { success: true };
+  } catch (error) {
+    console.error('save-receipt-price-display-unit error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });

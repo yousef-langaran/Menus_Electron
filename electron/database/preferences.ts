@@ -4,6 +4,9 @@ import * as fs from 'fs';
 
 export type ReceiptNumberResetPolicy = 'never' | 'minutely' | 'daily' | 'weekly' | 'monthly';
 
+/** واحد نمایش مبلغ در رسید چاپی (مقادیر سفارش در دیتابیس به تومان هستند؛ در حالت ریال ×۱۰ نمایش داده می‌شود) */
+export type ReceiptPriceDisplayUnit = 'toman' | 'rial';
+
 export interface ReceiptNumberSettings {
   nextNumber: number;
   resetPolicy: ReceiptNumberResetPolicy;
@@ -48,6 +51,8 @@ interface PreferencesFile {
   defaultPrintTemplate?: DefaultPrintTemplateSnapshot;
   /** قالب چاپ برای هر پرینتر (fallback وقتی پرینتر قالب ندارد: defaultPrintTemplate) */
   printerTemplates?: PrinterTemplatesMap;
+  /** واحد نمایش قیمت در رسید چاپی */
+  receiptPriceDisplayUnit?: ReceiptPriceDisplayUnit;
 }
 
 const FILE_NAME = 'menus-preferences.json';
@@ -168,6 +173,17 @@ export async function loadPrinterConfigs() {
 export async function savePrinterConfigs(configs: Record<string, any>) {
   const prefs = await readPreferences();
   prefs.printerConfigs = configs || {};
+  await writePreferences(prefs);
+}
+
+export async function loadReceiptPriceDisplayUnit(): Promise<ReceiptPriceDisplayUnit> {
+  const prefs = await readPreferences();
+  return prefs.receiptPriceDisplayUnit === 'rial' ? 'rial' : 'toman';
+}
+
+export async function saveReceiptPriceDisplayUnit(unit: ReceiptPriceDisplayUnit): Promise<void> {
+  const prefs = await readPreferences();
+  prefs.receiptPriceDisplayUnit = unit === 'rial' ? 'rial' : 'toman';
   await writePreferences(prefs);
 }
 

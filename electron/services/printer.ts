@@ -1,7 +1,12 @@
 import * as path from 'path';
 import { BrowserWindow } from 'electron';
 import type { PrinterInfo } from 'electron';
-import { getNextReceiptNumber, setReceiptNumbersForOrder } from '../database/preferences';
+import {
+  getNextReceiptNumber,
+  setReceiptNumbersForOrder,
+  loadReceiptPriceDisplayUnit,
+  type ReceiptPriceDisplayUnit,
+} from '../database/preferences';
 
 /** نگهداری تنظیمات چاپ پنجرهٔ پیش‌نمایش برای استفاده در IPC */
 export const printPreviewOptsMap = new Map<number, any>();
@@ -58,6 +63,8 @@ interface ReceiptTemplateOptions {
   layout?: ReceiptLayoutV2;
   /** برای پیش‌نمایش: رسید کامل یا آشپزخانه */
   receiptType?: ReceiptType;
+  /** واحد نمایش مبلغ در متن رسید (پیش‌فرض از تنظیمات محلی) */
+  priceDisplayUnit?: ReceiptPriceDisplayUnit;
 }
 
 const mmToMicrons = (value: number) => Math.max(1, Math.round(value * 1000));
@@ -286,6 +293,7 @@ const runPrinterJobs = async (
   const marginSame = 5;
   const marginTop = 0;
   const marginBottom = 3;
+  const priceDisplayUnit = await loadReceiptPriceDisplayUnit();
 
   try {
     for (const job of jobs) {
@@ -306,7 +314,15 @@ const runPrinterJobs = async (
         const isNarrow = paperWidth <= 62;
         const shiftLeftMm = isNarrow ? 4 : 6;
         const contentWidthMm = Math.max(32, paperWidth - marginSame * 2 - shiftLeftMm);
-        const opts = { paperWidth, margin, receiptNumber, contentWidthMm, shiftLeftMm, receiptType };
+        const opts = {
+          paperWidth,
+          margin,
+          receiptNumber,
+          contentWidthMm,
+          shiftLeftMm,
+          receiptType,
+          priceDisplayUnit,
+        };
         const receiptHTML = job.layout?.version === 2
           ? generateReceiptHTMLFromLayout(orderData, job.layout, opts)
           : receiptType === 'kitchen'
@@ -478,7 +494,17 @@ export async function printReceipt(
   return receiptNumber;
 }
 
+function createFormatPrice(unit: ReceiptPriceDisplayUnit = 'toman'): (price: number) => string {
+  return (price: number) => {
+    const n = Number(price) || 0;
+    const value = unit === 'rial' ? Math.round(n * 10) : n;
+    const label = unit === 'rial' ? 'ریال' : 'تومان';
+    return new Intl.NumberFormat('fa-IR').format(value) + ' ' + label;
+  };
+}
+
 export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOptions = {}): string {
+  const formatPrice = createFormatPrice(options.priceDisplayUnit ?? 'toman');
   const items = orderData.items || [];
   const totalAmount = orderData.totalAmount || 0;
   const discountAmount = orderData.discountAmount || 0;
@@ -635,7 +661,7 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
             <span class="item-name">${title}</span>
           </td>
           <td class="col-qty">${item.quantity}</td>
-          <td class="col-price">${formatPrice(item.price)}</td>
+          <td class="col-price">${formatPrice(+item.price* +item.quantity)}</td>
         </tr>`;
   }).join('')}
       </tbody>
@@ -676,14 +702,17 @@ export async function renderReceiptPreview(
   orderData: any,
   options: ReceiptTemplateOptions = {}
 ): Promise<{ html: string; imageDataUrl?: string }> {
-  const receiptType = options.receiptType || 'full';
-  const layout = options.layout;
+  const priceDisplayUnit =
+    options.priceDisplayUnit ?? (await loadReceiptPriceDisplayUnit());
+  const resolvedOptions: ReceiptTemplateOptions = { ...options, priceDisplayUnit };
+  const receiptType = resolvedOptions.receiptType || 'full';
+  const layout = resolvedOptions.layout;
   const useLayout = layout?.version === 2 && Array.isArray(layout?.rows) && layout.rows.length > 0;
   const html = receiptType === 'kitchen'
-    ? generateKitchenReceiptHTML(orderData, options)
+    ? generateKitchenReceiptHTML(orderData, resolvedOptions)
     : useLayout
-      ? generateReceiptHTMLFromLayout(orderData, layout, options)
-      : generateReceiptHTML(orderData, options);
+      ? generateReceiptHTMLFromLayout(orderData, layout, resolvedOptions)
+      : generateReceiptHTML(orderData, resolvedOptions);
   // برای پیش‌نمایش حاشیهٔ چپ و راست اضافه می‌کنیم تا محتوا از هیچ طرف بریده نشود
   const previewHtml = html.replace(
     '</head>',
@@ -818,10 +847,6 @@ export function showSystemPrintDialog(
   return Promise.resolve();
 }
 
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat('fa-IR').format(price) + ' تومان';
-}
-
 /** یادداشت خط سفارش — در اسنپ‌شات الکترون `itemOption` است، از API معمولاً `itemNote` */
 function getLineItemNote(item: any): string {
   const n = item?.itemNote ?? item?.itemOption;
@@ -884,7 +909,11 @@ function getValueForLayoutModule(type: string, orderData: any, module?: ReceiptL
   }
 }
 
-function renderLayoutModuleHtml(module: ReceiptLayoutModule, orderData: any): string {
+function renderLayoutModuleHtml(
+  module: ReceiptLayoutModule,
+  orderData: any,
+  formatPrice: (price: number) => string,
+): string {
   const opt = module.options || {};
   const hideWhenEmpty = opt.hideWhenEmpty === true;
   const { value, isEmpty } = getValueForLayoutModule(module.type, orderData, module);
@@ -974,6 +1003,7 @@ export function generateReceiptHTMLFromLayout(
   layout: ReceiptLayoutV2,
   options: ReceiptTemplateOptions = {}
 ): string {
+  const formatPrice = createFormatPrice(options.priceDisplayUnit ?? 'toman');
   const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
   const margin = typeof options.margin === 'number' ? Math.max(0, options.margin) : 5;
   const printableWidth = typeof options.contentWidthMm === 'number' ? options.contentWidthMm : Math.max(30, paperWidth - margin * 2);
@@ -991,7 +1021,7 @@ export function generateReceiptHTMLFromLayout(
     if (row.type === 'single') {
       const blocks = Array.isArray(row.blocks) && !Array.isArray(row.blocks[0]) ? (row.blocks as ReceiptLayoutModule[]) : [];
       for (const m of blocks) {
-        const html = renderLayoutModuleHtml(m, orderData);
+        const html = renderLayoutModuleHtml(m, orderData, formatPrice);
         if (html) parts.push(html);
       }
     } else if (row.type === 'columns' && Array.isArray(row.blocks)) {
@@ -1003,7 +1033,7 @@ export function generateReceiptHTMLFromLayout(
       for (const col of cols) {
         parts.push('<div>');
         for (const m of col) {
-          const html = renderLayoutModuleHtml(m, orderData);
+          const html = renderLayoutModuleHtml(m, orderData, formatPrice);
           if (html) parts.push(html);
         }
         parts.push('</div>');

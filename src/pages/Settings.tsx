@@ -28,6 +28,7 @@ export default function SettingsPage() {
     loadFromStorage,
   } = usePrinterSettingsStore();
   const { theme, setTheme } = useThemeStore();
+  const [receiptPriceUnit, setReceiptPriceUnit] = useState<'toman' | 'rial'>('toman');
 
   useEffect(() => {
     checkOnlineStatus();
@@ -38,6 +39,19 @@ export default function SettingsPage() {
   useEffect(() => {
     loadFromStorage();
     loadPrinters();
+  }, []);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!window.electronAPI?.getReceiptPriceDisplayUnit) return;
+      try {
+        const u = await window.electronAPI.getReceiptPriceDisplayUnit();
+        setReceiptPriceUnit(u === 'rial' ? 'rial' : 'toman');
+      } catch {
+        /* ignore */
+      }
+    };
+    load();
   }, []);
 
   useEffect(() => {
@@ -189,6 +203,33 @@ export default function SettingsPage() {
             </div>
           </CardBody>
         </Card>
+
+        {window.electronAPI?.getReceiptPriceDisplayUnit && (
+          <Card>
+            <CardBody className="gap-3">
+              <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">رسید چاپی</h2>
+              <p className="text-sm text-default-500">
+                مبالغ سفارش در سیستم به <strong>تومان</strong> ذخیره می‌شود. این گزینه فقط نحوهٔ نمایش روی رسید چاپی و پیش‌نمایش را عوض می‌کند.
+              </p>
+              <Select
+                label="واحد نمایش مبلغ در رسید"
+                selectedKeys={[receiptPriceUnit]}
+                onSelectionChange={(keys) => {
+                  const v = Array.from(keys)[0] as string | undefined;
+                  if (v !== 'toman' && v !== 'rial') return;
+                  setReceiptPriceUnit(v);
+                  window.electronAPI?.saveReceiptPriceDisplayUnit?.(v).catch(() => {});
+                }}
+                variant="bordered"
+                size="sm"
+                className="max-w-md"
+              >
+                <SelectItem key="toman" textValue="تومان">تومان</SelectItem>
+                <SelectItem key="rial" textValue="ریال">ریال (عدد × ۱۰ نسبت به تومان)</SelectItem>
+              </Select>
+            </CardBody>
+          </Card>
+        )}
 
         <Card>
           <CardBody className="gap-3">

@@ -35,6 +35,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getReceiptNumberSettings: () => ipcRenderer.invoke('get-receipt-number-settings'),
   saveReceiptNumberSettings: (settings: any) =>
     ipcRenderer.invoke('save-receipt-number-settings', settings),
+  getReceiptPriceDisplayUnit: () => ipcRenderer.invoke('get-receipt-price-display-unit'),
+  saveReceiptPriceDisplayUnit: (unit: 'toman' | 'rial') =>
+    ipcRenderer.invoke('save-receipt-price-display-unit', unit),
   getReceiptNumbersMap: () => ipcRenderer.invoke('get-receipt-numbers-map'),
   assignReceiptNumberForOrder: (orderKeys: string[]) =>
     ipcRenderer.invoke('assign-receipt-number-for-order', orderKeys),
@@ -106,6 +109,8 @@ declare global {
       savePrinterConfigs: (configs: Record<string, any>) => Promise<{ success: boolean; error?: string }>;
       getReceiptNumberSettings: () => Promise<{ nextNumber: number; resetPolicy: string; startNumber: number; lastResetDate: string; dailyResetTime: string }>;
       saveReceiptNumberSettings: (settings: any) => Promise<{ success: boolean; error?: string }>;
+      getReceiptPriceDisplayUnit: () => Promise<'toman' | 'rial'>;
+      saveReceiptPriceDisplayUnit: (unit: 'toman' | 'rial') => Promise<{ success: boolean; error?: string }>;
       getReceiptNumbersMap: () => Promise<Record<string, number>>;
       assignReceiptNumberForOrder: (orderKeys: string[]) => Promise<number>;
       cacheImage: (imageUrl: string) => Promise<{ success: boolean; url?: string; error?: string }>;

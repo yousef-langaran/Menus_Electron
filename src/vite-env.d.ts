@@ -78,6 +78,8 @@ declare global {
       setPrintTemplateForPrinter: (printerName: string, template: any) => Promise<{ success: boolean; error?: string }>;
       getReceiptNumberSettings: () => Promise<{ nextNumber: number; resetPolicy: string; startNumber: number; lastResetDate: string; dailyResetTime: string }>;
       saveReceiptNumberSettings: (settings: any) => Promise<{ success: boolean; error?: string }>;
+      getReceiptPriceDisplayUnit: () => Promise<'toman' | 'rial'>;
+      saveReceiptPriceDisplayUnit: (unit: 'toman' | 'rial') => Promise<{ success: boolean; error?: string }>;
       cacheImage: (imageUrl: string) => Promise<{ success: boolean; url?: string; error?: string }>;
       getCachedImage: (imageUrl: string) => Promise<{ success: boolean; url: string }>;
       cacheImages: (imageUrls: string[]) => Promise<{ success: boolean; urls?: Record<string, string>; error?: string }>;
