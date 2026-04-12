@@ -1,7 +1,7 @@
-import {create} from 'zustand';
-import {saveOfflineOrder} from '../services/offlineStorage';
-import {createOrder, API_BASE_URL} from '../services/api';
-import {useAuthStore} from './authStore';
+import { create } from 'zustand';
+import { saveOfflineOrder } from '../services/offlineStorage';
+import { createOrder, updateOrder, API_BASE_URL } from '../services/api';
+import { useAuthStore } from './authStore';
 import {getCachedMenu} from "@/services/cache.ts";
 
 /** نتیجهٔ ثبت کد تخفیف (بعد از اعتبارسنجی) */
@@ -22,54 +22,49 @@ interface CartItem {
 type DiscountType = 'percentage' | 'fixed' | 'code';
 
 interface OrderState {
-    cart: CartItem[];
-    customerPhone: string;
-    serviceType: 'dine_in' | 'takeaway';
-    tableNumber: string;
-    customerAddress: string;
-    paymentMethod: 'cash' | 'card' | 'online' | 'mixed';
-    notes: string;
-    discountAmount: number; // user input value (برای درصدی/تومانی)
-    discountType: DiscountType;
-    discountCode: string; // برای نوع «کد تخفیف»
-    /** کد تخفیف ثبت‌شده (بعد از زدن «ثبت») — برای نمایش مبلغ و ارسال به سرور */
-    appliedDiscountCode: AppliedDiscountCode | null;
-    isSubmitting: boolean;
-    addToCart: (product: any) => void;
-    updateCartQuantity: (productId: number, quantity: number) => void;
-    updateCartItemOption: (productId: number, itemOption: string) => void;
-    removeFromCart: (productId: number) => void;
-    setCustomerPhone: (phone: string) => void;
-    setServiceType: (type: 'dine_in' | 'takeaway') => void;
-    setTableNumber: (table: string) => void;
-    setCustomerAddress: (address: string) => void;
-    setPaymentMethod: (method: 'cash' | 'card' | 'online' | 'mixed') => void;
-    setNotes: (notes: string) => void;
-    setDiscountAmount: (amount: number) => void;
-    setDiscountType: (type: DiscountType) => void;
-    setDiscountCode: (code: string) => void;
-    setAppliedDiscountCode: (applied: AppliedDiscountCode | null) => void;
-    submitOrder: (options?: {
-        onOrderCreated?: (result: {
-            orderId: number;
-            orderNumber?: string;
-            receiptCallNumber?: number;
-            offline?: boolean;
-            order?: any
-        }) => void;
-    }) => Promise<{
-        success: boolean;
-        orderId?: number;
-        orderNumber?: string;
-        receiptCallNumber?: number;
-        error?: string;
-        offline?: boolean;
-        pending?: boolean;
-    }>;
-    clearCart: () => void;
-    getTotalAmount: () => number;
-    getFinalAmount: () => number;
-    getDiscountAmount: () => number;
+  cart: CartItem[];
+  customerPhone: string;
+  serviceType: 'dine_in' | 'takeaway';
+  tableNumber: string;
+  customerAddress: string;
+  paymentMethod: 'cash' | 'card' | 'online' | 'mixed';
+  notes: string;
+  discountAmount: number; // user input value (برای درصدی/تومانی)
+  discountType: DiscountType;
+  discountCode: string; // برای نوع «کد تخفیف»
+  /** کد تخفیف ثبت‌شده (بعد از زدن «ثبت») — برای نمایش مبلغ و ارسال به سرور */
+  appliedDiscountCode: AppliedDiscountCode | null;
+  isSubmitting: boolean;
+  addToCart: (product: any) => void;
+  updateCartQuantity: (productId: number, quantity: number) => void;
+  updateCartItemOption: (productId: number, itemOption: string) => void;
+  removeFromCart: (productId: number) => void;
+  setCustomerPhone: (phone: string) => void;
+  setServiceType: (type: 'dine_in' | 'takeaway') => void;
+  setTableNumber: (table: string) => void;
+  setCustomerAddress: (address: string) => void;
+  setPaymentMethod: (method: 'cash' | 'card' | 'online' | 'mixed') => void;
+  setNotes: (notes: string) => void;
+  setDiscountAmount: (amount: number) => void;
+  setDiscountType: (type: DiscountType) => void;
+  setDiscountCode: (code: string) => void;
+  setAppliedDiscountCode: (applied: AppliedDiscountCode | null) => void;
+  submitOrder: (options?: {
+    editingOrderId?: number;
+    onOrderCreated?: (result: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean; order?: any }) => void;
+  }) => Promise<{
+    success: boolean;
+    orderId?: number;
+    orderNumber?: string;
+    receiptCallNumber?: number;
+    error?: string;
+    offline?: boolean;
+    pending?: boolean;
+  }>;
+  clearCart: () => void;
+  getTotalAmount: () => number;
+  getFinalAmount: () => number;
+  getDiscountAmount: () => number;
 }
 
 export const useOrderStore = create<OrderState>((set, get) => ({
@@ -187,70 +182,73 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
         set({isSubmitting: true});
 
-        const discountAmount = state.getDiscountAmount();
-        const useDiscountCode = state.discountType === 'code' && (state.appliedDiscountCode?.code ?? state.discountCode.trim()).length > 0;
-        const orderData = {
-            customerPhone: state.customerPhone.trim(),
-            customerAddress: state.serviceType === 'takeaway' ? state.customerAddress.trim() : undefined,
-            tableNumber: state.serviceType === 'dine_in' ? state.tableNumber.trim() : undefined,
-            serviceType: state.serviceType,
-            paymentMethod: state.paymentMethod,
-            totalAmount: state.getTotalAmount(),
-            finalAmount: useDiscountCode ? state.getTotalAmount() : state.getFinalAmount(),
-            discountAmount: useDiscountCode ? 0 : discountAmount,
-            ...(useDiscountCode
-                ? {discountCode: (state.appliedDiscountCode?.code ?? state.discountCode.trim())}
-                : {
-                    manualDiscountAmount: discountAmount,
-                    manualDiscountType: state.discountType,
-                    manualDiscountValue: state.discountAmount,
-                }),
-            notes: state.notes.trim() || undefined,
-            restaurantName: user?.restaurants?.[0]?.name || '',
-            items: state.cart.map(item => ({
-                productId: item.productId,
-                quantity: item.quantity,
-                price: item.price,
-                itemNote: item.itemOption?.trim() || undefined,
-            })),
-            status: 'confirmed',
-        };
+    const discountAmount = state.getDiscountAmount();
+    const useDiscountCode = state.discountType === 'code' && (state.appliedDiscountCode?.code ?? state.discountCode.trim()).length > 0;
+    const editingOrderId = options?.editingOrderId;
+    const orderData: Record<string, unknown> = {
+      customerPhone: state.customerPhone.trim(),
+      customerAddress: state.serviceType === 'takeaway' ? state.customerAddress.trim() : undefined,
+      tableNumber: state.serviceType === 'dine_in' ? state.tableNumber.trim() : undefined,
+      serviceType: state.serviceType,
+      paymentMethod: state.paymentMethod,
+      totalAmount: state.getTotalAmount(),
+      finalAmount: useDiscountCode ? state.getTotalAmount() : state.getFinalAmount(),
+      discountAmount: useDiscountCode ? 0 : discountAmount,
+      ...(useDiscountCode
+        ? { discountCode: (state.appliedDiscountCode?.code ?? state.discountCode.trim()) }
+        : {
+            manualDiscountAmount: discountAmount,
+            manualDiscountType: state.discountType,
+            manualDiscountValue: state.discountAmount,
+          }),
+      notes: state.notes.trim() || undefined,
+      restaurantName: user?.restaurants?.[0]?.name || '',
+      items: state.cart.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+        itemNote: item.itemOption?.trim() || undefined,
+      })),
+    };
+    if (editingOrderId == null) {
+      orderData.status = 'confirmed';
+    }
 
         try {
             const isOnline = window.electronAPI ? await window.electronAPI.checkOnline() : navigator.onLine;
 
-            if (isOnline) {
-                // ارسال در پس‌زمینه — بلافاصله موفق برگرد و چاپ وقتی جواب آمد
-                createOrder(orderData, token)
-                    .then((response) => {
-                        onOrderCreated?.({
-                            orderId: response.id,
-                            orderNumber: response.orderNumber,
-                            receiptCallNumber: response.receiptCallNumber,
-                            offline: false,
-                            order: response,
-                        });
-                    })
-                    .catch(async (error: any) => {
-                        console.warn('Online submission failed, saving offline:', error);
-                        const baseURL = API_BASE_URL;
-                        try {
-                            if (window.electronAPI) {
-                                const res = await window.electronAPI.saveOfflineOrder(orderData, token, baseURL);
-                                if (res.success && res.orderId) {
-                                    onOrderCreated?.({orderId: res.orderId, offline: true});
-                                    return;
-                                }
-                            }
-                            const orderId = await saveOfflineOrder(orderData, token, baseURL);
-                            onOrderCreated?.({orderId, offline: true});
-                        } catch (_) {
-                            // ignore
-                        }
-                    });
-                set({isSubmitting: false});
-                return {success: true, pending: true};
+      if (isOnline) {
+        // ارسال در پس‌زمینه — بلافاصله موفق برگرد و چاپ وقتی جواب آمد
+        createOrder(orderData, token)
+          .then((response) => {
+            onOrderCreated?.({
+              orderId: response.id,
+              orderNumber: response.orderNumber,
+              receiptCallNumber: response.receiptCallNumber,
+              offline: false,
+              order: response,
+            });
+          })
+          .catch(async (error: any) => {
+            console.warn('Online submission failed, saving offline:', error);
+            const baseURL = API_BASE_URL;
+            try {
+              if (window.electronAPI) {
+                const res = await window.electronAPI.saveOfflineOrder(orderData, token, baseURL);
+                if (res.success && res.orderId) {
+                  onOrderCreated?.({ orderId: res.orderId, offline: true });
+                  return;
+                }
+              }
+              const orderId = await saveOfflineOrder(orderData, token, baseURL);
+              onOrderCreated?.({ orderId, offline: true });
+            } catch (_) {
+              // ignore
             }
+          });
+        set({ isSubmitting: false });
+        return { success: true, pending: true };
+      }
 
             // آفلاین: ذخیره و برگرد (سریع)
             const baseURL = API_BASE_URL;

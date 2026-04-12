@@ -84,6 +84,8 @@ export default function OrdersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(ORDERS_PAGE_SIZE);
   const [onlineMeta, setOnlineMeta] = useState(DEFAULT_ONLINE_META);
+  /** ایندکس سفارش جاری برای میانبر ← / → (ویرایش فاکتور) */
+  const [listNavIndex, setListNavIndex] = useState(0);
 
   const restaurantName = useMemo(() => {
     const name = user?.restaurants?.[0]?.name;
@@ -123,6 +125,34 @@ export default function OrdersPage() {
   useEffect(() => {
     loadPrinterConfigs();
   }, [loadPrinterConfigs]);
+
+  useEffect(() => {
+    setListNavIndex((i) => {
+      if (onlineOrders.length === 0) return 0;
+      return Math.min(Math.max(i, 0), onlineOrders.length - 1);
+    });
+  }, [onlineOrders]);
+
+  useEffect(() => {
+    if (!isOnline || !onlineOrders.length) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      if (previewVisible || reprintModalOpen) return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active?.closest('input, textarea, [contenteditable="true"]')) return;
+      if (active?.closest('[role="dialog"]')) return;
+      if (active?.closest('[data-slot="select"]')) return;
+      e.preventDefault();
+      const max = onlineOrders.length - 1;
+      const nextIndex =
+        e.key === 'ArrowRight' ? Math.min(listNavIndex + 1, max) : Math.max(listNavIndex - 1, 0);
+      setListNavIndex(nextIndex);
+      const o = onlineOrders[nextIndex];
+      if (o?.id != null) navigate(`/order?edit=${o.id}`);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOnline, onlineOrders, listNavIndex, previewVisible, reprintModalOpen, navigate]);
 
   const loadReceiptNumbersMap = async () => {
     const fromStorage = getReceiptNumbersMapFromStorage();
@@ -642,6 +672,18 @@ export default function OrdersPage() {
                 </ul>
               )}
               <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-default-200">
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color="secondary"
+                  onPress={() => {
+                    const idx = onlineOrders.findIndex((o: any) => o.id === order.id);
+                    if (idx >= 0) setListNavIndex(idx);
+                    navigate(`/order?edit=${order.id}`);
+                  }}
+                >
+                  ویرایش فاکتور
+                </Button>
                 <Button size="sm" variant="flat" onPress={() => handlePreviewOrder(order)}>پیش‌نمایش رسید</Button>
                 <Button size="sm" variant="flat" color="primary" onPress={() => openReprintModal(order)} isDisabled={!canPrint}>چاپ مجدد</Button>
                 <Select
@@ -815,6 +857,11 @@ export default function OrdersPage() {
                   ))}
                 </Select>
                 <Button size="sm" variant="flat" onPress={loadOnlineOrders}>بروزرسانی</Button>
+                {onlineOrders.length > 0 && (
+                  <p className="text-xs text-default-500 w-full sm:w-auto">
+                    میانبر: ← و → برای رفتن به سفارش قبلی/بعدی در همین صفحه و باز کردن ویرایش فاکتور
+                  </p>
+                )}
               </div>
             )}
 

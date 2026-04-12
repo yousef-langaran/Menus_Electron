@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useOrderStore } from '../store/orderStore';
-import { getProducts, getRestaurantByName, getRestaurantById, checkUser, getAssetBaseUrl, getCustomerAddresses, addCustomer, createCustomerAddress, validateDiscountCode } from '../services/api';
+import { getProducts, getRestaurantByName, getRestaurantById, checkUser, getAssetBaseUrl, getCustomerAddresses, addCustomer, createCustomerAddress, validateDiscountCode, fetchOrderById } from '../services/api';
 import { getCachedMenu, cacheMenu } from '../services/cache';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
 import {
   saveReceiptNumbersToStorage,
@@ -14,6 +14,10 @@ import { Card, CardBody, Button, Input, Select, SelectItem, Modal, ModalContent,
 export default function OrderPage() {
   const { user, token, logout } = useAuthStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editParam = searchParams.get('edit');
+  const parsedEditId = editParam != null ? Number(editParam) : NaN;
+  const editingOrderId = !Number.isNaN(parsedEditId) && parsedEditId > 0 ? parsedEditId : null;
   const {
     cart,
     customerPhone,
@@ -92,10 +96,105 @@ export default function OrderPage() {
   const [discountCodeValidating, setDiscountCodeValidating] = useState(false);
   /** خطای اعتبارسنجی کد تخفیف */
   const [discountCodeError, setDiscountCodeError] = useState('');
+  const [, setImageCache] = useState<Record<string, string>>({});
+  /** بارگذاری سفارش برای ویرایش فاکتور (?edit=id) */
+  const [orderEditLoading, setOrderEditLoading] = useState(false);
+  const [orderEditError, setOrderEditError] = useState('');
+  const prevEditingIdRef = useRef<number | null>(null);
 
   const isElectronWithPrinters = typeof window !== 'undefined' && Boolean(window.electronAPI) && enabledPrinters.length > 0;
   /** کد تخفیف فقط وقتی فعال است که شماره موبایل وارد شده و اتصال آنلاین باشد */
   const canUseDiscountCode = Boolean(customerPhone.trim()) && isOnline;
+
+  useEffect(() => {
+    const prev = prevEditingIdRef.current;
+    if (prev != null && editingOrderId == null) {
+      clearCart();
+      setLoadedCustomerFirstName('');
+      setLoadedCustomerLastName('');
+      setUserExists(null);
+      setOrderEditError('');
+    }
+    prevEditingIdRef.current = editingOrderId;
+  }, [editingOrderId, clearCart]);
+
+  useEffect(() => {
+    if (editingOrderId == null) {
+      setOrderEditLoading(false);
+      return;
+    }
+    if (!token) {
+      setOrderEditError('برای ویرایش فاکتور باید وارد شوید.');
+      return;
+    }
+    let cancelled = false;
+    setOrderEditLoading(true);
+    setOrderEditError('');
+    setError('');
+    fetchOrderById(editingOrderId, token)
+      .then((order: any) => {
+        if (cancelled) return;
+        const items = order.items || [];
+        const cartItems = items
+          .filter((row: any) => row.product?.id)
+          .map((row: any) => {
+            const p = row.product;
+            const qty = Number(row.quantity);
+            const price = Number(row.price);
+            return {
+              productId: p.id,
+              product: p,
+              quantity: qty,
+              price,
+              totalPrice: price * qty,
+              itemOption: (row.itemNote || row.itemOption || '') as string,
+            };
+          });
+        const {
+          setDiscountType,
+          setDiscountAmount,
+          setDiscountCode,
+          setAppliedDiscountCode,
+        } = useOrderStore.getState();
+        useOrderStore.setState({
+          cart: cartItems,
+          customerPhone: order.customerPhone || '',
+          serviceType: order.serviceType === 'takeaway' ? 'takeaway' : 'dine_in',
+          tableNumber: order.tableNumber || '',
+          customerAddress: order.customerAddress || '',
+          paymentMethod: order.paymentMethod || 'cash',
+          notes: order.notes || '',
+        });
+        const codeVal = (order.discountCodeValue || '').trim();
+        const disc = Number(order.discountAmount) || 0;
+        if (codeVal) {
+          setDiscountType('code');
+          setDiscountCode(codeVal);
+          setAppliedDiscountCode({ code: codeVal, discountAmount: disc });
+        } else {
+          setDiscountType('fixed');
+          setDiscountAmount(disc);
+          setAppliedDiscountCode(null);
+          setDiscountCode('');
+        }
+        const nameRaw = (order.customerName || '').trim();
+        const nameParts = nameRaw.split(/\s+/).filter(Boolean);
+        setLoadedCustomerFirstName(nameParts[0] || '');
+        setLoadedCustomerLastName(nameParts.slice(1).join(' ') || '');
+        setUserExists(null);
+        setOrderEditLoading(false);
+      })
+      .catch((e: any) => {
+        if (cancelled) return;
+        setOrderEditLoading(false);
+        setOrderEditError(
+          e?.response?.data?.message || e?.message || 'خطا در بارگذاری سفارش',
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editingOrderId, token]);
 
   useEffect(() => {
     loadProducts();
@@ -487,7 +586,10 @@ export default function OrderPage() {
       })();
     };
 
+    const isEditingInvoice = editingOrderId != null;
+
     const onOrderCreated = (res: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean; order?: any }) => {
+      if (isEditingInvoice) return;
       const restaurantName = user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || '';
       const fullName = [loadedCustomerFirstName, loadedCustomerLastName].filter(Boolean).join(' ').trim();
       const serverOrder = res.order;
@@ -514,9 +616,26 @@ export default function OrderPage() {
       runPrint(orderData, orderKeys, { printOption, selectedPrinterNames });
     };
 
-    const result = await submitOrder({ onOrderCreated });
+    const result = await submitOrder({
+      editingOrderId: editingOrderId ?? undefined,
+      onOrderCreated,
+    });
 
     if (result.success) {
+      if (isEditingInvoice) {
+        setError('');
+        setSuccessMessage('فاکتور به‌روز شد');
+        setShowOrderModal(false);
+        clearCart();
+        setUserExists(null);
+        setLoadedCustomerFirstName('');
+        setLoadedCustomerLastName('');
+        setPrintOption('all');
+        setSelectedPrinterNames([]);
+        navigate('/orders');
+        setTimeout(() => setSuccessMessage(''), 2500);
+        return;
+      }
       console.log('[شماره رسید] ثبت سفارش. orderId:', result.orderId, 'offline:', result.offline, 'pending:', result.pending);
       setError('');
       setSuccessMessage('سفارش ثبت شد' + (result.offline ? ' (آفلاین)' : ''));
@@ -581,7 +700,9 @@ export default function OrderPage() {
     <div className="min-h-screen flex flex-col bg-default-100">
       <header className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
         <div className={'flex items-center justify-center gap-4'}>
-        <h1 className="text-xl font-bold text-foreground whitespace-nowrap">ثبت سفارش</h1>
+        <h1 className="text-xl font-bold text-foreground whitespace-nowrap">
+          {editingOrderId != null ? `ویرایش فاکتور #${editingOrderId}` : 'ثبت سفارش'}
+        </h1>
           <Input
               placeholder="جستجوی محصول..."
               value={searchTerm}
@@ -595,6 +716,11 @@ export default function OrderPage() {
         </div>
 
         <div className="flex gap-2">
+          {editingOrderId != null && (
+            <Button variant="flat" color="warning" onPress={() => navigate('/orders')}>
+              انصراف از ویرایش
+            </Button>
+          )}
           <Button variant="flat" color="default" onPress={() => navigate('/orders')}>
             سفارشات
           </Button>
@@ -607,6 +733,11 @@ export default function OrderPage() {
         </div>
       </header>
 
+      {orderEditError && editingOrderId != null && (
+        <div className="px-6 py-3 bg-danger-50 text-danger border-b border-danger-200 text-center" role="alert">
+          {orderEditError}
+        </div>
+      )}
       {error && (
         <div className="px-6 py-3 bg-danger-50 text-danger border-b border-danger-200 text-center" role="alert">
           {error}
@@ -621,7 +752,12 @@ export default function OrderPage() {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-5 p-5 overflow-hidden">
         <Card className="overflow-hidden flex flex-col min-h-0 h-[calc(100vh_-60px)]">
           <CardBody className="flex-1 overflow-hidden flex flex-row gap-0 p-0">
-            <div className="flex-1 overflow-y-auto p-5 min-w-0" >
+            <div className="flex-1 overflow-y-auto p-5 min-w-0 relative" >
+              {orderEditLoading && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-content1/80 text-default-600 text-sm">
+                  در حال بارگذاری فاکتور...
+                </div>
+              )}
               {isLoading ? (
                 <div className="flex items-center justify-center py-12 text-default-500">در حال بارگذاری...</div>
               ) : (
@@ -816,9 +952,9 @@ export default function OrderPage() {
             size="lg"
             className="w-full font-semibold"
             onPress={() => setShowOrderModal(true)}
-            isDisabled={cart.length === 0}
+            isDisabled={cart.length === 0 || orderEditLoading || Boolean(orderEditError && editingOrderId != null)}
           >
-            ثبت سفارش
+            {editingOrderId != null ? 'ذخیرهٔ فاکتور' : 'ثبت سفارش'}
           </Button>
         </div>
       </div>
@@ -826,8 +962,14 @@ export default function OrderPage() {
       <Modal isOpen={showOrderModal} onOpenChange={setShowOrderModal} size="2xl" scrollBehavior="inside" classNames={{ base: 'order-modal' }}>
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1 text-right">
-            <h2 className="text-lg font-semibold">تکمیل و ثبت سفارش</h2>
-            <p className="text-sm text-default-500 font-normal">شماره موبایل را وارد کنید و Enter بزنید برای ثبت سریع</p>
+            <h2 className="text-lg font-semibold">
+              {editingOrderId != null ? `ذخیرهٔ تغییرات — فاکتور #${editingOrderId}` : 'تکمیل و ثبت سفارش'}
+            </h2>
+            <p className="text-sm text-default-500 font-normal">
+              {editingOrderId != null
+                ? 'پس از تأیید، فاکتور روی سرور به‌روز می‌شود.'
+                : 'شماره موبایل را وارد کنید و Enter بزنید برای ثبت سریع'}
+            </p>
           </ModalHeader>
           <ModalBody className="gap-4" onKeyDown={(e) => {
             if (e.key !== 'Enter') return;
@@ -1023,7 +1165,11 @@ export default function OrderPage() {
           </ModalBody>
           <ModalFooter className="gap-2">
             <Button variant="flat" onPress={() => setShowOrderModal(false)} isDisabled={isSubmitting}>انصراف</Button>
-            <Button color="primary" onPress={handleSubmit} isLoading={isSubmitting} isDisabled={cart.length === 0}>{isSubmitting ? 'در حال ثبت...' : 'ثبت نهایی'}</Button>
+            <Button color="primary" onPress={handleSubmit} isLoading={isSubmitting} isDisabled={cart.length === 0}>
+              {isSubmitting
+                ? (editingOrderId != null ? 'در حال ذخیره...' : 'در حال ثبت...')
+                : (editingOrderId != null ? 'ذخیرهٔ فاکتور' : 'ثبت نهایی')}
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

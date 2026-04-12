@@ -198,6 +198,22 @@ export async function updateOrderStatus(orderId: number, status: string, token?:
   return response.data;
 }
 
+export async function fetchOrderById(orderId: number, token: string) {
+  await apiConfigReady;
+  const response = await api.get(`/orders/${orderId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function updateOrder(orderId: number, body: Record<string, unknown>, token: string) {
+  await apiConfigReady;
+  const response = await api.patch(`/orders/${orderId}`, body, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
 export async function fetchProfile(token: string) {
   await apiConfigReady;
   const response = await api.get('/auth/profile', {
