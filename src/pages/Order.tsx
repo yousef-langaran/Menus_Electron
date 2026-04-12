@@ -750,7 +750,7 @@ export default function OrderPage() {
       )}
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-5 p-5 overflow-hidden">
-        <Card className="overflow-hidden flex flex-col min-h-0 h-[calc(100vh_-60px)]">
+        <Card className="overflow-hidden flex flex-col min-h-0 h-[calc(100vh_-120px)]">
           <CardBody className="flex-1 overflow-hidden flex flex-row gap-0 p-0">
             <div className="flex-1 overflow-y-auto p-5 min-w-0 relative" >
               {orderEditLoading && (
