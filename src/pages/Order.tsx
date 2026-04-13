@@ -995,7 +995,7 @@ export default function OrderPage() {
                                                 </div>
                                             );
                                         })}
-                                        <div className="border-t border-default-200 pt-3 mt-3">
+                                        <div className="border-t border-default-200 pt-3 mt-3 sticky bottom-0 bg-background shadow">
                                             <div className="flex justify-between font-semibold text-foreground">
                                                 <span>جمع کل:</span>
                                                 <span>{formatPrice(getTotalAmount())}</span>
