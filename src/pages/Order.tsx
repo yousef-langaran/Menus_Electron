@@ -310,6 +310,9 @@ export default function OrderPage() {
     // وقتی مودال بسته است و سبد پر است، اینتر مودال را باز کن و فوکوس روی موبایل
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape'){
+                setSearchTerm('')
+            }
             if (e.key !== 'Enter' || showOrderModal) return;
             const target = e.target as HTMLElement;
             if (target.closest('.order-modal')) return;
@@ -738,7 +741,7 @@ export default function OrderPage() {
 
 
     return (
-        <div className="min-h-screen flex flex-col bg-default-100">
+        <div onClick={()=> setSearchTerm('')} className="min-h-screen flex flex-col bg-default-100">
             <header
                 className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
                 <div className={'flex items-center justify-center gap-4'}>
@@ -844,7 +847,9 @@ export default function OrderPage() {
                                     variant={selectedCategory === '' ? 'solid' : 'bordered'}
                                     color="primary"
                                     className="justify-start"
-                                    onPress={() => setSelectedCategory('')}
+                                    onPress={() => {
+                                        setSelectedCategory('')
+                                    }}
                                 >
                                     همه
                                 </Button>
@@ -855,7 +860,10 @@ export default function OrderPage() {
                                         variant={selectedCategory === cat ? 'solid' : 'bordered'}
                                         color="primary"
                                         className="justify-start"
-                                        onPress={() => setSelectedCategory(cat)}
+                                        onPress={() => {
+                                            setSelectedCategory(cat)
+                                            setSearchTerm('')
+                                        }}
                                     >
                                         {cat}
                                     </Button>
