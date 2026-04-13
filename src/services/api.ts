@@ -88,6 +88,9 @@ api.interceptors.response.use(
       data: error.response?.data,
       url: error.config?.url,
     });
+    if (error.response?.status == 401){
+      console.log(401)
+    }
     return Promise.reject(error);
   }
 );

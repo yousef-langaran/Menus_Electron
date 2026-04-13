@@ -172,9 +172,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             return {success: false, error: 'شماره تماس مشتری الزامی است'};
         }
 
-        if (state.serviceType === 'takeaway' && !state.customerAddress.trim()) {
-            return {success: false, error: 'آدرس الزامی است'};
-        }
+        // if (state.serviceType === 'takeaway' && !state.customerAddress.trim()) {
+        //     return {success: false, error: 'آدرس الزامی است'};
+        // }
 
         if (state.discountType === 'code' && state.discountCode.trim() && !state.appliedDiscountCode) {
             return {success: false, error: 'لطفاً با زدن «ثبت» کد تخفیف را اعمال کنید.'};

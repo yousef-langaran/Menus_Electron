@@ -1150,7 +1150,7 @@ export default function OrderPage() {
                                    classNames={{input: 'text-right'}}/>
                         ) : (
                             <div className="flex flex-col gap-2">
-                                <span className="text-sm font-medium text-foreground">آدرس (اجباری)</span>
+                                <span className="text-sm font-medium text-foreground">آدرس</span>
                                 {loadingAddresses &&
                                     <p className="text-default-500 text-sm">در حال بارگذاری آدرس‌ها...</p>}
                                 {!loadingAddresses && customerAddresses.length > 0 && (
