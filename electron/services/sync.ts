@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { getOfflineOrders, markOrderAsSynced } from '../database/orders';
 import { getApiConfig } from '../config/api';
+import { loadUserSession } from '../database/preferences';
 
 export async function syncOfflineOrders(tokenOverride?: string) {
   const offlineOrders = await getOfflineOrders();
@@ -16,6 +17,8 @@ export async function syncOfflineOrders(tokenOverride?: string) {
 
   const apiConfig = getApiConfig();
   const defaultBaseURL = apiConfig.baseURL;
+  const currentSession = await loadUserSession();
+  const latestSessionToken = currentSession?.token;
 
   for (const order of offlineOrders) {
     if (!order.id) continue;
@@ -30,7 +33,8 @@ export async function syncOfflineOrders(tokenOverride?: string) {
 
     try {
       const targetBaseURL = order.baseURL || defaultBaseURL;
-      const authToken = tokenOverride || order.token;
+      // Always prefer the latest persisted user session token over stale order-time tokens.
+      const authToken = latestSessionToken || tokenOverride || order.token;
       const response = await axios.post(
         `${targetBaseURL}/orders`,
         order.orderData,
