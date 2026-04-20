@@ -3,6 +3,7 @@ import { saveOfflineOrder } from '../services/offlineStorage';
 import { createOrder, updateOrder, API_BASE_URL } from '../services/api';
 import { useAuthStore } from './authStore';
 import {getCachedMenu} from "@/services/cache.ts";
+import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
 
 /** نتیجهٔ ثبت کد تخفیف (بعد از اعتبارسنجی) */
 export interface AppliedDiscountCode {
@@ -171,6 +172,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         if (isMobileRequiredInElectronPanel && !state.customerPhone.trim()) {
             return {success: false, error: 'شماره تماس مشتری الزامی است'};
         }
+        if (state.customerPhone.trim() && !isValidIranMobile(state.customerPhone)) {
+            return {success: false, error: 'فرمت شماره موبایل معتبر نیست. مثال: 09123456789'};
+        }
 
         // if (state.serviceType === 'takeaway' && !state.customerAddress.trim()) {
         //     return {success: false, error: 'آدرس الزامی است'};
@@ -186,7 +190,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     const useDiscountCode = state.discountType === 'code' && (state.appliedDiscountCode?.code ?? state.discountCode.trim()).length > 0;
     const editingOrderId = options?.editingOrderId;
     const orderData: Record<string, unknown> = {
-      customerPhone: state.customerPhone.trim(),
+      customerPhone: normalizeIranMobile(state.customerPhone.trim()),
       customerAddress: state.serviceType === 'takeaway' ? state.customerAddress.trim() : undefined,
       tableNumber: state.serviceType === 'dine_in' ? state.tableNumber.trim() : undefined,
       serviceType: state.serviceType,

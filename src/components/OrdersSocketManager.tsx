@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { connectOrdersSocket, disconnectOrdersSocket } from '../services/ordersSocket';
+import { attachOrdersSocketPanelSidecar } from '../services/ordersSocketPanelSidecar';
 import { useAuthStore } from '../store/authStore';
 
 const formatPrice = (value?: number) => {
@@ -66,6 +67,8 @@ export function OrdersSocketManager() {
       return;
     }
 
+    const detachPanel = attachOrdersSocketPanelSidecar(socket);
+
     restaurantKeyRef.current = restaurantName.toLowerCase();
 
     const dispatchBrowserEvent = (eventName: string, payload: any) => {
@@ -119,6 +122,7 @@ export function OrdersSocketManager() {
     socket.on('orders:updated', handleOrderUpdated);
 
     return () => {
+      detachPanel();
       socket.off('orders:new', handleNewOrder);
       socket.off('orders:updated', handleOrderUpdated);
     };

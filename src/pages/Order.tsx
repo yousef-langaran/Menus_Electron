@@ -20,6 +20,7 @@ import {
     saveReceiptNumbersToStorage,
     getNextReceiptNumberBrowser,
 } from '../utils/receiptNumbersStorage';
+import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
 import {
     Card,
     CardBody,
@@ -332,9 +333,8 @@ export default function OrderPage() {
             setSelectedAddressId(null);
             return;
         }
-        const phone = customerPhone.trim().replace(/\s/g, '');
-        const normalized = phone.startsWith('9') && phone.length === 10 ? '0' + phone : phone;
-        if (normalized.length < 10) {
+        const normalized = normalizeIranMobile(customerPhone.trim());
+        if (!isValidIranMobile(normalized)) {
             setCustomerAddresses([]);
             setSelectedAddressId(null);
             return;
@@ -507,7 +507,11 @@ export default function OrderPage() {
     };
 
     const handleCheckUser = async () => {
-        if (!customerPhone.trim()) return;
+        const normalizedPhone = normalizeIranMobile(customerPhone.trim());
+        if (!isValidIranMobile(normalizedPhone)) {
+            setError('فرمت شماره موبایل معتبر نیست. مثال: 09123456789');
+            return;
+        }
 
         setLoadedCustomerFirstName('');
         setLoadedCustomerLastName('');
@@ -518,7 +522,7 @@ export default function OrderPage() {
                 : navigator.onLine;
 
             if (isOnline) {
-                const response = await checkUser(customerPhone.trim());
+                const response = await checkUser(normalizedPhone);
                 setUserExists(response.userExists || false);
                 if (response.userExists && (response.firstName != null || response.lastName != null)) {
                     setLoadedCustomerFirstName(response.firstName ?? '');
@@ -538,8 +542,14 @@ export default function OrderPage() {
     };
 
     const handleSubmit = async () => {
+        const normalizedPhone = normalizeIranMobile(customerPhone.trim());
         if (isMobileRequired && !customerPhone.trim()) {
             setError('شماره تماس را وارد کنید');
+            phoneInputRef.current?.focus();
+            return;
+        }
+        if (customerPhone.trim() && !isValidIranMobile(normalizedPhone)) {
+            setError('فرمت شماره موبایل معتبر نیست. مثال: 09123456789');
             phoneInputRef.current?.focus();
             return;
         }
@@ -547,13 +557,14 @@ export default function OrderPage() {
 
         // اسنپ‌شات برای چاپ رسید وقتی سرویس جواب داد (آنلاین در پس‌زمینه)
         const snapshot = {
-            customerPhone,
+            customerPhone: normalizedPhone || customerPhone,
             serviceType,
             tableNumber,
             customerAddress,
             paymentMethod,
             notes,
-            discountAmount,
+            // مبلغ تخفیف واقعی (شامل درصدی/تومانی/کد تخفیف)
+            discountAmount: getDiscountAmount(),
             totalAmount: getTotalAmount(),
             finalAmount: getFinalAmount(),
             items: cart.map((item) => ({
@@ -652,8 +663,12 @@ export default function OrderPage() {
                 notes: snapshot.notes,
                 items: snapshot.items,
                 totalAmount: snapshot.totalAmount,
-                discountAmount: serverOrder?.discountAmount ?? snapshot.discountAmount,
-                finalAmount: serverOrder?.finalAmount ?? snapshot.finalAmount,
+                discountAmount: Number(
+                    serverOrder?.discountAmount ?? snapshot.discountAmount ?? 0,
+                ),
+                finalAmount: Number(
+                    serverOrder?.finalAmount ?? snapshot.finalAmount ?? snapshot.totalAmount,
+                ),
             };
             const orderKeys = res.offline
                 ? [`offline-${res.orderId}`]
@@ -706,9 +721,8 @@ export default function OrderPage() {
             ) {
                 const restaurantId = user?.restaurants?.[0]?.id;
                 const restaurantName = user?.restaurants?.[0]?.name;
-                const phone = snapshot.customerPhone.trim().replace(/\s/g, '');
-                const normalized = phone.startsWith('9') && phone.length === 10 ? '0' + phone : phone;
-                if ((restaurantId || restaurantName) && normalized.length >= 10) {
+                const normalized = normalizeIranMobile(snapshot.customerPhone.trim());
+                if ((restaurantId || restaurantName) && isValidIranMobile(normalized)) {
                     createCustomerAddress(
                         {restaurantId, restaurantName},
                         {customerPhone: normalized, address: snapshot.customerAddress.trim()},
@@ -1060,6 +1074,7 @@ export default function OrderPage() {
                                     setLoadedCustomerFirstName('');
                                     setLoadedCustomerLastName('');
                                     setSuccessMessage('');
+                                    setError('');
                                 }}
                                 autoComplete="tel"
                                 variant="bordered"
@@ -1091,9 +1106,11 @@ export default function OrderPage() {
                                             color="primary"
                                             isLoading={isAddingCustomer}
                                             onPress={async () => {
-                                                const phone = customerPhone.trim().replace(/\s/g, '');
-                                                const normalized = phone.startsWith('9') && phone.length === 10 ? '0' + phone : phone;
-                                                if (normalized.length < 10) return;
+                                                const normalized = normalizeIranMobile(customerPhone.trim());
+                                                if (!isValidIranMobile(normalized)) {
+                                                    setError('فرمت شماره موبایل معتبر نیست. مثال: 09123456789');
+                                                    return;
+                                                }
                                                 const restaurantId = user?.restaurants?.[0]?.id;
                                                 const restaurantName = user?.restaurants?.[0]?.name;
                                                 if (!token || (!restaurantId && !restaurantName)) return;

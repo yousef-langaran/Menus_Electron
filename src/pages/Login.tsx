@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardBody, Input, Button } from '@heroui/react';
 import { useAuthStore } from '../store/authStore';
+import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
 
 const EyeIcon = ({ className }: { className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
@@ -37,13 +38,17 @@ export default function LoginPage() {
       setMobileError('شماره موبایل الزامی است.');
       return;
     }
+    if (!isValidIranMobile(mobileTrim)) {
+      setMobileError('فرمت شماره موبایل معتبر نیست. مثال: 09123456789');
+      return;
+    }
     if (!password) {
       setPasswordError('رمز عبور الزامی است.');
       return;
     }
     setIsLoading(true);
     try {
-      await login(mobileTrim, password);
+      await login(normalizeIranMobile(mobileTrim), password);
       navigate('/order');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'خطا در ورود به سیستم');

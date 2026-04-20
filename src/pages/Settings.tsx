@@ -119,11 +119,24 @@ export default function SettingsPage() {
         if (server && local) {
           const dailyResetTime =
             server.dailyResetTime && /^\d{1,2}:\d{2}$/.test(server.dailyResetTime) ? server.dailyResetTime : '00:00';
+          const mergedNextNumber = Math.max(
+            1,
+            Number(local.nextNumber) || 1,
+            Number(server.nextNumber) || 1,
+          );
+          const mergedStartNumber = Math.max(
+            1,
+            Number(server.startNumber) || 1,
+          );
           await window.electronAPI.saveReceiptNumberSettings({
-            nextNumber: local.nextNumber,
-            lastResetDate: local.lastResetDate ?? '',
+            // اگر سمت سرور شماره بزرگ‌تری تنظیم شده باشد، روی دسکتاپ هم اعمال شود
+            nextNumber: mergedNextNumber,
+            lastResetDate:
+              typeof server.lastResetDate === 'string'
+                ? server.lastResetDate
+                : local.lastResetDate ?? '',
             resetPolicy: server.resetPolicy,
-            startNumber: local.startNumber ?? server.startNumber,
+            startNumber: mergedStartNumber,
             dailyResetTime,
           });
         }

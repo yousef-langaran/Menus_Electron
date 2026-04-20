@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { fetchOrders, updateOrderStatus } from '../services/api';
 import { getAllOrders } from '../services/offlineStorage';
 import { connectOrdersSocket, disconnectOrdersSocket } from '../services/ordersSocket';
+import { attachOrdersSocketPanelSidecar } from '../services/ordersSocketPanelSidecar';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
 import {
   getReceiptNumbersMapFromStorage,
@@ -64,6 +65,7 @@ export default function OrdersPage() {
   const [isOnline, setIsOnline] = useState(true);
   const printerConfigs = usePrinterSettingsStore((state) => state.configs);
   const loadPrinterConfigs = usePrinterSettingsStore((state) => state.loadFromStorage);
+  const getPrinterReceipts = usePrinterSettingsStore((state) => state.getPrinterReceipts);
   const [previewHtml, setPreviewHtml] = useState('');
   const [previewImage, setPreviewImage] = useState('');
   const [previewTitle, setPreviewTitle] = useState('');
@@ -257,6 +259,8 @@ export default function OrdersPage() {
       return;
     }
 
+    const detachPanel = attachOrdersSocketPanelSidecar(socket);
+
     console.log('[OrdersPage] Socket created, setting up listeners');
 
     const handleNewOrder = (order: any) => {
@@ -290,6 +294,7 @@ export default function OrdersPage() {
     socket.on('connect_error', handleConnectError);
 
     return () => {
+      detachPanel();
       socket.off('connect', handleConnect);
       socket.off('orders:new', handleNewOrder);
       socket.off('orders:updated', handleOrderUpdated);
@@ -562,19 +567,24 @@ export default function OrdersPage() {
         window.electronAPI?.getDefaultPrintTemplate?.() ?? Promise.resolve(null),
       ]);
       const printersToUse = enabledPrinters.filter((p) => reprintSelectedPrinters.includes(p.name));
-      const printerJobs = printersToUse.map((printer) => {
+      const printerJobs = printersToUse.flatMap((printer) => {
         const template = templatesMap?.[printer.name] ?? defaultTemplate ?? null;
-        return {
-          name: printer.name,
-          displayName: printer.displayName,
-          paperWidth: template?.paperWidth ?? printer.paperWidth,
-          paperLength: template?.paperLength ?? printer.paperLength,
-          margin: template?.margin ?? printer.margin,
-          receiptType: 'full' as const,
-          copies: 1,
-          layout: template?.layout ?? undefined,
-        };
+        return getPrinterReceipts(printer.name)
+          .filter((r) => r.enabled)
+          .map((receipt) => ({
+            name: printer.name,
+            displayName: printer.displayName,
+            paperWidth: template?.paperWidth ?? printer.paperWidth,
+            paperLength: template?.paperLength ?? printer.paperLength,
+            margin: template?.margin ?? printer.margin,
+            receiptType: receipt.type,
+            copies: receipt.copies,
+            layout: template?.layout ?? undefined,
+          }));
       });
+      if (printerJobs.length === 0) {
+        throw new Error('برای پرینترهای انتخابی، نوع رسید فعالی تنظیم نشده است.');
+      }
       const orderKeys = reprintIsOffline
         ? [`offline-${reprintOrder.id}`]
         : [String(reprintOrder.id), reprintOrder.orderNumber].filter(Boolean);

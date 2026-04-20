@@ -60,6 +60,7 @@ export const connectOrdersSocket = (options: OrdersSocketOptions): Socket | null
     auth: {
       token: options.token,
       restaurantName: options.restaurantName,
+      clientType: 'electron',
     },
     withCredentials: true,
   });
