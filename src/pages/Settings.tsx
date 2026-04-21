@@ -29,6 +29,7 @@ export default function SettingsPage() {
   } = usePrinterSettingsStore();
   const { theme, setTheme } = useThemeStore();
   const [receiptPriceUnit, setReceiptPriceUnit] = useState<'toman' | 'rial'>('toman');
+  const [updateCheckHint, setUpdateCheckHint] = useState('');
 
   useEffect(() => {
     checkOnlineStatus();
@@ -39,6 +40,17 @@ export default function SettingsPage() {
   useEffect(() => {
     loadFromStorage();
     loadPrinters();
+  }, []);
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onUpdateNotAvailable || !api?.onUpdateAvailable) return;
+    const unsubNa = api.onUpdateNotAvailable(() => setUpdateCheckHint('شما آخرین نسخه را دارید.'));
+    const unsubAv = api.onUpdateAvailable(() => setUpdateCheckHint(''));
+    return () => {
+      unsubNa?.();
+      unsubAv?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -287,9 +299,19 @@ export default function SettingsPage() {
             <CardBody className="gap-3">
               <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">بروزرسانی برنامه</h2>
               <p className="text-default-500 text-sm">در صورت وجود نسخه جدید، بنر بروزرسانی در بالای صفحه نمایش داده می‌شود.</p>
-              <Button color="primary" variant="flat" onPress={() => window.electronAPI?.checkForUpdates?.()}>
+              <Button
+                color="primary"
+                variant="flat"
+                onPress={() => {
+                  setUpdateCheckHint('');
+                  void window.electronAPI?.checkForUpdates?.();
+                }}
+              >
                 بررسی بروزرسانی
               </Button>
+              {updateCheckHint ? (
+                <p className="text-default-600 text-sm text-center">{updateCheckHint}</p>
+              ) : null}
             </CardBody>
           </Card>
         )}
