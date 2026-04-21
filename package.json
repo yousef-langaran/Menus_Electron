@@ -12,10 +12,10 @@
     "build:electron": "tsc -p tsconfig.electron.json && node scripts/write-packaged-update-env.js",
     "preview": "vite preview",
     "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win",
+    "dist": "npm run build && electron-builder --publish always",
+    "dist:win": "npm run build && electron-builder --win --publish always",
     "postdist:win": "node scripts/copy-env-example.js",
-    "dist:linux": "npm run build && electron-builder --linux"
+    "dist:linux": "npm run build && electron-builder --linux --publish always"
   },
   "keywords": [
     "electron",
@@ -61,6 +61,12 @@
     "directories": {
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://update.hoshmenu.ir"
+      }
+    ],
     "protocols": [
       {
         "name": "hosh menu",
