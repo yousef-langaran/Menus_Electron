@@ -110,6 +110,35 @@ function applyFeedUrlFromEnv(): void {
   }
 }
 
+/**
+ * electron-updater هنگام دانلود حتماً app-update.yml را می‌خواند (برای updaterCacheDirName).
+ * بیلدهای قدیمی بدون این فایل در resources → ENOENT. اگر feed از env داریم، yaml حداقلی در userData می‌سازیم.
+ */
+function ensureAppUpdateConfigFile(): void {
+  if (!isPackaged) return;
+  const bundled = path.join(process.resourcesPath, 'app-update.yml');
+  if (fs.existsSync(bundled)) return;
+
+  const feedUrl = getUpdateServerUrl();
+  if (!feedUrl || isBlockedUpdateUrl(feedUrl)) return;
+
+  try {
+    const out = path.join(app.getPath('userData'), 'app-update.generated.yml');
+    const cacheName = 'menus-electron-updater';
+    const yml = `provider: generic\nurl: ${feedUrl}\nupdaterCacheDirName: ${cacheName}\n`;
+    fs.writeFileSync(out, yml, 'utf8');
+    autoUpdater.updateConfigPath = out;
+    console.info('[Updater] app-update.yml در resources نبود؛ از فایل تولیدشده استفاده می‌شود:', out);
+  } catch (e) {
+    console.warn('[Updater] نوشتن app-update.generated.yml ناموفق:', e);
+  }
+}
+
+function prepareUpdaterFeed(): void {
+  ensureAppUpdateConfigFile();
+  applyFeedUrlFromEnv();
+}
+
 export type CheckForUpdatesResult =
   | { ok: true }
   | { ok: false; skipped: true; message: string }
@@ -129,7 +158,7 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null) {
 
   if (!listenersBound) {
     listenersBound = true;
-    applyFeedUrlFromEnv();
+    prepareUpdaterFeed();
 
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
@@ -183,7 +212,7 @@ export async function checkForUpdates(): Promise<CheckForUpdatesResult> {
         'سرور بروزرسانی تنظیم نشده است. قبل از dist در روت پروژه Menus_Electron فایل .env را با UPDATE_SERVER_URL پر کنید تا هنگام build در نصب گذاشته شود؛ یا .env کنار exe / userData بگذارید، یا در api-config.json کلید updateServerUrl؛ یا publish معتبر در electron-builder.',
     };
   }
-  applyFeedUrlFromEnv();
+  prepareUpdaterFeed();
   try {
     await autoUpdater.checkForUpdates();
     return { ok: true };
@@ -197,6 +226,7 @@ export async function checkForUpdates(): Promise<CheckForUpdatesResult> {
 
 export function startUpdateDownload(): void {
   if (!isPackaged || !isUpdateFeedConfigured()) return;
+  prepareUpdaterFeed();
   void autoUpdater.downloadUpdate().catch((err) => {
     console.warn('[Updater] downloadUpdate failed:', err);
     sendToRenderer('update-error', err instanceof Error ? err.message : String(err));
