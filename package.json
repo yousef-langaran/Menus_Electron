@@ -61,12 +61,6 @@
     "directories": {
       "output": "release"
     },
-    "publish": [
-      {
-        "provider": "generic",
-        "url": "https://your-update-server.com/releases"
-      }
-    ],
     "protocols": [
       {
         "name": "hosh menu",

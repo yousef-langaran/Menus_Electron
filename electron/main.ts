@@ -500,14 +500,7 @@ ipcMain.handle('cache-images', async (_event, imageUrls: string[]) => {
 
 // بروزرسانی خودکار
 ipcMain.handle('check-for-updates', async () => {
-  if (!app.isPackaged) {
-    mainWindow?.webContents?.send(
-      'update-error',
-      'بروزرسانی فقط در نسخهٔ نصب‌شده (فایل خروجی electron-builder) فعال است؛ در حالت dev بررسی انجام نمی‌شود.',
-    );
-    return;
-  }
-  await checkForUpdates();
+  return await checkForUpdates();
 });
 ipcMain.handle('start-update-download', () => {
   startUpdateDownload();

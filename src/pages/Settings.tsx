@@ -303,8 +303,17 @@ export default function SettingsPage() {
                 color="primary"
                 variant="flat"
                 onPress={() => {
-                  setUpdateCheckHint('');
-                  void window.electronAPI?.checkForUpdates?.();
+                  void (async () => {
+                    setUpdateCheckHint('');
+                    try {
+                      const result = await window.electronAPI?.checkForUpdates?.();
+                      if (result && 'ok' in result && !result.ok && result.message) {
+                        setUpdateCheckHint(result.message);
+                      }
+                    } catch {
+                      setUpdateCheckHint('خطا در درخواست بررسی بروزرسانی.');
+                    }
+                  })();
                 }}
               >
                 بررسی بروزرسانی

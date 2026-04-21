@@ -122,7 +122,10 @@ declare global {
       getCachedImage: (imageUrl: string) => Promise<{ success: boolean; url: string }>;
       cacheImages: (imageUrls: string[]) => Promise<{ success: boolean; urls?: Record<string, string>; error?: string }>;
       onOnlineStatusChange: (callback: (isOnline: boolean) => void) => void | (() => void);
-      checkForUpdates: () => Promise<void>;
+      checkForUpdates: () => Promise<
+        | { ok: true }
+        | { ok: false; skipped?: boolean; message: string }
+      >;
       startUpdateDownload: () => Promise<void>;
       quitAndInstall: () => Promise<void>;
       onUpdateAvailable: (callback: (info: { version: string }) => void) => () => void;

@@ -18,7 +18,8 @@ export async function syncOfflineOrders(tokenOverride?: string) {
   const apiConfig = getApiConfig();
   const defaultBaseURL = apiConfig.baseURL;
   const currentSession = await loadUserSession();
-  const latestSessionToken = currentSession?.token;
+  const latestSessionToken =
+    typeof currentSession?.token === 'string' ? currentSession.token.trim() : undefined;
 
   for (const order of offlineOrders) {
     if (!order.id) continue;
@@ -33,8 +34,11 @@ export async function syncOfflineOrders(tokenOverride?: string) {
 
     try {
       const targetBaseURL = order.baseURL || defaultBaseURL;
-      // Always prefer the latest persisted user session token over stale order-time tokens.
-      const authToken = latestSessionToken || tokenOverride || order.token;
+      // توکن ارسالی از رندرر (نشست فعلی) اولویت دارد، سپس نشست ذخیره‌شده در main، سپس توکن زمان ثبت آفلاین.
+      const override = typeof tokenOverride === 'string' ? tokenOverride.trim() : '';
+      const persisted = typeof latestSessionToken === 'string' ? latestSessionToken.trim() : '';
+      const orderTok = typeof order.token === 'string' ? order.token.trim() : '';
+      const authToken = override || persisted || orderTok;
       const response = await axios.post(
         `${targetBaseURL}/orders`,
         order.orderData,
@@ -52,8 +56,13 @@ export async function syncOfflineOrders(tokenOverride?: string) {
       }
     } catch (error: any) {
       results.failed++;
-      const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
-      results.errors.push(`Order ${order.id}: ${errorMsg}`);
+      const status = error?.response?.status;
+      if (status === 401) {
+        results.errors.push(`سفارش ${order.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`);
+      } else {
+        const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
+        results.errors.push(`Order ${order.id}: ${errorMsg}`);
+      }
       console.error(`Failed to sync order ${order.id}:`, error);
     }
   }

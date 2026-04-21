@@ -71,6 +71,36 @@ api.interceptors.request.use(
   }
 );
 
+const AUTH_WHITELIST_ENDPOINTS = [
+  '/auth/login',
+  '/auth/login-with-mobile',
+  '/auth/verify-login',
+  '/auth/check-user',
+  '/auth/register-with-otp',
+  '/auth/register',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+];
+
+function normalizeRequestPath(requestUrl: string | undefined): string {
+  if (!requestUrl) return '';
+  if (requestUrl.startsWith('http')) {
+    try {
+      return new URL(requestUrl).pathname;
+    } catch {
+      return requestUrl;
+    }
+  }
+  return requestUrl;
+}
+
+let isHandlingUnauthorized = false;
+
+function dispatchUnauthorized(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event('menus-electron:unauthorized'));
+}
+
 // Add response interceptor for debugging
 api.interceptors.response.use(
   (response) => {
@@ -88,8 +118,22 @@ api.interceptors.response.use(
       data: error.response?.data,
       url: error.config?.url,
     });
-    if (error.response?.status == 401){
-      console.log(401)
+    const status = error?.response?.status;
+    const requestUrl: string = error?.config?.url || '';
+    const normalizedPath = normalizeRequestPath(requestUrl);
+    const skipGlobal401 =
+      Boolean(error?.config?.skipGlobal401Handler) ||
+      AUTH_WHITELIST_ENDPOINTS.some((endpoint) => normalizedPath.includes(endpoint));
+
+    if (status === 401 && !skipGlobal401 && !isHandlingUnauthorized) {
+      isHandlingUnauthorized = true;
+      try {
+        dispatchUnauthorized();
+      } finally {
+        setTimeout(() => {
+          isHandlingUnauthorized = false;
+        }, 1500);
+      }
     }
     return Promise.reject(error);
   }

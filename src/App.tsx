@@ -11,11 +11,34 @@ import { OrdersSocketManager } from './components/OrdersSocketManager';
 import { UpdateBanner } from './components/UpdateBanner';
 import { OfflineOrdersSync } from './components/OfflineOrdersSync';
 
+/** پس از 401 از API، خروج از نشست و رفتن به صفحهٔ ورود (بدون وابستگی دایره‌ای به axios) */
+function UnauthorizedListener() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const on401 = () => {
+      void (async () => {
+        try {
+          await useAuthStore.getState().logout();
+        } catch (e) {
+          console.warn('[Auth] logout after 401:', e);
+        }
+        navigate('/login', { replace: true });
+      })();
+    };
+    window.addEventListener('menus-electron:unauthorized', on401);
+    return () => window.removeEventListener('menus-electron:unauthorized', on401);
+  }, [navigate]);
+
+  return null;
+}
+
 function AppRoutes() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   return (
     <HeroUIProvider navigate={navigate} locale="fa-IR">
+      <UnauthorizedListener />
       <UpdateBanner />
       <OfflineOrdersSync />
       <OrdersSocketManager />
