@@ -1,7 +1,8 @@
 /**
  * تنظیم بروزرسانی خودکار با electron-updater.
  * فقط در حالت packaged فعال است.
- * آدرس سرور: متغیر env به نام UPDATE_SERVER_URL (اختیاری)؛ در غیر این صورت از app-update.yml که electron-builder می‌سازد.
+ * آدرس سرور: UPDATE_SERVER_URL یا VITE_UPDATE_SERVER_URL در .env، یا کلید updateServerUrl در api-config.json (userData)؛
+ * در غیر این صورت از app-update.yml که electron-builder می‌سازد.
  * اگر آدرس placeholder باشد (مثل your-update-server.com)، بررسی بروزرسانی انجام نمی‌شود تا خطای DNS در UI نمایش داده نشود.
  */
 
@@ -9,6 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { app, BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import { getUpdateServerUrl } from './config/api';
 
 const isPackaged = app.isPackaged;
 
@@ -57,10 +59,10 @@ export function isUpdateFeedConfigured(): boolean {
     return false;
   }
 
-  const envRaw = typeof process.env.UPDATE_SERVER_URL === 'string' ? process.env.UPDATE_SERVER_URL.trim() : '';
-  if (envRaw) {
-    if (isBlockedUpdateUrl(envRaw)) {
-      console.warn('[Updater] مقدار UPDATE_SERVER_URL نامعتبر است؛ بروزرسانی غیرفعال:', envRaw);
+  const explicit = getUpdateServerUrl();
+  if (explicit) {
+    if (isBlockedUpdateUrl(explicit)) {
+      console.warn('[Updater] آدرس بروزرسانی نامعتبر است؛ بروزرسانی غیرفعال:', explicit);
       return false;
     }
     return true;
@@ -91,17 +93,15 @@ function sendToRenderer(channel: string, ...args: unknown[]): void {
 }
 
 function applyFeedUrlFromEnv(): void {
-  const raw = process.env.UPDATE_SERVER_URL;
-  const updateUrl = typeof raw === 'string' ? raw.trim() : '';
-  if (!updateUrl) {
-    console.info('[Updater] بدون UPDATE_SERVER_URL — از feed داخل app-update.yml استفاده می‌شود (در صورت وجود).');
+  const base = getUpdateServerUrl();
+  if (!base) {
+    console.info('[Updater] بدون آدرس صریح در env/api-config — از feed داخل app-update.yml استفاده می‌شود (در صورت وجود).');
     return;
   }
-  if (isBlockedUpdateUrl(updateUrl)) {
-    console.warn('[Updater] UPDATE_SERVER_URL نادیده گرفته می‌شود (placeholder).');
+  if (isBlockedUpdateUrl(base)) {
+    console.warn('[Updater] آدرس بروزرسانی نادیده گرفته می‌شود (placeholder).');
     return;
   }
-  const base = updateUrl.replace(/\/+$/, '');
   try {
     autoUpdater.setFeedURL({ provider: 'generic', url: base });
     console.info('[Updater] setFeedURL (generic):', base);
@@ -180,7 +180,7 @@ export async function checkForUpdates(): Promise<CheckForUpdatesResult> {
       ok: false,
       skipped: true,
       message:
-        'سرور بروزرسانی تنظیم نشده است. برای فعال‌سازی، متغیر محیطی UPDATE_SERVER_URL را به آدرس پوشهٔ generic releases بدهید یا در electron-builder مقدار publish معتبر قرار دهید.',
+        'سرور بروزرسانی تنظیم نشده است. در فایل .env کنار برنامه یا پوشهٔ userData مقدار UPDATE_SERVER_URL (یا VITE_UPDATE_SERVER_URL) را بگذارید، یا در api-config.json کلید updateServerUrl را اضافه کنید؛ یا در electron-builder مقدار publish معتبر قرار دهید.',
     };
   }
   applyFeedUrlFromEnv();

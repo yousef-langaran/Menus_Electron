@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import { app, BrowserWindow, ipcMain, dialog, session } from 'electron';
 
 // بارگذاری .env — در build: کنار exe یا در userData؛ در dev: روت پروژه
+// چند مسیر پشت‌سرهم با override: آخرین فایل موجود برای هر کلید برنده است (مثلاً userData روی exe).
 function loadEnv() {
   const exeDir = path.dirname(app.getPath('exe'));
   const userDataDir = app.getPath('userData');
@@ -15,12 +16,11 @@ function loadEnv() {
 
   const paths = app.isPackaged
     ? [envNextToExe, envInUserData, envInCwd]
-    : [envInCwd, envNextToMain, envNextToExe, envInUserData];
+    : [envNextToExe, envInUserData, envNextToMain, envInCwd];
 
   for (const p of paths) {
     if (fs.existsSync(p)) {
-      dotenvConfig({ path: p });
-      break;
+      dotenvConfig({ path: p, override: true });
     }
   }
   if (app.isPackaged && !process.env.API_BASE_URL && !process.env.NEXT_PUBLIC_API_BASE_URL && !process.env.VITE_API_BASE_URL) {

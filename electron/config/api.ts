@@ -7,6 +7,8 @@ interface ApiConfig {
   token?: string;
   restaurantName?: string;
   restaurantId?: number;
+  /** آدرس پایهٔ generic برای electron-updater (اختیاری؛ اگر در .env نبود از اینجا) */
+  updateServerUrl?: string;
 }
 
 let cachedFileConfig: Partial<ApiConfig> | null = null;
@@ -43,8 +45,27 @@ export function getApiConfig(): ApiConfig {
       token: cachedFileConfig.token,
       restaurantName: cachedFileConfig.restaurantName,
       restaurantId: cachedFileConfig.restaurantId,
+      updateServerUrl: cachedFileConfig.updateServerUrl,
     }),
   };
+}
+
+/**
+ * آدرس feed بروزرسانی برای main process: از .env (UPDATE_SERVER_URL یا VITE_UPDATE_SERVER_URL)
+ * و در غیر این صورت از api-config.json (کلید updateServerUrl).
+ * مقدار بدون اسلش انتهایی برمی‌گردد.
+ */
+export function getUpdateServerUrl(): string {
+  getApiConfig();
+  const fromEnv = (
+    process.env.UPDATE_SERVER_URL ||
+    process.env.VITE_UPDATE_SERVER_URL ||
+    ''
+  ).trim();
+  const fromFile =
+    typeof cachedFileConfig?.updateServerUrl === 'string' ? cachedFileConfig.updateServerUrl.trim() : '';
+  const raw = fromEnv || fromFile;
+  return raw.replace(/\/+$/, '');
 }
 
 export function saveApiConfig(config: ApiConfig): void {
