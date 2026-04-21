@@ -13,6 +13,10 @@ interface ApiConfig {
 
 let cachedFileConfig: Partial<ApiConfig> | null = null;
 
+/** از خروجی build (packaged-update-env.json) — وقتی .env داخل نصب نیست */
+let packagedUpdateEnvRead = false;
+let cachedPackagedUpdateUrl = '';
+
 /** baseURL فقط از env؛ هیچ مقدار دستی/کش‌شده برای آدرس API استفاده نمی‌شود */
 function getBaseUrlFromEnv(): string {
   const envUrl =
@@ -50,21 +54,43 @@ export function getApiConfig(): ApiConfig {
   };
 }
 
+function readPackagedUpdateEnvFromDist(): string {
+  if (packagedUpdateEnvRead) {
+    return cachedPackagedUpdateUrl;
+  }
+  packagedUpdateEnvRead = true;
+  try {
+    const p = path.join(__dirname, '..', 'packaged-update-env.json');
+    if (!fs.existsSync(p)) {
+      return '';
+    }
+    const j = JSON.parse(fs.readFileSync(p, 'utf8')) as { updateServerUrl?: string };
+    const u = typeof j.updateServerUrl === 'string' ? j.updateServerUrl.trim() : '';
+    cachedPackagedUpdateUrl = u.replace(/\/+$/, '');
+  } catch {
+    cachedPackagedUpdateUrl = '';
+  }
+  return cachedPackagedUpdateUrl;
+}
+
 /**
- * آدرس feed بروزرسانی برای main process: از .env (UPDATE_SERVER_URL یا VITE_UPDATE_SERVER_URL)
- * و در غیر این صورت از api-config.json (کلید updateServerUrl).
- * مقدار بدون اسلش انتهایی برمی‌گردد.
+ * آدرس feed بروزرسانی برای main process:
+ * ۱) متغیرهای محیطی (از .env کنار exe / userData / …)
+ * ۲) api-config.json در userData (updateServerUrl)
+ * ۳) فایل packaged-update-env.json که هنگام `npm run build:electron` از .env پروژه ساخته می‌شود
  */
 export function getUpdateServerUrl(): string {
   getApiConfig();
   const fromEnv = (
     process.env.UPDATE_SERVER_URL ||
     process.env.VITE_UPDATE_SERVER_URL ||
+    process.env.NEXT_PUBLIC_UPDATE_SERVER_URL ||
     ''
   ).trim();
-  const fromFile =
+  const fromUserDataFile =
     typeof cachedFileConfig?.updateServerUrl === 'string' ? cachedFileConfig.updateServerUrl.trim() : '';
-  const raw = fromEnv || fromFile;
+  const fromBuild = readPackagedUpdateEnvFromDist();
+  const raw = fromEnv || fromUserDataFile || fromBuild;
   return raw.replace(/\/+$/, '');
 }
 

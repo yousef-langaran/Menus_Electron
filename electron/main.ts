@@ -13,9 +13,10 @@ function loadEnv() {
   const envInUserData = path.join(userDataDir, '.env');
   const envInCwd = path.join(process.cwd(), '.env');
   const envNextToMain = path.join(__dirname, '..', '.env');
+  const envInResources = path.join(process.resourcesPath, '.env');
 
   const paths = app.isPackaged
-    ? [envNextToExe, envInUserData, envInCwd]
+    ? [envNextToExe, envInUserData, envInResources, envInCwd]
     : [envNextToExe, envInUserData, envNextToMain, envInCwd];
 
   for (const p of paths) {

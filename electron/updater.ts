@@ -180,7 +180,7 @@ export async function checkForUpdates(): Promise<CheckForUpdatesResult> {
       ok: false,
       skipped: true,
       message:
-        'سرور بروزرسانی تنظیم نشده است. در فایل .env کنار برنامه یا پوشهٔ userData مقدار UPDATE_SERVER_URL (یا VITE_UPDATE_SERVER_URL) را بگذارید، یا در api-config.json کلید updateServerUrl را اضافه کنید؛ یا در electron-builder مقدار publish معتبر قرار دهید.',
+        'سرور بروزرسانی تنظیم نشده است. قبل از dist در روت پروژه Menus_Electron فایل .env را با UPDATE_SERVER_URL پر کنید تا هنگام build در نصب گذاشته شود؛ یا .env کنار exe / userData بگذارید، یا در api-config.json کلید updateServerUrl؛ یا publish معتبر در electron-builder.',
     };
   }
   applyFeedUrlFromEnv();
