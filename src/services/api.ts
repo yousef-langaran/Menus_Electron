@@ -394,3 +394,177 @@ export async function getPrintTemplates(
   });
   return Array.isArray(response.data) ? response.data : [];
 }
+
+export type AccountingPushOperation = {
+  localOpId: string;
+  entityType: string;
+  operationType: 'create' | 'update' | 'delete';
+  entityId: string;
+  payload: Record<string, any>;
+  version?: number;
+  clientUpdatedAt?: string;
+};
+
+export async function syncAccountingPush(
+  restaurantId: number,
+  operations: AccountingPushOperation[],
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.post(
+    '/accounting/sync/push',
+    { restaurantId, operations },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data as {
+    syncedAt: string;
+    results: Array<{
+      localOpId: string;
+      status: 'synced' | 'failed';
+      applied?: boolean;
+      error?: string;
+      entityType: string;
+      entityId: string;
+    }>;
+  };
+}
+
+export async function syncAccountingPull(
+  restaurantId: number,
+  token: string,
+  since?: string,
+  limit = 500,
+) {
+  await apiConfigReady;
+  const response = await api.post(
+    '/accounting/sync/pull',
+    { restaurantId, since, limit },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data as {
+    syncedAt: string;
+    strategy: 'last-write-wins';
+    since: string | null;
+    data: {
+      rawMaterials: any[];
+      suppliers: any[];
+      finalProducts: any[];
+      recipes: any[];
+      cashBankAccounts: any[];
+      operationalExpenses: any[];
+    };
+  };
+}
+
+export async function createPurchaseInvoiceAccounting(
+  payload: {
+    restaurantId: number;
+    supplierId: number;
+    invoiceNumber: string;
+    purchaseDate: string;
+    items: Array<{ rawMaterialId: number; quantity: number; unitPrice: number }>;
+    extraCosts?: number;
+    status?: 'draft' | 'pending_approval' | 'approved' | 'rejected';
+    notes?: string;
+  },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.post('/accounting/purchases/invoices', payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data as {
+    invoiceId: number;
+    status: string;
+    totalAmount: number;
+    paidAmount: number;
+    debtAmount: number;
+    items: number;
+    payments: number;
+  };
+}
+
+export async function fetchAccountingPurchaseReport(
+  params: { restaurantId: number; from?: string; to?: string; supplierId?: number; fiscalYearId?: number },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.get('/accounting/reports/purchases', {
+    params,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data as {
+    rows: Array<{
+      id: number;
+      invoiceNumber: string;
+      purchaseDate: string;
+      status: string;
+      totalAmount: number;
+      supplierId: number;
+      supplierName: string;
+      paidAmount: number;
+      debtAmount: number;
+    }>;
+    summary: { total: number; paid: number; debt: number };
+  };
+}
+
+export type FiscalYearRow = {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  status: 'open' | 'closed';
+  isActive: boolean;
+};
+
+export async function listFiscalYears(restaurantId: number, token: string): Promise<FiscalYearRow[]> {
+  await apiConfigReady;
+  const response = await api.get('/accounting/fiscal-years', {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function setActiveFiscalYear(
+  fiscalYearId: number,
+  restaurantId: number,
+  token: string,
+): Promise<FiscalYearRow> {
+  await apiConfigReady;
+  const response = await api.post(
+    `/accounting/fiscal-years/${fiscalYearId}/set-active`,
+    { restaurantId },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
+export async function closeFiscalYear(
+  fiscalYearId: number,
+  restaurantId: number,
+  token: string,
+): Promise<FiscalYearRow> {
+  await apiConfigReady;
+  const response = await api.post(
+    `/accounting/fiscal-years/${fiscalYearId}/close`,
+    { restaurantId },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
+export async function updateAccountingPurchaseInvoiceStatus(
+  invoiceId: number,
+  payload: { restaurantId: number; status: 'pending_approval' | 'approved' | 'rejected' },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.post(
+    `/accounting/purchases/invoices/${invoiceId}/status`,
+    payload,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data as { invoiceId: number; status: string };
+}

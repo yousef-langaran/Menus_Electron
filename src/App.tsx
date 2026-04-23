@@ -4,12 +4,18 @@ import LoginPage from './pages/Login';
 import OrderPage from './pages/Order';
 import SettingsPage from './pages/Settings';
 import OrdersPage from './pages/Orders';
+import AccountingPage from './pages/Accounting';
+import AccountingRawMaterialsPage from './pages/accounting/RawMaterials';
+import AccountingSuppliersPage from './pages/accounting/Suppliers';
+import AccountingPurchaseDraftsPage from './pages/accounting/PurchaseDrafts';
+import AccountingServerPurchasesPage from './pages/accounting/ServerPurchases';
 import { useAuthStore } from './store/authStore';
 import { usePrinterSettingsStore } from './store/printerSettingsStore';
 import { useEffect } from 'react';
 import { OrdersSocketManager } from './components/OrdersSocketManager';
 import { UpdateBanner } from './components/UpdateBanner';
 import { OfflineOrdersSync } from './components/OfflineOrdersSync';
+import { AccountingSyncManager } from './components/AccountingSyncManager';
 
 /** پس از 401 از API، خروج از نشست و رفتن به صفحهٔ ورود (بدون وابستگی دایره‌ای به axios) */
 function UnauthorizedListener() {
@@ -41,6 +47,7 @@ function AppRoutes() {
       <UnauthorizedListener />
       <UpdateBanner />
       <OfflineOrdersSync />
+      <AccountingSyncManager />
       <OrdersSocketManager />
       <Routes>
         <Route
@@ -58,6 +65,26 @@ function AppRoutes() {
         <Route
           path="/settings"
           element={user ? <SettingsPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/accounting"
+          element={user ? <AccountingPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/accounting/raw-materials"
+          element={user ? <AccountingRawMaterialsPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/accounting/suppliers"
+          element={user ? <AccountingSuppliersPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/accounting/purchase-drafts"
+          element={user ? <AccountingPurchaseDraftsPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/accounting/server-purchases"
+          element={user ? <AccountingServerPurchasesPage /> : <Navigate to="/login" replace />}
         />
         <Route path="/" element={<Navigate to={user ? '/order' : '/login'} replace />} />
       </Routes>

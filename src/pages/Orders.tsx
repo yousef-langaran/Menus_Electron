@@ -821,6 +821,7 @@ export default function OrdersPage() {
         <h1 className="text-xl font-bold text-foreground">لیست سفارشات</h1>
         <div className="flex gap-2">
           <Button variant="flat" color="default" onPress={() => navigate('/order')}>ثبت سفارش</Button>
+          <Button variant="flat" color="secondary" onPress={() => navigate('/accounting')}>حسابداری</Button>
           <Button variant="flat" color="default" onPress={() => navigate('/settings')}>تنظیمات</Button>
           <Button color="danger" variant="flat" onPress={logout}>خروج</Button>
         </div>

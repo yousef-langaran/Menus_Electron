@@ -90,6 +90,8 @@ export default function OrderPage() {
     const [userExists, setUserExists] = useState<boolean | null>(null);
     const [isCheckingUser, setIsCheckingUser] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [barcodeInput, setBarcodeInput] = useState('');
+    const [quickScanEnabled, setQuickScanEnabled] = useState(false);
     /** نام مشتری لود شده بعد از تیک (چک کاربر) — برای نمایش و چاپ رسید */
     const [loadedCustomerFirstName, setLoadedCustomerFirstName] = useState('');
     const [loadedCustomerLastName, setLoadedCustomerLastName] = useState('');
@@ -133,6 +135,9 @@ export default function OrderPage() {
     const [orderEditLoading, setOrderEditLoading] = useState(false);
     const [orderEditError, setOrderEditError] = useState('');
     const prevEditingIdRef = useRef<number | null>(null);
+    const scanBufferRef = useRef('');
+    const scanLastKeyAtRef = useRef(0);
+    const audioCtxRef = useRef<AudioContext | null>(null);
 
     const isElectronWithPrinters = typeof window !== 'undefined' && Boolean(window.electronAPI) && enabledPrinters.length > 0;
     /** کد تخفیف فقط وقتی فعال است که شماره موبایل وارد شده و اتصال آنلاین باشد */
@@ -753,6 +758,81 @@ export default function OrderPage() {
         return new Intl.NumberFormat('fa-IR').format(price) + ' تومان';
     };
 
+    const handleBarcodeAdd = (rawCode?: string) => {
+        const code = (rawCode ?? barcodeInput).trim();
+        if (!code) return;
+        const matched = products.find((p: any) => String(p?.barcode || '').trim() === code);
+        if (!matched) {
+            playScanBeep(false);
+            setError('محصولی با این بارکد پیدا نشد');
+            return;
+        }
+        setSuccessMessage('');
+        addToCart(matched);
+        if (!rawCode) setBarcodeInput('');
+        playScanBeep(true);
+        setError('');
+    };
+
+    const playScanBeep = (ok: boolean) => {
+        try {
+            if (typeof window === 'undefined') return;
+            const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+            if (!Ctx) return;
+            if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
+            const ctx = audioCtxRef.current;
+            if (!ctx) return;
+
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = ok ? 1046 : 280;
+            gain.gain.value = 0.0001;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            const now = ctx.currentTime;
+            gain.gain.exponentialRampToValueAtTime(ok ? 0.08 : 0.12, now + 0.005);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + (ok ? 0.09 : 0.18));
+            osc.start(now);
+            osc.stop(now + (ok ? 0.1 : 0.2));
+        } catch {
+            // ignore audio failures
+        }
+    };
+
+    useEffect(() => {
+        if (!quickScanEnabled) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement | null;
+            const tag = target?.tagName?.toLowerCase();
+            const inTypingField =
+                tag === 'input' || tag === 'textarea' || tag === 'select' || Boolean(target?.isContentEditable);
+            if (inTypingField) return;
+
+            const now = Date.now();
+            if (now - scanLastKeyAtRef.current > 250) {
+                scanBufferRef.current = '';
+            }
+            scanLastKeyAtRef.current = now;
+
+            if (e.key === 'Enter') {
+                const code = scanBufferRef.current.trim();
+                scanBufferRef.current = '';
+                if (code.length >= 3) {
+                    e.preventDefault();
+                    handleBarcodeAdd(code);
+                }
+                return;
+            }
+            if (e.key.length === 1) {
+                scanBufferRef.current += e.key;
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [quickScanEnabled, products]);
+
 
     return (
         <div onClick={()=> setSearchTerm('')} className="min-h-screen flex flex-col bg-default-100">
@@ -772,9 +852,29 @@ export default function OrderPage() {
                         variant="bordered"
                         classNames={{input: "text-right"}}
                     />
+                    <Input
+                        placeholder="اسکن بارکد محصول"
+                        value={barcodeInput}
+                        onValueChange={setBarcodeInput}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleBarcodeAdd();
+                            }
+                        }}
+                        variant="bordered"
+                        classNames={{input: "text-right"}}
+                    />
                 </div>
 
                 <div className="flex gap-2">
+                    <Button
+                        variant={quickScanEnabled ? "solid" : "bordered"}
+                        color="primary"
+                        onPress={() => setQuickScanEnabled((v) => !v)}
+                    >
+                        {quickScanEnabled ? 'اسکن سریع: روشن' : 'اسکن سریع: خاموش'}
+                    </Button>
                     {editingOrderId != null && (
                         <Button variant="flat" color="warning" onPress={() => navigate('/orders')}>
                             انصراف از ویرایش
@@ -782,6 +882,9 @@ export default function OrderPage() {
                     )}
                     <Button variant="flat" color="default" onPress={() => navigate('/orders')}>
                         سفارشات
+                    </Button>
+                    <Button variant="flat" color="secondary" onPress={() => navigate('/accounting')}>
+                        حسابداری
                     </Button>
                     <Button color="primary" variant="flat" onPress={() => navigate('/settings')}>
                         تنظیمات

@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
 import { useThemeStore } from '../store/themeStore';
 import { getReceiptNumberSettingsFromServer, getPrintTemplates, type PrintTemplateItem } from '../services/api';
+import { useSyncStore } from '../store/syncStore';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -30,6 +31,14 @@ export default function SettingsPage() {
   const { theme, setTheme } = useThemeStore();
   const [receiptPriceUnit, setReceiptPriceUnit] = useState<'toman' | 'rial'>('toman');
   const [updateCheckHint, setUpdateCheckHint] = useState('');
+  const {
+    isOnline: accountingOnline,
+    isSyncing: accountingSyncing,
+    pendingOps: accountingPendingOps,
+    failedOps: accountingFailedOps,
+    lastSyncedAt: accountingLastSyncedAt,
+    lastError: accountingLastError,
+  } = useSyncStore();
 
   useEffect(() => {
     checkOnlineStatus();
@@ -208,6 +217,9 @@ export default function SettingsPage() {
         <Button color="primary" variant="flat" onPress={() => navigate('/order')}>
           بازگشت
         </Button>
+        <Button color="secondary" variant="flat" onPress={() => navigate('/accounting')}>
+          حسابداری
+        </Button>
       </header>
 
       <div className="flex-1 overflow-auto p-6 max-w-3xl mx-auto w-full space-y-6">
@@ -291,6 +303,20 @@ export default function SettingsPage() {
             {syncStatus && (
               <p className="px-3 py-2 rounded-lg bg-default-100 text-foreground text-center text-sm">{syncStatus}</p>
             )}
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="rounded-lg bg-default-100 p-2">آنلاین: {accountingOnline ? 'بله' : 'خیر'}</div>
+              <div className="rounded-lg bg-default-100 p-2">در حال سینک: {accountingSyncing ? 'بله' : 'خیر'}</div>
+              <div className="rounded-lg bg-default-100 p-2">عملیات صف: {accountingPendingOps}</div>
+              <div className="rounded-lg bg-default-100 p-2">ناموفق: {accountingFailedOps}</div>
+            </div>
+            {accountingLastSyncedAt ? (
+              <p className="text-xs text-default-500">
+                آخرین سینک حسابداری: {new Date(accountingLastSyncedAt).toLocaleString('fa-IR')}
+              </p>
+            ) : null}
+            {accountingLastError ? (
+              <p className="text-xs text-danger">خطای سینک حسابداری: {accountingLastError}</p>
+            ) : null}
           </CardBody>
         </Card>
 
