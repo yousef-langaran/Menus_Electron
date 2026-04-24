@@ -84,6 +84,13 @@ export default function OrderPage() {
     const [selectedCategory, setSelectedCategory] = useState<string>('');
     const [cartItemOptions, setCartItemOptions] = useState<string[]>([]);
     const [isMobileRequired, setIsMobileRequired] = useState(true);
+    const [isScaleIntegrationEnabled, setIsScaleIntegrationEnabled] = useState(false);
+    const [restrictScaleAccess, setRestrictScaleAccess] = useState(true);
+    const [canUseScale, setCanUseScale] = useState(true);
+    const [isCardTerminalEnabled, setIsCardTerminalEnabled] = useState(false);
+    const [restrictCardTerminalAccess, setRestrictCardTerminalAccess] = useState(true);
+    const [allowDirectSendAmountToCardTerminal, setAllowDirectSendAmountToCardTerminal] = useState(false);
+    const [canUseCardTerminal, setCanUseCardTerminal] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
@@ -118,6 +125,19 @@ export default function OrderPage() {
     const [selectedAddressId, setSelectedAddressId] = useState<number | 'new' | null>(null);
     /** برای افزودن مشتری جدید */
     const [addCustomerFirstName, setAddCustomerFirstName] = useState('');
+    const hasManagePermission = (currentUser: any, module: 'electron_panel' | 'payment_terminal', restaurantId?: number) => {
+        const roles = Array.isArray(currentUser?.roles) ? currentUser.roles : [];
+        const isOwnerOrAdmin = roles.some((r: any) => r?.title === 'restaurant_owner' || r?.title === 'admin' || r?.title === 'super_admin');
+        if (isOwnerOrAdmin) return true;
+        const permissions = Array.isArray(currentUser?.restaurantPermissions) ? currentUser.restaurantPermissions : [];
+        return permissions.some((perm: any) => {
+            if (!perm?.isActive) return false;
+            if (perm?.module !== module) return false;
+            if (restaurantId && perm?.restaurant?.id !== restaurantId) return false;
+            return Array.isArray(perm?.actions) && perm.actions.includes('manage');
+        });
+    };
+
     const [addCustomerLastName, setAddCustomerLastName] = useState('');
     const [isAddingCustomer, setIsAddingCustomer] = useState(false);
     /** گزینه چاپ برای این سفارش: همه پرینترهای فعال، بدون چاپ، یا انتخاب پرینترها */
@@ -458,6 +478,21 @@ export default function OrderPage() {
                 setCategories(cached.categories);
                 setCartItemOptions(Array.isArray(cached.cartItemOptions) ? cached.cartItemOptions : []);
                 setIsMobileRequired(cached.isMobileRequiredInElectronPanel ?? true);
+                setIsScaleIntegrationEnabled(Boolean(cached.isScaleIntegrationEnabled));
+                setRestrictScaleAccess(cached.restrictScaleAccessToElectronManagers !== false);
+                setIsCardTerminalEnabled(Boolean(cached.isCardTerminalEnabled));
+                setRestrictCardTerminalAccess(cached.restrictCardTerminalAccessToElectronManagers !== false);
+                setAllowDirectSendAmountToCardTerminal(Boolean(cached.allowDirectSendAmountToCardTerminal));
+                setCanUseScale(
+                    !Boolean(cached.isScaleIntegrationEnabled) ||
+                    cached.restrictScaleAccessToElectronManagers === false ||
+                    hasManagePermission(user, 'electron_panel', Number(restaurantId))
+                );
+                setCanUseCardTerminal(
+                    !Boolean(cached.isCardTerminalEnabled) ||
+                    cached.restrictCardTerminalAccessToElectronManagers === false ||
+                    hasManagePermission(user, 'payment_terminal', Number(restaurantId))
+                );
                 setIsLoading(false);
             }
 
@@ -473,6 +508,11 @@ export default function OrderPage() {
 
                     let options: string[] = [];
                     let mobileReq = true;
+                    let scaleEnabled = false;
+                    let scaleRestricted = true;
+                    let cardTerminalEnabled = false;
+                    let cardTerminalRestricted = true;
+                    let directAmountSendEnabled = false;
                     try {
                         const restaurant = restaurantId
                             ? await getRestaurantById(Number(restaurantId), token)
@@ -481,11 +521,34 @@ export default function OrderPage() {
                         const raw = restaurant?.cartItemOptions;
                         options = Array.isArray(raw) ? raw.filter((s: any) => s != null && String(s).trim()) : [];
                         mobileReq = restaurant?.panelSettings?.isMobileRequiredInElectronPanel ?? true;
+                        scaleEnabled = Boolean(restaurant?.panelSettings?.isScaleIntegrationEnabled);
+                        scaleRestricted = restaurant?.panelSettings?.restrictScaleAccessToElectronManagers !== false;
+                        cardTerminalEnabled = Boolean(restaurant?.panelSettings?.isCardTerminalEnabled);
+                        cardTerminalRestricted = restaurant?.panelSettings?.restrictCardTerminalAccessToElectronManagers !== false;
+                        directAmountSendEnabled = Boolean(restaurant?.panelSettings?.allowDirectSendAmountToCardTerminal);
                         setCartItemOptions(options);
                         setIsMobileRequired(mobileReq);
+                        setIsScaleIntegrationEnabled(scaleEnabled);
+                        setRestrictScaleAccess(scaleRestricted);
+                        setCanUseScale(!scaleEnabled || !scaleRestricted || hasManagePermission(user, 'electron_panel', Number(restaurantId)));
+                        setIsCardTerminalEnabled(cardTerminalEnabled);
+                        setRestrictCardTerminalAccess(cardTerminalRestricted);
+                        setAllowDirectSendAmountToCardTerminal(directAmountSendEnabled);
+                        setCanUseCardTerminal(
+                            !cardTerminalEnabled ||
+                            !cardTerminalRestricted ||
+                            hasManagePermission(user, 'payment_terminal', Number(restaurantId))
+                        );
                     } catch (_) {
                         setCartItemOptions((prev) => prev);
                         setIsMobileRequired((prev) => prev);
+                        setIsScaleIntegrationEnabled((prev) => prev);
+                        setRestrictScaleAccess((prev) => prev);
+                        setCanUseScale((prev) => prev);
+                        setIsCardTerminalEnabled((prev) => prev);
+                        setRestrictCardTerminalAccess((prev) => prev);
+                        setAllowDirectSendAmountToCardTerminal((prev) => prev);
+                        setCanUseCardTerminal((prev) => prev);
                     }
 
                     const uniqueCategories = Array.from(
@@ -494,7 +557,19 @@ export default function OrderPage() {
                     setCategories(uniqueCategories as string[]);
 
                     // Cache the menu (including cart item options for offline)
-                    await cacheMenu(restaurantId || 0, restaurantName || '', productsData, uniqueCategories as string[], options, mobileReq);
+                    await cacheMenu(
+                        restaurantId || 0,
+                        restaurantName || '',
+                        productsData,
+                        uniqueCategories as string[],
+                        options,
+                        mobileReq,
+                        scaleEnabled,
+                        scaleRestricted,
+                        cardTerminalEnabled,
+                        cardTerminalRestricted,
+                        directAmountSendEnabled,
+                    );
                 } catch (err) {
                     console.warn('Failed to fetch products from server:', err);
                     if (productsData.length === 0) {
@@ -543,6 +618,43 @@ export default function OrderPage() {
             setLoadedCustomerLastName('');
         } finally {
             setIsCheckingUser(false);
+        }
+    };
+
+    const handleSendAmountToCardTerminal = async () => {
+        const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
+        if (!isCardTerminalEnabled) {
+            setError('قابلیت کارتخوان برای این رستوران فعال نیست.');
+            return;
+        }
+        if (!canUseCardTerminal) {
+            setError('شما دسترسی استفاده از کارتخوان ندارید.');
+            return;
+        }
+        if (!allowDirectSendAmountToCardTerminal) {
+            setError('ارسال مستقیم مبلغ به کارتخوان توسط مدیر غیرفعال است.');
+            return;
+        }
+        const amount = Number(getFinalAmount() || 0);
+        if (!(amount > 0)) {
+            setError('برای ارسال به کارتخوان، مبلغ سفارش باید بیشتر از صفر باشد.');
+            return;
+        }
+        if (!window.electronAPI?.sendAmountToCardTerminal) {
+            setError('نسخه پنل دسکتاپ از کارتخوان پشتیبانی نمی‌کند.');
+            return;
+        }
+
+        setError('');
+        try {
+            const result = await window.electronAPI.sendAmountToCardTerminal({ amount, restaurantId });
+            if (result?.success) {
+                setSuccessMessage('مبلغ با موفقیت به کارتخوان ارسال شد.');
+            } else {
+                setError(result?.error || 'ارسال مبلغ به کارتخوان ناموفق بود.');
+            }
+        } catch (err: any) {
+            setError(err?.message || 'خطا در ارسال مبلغ به کارتخوان');
         }
     };
 
@@ -833,6 +945,16 @@ export default function OrderPage() {
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [quickScanEnabled, products]);
 
+    useEffect(() => {
+        const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
+        setCanUseScale(!isScaleIntegrationEnabled || !restrictScaleAccess || hasManagePermission(user, 'electron_panel', restaurantId));
+        setCanUseCardTerminal(
+            !isCardTerminalEnabled ||
+            !restrictCardTerminalAccess ||
+            hasManagePermission(user, 'payment_terminal', restaurantId)
+        );
+    }, [isScaleIntegrationEnabled, restrictScaleAccess, isCardTerminalEnabled, restrictCardTerminalAccess, user]);
+
 
     return (
         <div onClick={()=> setSearchTerm('')} className="min-h-screen flex flex-col bg-default-100">
@@ -909,6 +1031,16 @@ export default function OrderPage() {
                 <div className="px-6 py-3 bg-success-50 text-success-700 border-b border-success-200 text-center"
                      role="alert">
                     {successMessage}
+                </div>
+            )}
+            {isScaleIntegrationEnabled && !canUseScale && (
+                <div className="px-6 py-3 bg-warning-50 text-warning-700 border-b border-warning-200 text-center" role="alert">
+                    اتصال ترازو برای این کاربر غیرفعال است. برای دسترسی، از مدیر بخواهید مجوز مدیریت پنل الکترون را فعال کند.
+                </div>
+            )}
+            {isCardTerminalEnabled && !canUseCardTerminal && (
+                <div className="px-6 py-3 bg-warning-50 text-warning-700 border-b border-warning-200 text-center" role="alert">
+                    دسترسی کارتخوان برای این کاربر غیرفعال است. برای دسترسی، از مدیر بخواهید مجوز «مدیریت کارتخوان» را فعال کند.
                 </div>
             )}
             <Group className={"pt-2"}>
@@ -1311,6 +1443,24 @@ export default function OrderPage() {
                             <SelectItem key="online" textValue="آنلاین">آنلاین</SelectItem>
                             <SelectItem key="mixed" textValue="ترکیبی">ترکیبی</SelectItem>
                         </Select>
+                        {paymentMethod === 'card' && (
+                            <div className="rounded-lg border border-default-200 bg-default-50 p-3 text-sm">
+                                {!isCardTerminalEnabled ? (
+                                    <p className="text-default-600">کارتخوان برای این رستوران فعال نشده است.</p>
+                                ) : !canUseCardTerminal ? (
+                                    <p className="text-warning-700">دسترسی استفاده از کارتخوان برای شما فعال نیست.</p>
+                                ) : allowDirectSendAmountToCardTerminal ? (
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-success-700">ارسال مستقیم مبلغ به کارتخوان فعال است.</p>
+                                        <Button size="sm" color="primary" variant="flat" onPress={handleSendAmountToCardTerminal}>
+                                            ارسال مبلغ {formatPrice(getFinalAmount())}
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <p className="text-default-600">ارسال مستقیم مبلغ به کارتخوان توسط مدیر غیرفعال شده است.</p>
+                                )}
+                            </div>
+                        )}
 
                         <div className="flex flex-col gap-2">
                             <span className="text-sm font-medium text-foreground">تخفیف</span>

@@ -12,7 +12,12 @@ export async function cacheMenu(
   products: any[],
   categories: any[],
   cartItemOptions?: string[],
-  isMobileRequiredInElectronPanel?: boolean
+  isMobileRequiredInElectronPanel?: boolean,
+  isScaleIntegrationEnabled?: boolean,
+  restrictScaleAccessToElectronManagers?: boolean,
+  isCardTerminalEnabled?: boolean,
+  restrictCardTerminalAccessToElectronManagers?: boolean,
+  allowDirectSendAmountToCardTerminal?: boolean
 ) {
   menuCache = {
     restaurantId,
@@ -21,6 +26,11 @@ export async function cacheMenu(
     categories,
     cartItemOptions: cartItemOptions || [],
     isMobileRequiredInElectronPanel: isMobileRequiredInElectronPanel || false,
+    isScaleIntegrationEnabled: isScaleIntegrationEnabled || false,
+    restrictScaleAccessToElectronManagers: restrictScaleAccessToElectronManagers !== false,
+    isCardTerminalEnabled: isCardTerminalEnabled || false,
+    restrictCardTerminalAccessToElectronManagers: restrictCardTerminalAccessToElectronManagers !== false,
+    allowDirectSendAmountToCardTerminal: allowDirectSendAmountToCardTerminal || false,
     cachedAt: new Date().toISOString(),
   };
 

@@ -38,6 +38,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getReceiptPriceDisplayUnit: () => ipcRenderer.invoke('get-receipt-price-display-unit'),
   saveReceiptPriceDisplayUnit: (unit: 'toman' | 'rial') =>
     ipcRenderer.invoke('save-receipt-price-display-unit', unit),
+  sendAmountToCardTerminal: (payload: { amount: number; orderId?: number; restaurantId?: number }) =>
+    ipcRenderer.invoke('send-amount-to-card-terminal', payload),
   getReceiptNumbersMap: () => ipcRenderer.invoke('get-receipt-numbers-map'),
   assignReceiptNumberForOrder: (orderKeys: string[]) =>
     ipcRenderer.invoke('assign-receipt-number-for-order', orderKeys),
@@ -116,6 +118,7 @@ declare global {
       saveReceiptNumberSettings: (settings: any) => Promise<{ success: boolean; error?: string }>;
       getReceiptPriceDisplayUnit: () => Promise<'toman' | 'rial'>;
       saveReceiptPriceDisplayUnit: (unit: 'toman' | 'rial') => Promise<{ success: boolean; error?: string }>;
+      sendAmountToCardTerminal: (payload: { amount: number; orderId?: number; restaurantId?: number }) => Promise<{ success: boolean; error?: string; refId?: string }>;
       getReceiptNumbersMap: () => Promise<Record<string, number>>;
       assignReceiptNumberForOrder: (orderKeys: string[]) => Promise<number>;
       cacheImage: (imageUrl: string) => Promise<{ success: boolean; url?: string; error?: string }>;

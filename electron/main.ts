@@ -215,6 +215,15 @@ ipcMain.handle('check-online', async () => {
   return await isOnline();
 });
 
+ipcMain.handle('send-amount-to-card-terminal', async (_event, payload: { amount?: number }) => {
+  const amount = Number(payload?.amount || 0);
+  if (!(amount > 0)) {
+    return { success: false, error: 'مبلغ معتبر نیست' };
+  }
+  // Integration hook: implement vendor SDK/API here.
+  return { success: false, error: 'اتصال کارتخوان هنوز پیکربندی نشده است' };
+});
+
 ipcMain.handle('sync-orders', async (_event, token?: string) => {
   try {
     return await syncOfflineOrders(token);
