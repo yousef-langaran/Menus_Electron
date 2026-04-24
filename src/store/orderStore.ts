@@ -99,6 +99,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
                 ),
             });
         } else {
+            const unit = Number(
+                (product as { staffOrderUnitPrice?: number }).staffOrderUnitPrice ?? product.price ?? 0,
+            );
             set({
                 cart: [
                     ...cart,
@@ -106,8 +109,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
                         productId: product.id,
                         product,
                         quantity: 1,
-                        price: product.price,
-                        totalPrice: product.price,
+                        price: unit,
+                        totalPrice: unit,
                         itemOption: '',
                     },
                 ],

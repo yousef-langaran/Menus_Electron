@@ -866,6 +866,12 @@ export default function OrderPage() {
         return categoryMatch && searchMatch;
     });
 
+    const staffCartUnitPrice = (product: { staffOrderUnitPrice?: number; price?: number }) => {
+        const inv = Number(product?.staffOrderUnitPrice);
+        if (Number.isFinite(inv) && inv > 0) return inv;
+        return Number(product?.price || 0);
+    };
+
     const formatPrice = (price: number) => {
         return new Intl.NumberFormat('fa-IR').format(price) + ' تومان';
     };
@@ -1080,7 +1086,7 @@ export default function OrderPage() {
                                                     )}
                                                     <div className="p-3 text-right">
                                                         <h3 className="font-semibold text-foreground text-sm">{product.name_fa || product.name}</h3>
-                                                        <p className="text-primary text-sm mt-1">{formatPrice(product.price)}</p>
+                                                        <p className="text-primary text-sm mt-1">{formatPrice(staffCartUnitPrice(product))}</p>
                                                     </div>
                                                 </CardBody>
                                             </Card>

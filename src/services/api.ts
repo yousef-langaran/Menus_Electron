@@ -191,6 +191,9 @@ export async function getProducts(restaurantName?: string, restaurantId?: number
   if (restaurantId) {
     body.restaurantId = restaurantId;
   }
+  if (token) {
+    body.includeStaffInventoryOrderPrice = true;
+  }
 
   const response = await api.post('/products/filter/public', body, { headers });
   return Array.isArray(response.data) ? response.data : [];
