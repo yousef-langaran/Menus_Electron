@@ -40,6 +40,7 @@ import {
 import {Panel, Group, Separator} from 'react-resizable-panels'
 
 const RESET_ORDER_SHORTCUT_LABEL = 'Ctrl + Shift + Backspace';
+type UiToast = { id: number; type: 'error' | 'success' | 'warning'; message: string };
 
 export default function OrderPage() {
     const {user, token, logout} = useAuthStore();
@@ -102,6 +103,7 @@ export default function OrderPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [barcodeInput, setBarcodeInput] = useState('');
     const [quickScanEnabled, setQuickScanEnabled] = useState(false);
+    const [toasts, setToasts] = useState<UiToast[]>([]);
     /** نام مشتری لود شده بعد از تیک (چک کاربر) — برای نمایش و چاپ رسید */
     const [loadedCustomerFirstName, setLoadedCustomerFirstName] = useState('');
     const [loadedCustomerLastName, setLoadedCustomerLastName] = useState('');
@@ -165,6 +167,15 @@ export default function OrderPage() {
     const isElectronWithPrinters = typeof window !== 'undefined' && Boolean(window.electronAPI) && enabledPrinters.length > 0;
     /** کد تخفیف فقط وقتی فعال است که شماره موبایل وارد شده و اتصال آنلاین باشد */
     const canUseDiscountCode = Boolean(customerPhone.trim()) && isOnline;
+
+    const pushToast = (type: UiToast['type'], message: string) => {
+        if (!message) return;
+        const id = Date.now() + Math.floor(Math.random() * 1000);
+        setToasts((prev) => [...prev, { id, type, message }]);
+        window.setTimeout(() => {
+            setToasts((prev) => prev.filter((t) => t.id !== id));
+        }, 3500);
+    };
 
     useEffect(() => {
         const prev = prevEditingIdRef.current;
@@ -1060,6 +1071,24 @@ export default function OrderPage() {
         );
     }, [isScaleIntegrationEnabled, restrictScaleAccess, isCardTerminalEnabled, restrictCardTerminalAccess, user]);
 
+    useEffect(() => {
+        if (!error) return;
+        pushToast('error', error);
+        setError('');
+    }, [error]);
+
+    useEffect(() => {
+        if (!orderEditError) return;
+        pushToast('error', orderEditError);
+        setOrderEditError('');
+    }, [orderEditError]);
+
+    useEffect(() => {
+        if (!successMessage) return;
+        pushToast('success', successMessage);
+        setSuccessMessage('');
+    }, [successMessage]);
+
 
     return (
         <div onClick={()=> setSearchTerm('')} className="min-h-screen flex flex-col bg-default-100">
@@ -1122,22 +1151,22 @@ export default function OrderPage() {
                 </div>
             </header>
 
-            {orderEditError && editingOrderId != null && (
-                <div className="px-6 py-3 bg-danger-50 text-danger border-b border-danger-200 text-center" role="alert">
-                    {orderEditError}
-                </div>
-            )}
-            {error && (
-                <div className="px-6 py-3 bg-danger-50 text-danger border-b border-danger-200 text-center" role="alert">
-                    {error}
-                </div>
-            )}
-            {successMessage && (
-                <div className="px-6 py-3 bg-success-50 text-success-700 border-b border-success-200 text-center"
-                     role="alert">
-                    {successMessage}
-                </div>
-            )}
+            <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 flex flex-col gap-2 w-[min(92vw,520px)] pointer-events-none">
+                {toasts.map((toast) => (
+                    <div
+                        key={toast.id}
+                        className={
+                            toast.type === 'error'
+                                ? 'rounded-lg border border-danger-300 bg-danger-50 px-4 py-2 text-danger-700 shadow-md'
+                                : toast.type === 'success'
+                                  ? 'rounded-lg border border-success-300 bg-success-50 px-4 py-2 text-success-700 shadow-md'
+                                  : 'rounded-lg border border-warning-300 bg-warning-50 px-4 py-2 text-warning-800 shadow-md'
+                        }
+                    >
+                        {toast.message}
+                    </div>
+                ))}
+            </div>
             {isScaleIntegrationEnabled && !canUseScale && (
                 <div className="px-6 py-3 bg-warning-50 text-warning-700 border-b border-warning-200 text-center" role="alert">
                     اتصال ترازو برای این کاربر غیرفعال است. برای دسترسی، از مدیر بخواهید مجوز مدیریت پنل الکترون را فعال کند.
