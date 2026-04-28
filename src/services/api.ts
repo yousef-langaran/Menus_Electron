@@ -355,6 +355,23 @@ export async function addCustomer(
   return response.data;
 }
 
+export async function updateCustomerProfile(
+  params: { restaurantId?: number; restaurantName?: string; phone: string },
+  body: { firstName?: string; lastName?: string },
+  token: string,
+): Promise<{ id: number; firstName: string; lastName: string; mobile: string }> {
+  await apiConfigReady;
+  const response = await api.patch('/customers/profile', body, {
+    params: {
+      restaurantId: params.restaurantId,
+      restaurantName: params.restaurantName,
+      phone: params.phone,
+    },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
 export async function createCustomerAddress(
   params: { restaurantId?: number; restaurantName?: string },
   body: { customerPhone: string; label?: string; address: string; isDefault?: boolean },
