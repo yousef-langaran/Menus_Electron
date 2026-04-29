@@ -57,6 +57,16 @@ export const apiConfigReady: Promise<void> =
 // Add request interceptor for debugging
 api.interceptors.request.use(
   (config) => {
+    const requestUrl = String(config.url || '');
+    const isAuthRequest = requestUrl.includes('/auth/');
+    if (typeof window !== 'undefined' && !isAuthRequest) {
+      const liveToken = (window as any).__menusAuthToken as string | undefined;
+      if (liveToken) {
+        const headers: any = config.headers || {};
+        headers.Authorization = `Bearer ${liveToken}`;
+        config.headers = headers;
+      }
+    }
     console.log('API Request:', {
       method: config.method,
       url: config.url,

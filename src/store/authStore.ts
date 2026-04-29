@@ -43,6 +43,15 @@ interface AuthState {
   loadCachedUser: () => Promise<void>;
 }
 
+function syncLiveAuthToken(token: string | null) {
+  if (typeof window === 'undefined') return;
+  if (token) {
+    (window as any).__menusAuthToken = token;
+  } else {
+    delete (window as any).__menusAuthToken;
+  }
+}
+
 const needsProfileRefresh = (user?: User | null) =>
   !user?.restaurants || user.restaurants.length === 0;
 
@@ -126,6 +135,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       await cacheUser(hydratedUser, token);
+      syncLiveAuthToken(token);
       set({
         user: hydratedUser,
         token,
@@ -160,6 +170,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     await clearUserCache();
+    syncLiveAuthToken(null);
     set({ user: null, token: null, isHydrated: true });
   },
 
@@ -200,9 +211,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.log('[AuthStore] Cached user ready', {
         restaurants: resolvedUser?.restaurants?.length,
       });
+      syncLiveAuthToken(cached.token);
       set({ user: resolvedUser, token: cached.token, isHydrated: true });
       return;
     }
+    syncLiveAuthToken(null);
     set({ isHydrated: true });
   },
 }));
