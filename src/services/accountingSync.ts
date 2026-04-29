@@ -23,18 +23,33 @@ function resolveOnlineStatus(): Promise<boolean> {
 }
 
 export async function getAccountingQueueStats(restaurantId: number) {
-  const pendingOps = await accountingDb.syncOperations
-    .where('[restaurantId+status]')
-    .anyOf([
-      [restaurantId, 'pending'],
-      [restaurantId, 'failed'],
-    ])
-    .count();
+  let pendingOps = 0;
+  let failedOps = 0;
+  try {
+    pendingOps = await accountingDb.syncOperations
+      .where('[restaurantId+status]')
+      .anyOf([
+        [restaurantId, 'pending'],
+        [restaurantId, 'failed'],
+      ])
+      .count();
 
-  const failedOps = await accountingDb.syncOperations
-    .where('[restaurantId+status]')
-    .equals([restaurantId, 'failed'])
-    .count();
+    failedOps = await accountingDb.syncOperations
+      .where('[restaurantId+status]')
+      .equals([restaurantId, 'failed'])
+      .count();
+  } catch {
+    // Fallback for legacy IndexedDB schemas missing compound index.
+    const rows = await accountingDb.syncOperations.toArray();
+    pendingOps = rows.filter(
+      (row) =>
+        row.restaurantId === restaurantId &&
+        (row.status === 'pending' || row.status === 'failed'),
+    ).length;
+    failedOps = rows.filter(
+      (row) => row.restaurantId === restaurantId && row.status === 'failed',
+    ).length;
+  }
 
   return { pendingOps, failedOps };
 }

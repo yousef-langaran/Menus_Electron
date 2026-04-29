@@ -6,6 +6,35 @@ export type ReceiptNumberResetPolicy = 'never' | 'minutely' | 'daily' | 'weekly'
 
 /** واحد نمایش مبلغ در رسید چاپی (مقادیر سفارش در دیتابیس به تومان هستند؛ در حالت ریال ×۱۰ نمایش داده می‌شود) */
 export type ReceiptPriceDisplayUnit = 'toman' | 'rial';
+export type CardTerminalSendAmountUnit = 'toman' | 'rial';
+export type CardTerminalHttpMethod = 'POST' | 'PUT';
+
+export interface CardTerminalSettings {
+  enabled: boolean;
+  endpointUrl: string;
+  httpMethod: CardTerminalHttpMethod;
+  timeoutMs: number;
+  amountFieldName: string;
+  orderIdFieldName: string;
+  restaurantIdFieldName: string;
+  sendAmountUnit: CardTerminalSendAmountUnit;
+  authHeaderName: string;
+  authToken: string;
+  successFieldPath: string;
+  messageFieldPath: string;
+  referenceFieldPath: string;
+}
+
+export interface CardTerminalProfile {
+  id: string;
+  name: string;
+  settings: CardTerminalSettings;
+}
+
+export interface CardTerminalConfig {
+  profiles: CardTerminalProfile[];
+  defaultProfileId: string | null;
+}
 
 export interface ReceiptNumberSettings {
   nextNumber: number;
@@ -22,6 +51,22 @@ const DEFAULT_RECEIPT_SETTINGS: ReceiptNumberSettings = {
   startNumber: 1,
   lastResetDate: '',
   dailyResetTime: '00:00',
+};
+
+const DEFAULT_CARD_TERMINAL_SETTINGS: CardTerminalSettings = {
+  enabled: false,
+  endpointUrl: '',
+  httpMethod: 'POST',
+  timeoutMs: 10000,
+  amountFieldName: 'amount',
+  orderIdFieldName: 'orderId',
+  restaurantIdFieldName: 'restaurantId',
+  sendAmountUnit: 'toman',
+  authHeaderName: 'Authorization',
+  authToken: '',
+  successFieldPath: 'success',
+  messageFieldPath: 'message',
+  referenceFieldPath: 'refId',
 };
 
 /** قالب چاپ پیش‌فرض انتخاب‌شده از سرور (کپی برای استفاده آفلاین) */
@@ -53,6 +98,10 @@ interface PreferencesFile {
   printerTemplates?: PrinterTemplatesMap;
   /** واحد نمایش قیمت در رسید چاپی */
   receiptPriceDisplayUnit?: ReceiptPriceDisplayUnit;
+  /** تنظیمات اتصال کارتخوان در اپ دسکتاپ */
+  cardTerminalSettings?: CardTerminalSettings;
+  cardTerminalProfiles?: CardTerminalProfile[];
+  defaultCardTerminalProfileId?: string | null;
 }
 
 const FILE_NAME = 'menus-preferences.json';
@@ -185,6 +234,125 @@ export async function saveReceiptPriceDisplayUnit(unit: ReceiptPriceDisplayUnit)
   const prefs = await readPreferences();
   prefs.receiptPriceDisplayUnit = unit === 'rial' ? 'rial' : 'toman';
   await writePreferences(prefs);
+}
+
+export async function loadCardTerminalSettings(): Promise<CardTerminalSettings> {
+  const prefs = await readPreferences();
+  const fallbackFromLegacy = prefs.cardTerminalSettings || {};
+  const selectedProfile =
+    (prefs.cardTerminalProfiles || []).find(
+      (p) => p.id === (prefs.defaultCardTerminalProfileId || ''),
+    ) || (prefs.cardTerminalProfiles || [])[0];
+  const raw = selectedProfile?.settings || fallbackFromLegacy;
+  const timeoutMs = Number((raw as any).timeoutMs);
+  const normalizedMethod = String((raw as any).httpMethod || 'POST').toUpperCase() === 'PUT' ? 'PUT' : 'POST';
+  return {
+    enabled: Boolean((raw as any).enabled),
+    endpointUrl: String((raw as any).endpointUrl || '').trim(),
+    httpMethod: normalizedMethod,
+    timeoutMs: Number.isFinite(timeoutMs) ? Math.max(3000, Math.min(timeoutMs, 120000)) : 10000,
+    amountFieldName: String((raw as any).amountFieldName || 'amount').trim() || 'amount',
+    orderIdFieldName: String((raw as any).orderIdFieldName || 'orderId').trim(),
+    restaurantIdFieldName: String((raw as any).restaurantIdFieldName || 'restaurantId').trim(),
+    sendAmountUnit: (raw as any).sendAmountUnit === 'rial' ? 'rial' : 'toman',
+    authHeaderName: String((raw as any).authHeaderName || 'Authorization').trim() || 'Authorization',
+    authToken: String((raw as any).authToken || '').trim(),
+    successFieldPath: String((raw as any).successFieldPath || 'success').trim() || 'success',
+    messageFieldPath: String((raw as any).messageFieldPath || 'message').trim() || 'message',
+    referenceFieldPath: String((raw as any).referenceFieldPath || 'refId').trim() || 'refId',
+  };
+}
+
+export async function loadCardTerminalConfig(): Promise<CardTerminalConfig> {
+  const prefs = await readPreferences();
+  const profiles = Array.isArray(prefs.cardTerminalProfiles) ? prefs.cardTerminalProfiles : [];
+  if (profiles.length > 0) {
+    const normalizedProfiles = profiles.map((p) => ({
+      id: String(p.id || `terminal-${Date.now()}`),
+      name: String(p.name || 'کارتخوان').trim() || 'کارتخوان',
+      settings: {
+        ...DEFAULT_CARD_TERMINAL_SETTINGS,
+        ...(p.settings || {}),
+      },
+    }));
+    const defaultProfileId =
+      normalizedProfiles.some((x) => x.id === prefs.defaultCardTerminalProfileId)
+        ? String(prefs.defaultCardTerminalProfileId)
+        : normalizedProfiles[0].id;
+    return { profiles: normalizedProfiles, defaultProfileId };
+  }
+  const legacy = await loadCardTerminalSettings();
+  return {
+    profiles: [
+      {
+        id: 'terminal-default',
+        name: 'کارتخوان 1',
+        settings: legacy,
+      },
+    ],
+    defaultProfileId: 'terminal-default',
+  };
+}
+
+export async function saveCardTerminalConfig(config: Partial<CardTerminalConfig>): Promise<CardTerminalConfig> {
+  const prefs = await readPreferences();
+  const incomingProfiles = Array.isArray(config.profiles) ? config.profiles : [];
+  const profiles = incomingProfiles
+    .map((p) => ({
+      id: String(p.id || `terminal-${Date.now()}-${Math.floor(Math.random() * 1000)}`),
+      name: String(p.name || 'کارتخوان').trim() || 'کارتخوان',
+      settings: {
+        ...DEFAULT_CARD_TERMINAL_SETTINGS,
+        ...(p.settings || {}),
+      },
+    }))
+    .filter((p, idx, arr) => arr.findIndex((x) => x.id === p.id) === idx);
+
+  const defaultProfileId =
+    profiles.length === 0
+      ? null
+      : profiles.some((x) => x.id === config.defaultProfileId)
+        ? String(config.defaultProfileId)
+        : profiles[0].id;
+
+  prefs.cardTerminalProfiles = profiles;
+  prefs.defaultCardTerminalProfileId = defaultProfileId;
+  if (defaultProfileId) {
+    const selected = profiles.find((x) => x.id === defaultProfileId);
+    if (selected) {
+      prefs.cardTerminalSettings = selected.settings;
+    }
+  }
+  await writePreferences(prefs);
+  return { profiles, defaultProfileId };
+}
+
+export async function saveCardTerminalSettings(
+  settings: Partial<CardTerminalSettings>,
+): Promise<CardTerminalSettings> {
+  const prefs = await readPreferences();
+  const merged = {
+    ...DEFAULT_CARD_TERMINAL_SETTINGS,
+    ...(prefs.cardTerminalSettings || {}),
+    ...(settings || {}),
+  };
+  prefs.cardTerminalSettings = {
+    enabled: Boolean(merged.enabled),
+    endpointUrl: String(merged.endpointUrl || '').trim(),
+    httpMethod: String(merged.httpMethod || 'POST').toUpperCase() === 'PUT' ? 'PUT' : 'POST',
+    timeoutMs: Math.max(3000, Math.min(Number(merged.timeoutMs || 10000), 120000)),
+    amountFieldName: String(merged.amountFieldName || 'amount').trim() || 'amount',
+    orderIdFieldName: String(merged.orderIdFieldName || 'orderId').trim(),
+    restaurantIdFieldName: String(merged.restaurantIdFieldName || 'restaurantId').trim(),
+    sendAmountUnit: merged.sendAmountUnit === 'rial' ? 'rial' : 'toman',
+    authHeaderName: String(merged.authHeaderName || 'Authorization').trim() || 'Authorization',
+    authToken: String(merged.authToken || '').trim(),
+    successFieldPath: String(merged.successFieldPath || 'success').trim() || 'success',
+    messageFieldPath: String(merged.messageFieldPath || 'message').trim() || 'message',
+    referenceFieldPath: String(merged.referenceFieldPath || 'refId').trim() || 'refId',
+  };
+  await writePreferences(prefs);
+  return prefs.cardTerminalSettings;
 }
 
 export async function loadReceiptNumberSettings(): Promise<ReceiptNumberSettings> {

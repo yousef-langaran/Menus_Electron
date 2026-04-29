@@ -94,6 +94,8 @@ export default function OrderPage() {
     const [isCardTerminalEnabled, setIsCardTerminalEnabled] = useState(false);
     const [restrictCardTerminalAccess, setRestrictCardTerminalAccess] = useState(true);
     const [allowDirectSendAmountToCardTerminal, setAllowDirectSendAmountToCardTerminal] = useState(false);
+    const [cardTerminalProfiles, setCardTerminalProfiles] = useState<Array<{ id: string; name: string }>>([]);
+    const [selectedCardTerminalId, setSelectedCardTerminalId] = useState('');
     const [canUseCardTerminal, setCanUseCardTerminal] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -666,7 +668,11 @@ export default function OrderPage() {
 
         setError('');
         try {
-            const result = await window.electronAPI.sendAmountToCardTerminal({ amount, restaurantId });
+            const result = await window.electronAPI.sendAmountToCardTerminal({
+                amount,
+                restaurantId,
+                terminalProfileId: selectedCardTerminalId || undefined,
+            });
             if (result?.success) {
                 setSuccessMessage('مبلغ با موفقیت به کارتخوان ارسال شد.');
             } else {
@@ -676,6 +682,24 @@ export default function OrderPage() {
             setError(err?.message || 'خطا در ارسال مبلغ به کارتخوان');
         }
     };
+
+    useEffect(() => {
+        const loadCardTerminalProfiles = async () => {
+            try {
+                const cfg = await window.electronAPI?.getCardTerminalConfig?.();
+                const profiles = (cfg?.profiles || []).map((p: any) => ({
+                    id: String(p.id),
+                    name: String(p.name || 'کارتخوان'),
+                }));
+                setCardTerminalProfiles(profiles);
+                setSelectedCardTerminalId(String(cfg?.defaultProfileId || profiles[0]?.id || ''));
+            } catch {
+                setCardTerminalProfiles([]);
+                setSelectedCardTerminalId('');
+            }
+        };
+        loadCardTerminalProfiles();
+    }, []);
 
     const handleSubmit = async () => {
         const normalizedPhone = normalizeIranMobile(customerPhone.trim());
@@ -1619,11 +1643,28 @@ export default function OrderPage() {
                                 ) : !canUseCardTerminal ? (
                                     <p className="text-warning-700">دسترسی استفاده از کارتخوان برای شما فعال نیست.</p>
                                 ) : allowDirectSendAmountToCardTerminal ? (
-                                    <div className="flex items-center justify-between gap-3">
-                                        <p className="text-success-700">ارسال مستقیم مبلغ به کارتخوان فعال است.</p>
-                                        <Button size="sm" color="primary" variant="flat" onPress={handleSendAmountToCardTerminal}>
-                                            ارسال مبلغ {formatPrice(getFinalAmount())}
-                                        </Button>
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-success-700">ارسال مستقیم مبلغ به کارتخوان فعال است.</p>
+                                            <Button size="sm" color="primary" variant="flat" onPress={handleSendAmountToCardTerminal}>
+                                                ارسال مبلغ {formatPrice(getFinalAmount())}
+                                            </Button>
+                                        </div>
+                                        {cardTerminalProfiles.length > 1 && (
+                                            <Select
+                                                size="sm"
+                                                label="انتخاب کارتخوان"
+                                                selectedKeys={selectedCardTerminalId ? [selectedCardTerminalId] : []}
+                                                onSelectionChange={(keys) => {
+                                                    const next = String(Array.from(keys)[0] || '');
+                                                    setSelectedCardTerminalId(next);
+                                                }}
+                                            >
+                                                {cardTerminalProfiles.map((terminal) => (
+                                                    <SelectItem key={terminal.id}>{terminal.name}</SelectItem>
+                                                ))}
+                                            </Select>
+                                        )}
                                     </div>
                                 ) : (
                                     <p className="text-default-600">ارسال مستقیم مبلغ به کارتخوان توسط مدیر غیرفعال شده است.</p>

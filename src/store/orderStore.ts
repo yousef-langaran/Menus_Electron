@@ -5,6 +5,15 @@ import { useAuthStore } from './authStore';
 import {getCachedMenu} from "@/services/cache.ts";
 import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
 
+function extractApiErrorMessage(error: any): string {
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    'خطا در ارتباط با سرور'
+  );
+}
+
 /** نتیجهٔ ثبت کد تخفیف (بعد از اعتبارسنجی) */
 export interface AppliedDiscountCode {
     code: string;
@@ -237,7 +246,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             });
           })
           .catch(async (error: any) => {
-            console.warn('Online submission failed, saving offline:', error);
+            const status = Number(error?.response?.status || 0);
+            if (status === 401) {
+              // Let global 401 handler logout the session; do not store online-auth failures as offline orders.
+              console.warn('Online submission failed with 401:', extractApiErrorMessage(error));
+              return;
+            }
+            console.warn('Online submission failed, saving offline:', extractApiErrorMessage(error));
             const baseURL = API_BASE_URL;
             try {
               if (window.electronAPI) {
@@ -275,7 +290,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             return {success: true, orderId, offline: true};
         } catch (error: any) {
             set({isSubmitting: false});
-            return {success: false, error: error.message || 'خطا در ثبت سفارش'};
+            return {success: false, error: extractApiErrorMessage(error)};
         }
     },
 
