@@ -67,7 +67,7 @@ const hydrateUserProfile = async (token: string, fallbackUser: User): Promise<Us
   return fallbackUser;
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: null,
   isLoading: false,
@@ -77,6 +77,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (mobile: string, password: string) => {
     set({ isLoading: true, error: null });
     try {
+      // Always drop stale session before issuing a fresh login.
+      await clearUserCache();
+      set({ user: null, token: null });
       console.log('[AuthStore] Logging in user...');
       const response = await apiLogin(mobile, password);
 
@@ -161,6 +164,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   loadCachedUser: async () => {
+    // If a fresh login already populated state, do not overwrite with cached session.
+    if (get().token && get().user) {
+      set({ isHydrated: true });
+      return;
+    }
     const cached = await getCachedUser();
     if (cached && cached.user && cached.token) {
       console.log('[AuthStore] Cached user found, checking profile hydration', {

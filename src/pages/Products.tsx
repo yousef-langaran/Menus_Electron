@@ -114,6 +114,13 @@ export default function ProductsPage() {
         if (code.length >= 3) {
           e.preventDefault();
           e.stopPropagation();
+          // If modal is open, scanner should fill current form barcode
+          // instead of triggering global product lookup/create flow.
+          if (modalOpen) {
+            setForm((prev) => ({ ...prev, barcode: code }));
+            setMessage(form.id ? 'بارکد در فرم ویرایش اعمال شد.' : 'بارکد در فرم افزودن اعمال شد.');
+            return;
+          }
           handleBarcodeActionWithCode(code);
         }
         return;
@@ -124,7 +131,7 @@ export default function ProductsPage() {
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [products]);
+  }, [products, modalOpen, form.id]);
 
   const submit = async () => {
     if (!token) return;
