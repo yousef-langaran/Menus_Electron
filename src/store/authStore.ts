@@ -182,6 +182,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     const cached = await getCachedUser();
     if (cached && cached.user && cached.token) {
+      // Guard against async race:
+      // if a fresh login happened while we were loading cache, do not overwrite live auth.
+      const liveTokenBeforeHydration = get().token;
+      if (liveTokenBeforeHydration && liveTokenBeforeHydration !== cached.token) {
+        set({ isHydrated: true });
+        return;
+      }
       console.log('[AuthStore] Cached user found, checking profile hydration', {
         hasRestaurants: !!cached.user.restaurants,
         restaurantCount: cached.user.restaurants?.length,
@@ -211,6 +218,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.log('[AuthStore] Cached user ready', {
         restaurants: resolvedUser?.restaurants?.length,
       });
+      const liveTokenAfterHydration = get().token;
+      if (liveTokenAfterHydration && liveTokenAfterHydration !== cached.token) {
+        set({ isHydrated: true });
+        return;
+      }
       syncLiveAuthToken(cached.token);
       set({ user: resolvedUser, token: cached.token, isHydrated: true });
       return;
