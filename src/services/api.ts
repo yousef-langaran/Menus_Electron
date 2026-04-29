@@ -199,6 +199,89 @@ export async function getProducts(restaurantName?: string, restaurantId?: number
   return Array.isArray(response.data) ? response.data : [];
 }
 
+export async function getCategories(restaurantName?: string, restaurantId?: number, token?: string) {
+  await apiConfigReady;
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const body: any = {};
+  if (restaurantName) body.restaurantName = restaurantName;
+  if (restaurantId) body.restaurantId = restaurantId;
+  const response = await api.post('/categories/findAll', body, { headers });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function createCategory(
+  body: {
+    name_fa: string;
+    name?: string;
+    description?: string;
+    restaurantId?: number;
+  },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.post('/categories', body, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function updateCategoryById(
+  categoryId: number,
+  body: Partial<{
+    name_fa: string;
+    name?: string;
+    description?: string;
+  }>,
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.patch(`/categories/${categoryId}`, body, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function createProduct(
+  body: {
+    name_fa: string;
+    name?: string;
+    price: number;
+    category_id: number;
+    barcode?: string;
+    isAvailable?: boolean;
+    restaurantId?: number;
+  },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.post('/products', body, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function updateProductById(
+  productId: number,
+  body: Partial<{
+    name_fa: string;
+    name?: string;
+    price: number;
+    category_id: number;
+    barcode?: string;
+    isAvailable?: boolean;
+  }>,
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.patch(`/products/${productId}`, body, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
 export async function createOrder(orderData: any, token: string) {
   await apiConfigReady;
   const response = await api.post('/orders', orderData, {

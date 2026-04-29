@@ -3,6 +3,8 @@ import {useAuthStore} from '../store/authStore';
 import {useOrderStore} from '../store/orderStore';
 import {
     getProducts,
+    getCategories,
+    createProduct,
     getRestaurantByName,
     getRestaurantById,
     checkUser,
@@ -85,6 +87,7 @@ export default function OrderPage() {
 
     const [products, setProducts] = useState<any[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
+    const [productCategories, setProductCategories] = useState<any[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string>('');
     const [cartItemOptions, setCartItemOptions] = useState<string[]>([]);
     const [isMobileRequired, setIsMobileRequired] = useState(true);
@@ -153,6 +156,15 @@ export default function OrderPage() {
     const [printOption, setPrintOption] = useState<'all' | 'none' | 'select'>('all');
     /** وقتی printOption === 'select'، نام پرینترهای انتخاب‌شده */
     const [selectedPrinterNames, setSelectedPrinterNames] = useState<string[]>([]);
+    const [showCreateProductModal, setShowCreateProductModal] = useState(false);
+    const [creatingProduct, setCreatingProduct] = useState(false);
+    const [newProductForm, setNewProductForm] = useState({
+        name_fa: '',
+        name: '',
+        price: '',
+        category_id: '',
+        barcode: '',
+    });
     /** وضعیت آنلاین برای فعال بودن گزینه کد تخفیف */
     const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
     /** در حال اعتبارسنجی کد تخفیف */
@@ -523,6 +535,12 @@ export default function OrderPage() {
                 try {
                     productsData = await getProducts(restaurantName, restaurantId, token);
                     setProducts(productsData);
+                    try {
+                        const c = await getCategories(restaurantName, restaurantId, token);
+                        setProductCategories(Array.isArray(c) ? c : []);
+                    } catch {
+                        setProductCategories([]);
+                    }
 
                     let options: string[] = [];
                     let mobileReq = true;
@@ -977,8 +995,14 @@ export default function OrderPage() {
         if (!code) return;
         const matched = products.find((p: any) => String(p?.barcode || '').trim() === code);
         if (!matched) {
-            playScanBeep(false);
-            setError('محصولی با این بارکد پیدا نشد');
+            setNewProductForm({
+                name_fa: '',
+                name: '',
+                price: '',
+                category_id: String(productCategories?.[0]?.id || ''),
+                barcode: code,
+            });
+            setShowCreateProductModal(true);
             return;
         }
         setSuccessMessage('');
@@ -986,6 +1010,54 @@ export default function OrderPage() {
         if (!rawCode) setBarcodeInput('');
         playScanBeep(true);
         setError('');
+    };
+
+    const submitCreateProductFromBarcode = async () => {
+        if (!token) return;
+        if (!newProductForm.name_fa.trim()) {
+            setError('نام فارسی محصول الزامی است');
+            return;
+        }
+        if (!(Number(newProductForm.price) > 0)) {
+            setError('قیمت محصول باید بیشتر از صفر باشد');
+            return;
+        }
+        if (!(Number(newProductForm.category_id) > 0)) {
+            setError('دسته‌بندی محصول را انتخاب کنید');
+            return;
+        }
+        setCreatingProduct(true);
+        setError('');
+        try {
+            const created = await createProduct(
+                {
+                    name_fa: newProductForm.name_fa.trim(),
+                    name: newProductForm.name.trim() || undefined,
+                    price: Number(newProductForm.price),
+                    category_id: Number(newProductForm.category_id),
+                    barcode: newProductForm.barcode.trim() || undefined,
+                    isAvailable: true,
+                    restaurantId: user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined,
+                },
+                token,
+            );
+            const createdProduct = created || {
+                id: Date.now(),
+                ...newProductForm,
+                price: Number(newProductForm.price),
+            };
+            setProducts((prev) => [createdProduct, ...prev]);
+            addToCart(createdProduct);
+            setShowCreateProductModal(false);
+            setBarcodeInput('');
+            playScanBeep(true);
+            setSuccessMessage('محصول جدید ثبت و به سبد اضافه شد');
+        } catch (err: any) {
+            playScanBeep(false);
+            setError(err?.response?.data?.message || err?.message || 'ثبت محصول ناموفق بود');
+        } finally {
+            setCreatingProduct(false);
+        }
     };
 
     const playScanBeep = (ok: boolean) => {
@@ -1150,13 +1222,13 @@ export default function OrderPage() {
                 </div>
 
                 <div className="flex gap-2">
-                    <Button
-                        variant={quickScanEnabled ? "solid" : "bordered"}
-                        color="primary"
-                        onPress={() => setQuickScanEnabled((v) => !v)}
-                    >
-                        {quickScanEnabled ? 'اسکن سریع: روشن' : 'اسکن سریع: خاموش'}
-                    </Button>
+                    {/*<Button*/}
+                    {/*    variant={quickScanEnabled ? "solid" : "bordered"}*/}
+                    {/*    color="primary"*/}
+                    {/*    onPress={() => setQuickScanEnabled((v) => !v)}*/}
+                    {/*>*/}
+                    {/*    {quickScanEnabled ? 'اسکن سریع: روشن' : 'اسکن سریع: خاموش'}*/}
+                    {/*</Button>*/}
                     {editingOrderId != null && (
                         <Button variant="flat" color="warning" onPress={() => navigate('/orders')}>
                             انصراف از ویرایش
@@ -1167,6 +1239,9 @@ export default function OrderPage() {
                     </Button>
                     <Button variant="flat" color="secondary" onPress={() => navigate('/accounting')}>
                         حسابداری
+                    </Button>
+                    <Button variant="flat" color="primary" onPress={() => navigate('/products')}>
+                        مدیریت محصولات
                     </Button>
                     <Button color="primary" variant="flat" onPress={() => navigate('/settings')}>
                         تنظیمات
@@ -1429,15 +1504,15 @@ export default function OrderPage() {
                             </CardBody>
                         </Card>
 
-                        <Button
-                            variant="flat"
-                            color="warning"
-                            size="md"
-                            className="w-full font-semibold"
-                            onPress={resetOrderSession}
-                        >
-                            شروع سفارش جدید (ریست کامل) — {RESET_ORDER_SHORTCUT_LABEL}
-                        </Button>
+                        {/*<Button*/}
+                        {/*    variant="flat"*/}
+                        {/*    color="warning"*/}
+                        {/*    size="md"*/}
+                        {/*    className="w-full font-semibold"*/}
+                        {/*    onPress={resetOrderSession}*/}
+                        {/*>*/}
+                        {/*    شروع سفارش جدید (ریست کامل) — {RESET_ORDER_SHORTCUT_LABEL}*/}
+                        {/*</Button>*/}
                         <Button
                             color="primary"
                             size="lg"
@@ -1773,6 +1848,52 @@ export default function OrderPage() {
                             {isSubmitting
                                 ? (editingOrderId != null ? 'در حال ذخیره...' : 'در حال ثبت...')
                                 : (editingOrderId != null ? 'ذخیرهٔ فاکتور' : 'ثبت نهایی')}
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+            <Modal isOpen={showCreateProductModal} onOpenChange={setShowCreateProductModal} size="2xl">
+                <ModalContent>
+                    <ModalHeader>افزودن محصول جدید با بارکد</ModalHeader>
+                    <ModalBody className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <Input
+                            label="بارکد"
+                            value={newProductForm.barcode}
+                            onValueChange={(v) => setNewProductForm((f) => ({ ...f, barcode: v }))}
+                        />
+                        <Input
+                            label="نام فارسی"
+                            value={newProductForm.name_fa}
+                            onValueChange={(v) => setNewProductForm((f) => ({ ...f, name_fa: v }))}
+                        />
+                        <Input
+                            label="نام انگلیسی (اختیاری)"
+                            value={newProductForm.name}
+                            onValueChange={(v) => setNewProductForm((f) => ({ ...f, name: v }))}
+                        />
+                        <Input
+                            label="قیمت"
+                            type="number"
+                            value={newProductForm.price}
+                            onValueChange={(v) => setNewProductForm((f) => ({ ...f, price: v }))}
+                        />
+                        <Select
+                            label="دسته‌بندی"
+                            selectedKeys={newProductForm.category_id ? [newProductForm.category_id] : []}
+                            onSelectionChange={(keys) => {
+                                const selected = String(Array.from(keys)[0] || '');
+                                setNewProductForm((f) => ({ ...f, category_id: selected }));
+                            }}
+                        >
+                            {productCategories.map((c: any) => (
+                                <SelectItem key={String(c.id)}>{c.name_fa || c.name}</SelectItem>
+                            ))}
+                        </Select>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="light" onPress={() => setShowCreateProductModal(false)}>انصراف</Button>
+                        <Button color="primary" isLoading={creatingProduct} onPress={submitCreateProductFromBarcode}>
+                            ثبت و افزودن به سبد
                         </Button>
                     </ModalFooter>
                 </ModalContent>

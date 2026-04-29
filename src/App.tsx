@@ -9,6 +9,8 @@ import AccountingRawMaterialsPage from './pages/accounting/RawMaterials';
 import AccountingSuppliersPage from './pages/accounting/Suppliers';
 import AccountingPurchaseDraftsPage from './pages/accounting/PurchaseDrafts';
 import AccountingServerPurchasesPage from './pages/accounting/ServerPurchases';
+import ProductsPage from './pages/Products';
+import CategoriesPage from './pages/Categories';
 import { useAuthStore } from './store/authStore';
 import { usePrinterSettingsStore } from './store/printerSettingsStore';
 import { useEffect } from 'react';
@@ -65,6 +67,14 @@ function AppRoutes() {
         <Route
           path="/settings"
           element={user ? <SettingsPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/products"
+          element={user ? <ProductsPage /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/categories"
+          element={user ? <CategoriesPage /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/accounting"
