@@ -166,7 +166,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
     submitOrder: async (options) => {
         const state = get();
-        const {token, user} = useAuthStore.getState();
+        const authState = useAuthStore.getState();
+        const token = authState.token;
+        const user = authState.user;
         const onOrderCreated = options?.onOrderCreated;
         const restaurantName = user?.restaurants?.[0]?.name;
         const restaurantId = user?.restaurants?.[0]?.id;
@@ -234,8 +236,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             const isOnline = window.electronAPI ? await window.electronAPI.checkOnline() : navigator.onLine;
 
       if (isOnline) {
+        const latestToken = useAuthStore.getState().token;
+        if (!latestToken) {
+          set({ isSubmitting: false });
+          return { success: false, error: 'نشست کاربری معتبر نیست. دوباره وارد شوید.' };
+        }
         // ارسال در پس‌زمینه — بلافاصله موفق برگرد و چاپ وقتی جواب آمد
-        createOrder(orderData, token)
+        createOrder(orderData, latestToken)
           .then((response) => {
             onOrderCreated?.({
               orderId: response.id,
@@ -256,13 +263,15 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             const baseURL = API_BASE_URL;
             try {
               if (window.electronAPI) {
-                const res = await window.electronAPI.saveOfflineOrder(orderData, token, baseURL);
+                const freshToken = useAuthStore.getState().token || latestToken;
+                const res = await window.electronAPI.saveOfflineOrder(orderData, freshToken, baseURL);
                 if (res.success && res.orderId) {
                   onOrderCreated?.({ orderId: res.orderId, offline: true });
                   return;
                 }
               }
-              const orderId = await saveOfflineOrder(orderData, token, baseURL);
+              const freshToken = useAuthStore.getState().token || latestToken;
+              const orderId = await saveOfflineOrder(orderData, freshToken, baseURL);
               onOrderCreated?.({ orderId, offline: true });
             } catch (_) {
               // ignore
@@ -276,14 +285,16 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             const baseURL = API_BASE_URL;
             let orderId: number;
             if (window.electronAPI) {
-                const result = await window.electronAPI.saveOfflineOrder(orderData, token, baseURL);
+                const latestToken = useAuthStore.getState().token || token;
+                const result = await window.electronAPI.saveOfflineOrder(orderData, latestToken, baseURL);
                 if (result.success && result.orderId) {
                     orderId = result.orderId;
                 } else {
-                    orderId = await saveOfflineOrder(orderData, token, baseURL);
+                    orderId = await saveOfflineOrder(orderData, latestToken, baseURL);
                 }
             } else {
-                orderId = await saveOfflineOrder(orderData, token, baseURL);
+                const latestToken = useAuthStore.getState().token || token;
+                orderId = await saveOfflineOrder(orderData, latestToken, baseURL);
             }
             onOrderCreated?.({orderId, offline: true});
             set({isSubmitting: false});
