@@ -147,6 +147,8 @@ export default function OrderPage() {
 
     const [customerLastNameInput, setCustomerLastNameInput] = useState('');
     const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+    /** فقط وقتی مشتری جدید است و کاربر دکمه افزودن را می‌زند: باکس نام/نام خانوادگی نمایش داده شود */
+    const [showCustomerNameFields, setShowCustomerNameFields] = useState(false);
     /** گزینه چاپ برای این سفارش: همه پرینترهای فعال، بدون چاپ، یا انتخاب پرینترها */
     const [printOption, setPrintOption] = useState<'all' | 'none' | 'select'>('all');
     /** وقتی printOption === 'select'، نام پرینترهای انتخاب‌شده */
@@ -1483,6 +1485,7 @@ export default function OrderPage() {
                                     setLoadedCustomerLastName('');
                                     setCustomerFirstNameInput('');
                                     setCustomerLastNameInput('');
+                                    setShowCustomerNameFields(false);
                                     setSuccessMessage('');
                                     setError('');
                                 }}
@@ -1500,30 +1503,32 @@ export default function OrderPage() {
                                 <span
                                     className="text-success text-sm">{[loadedCustomerFirstName, loadedCustomerLastName].filter(Boolean).join(' ').trim() || 'مشتری ثبت‌نام شده'}</span>
                             )}
-                            <div className="flex flex-col gap-2 p-3 rounded-lg bg-default-50 border border-default-200">
-                                <span className="text-default-700 text-sm font-medium">نام مشتری (اختیاری)</span>
-                                <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
-                                    <Input
-                                        placeholder="نام"
-                                        value={customerFirstNameInput}
-                                        onValueChange={setCustomerFirstNameInput}
-                                        size="sm"
-                                        variant="bordered"
-                                        classNames={{input: 'text-right'}}
-                                    />
-                                    <Input
-                                        placeholder="نام خانوادگی"
-                                        value={customerLastNameInput}
-                                        onValueChange={setCustomerLastNameInput}
-                                        size="sm"
-                                        variant="bordered"
-                                        classNames={{input: 'text-right'}}
-                                    />
+                            {(userExists === true || showCustomerNameFields) && (
+                                <div className="flex flex-col gap-2 p-3 rounded-lg bg-default-50 border border-default-200">
+                                    <span className="text-default-700 text-sm font-medium">نام مشتری (اختیاری)</span>
+                                    <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
+                                        <Input
+                                            placeholder="نام"
+                                            value={customerFirstNameInput}
+                                            onValueChange={setCustomerFirstNameInput}
+                                            size="sm"
+                                            variant="bordered"
+                                            classNames={{input: 'text-right'}}
+                                        />
+                                        <Input
+                                            placeholder="نام خانوادگی"
+                                            value={customerLastNameInput}
+                                            onValueChange={setCustomerLastNameInput}
+                                            size="sm"
+                                            variant="bordered"
+                                            classNames={{input: 'text-right'}}
+                                        />
+                                    </div>
+                                    <small className="text-default-500 text-xs">
+                                        اگر مشتری قبلاً با نام اشتباه/فیک ذخیره شده باشد، با ثبت سفارش نام جدید به‌روزرسانی می‌شود.
+                                    </small>
                                 </div>
-                                <small className="text-default-500 text-xs">
-                                    اگر مشتری قبلاً با نام اشتباه/فیک ذخیره شده باشد، با ثبت سفارش نام جدید به‌روزرسانی می‌شود.
-                                </small>
-                            </div>
+                            )}
                             {userExists === false && (
                                 <div
                                     className="flex flex-col gap-3 p-3 rounded-lg bg-warning-50 border border-warning-200">
@@ -1532,38 +1537,14 @@ export default function OrderPage() {
                                         <Button
                                             size="sm"
                                             color="primary"
-                                            isLoading={isAddingCustomer}
+                                            isDisabled={showCustomerNameFields}
                                             onPress={async () => {
-                                                const normalized = normalizeIranMobile(customerPhone.trim());
-                                                if (!isValidIranMobile(normalized)) {
-                                                    setError('فرمت شماره موبایل معتبر نیست. مثال: 09123456789');
-                                                    return;
-                                                }
-                                                const restaurantId = user?.restaurants?.[0]?.id;
-                                                const restaurantName = user?.restaurants?.[0]?.name;
-                                                if (!token || (!restaurantId && !restaurantName)) return;
-                                                setIsAddingCustomer(true);
-                                                try {
-                                                    await addCustomer(
-                                                        {restaurantId, restaurantName},
-                                                        {
-                                                            mobile: normalized,
-                                                            firstName: customerFirstNameInput.trim() || undefined,
-                                                            lastName: customerLastNameInput.trim() || undefined
-                                                        },
-                                                        token,
-                                                    );
-                                                    setUserExists(true);
-                                                    setLoadedCustomerFirstName(customerFirstNameInput.trim());
-                                                    setLoadedCustomerLastName(customerLastNameInput.trim());
-                                                } catch (err) {
-                                                    console.error('Add customer failed:', err);
-                                                } finally {
-                                                    setIsAddingCustomer(false);
-                                                }
+                                                // فقط باکس نام/نام خانوادگی را نشان می‌دهیم.
+                                                // ساخت/آپدیت مشتری در submit سفارش انجام می‌شود.
+                                                setShowCustomerNameFields(true);
                                             }}
                                         >
-                                            {isAddingCustomer ? '...' : 'افزودن به مشتریان'}
+                                            {showCustomerNameFields ? 'نام مشتری را وارد کنید' : 'افزودن به مشتریان'}
                                         </Button>
                                     </div>
                                 </div>
