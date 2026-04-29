@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Card, CardBody, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from '@heroui/react';
 import { useAuthStore } from '../store/authStore';
@@ -37,12 +37,13 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [barcodeInput, setBarcodeInput] = useState('');
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const scanBufferRef = useRef('');
+  const scanLastKeyAtRef = useRef(0);
 
   const loadData = async () => {
     if (!token) return;
@@ -84,8 +85,8 @@ export default function ProductsPage() {
     setModalOpen(true);
   };
 
-  const handleBarcodeAction = () => {
-    const code = normalizeBarcode(barcodeInput);
+  const handleBarcodeActionWithCode = (rawCode: string) => {
+    const code = normalizeBarcode(rawCode);
     if (!code) return;
     const found = products.find((p) => normalizeBarcode(String(p?.barcode || '')) === code);
     if (found) {
@@ -96,6 +97,34 @@ export default function ProductsPage() {
       openCreate(code);
     }
   };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const now = Date.now();
+      if (now - scanLastKeyAtRef.current > 250) {
+        scanBufferRef.current = '';
+      }
+      scanLastKeyAtRef.current = now;
+
+      const isEnter = e.key === 'Enter' || e.code === 'NumpadEnter' || (e as any).keyCode === 13;
+      if (isEnter) {
+        const code = normalizeBarcode(scanBufferRef.current);
+        scanBufferRef.current = '';
+        if (code.length >= 3) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleBarcodeActionWithCode(code);
+        }
+        return;
+      }
+      if (e.key.length === 1) {
+        scanBufferRef.current += e.key;
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [products]);
 
   const submit = async () => {
     if (!token) return;
@@ -142,7 +171,6 @@ export default function ProductsPage() {
         setMessage('محصول جدید ثبت شد');
       }
       setModalOpen(false);
-      setBarcodeInput('');
       await loadData();
     } catch (e: any) {
       setMessage(e?.response?.data?.message || e?.message || 'خطا در ذخیره محصول');
@@ -174,23 +202,12 @@ export default function ProductsPage() {
       </header>
       <div className="p-6 max-w-6xl mx-auto space-y-4">
         <Card>
-          <CardBody className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <Input
-              label="بارکد"
-              placeholder="بارکد را اسکن/وارد کنید"
-              value={barcodeInput}
-              onValueChange={setBarcodeInput}
-              onKeyDown={(e) => {
-                const keyCode = (e as any).keyCode;
-                if (e.key === 'Enter' || e.code === 'NumpadEnter' || keyCode === 13) {
-                  e.preventDefault();
-                  handleBarcodeAction();
-                }
-              }}
-            />
-            <Button color="primary" onPress={handleBarcodeAction}>بررسی بارکد</Button>
+          <CardBody className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Button variant="flat" color="secondary" onPress={() => openCreate('')}>افزودن محصول جدید</Button>
             <Input label="جستجو" placeholder="نام یا بارکد" value={search} onValueChange={setSearch} />
+            <div className="text-xs text-default-500 flex items-center">
+              اسکن بارکد از هر جای صفحه فعال است.
+            </div>
           </CardBody>
         </Card>
         {message ? <p className="text-sm text-default-600">{message}</p> : null}
