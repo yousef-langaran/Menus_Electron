@@ -21,6 +21,14 @@ const emptyForm: ProductForm = {
   category_id: '',
 };
 
+const normalizeBarcode = (value: string) =>
+  String(value || '')
+    .replace(/[\u200C\u200F\u202A-\u202E]/g, '')
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+    .replace(/\s+/g, '')
+    .trim();
+
 export default function ProductsPage() {
   const navigate = useNavigate();
   const { user, token, logout } = useAuthStore();
@@ -77,9 +85,9 @@ export default function ProductsPage() {
   };
 
   const handleBarcodeAction = () => {
-    const code = barcodeInput.trim();
+    const code = normalizeBarcode(barcodeInput);
     if (!code) return;
-    const found = products.find((p) => String(p?.barcode || '').trim() === code);
+    const found = products.find((p) => normalizeBarcode(String(p?.barcode || '')) === code);
     if (found) {
       setMessage('بارکد موجود بود؛ فرم ویرایش باز شد.');
       openEdit(found);
@@ -173,7 +181,8 @@ export default function ProductsPage() {
               value={barcodeInput}
               onValueChange={setBarcodeInput}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                const keyCode = (e as any).keyCode;
+                if (e.key === 'Enter' || e.code === 'NumpadEnter' || keyCode === 13) {
                   e.preventDefault();
                   handleBarcodeAction();
                 }

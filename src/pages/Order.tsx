@@ -43,6 +43,13 @@ import {Panel, Group, Separator} from 'react-resizable-panels'
 
 const RESET_ORDER_SHORTCUT_LABEL = 'Ctrl + Shift + Backspace';
 type UiToast = { id: number; type: 'error' | 'success' | 'warning'; message: string };
+const normalizeBarcode = (value: string) =>
+    String(value || '')
+        .replace(/[\u200C\u200F\u202A-\u202E]/g, '')
+        .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+        .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+        .replace(/\s+/g, '')
+        .trim();
 
 export default function OrderPage() {
     const {user, token, logout} = useAuthStore();
@@ -107,7 +114,7 @@ export default function OrderPage() {
     const [isCheckingUser, setIsCheckingUser] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [barcodeInput, setBarcodeInput] = useState('');
-    const [quickScanEnabled, setQuickScanEnabled] = useState(false);
+    const [quickScanEnabled] = useState(true);
     const [toasts, setToasts] = useState<UiToast[]>([]);
     /** نام مشتری لود شده بعد از تیک (چک کاربر) — برای نمایش و چاپ رسید */
     const [loadedCustomerFirstName, setLoadedCustomerFirstName] = useState('');
@@ -991,9 +998,9 @@ export default function OrderPage() {
     };
 
     const handleBarcodeAdd = (rawCode?: string) => {
-        const code = (rawCode ?? barcodeInput).trim();
+        const code = normalizeBarcode(rawCode ?? barcodeInput);
         if (!code) return;
-        const matched = products.find((p: any) => String(p?.barcode || '').trim() === code);
+        const matched = products.find((p: any) => normalizeBarcode(String(p?.barcode || '')) === code);
         if (!matched) {
             setNewProductForm({
                 name_fa: '',
@@ -1119,11 +1126,7 @@ export default function OrderPage() {
     useEffect(() => {
         if (!quickScanEnabled) return;
         const onKeyDown = (e: KeyboardEvent) => {
-            const target = e.target as HTMLElement | null;
-            const tag = target?.tagName?.toLowerCase();
-            const inTypingField =
-                tag === 'input' || tag === 'textarea' || tag === 'select' || Boolean(target?.isContentEditable);
-            if (inTypingField) return;
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
 
             const now = Date.now();
             if (now - scanLastKeyAtRef.current > 250) {
@@ -1131,21 +1134,26 @@ export default function OrderPage() {
             }
             scanLastKeyAtRef.current = now;
 
-            if (e.key === 'Enter') {
-                const code = scanBufferRef.current.trim();
+            const isEnter = e.key === 'Enter' || e.code === 'NumpadEnter' || (e as any).keyCode === 13;
+            if (isEnter) {
+                const code = normalizeBarcode(scanBufferRef.current);
                 scanBufferRef.current = '';
                 if (code.length >= 3) {
+                    // خیلی مهم: Enter اسکنر نباید باعث submit/click/باز شدن مودال شود.
                     e.preventDefault();
+                    e.stopPropagation();
                     handleBarcodeAdd(code);
                 }
                 return;
             }
+
             if (e.key.length === 1) {
                 scanBufferRef.current += e.key;
             }
         };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
+        // capture=true تا قبل از اکشن‌های فوکوس‌دار (button/input) Enter اسکنر مهار شود.
+        window.addEventListener('keydown', onKeyDown, true);
+        return () => window.removeEventListener('keydown', onKeyDown, true);
     }, [quickScanEnabled, products]);
 
     useEffect(() => {
@@ -1211,7 +1219,8 @@ export default function OrderPage() {
                         value={barcodeInput}
                         onValueChange={setBarcodeInput}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
+                            const keyCode = (e as any).keyCode;
+                            if (e.key === 'Enter' || e.code === 'NumpadEnter' || keyCode === 13) {
                                 e.preventDefault();
                                 handleBarcodeAdd();
                             }
