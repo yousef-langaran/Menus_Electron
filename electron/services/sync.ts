@@ -57,7 +57,10 @@ export async function syncOfflineOrders(tokenOverride?: string) {
     }
 
     try {
-      const targetBaseURL = order.baseURL || defaultBaseURL;
+      // اگر sync با توکن زنده‌ی رندرر انجام می‌شود، باید به همان سرور فعلی بزنیم
+      // نه baseURL قدیمی ذخیره‌شده روی سفارش آفلاین.
+      const hasTokenOverride = typeof tokenOverride === 'string' && tokenOverride.trim().length > 0;
+      const targetBaseURL = hasTokenOverride ? defaultBaseURL : (order.baseURL || defaultBaseURL);
       const currentSession = await loadUserSession();
       const latestSessionToken =
         typeof currentSession?.token === 'string' ? currentSession.token.trim() : '';
