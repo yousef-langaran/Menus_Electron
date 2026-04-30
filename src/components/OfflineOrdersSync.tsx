@@ -9,12 +9,15 @@ export function OfflineOrdersSync() {
   const syncingRef = useRef(false);
 
   useEffect(() => {
-    if (!token || !window.electronAPI?.syncOrders || !window.electronAPI?.checkOnline) {
+    if (!window.electronAPI?.syncOrders || !window.electronAPI?.checkOnline) {
       return;
     }
 
     const sync = async (reason: string) => {
       if (syncingRef.current) return;
+      const liveToken = useAuthStore.getState().token?.trim();
+      if (!liveToken) return;
+
       let online = false;
       try {
         online = await window.electronAPI.checkOnline();
@@ -25,7 +28,7 @@ export function OfflineOrdersSync() {
 
       syncingRef.current = true;
       try {
-        const result = await window.electronAPI.syncOrders(token);
+        const result = await window.electronAPI.syncOrders(liveToken);
         if (result && (result.success > 0 || result.failed > 0)) {
           console.log(`[Offline orders sync:${reason}]`, result);
         }

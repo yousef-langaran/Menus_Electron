@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadUserSession: () => ipcRenderer.invoke('load-user-session'),
   saveUserSession: (session: { user: any; token: string }) =>
     ipcRenderer.invoke('save-user-session', session),
+  updateUserSessionToken: (token: string) => ipcRenderer.invoke('update-user-session-token', token),
   clearUserSession: () => ipcRenderer.invoke('clear-user-session'),
   loadPrinterConfigs: () => ipcRenderer.invoke('load-printer-configs'),
   savePrinterConfigs: (configs: Record<string, any>) =>
@@ -118,6 +119,7 @@ declare global {
       ) => Promise<{ success: boolean; html?: string; imageDataUrl?: string; error?: string }>;
       loadUserSession: () => Promise<{ user: any; token: string; cachedAt: string } | null>;
       saveUserSession: (data: { user: any; token: string }) => Promise<{ success: boolean; error?: string }>;
+      updateUserSessionToken: (token: string) => Promise<{ success: boolean; error?: string }>;
       clearUserSession: () => Promise<{ success: boolean; error?: string }>;
       loadPrinterConfigs: () => Promise<Record<string, any>>;
       savePrinterConfigs: (configs: Record<string, any>) => Promise<{ success: boolean; error?: string }>;

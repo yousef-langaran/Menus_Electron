@@ -47,6 +47,12 @@ function syncLiveAuthToken(token: string | null) {
   if (typeof window === 'undefined') return;
   if (token) {
     (window as any).__menusAuthToken = token;
+    const api = (window as any).electronAPI;
+    if (api?.updateUserSessionToken) {
+      void api.updateUserSessionToken(token).catch((err: unknown) => {
+        console.warn('[Auth] updateUserSessionToken (main process):', err);
+      });
+    }
   } else {
     delete (window as any).__menusAuthToken;
   }

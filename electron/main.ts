@@ -44,6 +44,7 @@ import { saveOfflineOrder as dbSaveOfflineOrder, getAllOrders } from './database
 import {
   loadUserSession as loadUserSessionPrefs,
   saveUserSession as saveUserSessionPrefs,
+  updateUserSessionToken as updateUserSessionTokenPrefs,
   clearUserSession as clearUserSessionPrefs,
   loadPrinterConfigs as loadPrinterConfigsPrefs,
   savePrinterConfigs as savePrinterConfigsPrefs,
@@ -194,16 +195,8 @@ app.whenReady().then(() => {
     }
   });
 
-  // Check for online status periodically and sync
-  setInterval(async () => {
-    if (await isOnline()) {
-      try {
-        await syncOfflineOrders();
-      } catch (error) {
-        console.error('Sync error:', error);
-      }
-    }
-  }, 30000); // Check every 30 seconds
+  // سفارش‌های آفلاین فقط از رندرر با IPC «sync-orders» و توکن زندهٔ zustand سینک می‌شوند
+  // (سینک دوره‌ای بدون توکن، نشست ذخیره‌شدهٔ قدیمی main را می‌فرستاد و 401 می‌گرفت).
 });
 
 app.on('window-all-closed', () => {
@@ -546,10 +539,21 @@ ipcMain.handle('save-user-session', async (_event, sessionData) => {
   try {
     if (sessionData?.user && sessionData?.token) {
       await saveUserSessionPrefs(sessionData.user, sessionData.token);
+      return { success: true };
     }
-    return { success: true };
+    return { success: false, error: 'missing user or token' };
   } catch (error) {
     console.error('Save user session error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('update-user-session-token', async (_event, token: string) => {
+  try {
+    await updateUserSessionTokenPrefs(String(token || ''));
+    return { success: true };
+  } catch (error) {
+    console.error('Update user session token error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });

@@ -206,6 +206,20 @@ export async function saveUserSession(user: any, token: string) {
   await writePreferences(prefs);
 }
 
+/** فقط به‌روزرسانی توکن در نشست ذخیره‌شده (برای سینک main و هم‌خوانی با zustand پس از لاگین مجدد) */
+export async function updateUserSessionToken(token: string) {
+  const trimmed = typeof token === 'string' ? token.trim() : '';
+  if (!trimmed) return;
+  const prefs = await readPreferences();
+  if (!prefs.userSession) return;
+  prefs.userSession = {
+    ...prefs.userSession,
+    token: trimmed,
+    cachedAt: new Date().toISOString(),
+  };
+  await writePreferences(prefs);
+}
+
 export async function clearUserSession() {
   const prefs = await readPreferences();
   if (prefs.userSession) {
