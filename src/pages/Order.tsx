@@ -1868,10 +1868,12 @@ export default function OrderPage() {
                         <Input
                             label="بارکد"
                             value={newProductForm.barcode}
+                            readOnly={true}
                             onValueChange={(v) => setNewProductForm((f) => ({ ...f, barcode: v }))}
                         />
                         <Input
                             label="نام فارسی"
+                            autoFocus={true}
                             value={newProductForm.name_fa}
                             onValueChange={(v) => setNewProductForm((f) => ({ ...f, name_fa: v }))}
                         />
