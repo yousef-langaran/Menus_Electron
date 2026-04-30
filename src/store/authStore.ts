@@ -307,6 +307,15 @@ async function checkSubscription(user: User | null, token: string): Promise<{ va
     return { valid: true };
   } catch (error: any) {
     console.warn('[AuthStore] Failed to check subscription online:', error);
+    // 401 یعنی توکن روی سرور باطل شده؛ کش اشتراک محلی را با نشست معتبر اشتباه نگیریم.
+    if (error?.response?.status === 401) {
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(storageDataKey);
+      return {
+        valid: false,
+        message: 'نشست شما منقضی یا باطل شده است. لطفاً دوباره وارد شوید.',
+      };
+    }
   }
 
   // در حالت آفلاین، از اطلاعات کش شده استفاده می‌کنیم
