@@ -81,6 +81,7 @@
       "node_modules/**/*"
     ],
     "win": {
+      "artifactName": "Hosh-Menu-Setup.${ext}",
       "target": [
         "nsis"
       ],
