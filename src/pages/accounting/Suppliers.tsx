@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, CardBody, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from '@heroui/react';
+import { Card, CardContent, Modal, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
+import { Button } from '../../ui/compat-button';
+import { Input } from '../../ui/compat-input';
+import { ModalShell } from '../../ui/modal-shell';
 import { useAuthStore } from '../../store/authStore';
 import { accountingDb, createSupplierLocal, deleteSupplierLocal, updateSupplierLocal } from '../../services/accountingLocalDb';
 
@@ -39,7 +42,7 @@ export default function AccountingSuppliersPage() {
         </div>
       </div>
       <Card>
-        <CardBody className="gap-3">
+        <CardContent className="gap-3">
           <Input placeholder="جستجو (نام/تلفن)" value={search} onValueChange={setSearch} />
           {filtered.map((s) => (
             <div key={s.id} className="text-sm bg-default-100 rounded p-2 flex justify-between items-center">
@@ -50,10 +53,10 @@ export default function AccountingSuppliersPage() {
               </div>
             </div>
           ))}
-        </CardBody>
+        </CardContent>
       </Card>
       <Modal isOpen={createOpen} onOpenChange={setCreateOpen}>
-        <ModalContent>
+        <ModalShell size="md">
           <ModalHeader>ثبت تامین‌کننده</ModalHeader>
           <ModalBody className="gap-3">
             <Input label="نام" value={name} onValueChange={setName} />
@@ -67,10 +70,10 @@ export default function AccountingSuppliersPage() {
               setName(''); setPhone(''); setCreateOpen(false); await reload();
             }}>ثبت</Button>
           </ModalFooter>
-        </ModalContent>
+        </ModalShell>
       </Modal>
       <Modal isOpen={editOpen} onOpenChange={setEditOpen}>
-        <ModalContent>
+        <ModalShell size="md">
           <ModalHeader>ویرایش تامین‌کننده</ModalHeader>
           <ModalBody><Input label="نام جدید" value={name} onValueChange={setName} /></ModalBody>
           <ModalFooter>
@@ -81,7 +84,7 @@ export default function AccountingSuppliersPage() {
               setEditOpen(false); await reload();
             }}>ذخیره</Button>
           </ModalFooter>
-        </ModalContent>
+        </ModalShell>
       </Modal>
     </div>
   );

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardBody, Input, Button } from '@heroui/react';
+import { Card, CardContent } from '@heroui/react';
+import { Input } from '../ui/compat-input';
+import { Button } from '../ui/compat-button';
 import { useAuthStore } from '../store/authStore';
 import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
 
@@ -60,7 +62,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-primary-500 to-secondary-500 p-4">
       <Card className="w-full max-w-[400px] shadow-xl">
-        <CardBody className="p-8 gap-6">
+        <CardContent className="p-8 gap-6">
           <h1 className="text-2xl font-bold text-center text-foreground">ورود به سیستم</h1>
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <Input
@@ -111,7 +113,7 @@ export default function LoginPage() {
               {isLoading ? 'در حال ورود...' : 'ورود'}
             </Button>
           </form>
-        </CardBody>
+        </CardContent>
       </Card>
     </div>
   );

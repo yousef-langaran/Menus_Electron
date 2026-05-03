@@ -10,7 +10,11 @@ import {
   getReceiptNumbersMapFromStorage,
   saveReceiptNumbersToStorage,
 } from '../utils/receiptNumbersStorage';
-import { Card, CardBody, Button, Select, SelectItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Chip, Checkbox } from '@heroui/react';
+import { Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter, Chip } from '@heroui/react';
+import { Button } from '../ui/compat-button';
+import { Select, SelectItem } from '../ui/compat-select';
+import { ModalShell } from '../ui/modal-shell';
+import { CheckboxCompat as Checkbox } from '../ui/compat-checkbox';
 
 const ORDERS_PAGE_SIZE = 20;
 const ORDERS_PAGE_SIZE_OPTIONS = [20, 50, 100];
@@ -650,11 +654,11 @@ export default function OrdersPage() {
     return (
       <div className="flex flex-col gap-4">
         {onlineOrders.map((order: any) => (
-          <Card key={order.id} shadow="sm" className="border border-default-200">
-            <CardBody className="gap-3">
+          <Card key={order.id} className="shadow-sm border border-default-200">
+            <CardContent className="gap-3">
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <h3 className="font-semibold text-foreground">سفارش #{order.orderNumber || order.id}</h3>
-                <Chip size="sm" color={statusColorMap[order.status] || 'default'} variant="flat">
+                <Chip size="sm" color={statusColorMap[order.status] || 'default'} variant="soft">
                   {STATUS_LABELS[order.status] || order.status}
                 </Chip>
               </div>
@@ -710,7 +714,7 @@ export default function OrdersPage() {
                   ))}
                 </Select>
               </div>
-            </CardBody>
+            </CardContent>
           </Card>
         ))}
         {onlineMeta.total > 0 && (
@@ -777,11 +781,11 @@ export default function OrdersPage() {
     return (
       <div className="flex flex-col gap-4">
         {offlineOrders.map((order: any) => (
-          <Card key={order.id} shadow="sm" className="border border-default-200 bg-warning-50/30">
-            <CardBody className="gap-3">
+          <Card key={order.id} className="shadow-sm border border-default-200 bg-warning-50/30">
+            <CardContent className="gap-3">
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <h3 className="font-semibold text-foreground">سفارش آفلاین #{order.id}</h3>
-                <Chip size="sm" color="warning" variant="flat">در انتظار ارسال</Chip>
+                <Chip size="sm" color="warning" variant="soft">در انتظار ارسال</Chip>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-foreground">
                 <div><strong>شماره رسید فراخوانی:</strong> {receiptNumbersMap[`offline-${order.id}`] ?? '—'}</div>
@@ -808,7 +812,7 @@ export default function OrdersPage() {
                 <Button size="sm" variant="flat" color="primary" onPress={() => openReprintModal(order, true)} isDisabled={!canPrint}>چاپ مجدد</Button>
                 <span className="text-default-500 text-sm">این سفارش به محض اتصال ارسال می‌شود.</span>
               </div>
-            </CardBody>
+            </CardContent>
           </Card>
         ))}
       </div>
@@ -817,19 +821,13 @@ export default function OrdersPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-default-100">
-      <header className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
-        <h1 className="text-xl font-bold text-foreground">لیست سفارشات</h1>
-        <div className="flex gap-2">
-          <Button variant="flat" color="default" onPress={() => navigate('/order')}>ثبت سفارش</Button>
-          <Button variant="flat" color="secondary" onPress={() => navigate('/accounting')}>حسابداری</Button>
-          <Button variant="flat" color="default" onPress={() => navigate('/settings')}>تنظیمات</Button>
-          <Button color="danger" variant="flat" onPress={logout}>خروج</Button>
-        </div>
+      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm">
+        <h1 className="text-lg sm:text-xl font-bold text-foreground">لیست سفارشات</h1>
       </header>
 
       <div className="flex-1 overflow-auto p-6 max-w-4xl mx-auto w-full">
         <Card>
-          <CardBody className="gap-4">
+          <CardContent className="gap-4">
             <div className="flex flex-wrap justify-between items-center gap-4">
               <div className={`flex items-center gap-2 font-semibold ${isOnline ? 'text-success' : 'text-danger'}`}>
                 <span className="w-2.5 h-2.5 rounded-full bg-current" />
@@ -881,12 +879,12 @@ export default function OrdersPage() {
             </h2>
 
             {isOnline ? renderOnlineOrders() : renderOfflineOrders()}
-          </CardBody>
+          </CardContent>
         </Card>
       </div>
 
-      <Modal isOpen={previewVisible} onOpenChange={(open) => !open && closePreview()} size="3xl" scrollBehavior="inside">
-        <ModalContent>
+      <Modal isOpen={previewVisible} onOpenChange={(open) => !open && closePreview()}>
+        <ModalShell size="full" scrollBehavior="inside">
           <ModalHeader className="flex flex-col gap-2">
             <div className="flex flex-row justify-between items-center w-full">
               <h3 className="text-lg font-semibold">{previewTitle || 'پیش‌نمایش رسید'}</h3>
@@ -929,11 +927,11 @@ export default function OrdersPage() {
           <ModalFooter>
             <Button variant="flat" onPress={closePreview}>بستن</Button>
           </ModalFooter>
-        </ModalContent>
+        </ModalShell>
       </Modal>
 
-      <Modal isOpen={reprintModalOpen} onOpenChange={setReprintModalOpen} size="md">
-        <ModalContent>
+      <Modal isOpen={reprintModalOpen} onOpenChange={setReprintModalOpen}>
+        <ModalShell size="md">
           <ModalHeader>چاپ مجدد – انتخاب پرینتر</ModalHeader>
           <ModalBody className="gap-3">
             <p className="text-sm text-default-500">
@@ -973,7 +971,7 @@ export default function OrdersPage() {
               چاپ با پرینترهای انتخاب‌شده
             </Button>
           </ModalFooter>
-        </ModalContent>
+        </ModalShell>
       </Modal>
     </div>
   );

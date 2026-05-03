@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardBody, Button, Input, Select, SelectItem, Checkbox, Switch } from '@heroui/react';
+import { Card, CardContent } from '@heroui/react';
+import { Button } from '../ui/compat-button';
+import { Input } from '../ui/compat-input';
+import { Select, SelectItem } from '../ui/compat-select';
+import { CheckboxCompat as Checkbox } from '../ui/compat-checkbox';
+import { SwitchCompat as Switch } from '../ui/compat-switch';
 import { useAuthStore } from '../store/authStore';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
 import { useThemeStore } from '../store/themeStore';
@@ -25,7 +29,6 @@ type CardTerminalFormState = {
 type CardTerminalProfile = { id: string; name: string; settings: CardTerminalFormState };
 
 export default function SettingsPage() {
-  const navigate = useNavigate();
   const { user, token, logout } = useAuthStore();
   const [isOnline, setIsOnline] = useState(true);
   const [syncStatus, setSyncStatus] = useState('');
@@ -347,19 +350,13 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-default-100">
-      <header className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
-        <h1 className="text-xl font-bold text-foreground">تنظیمات</h1>
-        <Button color="primary" variant="flat" onPress={() => navigate('/order')}>
-          بازگشت
-        </Button>
-        <Button color="secondary" variant="flat" onPress={() => navigate('/accounting')}>
-          حسابداری
-        </Button>
+      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm">
+        <h1 className="text-lg sm:text-xl font-bold text-foreground">تنظیمات</h1>
       </header>
 
       <div className="flex-1 overflow-auto p-6 max-w-3xl mx-auto w-full space-y-6">
         <Card>
-          <CardBody className="gap-3">
+          <CardContent className="gap-3">
             <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">اطلاعات کاربر</h2>
             <div className="flex justify-between py-2 border-b border-default-200">
               <span className="text-default-500">نام:</span>
@@ -373,12 +370,12 @@ export default function SettingsPage() {
               <span className="text-default-500">رستوران:</span>
               <span>{user?.restaurants?.[0]?.name || 'تعیین نشده'}</span>
             </div>
-          </CardBody>
+          </CardContent>
         </Card>
 
         {window.electronAPI?.getReceiptPriceDisplayUnit && (
           <Card>
-            <CardBody className="gap-3">
+            <CardContent className="gap-3">
               <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">رسید چاپی</h2>
               <p className="text-sm text-default-500">
                 مبالغ سفارش در سیستم به <strong>تومان</strong> ذخیره می‌شود. این گزینه فقط نحوهٔ نمایش روی رسید چاپی و پیش‌نمایش را عوض می‌کند.
@@ -399,13 +396,13 @@ export default function SettingsPage() {
                 <SelectItem key="toman" textValue="تومان">تومان</SelectItem>
                 <SelectItem key="rial" textValue="ریال">ریال (عدد × ۱۰ نسبت به تومان)</SelectItem>
               </Select>
-            </CardBody>
+            </CardContent>
           </Card>
         )}
 
         {window.electronAPI?.saveCardTerminalSettings && (
           <Card>
-            <CardBody className="gap-3">
+            <CardContent className="gap-3">
               <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">تنظیمات کارتخوان</h2>
               <div className="flex justify-between items-center py-1">
                 <span className="text-default-500">فعال‌سازی اتصال کارتخوان در دسکتاپ</span>
@@ -594,12 +591,12 @@ export default function SettingsPage() {
               {cardTerminalStatus ? (
                 <p className="text-sm rounded-lg bg-default-100 p-2">{cardTerminalStatus}</p>
               ) : null}
-            </CardBody>
+            </CardContent>
           </Card>
         )}
 
         <Card>
-          <CardBody className="gap-3">
+          <CardContent className="gap-3">
             <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">ظاهر</h2>
             <div className="flex justify-between items-center py-2">
               <span className="text-default-500">حالت تاریک (دارک)</span>
@@ -609,11 +606,11 @@ export default function SettingsPage() {
                 aria-label="حالت تاریک"
               />
             </div>
-          </CardBody>
+          </CardContent>
         </Card>
 
         <Card>
-          <CardBody className="gap-3">
+          <CardContent className="gap-3">
             <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">وضعیت اتصال</h2>
             <div className="flex justify-between items-center py-2">
               <span className="text-default-500">وضعیت:</span>
@@ -621,11 +618,11 @@ export default function SettingsPage() {
                 {isOnline ? 'آنلاین' : 'آفلاین'}
               </span>
             </div>
-          </CardBody>
+          </CardContent>
         </Card>
 
         <Card>
-          <CardBody className="gap-3">
+          <CardContent className="gap-3">
             <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">همگام‌سازی</h2>
             <Button color="primary" onPress={handleSync} className="w-full">
               همگام‌سازی سفارشات آفلاین
@@ -647,12 +644,12 @@ export default function SettingsPage() {
             {accountingLastError ? (
               <p className="text-xs text-danger">خطای سینک حسابداری: {accountingLastError}</p>
             ) : null}
-          </CardBody>
+          </CardContent>
         </Card>
 
         {window.electronAPI?.checkForUpdates && (
           <Card>
-            <CardBody className="gap-3">
+            <CardContent className="gap-3">
               <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">بروزرسانی برنامه</h2>
               <p className="text-default-500 text-sm">در صورت وجود نسخه جدید، بنر بروزرسانی در بالای صفحه نمایش داده می‌شود.</p>
               <Button
@@ -677,12 +674,12 @@ export default function SettingsPage() {
               {updateCheckHint ? (
                 <p className="text-default-600 text-sm text-center">{updateCheckHint}</p>
               ) : null}
-            </CardBody>
+            </CardContent>
           </Card>
         )}
 
         <Card>
-          <CardBody className="gap-4">
+          <CardContent className="gap-4">
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">تنظیمات پرینتر</h2>
               <Button size="sm" variant="light" color="primary" onPress={loadPrinters}>
@@ -705,8 +702,8 @@ export default function SettingsPage() {
                   const kitchenReceipt = receipts.find((r) => r.type === 'kitchen');
                   const templateValue = printerTemplatesMap[printer.name] ? String(printerTemplatesMap[printer.name]!.id) : 'none';
                   return (
-                    <Card key={printer.name} shadow="sm" className="border border-default-200">
-                      <CardBody className="gap-4">
+                    <Card key={printer.name} className="shadow-sm border border-default-200">
+                      <CardContent className="gap-4">
                         <div className="flex flex-col gap-1">
                           <Checkbox
                             isSelected={isEnabled}
@@ -825,7 +822,7 @@ export default function SettingsPage() {
                             </div>
                           </div>
                         )}
-                      </CardBody>
+                      </CardContent>
                     </Card>
                   );
                 })}
@@ -834,15 +831,15 @@ export default function SettingsPage() {
             <p className="text-default-500 text-sm">
               برای هر پرینتر می‌توانید قالب چاپ و نوع/تعداد رسید را جداگانه تنظیم کنید. این تنظیمات برای چاپ خودکار رسید هنگام ثبت سفارش استفاده می‌شود.
             </p>
-          </CardBody>
+          </CardContent>
         </Card>
 
         <Card>
-          <CardBody>
+          <CardContent>
             <Button color="danger" variant="flat" className="w-full" onPress={logout}>
               خروج از حساب کاربری
             </Button>
-          </CardBody>
+          </CardContent>
         </Card>
       </div>
     </div>

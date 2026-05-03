@@ -24,21 +24,13 @@ import {
     getNextReceiptNumberBrowser,
 } from '../utils/receiptNumbersStorage';
 import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
-import {
-    Card,
-    CardBody,
-    Button,
-    Input,
-    Select,
-    SelectItem,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Checkbox,
-    Textarea
-} from '@heroui/react';
+import { Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Button } from '../ui/compat-button';
+import { Input } from '../ui/compat-input';
+import { Select, SelectItem } from '../ui/compat-select';
+import { Textarea } from '../ui/compat-textarea';
+import { ModalShell } from '../ui/modal-shell';
+import { CheckboxCompat as Checkbox } from '../ui/compat-checkbox';
 import {Panel, Group, Separator} from 'react-resizable-panels'
 
 const RESET_ORDER_SHORTCUT_LABEL = 'Ctrl + Shift + Backspace';
@@ -51,8 +43,28 @@ const normalizeBarcode = (value: string) =>
         .replace(/\s+/g, '')
         .trim();
 
+/** آیکون مداد/یادداشت برای توضیحات آیتم سبد */
+function CartItemNoteIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            className={className}
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+        >
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+    );
+}
+
 export default function OrderPage() {
-    const {user, token, logout} = useAuthStore();
+    const {user, token} = useAuthStore();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const editParam = searchParams.get('edit');
@@ -128,6 +140,8 @@ export default function OrderPage() {
     const phoneInputRef = useRef<HTMLInputElement>(null);
     /** ref پنل توضیحات باز — برای تشخیص کلیک داخل پنل در onBlur */
     const notePanelRef = useRef<HTMLDivElement | null>(null);
+    /** دکمهٔ «توضیحات» + پنل باز — برای بستن با کلیک بیرون */
+    const openNoteSectionRef = useRef<HTMLDivElement | null>(null);
     /** نمایش پاپ‌آپ تکمیل سفارش (تخفیف + اطلاعات مشتری) */
     const [showOrderModal, setShowOrderModal] = useState(false);
     /** آدرس‌های ذخیره‌شده مشتری (برای بیرون‌بر) */
@@ -1195,13 +1209,23 @@ export default function OrderPage() {
         setSuccessMessage('');
     }, [successMessage]);
 
+    useEffect(() => {
+        if (expandedNoteProductId == null) return;
+        const onPointerDown = (e: PointerEvent) => {
+            const root = openNoteSectionRef.current;
+            const t = e.target as Node | null;
+            if (!root || !t || root.contains(t)) return;
+            setExpandedNoteProductId(null);
+        };
+        document.addEventListener('pointerdown', onPointerDown, true);
+        return () => document.removeEventListener('pointerdown', onPointerDown, true);
+    }, [expandedNoteProductId]);
 
     return (
-        <div onClick={()=> setSearchTerm('')} className="min-h-screen flex flex-col bg-default-100">
-            <header
-                className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
-                <div className={'flex items-center justify-center gap-4'}>
-                    <h1 className="text-xl font-bold text-foreground whitespace-nowrap">
+        <div onClick={()=> setSearchTerm('')} className="flex flex-col flex-1 min-h-0 bg-default-100">
+            <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+                <div className="flex flex-wrap items-center gap-3 min-w-0 flex-1">
+                    <h1 className="text-lg sm:text-xl font-bold text-foreground whitespace-nowrap">
                         {editingOrderId != null ? `ویرایش فاکتور #${editingOrderId}` : 'ثبت سفارش'}
                     </h1>
                     <Input
@@ -1212,7 +1236,7 @@ export default function OrderPage() {
                             setSearchTerm(value)
                         }}
                         variant="bordered"
-                        classNames={{input: "text-right"}}
+                        classNames={{ input: 'text-right', base: 'max-w-[220px] sm:max-w-xs' }}
                     />
                     <Input
                         placeholder="اسکن بارکد محصول"
@@ -1226,39 +1250,14 @@ export default function OrderPage() {
                             }
                         }}
                         variant="bordered"
-                        classNames={{input: "text-right"}}
+                        classNames={{ input: 'text-right', base: 'max-w-[200px] sm:max-w-xs' }}
                     />
                 </div>
-
-                <div className="flex gap-2">
-                    {/*<Button*/}
-                    {/*    variant={quickScanEnabled ? "solid" : "bordered"}*/}
-                    {/*    color="primary"*/}
-                    {/*    onPress={() => setQuickScanEnabled((v) => !v)}*/}
-                    {/*>*/}
-                    {/*    {quickScanEnabled ? 'اسکن سریع: روشن' : 'اسکن سریع: خاموش'}*/}
-                    {/*</Button>*/}
-                    {editingOrderId != null && (
-                        <Button variant="flat" color="warning" onPress={() => navigate('/orders')}>
-                            انصراف از ویرایش
-                        </Button>
-                    )}
-                    <Button variant="flat" color="default" onPress={() => navigate('/orders')}>
-                        سفارشات
+                {editingOrderId != null ? (
+                    <Button variant="flat" color="warning" onPress={() => navigate('/orders')}>
+                        انصراف از ویرایش
                     </Button>
-                    <Button variant="flat" color="secondary" onPress={() => navigate('/accounting')}>
-                        حسابداری
-                    </Button>
-                    <Button variant="flat" color="primary" onPress={() => navigate('/products')}>
-                        مدیریت محصولات
-                    </Button>
-                    <Button color="primary" variant="flat" onPress={() => navigate('/settings')}>
-                        تنظیمات
-                    </Button>
-                    <Button color="danger" variant="flat" onPress={logout}>
-                        خروج
-                    </Button>
-                </div>
+                ) : null}
             </header>
 
             <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 flex flex-col gap-2 w-[min(92vw,520px)] pointer-events-none">
@@ -1291,8 +1290,8 @@ export default function OrderPage() {
                 {/*<div className="flex-1 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-5 p-5 overflow-hidden">*/}
                 <Panel>
                     <Card className="overflow-hidden flex flex-col min-h-0 h-[calc(100vh_-120px)]">
-                        <CardBody className="flex-1 overflow-hidden flex flex-row gap-0 p-0">
-                            <div className="flex-1 overflow-y-auto p-5 min-w-0 relative">
+                        <CardContent className="flex-1 overflow-hidden flex flex-row gap-0 p-0">
+                            <div className="flex-1 overflow-y-auto p-2 sm:p-3 min-w-0 relative">
                                 {orderEditLoading && (
                                     <div
                                         className="absolute inset-0 z-10 flex items-center justify-center bg-content1/80 text-default-600 text-sm">
@@ -1303,43 +1302,54 @@ export default function OrderPage() {
                                     <div className="flex items-center justify-center py-12 text-default-500">در حال
                                         بارگذاری...</div>
                                 ) : (
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
-                                        {filteredProducts.map(product => (
-                                            <Card
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                        {filteredProducts.map((product) => (
+                                            <button
                                                 key={product.id}
-                                                isPressable
-                                                className="border border-default-200"
-                                                onPress={() => {
+                                                type="button"
+                                                className="flex flex-col rounded-lg border border-default-200 bg-content1 text-start overflow-hidden outline-none transition hover:border-primary hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-content1 p-0 cursor-pointer"
+                                                onClick={() => {
                                                     setSuccessMessage('');
                                                     addToCart(product);
                                                 }}
                                             >
-                                                <CardBody className="p-0 overflow-hidden">
-                                                    {product.multiMedia?.url && (
-                                                        <img
-                                                            src={`${getAssetBaseUrl()}${product.multiMedia.url}`}
-                                                            alt={product.name_fa || product.name}
-                                                            className="w-full aspect-square object-cover"
-                                                        />
-                                                    )}
-                                                    <div className="p-3 text-right">
-                                                        <h3 className="font-semibold text-foreground text-sm">{product.name_fa || product.name}</h3>
-                                                        <p className="text-primary text-sm mt-1">{formatPrice(staffCartUnitPrice(product))}</p>
-                                                    </div>
-                                                </CardBody>
-                                            </Card>
+                                                {product.multiMedia?.url ? (
+                                                    <img
+                                                        src={`${getAssetBaseUrl()}${product.multiMedia.url}`}
+                                                        alt={product.name_fa || product.name}
+                                                        className="w-full h-[4.5rem] sm:h-20 object-cover shrink-0"
+                                                    />
+                                                ) : null}
+                                                <div
+                                                    className={
+                                                        product.multiMedia?.url
+                                                            ? 'px-2 py-1.5 text-right min-h-0'
+                                                            : 'px-2 py-2 text-right min-h-0'
+                                                    }
+                                                >
+                                                    <span className="font-semibold text-foreground text-xs leading-snug line-clamp-2 block">
+                                                        {product.name_fa || product.name}
+                                                    </span>
+                                                    <span className="text-primary text-xs mt-0.5 block tabular-nums">
+                                                        {formatPrice(staffCartUnitPrice(product))}
+                                                    </span>
+                                                </div>
+                                            </button>
                                         ))}
                                     </div>
                                 )}
                             </div>
                             <aside
                                 className="w-52 flex-shrink-0 border-r border-default-200 p-4 flex flex-col gap-2 overflow-y-auto">
-                                <span className="font-semibold text-foreground text-sm mb-1">دسته‌بندی‌ها</span>
+                                <span className="mb-1 w-full text-right text-sm font-semibold text-foreground">
+                                    دسته‌بندی‌ها
+                                </span>
                                 <Button
                                     size="sm"
+                                    fullWidth
                                     variant={selectedCategory === '' ? 'solid' : 'bordered'}
                                     color="primary"
-                                    className="justify-start"
+                                    className="h-auto min-h-8 max-w-full justify-start py-2 text-right"
                                     onPress={() => {
                                         setSelectedCategory('')
                                     }}
@@ -1350,9 +1360,10 @@ export default function OrderPage() {
                                     <Button
                                         key={cat}
                                         size="sm"
+                                        fullWidth
                                         variant={selectedCategory === cat ? 'solid' : 'bordered'}
                                         color="primary"
-                                        className="justify-start"
+                                        className="h-auto min-h-8 max-w-full justify-start whitespace-normal py-2 text-right leading-snug"
                                         onPress={() => {
                                             setSelectedCategory(cat)
                                             setSearchTerm('')
@@ -1362,19 +1373,19 @@ export default function OrderPage() {
                                     </Button>
                                 ))}
                             </aside>
-                        </CardBody>
+                        </CardContent>
                     </Card>
                 </Panel>
                 <Separator className={'px-2'}/>
                 <Panel maxSize={500} minSize={350}>
-                    <div className="flex flex-col gap-4 overflow-hidden min-h-0 h-[calc(100vh_-120px)]">
+                    <div className="flex flex-col gap-2 overflow-hidden min-h-0 h-[calc(100vh_-120px)]">
                         <Card className="flex-1 overflow-hidden min-h-0">
-                            <CardBody className="overflow-y-auto">
-                                <h2 className="text-lg font-semibold text-foreground mb-3">سبد خرید</h2>
+                            <CardContent className="overflow-y-auto p-2 sm:p-3">
+                                <h2 className="text-sm font-semibold text-foreground mb-2">سبد خرید</h2>
                                 {cart.length === 0 ? (
-                                    <p className="text-default-500 py-6 text-center">سبد خرید خالی است</p>
+                                    <p className="text-default-500 text-sm py-4 text-center">سبد خرید خالی است</p>
                                 ) : (
-                                    <div className="flex flex-col gap-3">
+                                    <div className="flex flex-col gap-1.5">
                                         {cart.map(item => {
                                             const noteValue = item.itemOption || '';
                                             const isNoteOpen = expandedNoteProductId === item.productId;
@@ -1384,13 +1395,12 @@ export default function OrderPage() {
                                                 updateCartItemOption(item.productId, current + sep + opt);
                                             };
                                             const notePreview = noteValue.trim();
-                                            const notePreviewShort = notePreview.length > 28 ? notePreview.slice(0, 28) + '…' : notePreview;
                                             const isInteractive = (e: React.MouseEvent) =>
                                                 (e.target as HTMLElement).closest('button, input, textarea, select');
                                             return (
                                                 <div
                                                     key={item.productId}
-                                                    className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-default-200 bg-content1"
+                                                    className="flex flex-col gap-2 rounded-lg border border-default-200 bg-content1 p-2"
                                                     onClick={(e) => {
                                                         if (isInteractive(e)) return;
                                                         updateCartQuantity(item.productId, item.quantity + 1);
@@ -1406,111 +1416,167 @@ export default function OrderPage() {
                                                         removeFromCart(item.productId);
                                                     }}
                                                 >
-                                                    {item.product.multiMedia?.url && (
-                                                        <div
-                                                            className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0">
-                                                            <img
-                                                                src={`${getAssetBaseUrl()}${item.product.multiMedia.url}`}
-                                                                alt=""
-                                                                className="w-full h-full object-cover"
-                                                            />
+                                                    <div className="flex w-full items-start gap-2">
+                                                        {item.product.multiMedia?.url ? (
+                                                            <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md">
+                                                                <img
+                                                                    src={`${getAssetBaseUrl()}${item.product.multiMedia.url}`}
+                                                                    alt=""
+                                                                    className="h-full w-full object-cover"
+                                                                />
+                                                            </div>
+                                                        ) : null}
+                                                        <div className="min-w-0 flex-1">
+                                                            <span className="block text-right text-sm font-medium leading-relaxed text-foreground break-words">
+                                                                {item.product.name_fa || item.product.name}
+                                                            </span>
+                                                            {notePreview ? (
+                                                                <p className="mt-1 text-right text-xs leading-relaxed text-default-600 break-words whitespace-pre-wrap">
+                                                                    {notePreview}
+                                                                </p>
+                                                            ) : null}
                                                         </div>
-                                                    )}
-                                                    <div className="flex-1 min-w-0">
-                                                        <span
-                                                            className="font-medium text-foreground block">{item.product.name_fa || item.product.name}</span>
-                                                        <div className="flex items-center gap-1 mt-1">
-                                                            <Button size="sm" isIconOnly variant="flat"
+                                                    </div>
+                                                    <div
+                                                        ref={isNoteOpen ? openNoteSectionRef : undefined}
+                                                        className="flex w-full min-w-0 flex-col gap-1.5"
+                                                    >
+                                                        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2">
+                                                            <div className="flex shrink-0 items-center gap-0.5">
+                                                                <Button
+                                                                    size="sm"
+                                                                    isIconOnly
+                                                                    variant="flat"
+                                                                    className="h-7 min-h-7 w-7 min-w-7 text-sm"
                                                                     onPress={() => {
                                                                         if (item.quantity <= 1) {
                                                                             removeFromCart(item.productId);
                                                                             return;
                                                                         }
                                                                         updateCartQuantity(item.productId, item.quantity - 1);
-                                                                    }}>−</Button>
-                                                            <Input
-                                                                type="number"
-                                                                min={0.1}
-                                                                step={0.1}
+                                                                    }}
+                                                                >
+                                                                    −
+                                                                </Button>
+                                                                <Input
+                                                                    type="number"
+                                                                    min={0.1}
+                                                                    step={0.1}
+                                                                    size="sm"
+                                                                    className="h-7 min-h-7 w-12 max-w-[3.25rem] py-0 text-center text-xs"
+                                                                    value={String(item.quantity)}
+                                                                    onValueChange={(v) => {
+                                                                        const val = parseFloat(String(v).replace(',', '.'));
+                                                                        if (!Number.isNaN(val)) {
+                                                                            if (val <= 0) removeFromCart(item.productId);
+                                                                            else updateCartQuantity(item.productId, val);
+                                                                        }
+                                                                    }}
+                                                                    onBlur={(e) => {
+                                                                        const raw = (e.target as HTMLInputElement).value.replace(',', '.');
+                                                                        const v = parseFloat(raw);
+                                                                        if (raw === '' || Number.isNaN(v) || v <= 0) updateCartQuantity(item.productId, 1);
+                                                                    }}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                                <Button
+                                                                    size="sm"
+                                                                    isIconOnly
+                                                                    variant="flat"
+                                                                    className="h-7 min-h-7 w-7 min-w-7 text-sm"
+                                                                    onPress={() => updateCartQuantity(item.productId, item.quantity + 1)}
+                                                                >
+                                                                    +
+                                                                </Button>
+                                                            </div>
+                                                            <Button
                                                                 size="sm"
-                                                                className="w-16 text-center"
-                                                                value={String(item.quantity)}
-                                                                onValueChange={(v) => {
-                                                                    const val = parseFloat(String(v).replace(',', '.'));
-                                                                    if (!Number.isNaN(val)) {
-                                                                        if (val <= 0) removeFromCart(item.productId);
-                                                                        else updateCartQuantity(item.productId, val);
-                                                                    }
-                                                                }}
-                                                                onBlur={(e) => {
-                                                                    const raw = (e.target as HTMLInputElement).value.replace(',', '.');
-                                                                    const v = parseFloat(raw);
-                                                                    if (raw === '' || Number.isNaN(v) || v <= 0) updateCartQuantity(item.productId, 1);
-                                                                }}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            />
-                                                            <Button size="sm" isIconOnly variant="flat"
-                                                                    onPress={() => updateCartQuantity(item.productId, item.quantity + 1)}>+</Button>
+                                                                isIconOnly
+                                                                variant="flat"
+                                                                className={`h-6 min-h-6 w-6 min-w-6 shrink-0 ${notePreview || isNoteOpen ? 'text-primary' : 'text-default-400'}`}
+                                                                onPress={() =>
+                                                                    setExpandedNoteProductId((id) => (id === item.productId ? null : item.productId))
+                                                                }
+                                                                title={notePreview ? 'ویرایش توضیحات' : 'توضیحات'}
+                                                                aria-label={notePreview ? 'ویرایش توضیحات' : 'افزودن توضیحات'}
+                                                            >
+                                                                <CartItemNoteIcon className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <div className="flex shrink-0 items-center gap-1">
+                                                                <span className="text-xs font-semibold tabular-nums text-foreground">
+                                                                    {formatPrice(item.totalPrice)}
+                                                                </span>
+                                                                <Button
+                                                                    size="sm"
+                                                                    color="danger"
+                                                                    variant="light"
+                                                                    isIconOnly
+                                                                    className="h-7 min-h-7 w-7 min-w-7 text-sm"
+                                                                    onPress={() => removeFromCart(item.productId)}
+                                                                >
+                                                                    ×
+                                                                </Button>
+                                                            </div>
                                                         </div>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="light"
-                                                            className={`mt-1 ${notePreview ? 'text-primary' : ''}`}
-                                                            onPress={() => setExpandedNoteProductId((id) => (id === item.productId ? null : item.productId))}
-                                                            title={notePreview || 'افزودن توضیحات'}
-                                                        >
-                                                            {notePreview ? notePreviewShort : 'توضیحات'}
-                                                        </Button>
-                                                    </div>
-                                                    {isNoteOpen && (
-                                                        <div ref={notePanelRef}
-                                                             className="w-full mt-2 p-2 rounded-lg bg-default-100 border border-default-200 space-y-2">
-                                                            {cartItemOptions.length > 0 && (
-                                                                <div className="flex flex-wrap gap-1">
-                                                                    {cartItemOptions.map(opt => (
-                                                                        <Button key={opt} size="sm" variant="bordered"
+                                                        {isNoteOpen ? (
+                                                            <div
+                                                                ref={notePanelRef}
+                                                                className="w-full rounded-md border border-default-200 bg-default-100 p-1.5 space-y-1.5"
+                                                            >
+                                                                {cartItemOptions.length > 0 ? (
+                                                                    <div className="flex flex-wrap gap-0.5">
+                                                                        {cartItemOptions.map((opt) => (
+                                                                            <Button
+                                                                                key={opt}
+                                                                                size="sm"
+                                                                                variant="bordered"
+                                                                                className="h-7 min-h-7 px-2 text-xs"
                                                                                 onPress={() => appendOption(opt)}
-                                                                                title={`افزودن: ${opt}`}>
-                                                                            + {opt}
-                                                                        </Button>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                            <Textarea
-                                                                value={noteValue}
-                                                                onValueChange={(v) => updateCartItemOption(item.productId, v)}
-                                                                onBlur={(e) => {
-                                                                    const next = e.relatedTarget;
-                                                                    if (next != null && notePanelRef.current?.contains(next as Node)) return;
-                                                                    setExpandedNoteProductId(null);
-                                                                }}
-                                                                placeholder="توضیح دستی (اختیاری)"
-                                                                minRows={2}
-                                                                size="sm"
-                                                                classNames={{input: 'text-right'}}
-                                                            />
-                                                            <Button size="sm" variant="flat"
-                                                                    onPress={() => setExpandedNoteProductId(null)}>بستن</Button>
-                                                        </div>
-                                                    )}
-                                                    <div className="flex items-center gap-2">
-                                                        <span
-                                                            className="font-semibold text-foreground">{formatPrice(item.totalPrice)}</span>
-                                                        <Button size="sm" color="danger" variant="light" isIconOnly
-                                                                onPress={() => removeFromCart(item.productId)}>×</Button>
+                                                                                title={`افزودن: ${opt}`}
+                                                                            >
+                                                                                + {opt}
+                                                                            </Button>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : null}
+                                                                <Textarea
+                                                                    value={noteValue}
+                                                                    onValueChange={(v) => updateCartItemOption(item.productId, v)}
+                                                                    onBlur={(e) => {
+                                                                        const next = e.relatedTarget;
+                                                                        if (next != null && notePanelRef.current?.contains(next as Node)) return;
+                                                                        setExpandedNoteProductId(null);
+                                                                    }}
+                                                                    placeholder="توضیح دستی (اختیاری)"
+                                                                    minRows={2}
+                                                                    size="sm"
+                                                                    classNames={{ input: 'min-h-[4rem] text-right text-xs' }}
+                                                                />
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="flat"
+                                                                    className="h-7 min-h-7 text-xs"
+                                                                    onPress={() => setExpandedNoteProductId(null)}
+                                                                >
+                                                                    بستن
+                                                                </Button>
+                                                            </div>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             );
                                         })}
-                                        <div className="border-t border-default-200 pt-3 mt-3 sticky bottom-0 bg-background shadow">
-                                            <div className="flex justify-between font-semibold text-foreground">
-                                                <span>جمع کل:</span>
-                                                <span>{formatPrice(getTotalAmount())}</span>
+                                        <div className="sticky bottom-0 z-[1] -mx-2 mt-3 border-t border-default-200 bg-content1/95 px-2 pt-3 pb-0.5 backdrop-blur-sm sm:-mx-3 sm:px-3">
+                                            <div className="flex items-center justify-between gap-3 rounded-lg border border-default-200 bg-default-100 px-3 py-2.5 shadow-sm">
+                                                <span className="text-sm font-medium text-default-600">جمع کل</span>
+                                                <span className="text-base font-bold tabular-nums tracking-tight text-foreground">
+                                                    {formatPrice(getTotalAmount())}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
                                 )}
-                            </CardBody>
+                            </CardContent>
                         </Card>
 
                         {/*<Button*/}
@@ -1524,8 +1590,8 @@ export default function OrderPage() {
                         {/*</Button>*/}
                         <Button
                             color="primary"
-                            size="lg"
-                            className="w-full font-semibold"
+                            size="md"
+                            className="w-full font-semibold min-h-10"
                             onPress={() => setShowOrderModal(true)}
                             isDisabled={cart.length === 0 || orderEditLoading || Boolean(orderEditError && editingOrderId != null)}
                         >
@@ -1536,9 +1602,8 @@ export default function OrderPage() {
                 {/*</div>*/}
             </Group>
 
-            <Modal isOpen={showOrderModal} onOpenChange={setShowOrderModal} size="2xl" scrollBehavior="inside"
-                   classNames={{base: 'order-modal'}}>
-                <ModalContent>
+            <Modal isOpen={showOrderModal} onOpenChange={setShowOrderModal} className="order-modal">
+                <ModalShell size="lg" scrollBehavior="inside">
                     <ModalHeader className="flex flex-col gap-1 text-right">
                         <h2 className="text-lg font-semibold">
                             {editingOrderId != null ? `ذخیرهٔ تغییرات — فاکتور #${editingOrderId}` : 'تکمیل و ثبت سفارش'}
@@ -1859,10 +1924,10 @@ export default function OrderPage() {
                                 : (editingOrderId != null ? 'ذخیرهٔ فاکتور' : 'ثبت نهایی')}
                         </Button>
                     </ModalFooter>
-                </ModalContent>
+                </ModalShell>
             </Modal>
-            <Modal isOpen={showCreateProductModal} onOpenChange={setShowCreateProductModal} size="2xl">
-                <ModalContent>
+            <Modal isOpen={showCreateProductModal} onOpenChange={setShowCreateProductModal}>
+                <ModalShell size="lg">
                     <ModalHeader>افزودن محصول جدید با بارکد</ModalHeader>
                     <ModalBody className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <Input
@@ -1907,7 +1972,7 @@ export default function OrderPage() {
                             ثبت و افزودن به سبد
                         </Button>
                     </ModalFooter>
-                </ModalContent>
+                </ModalShell>
             </Modal>
         </div>
     );

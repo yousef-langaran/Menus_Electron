@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, CardBody, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from '@heroui/react';
+import { Card, CardContent, Modal, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
+import { Button } from '../../ui/compat-button';
+import { Input } from '../../ui/compat-input';
+import { ModalShell } from '../../ui/modal-shell';
+import { Select, SelectItem } from '../../ui/compat-select';
 import { useAuthStore } from '../../store/authStore';
 import {
   accountingDb,
@@ -52,7 +56,7 @@ export default function AccountingPurchaseDraftsPage() {
           <Button color="primary" onPress={() => { setOpen(true); setEditingId(null); }}>ثبت پیش‌نویس</Button>
         </div>
       </div>
-      <Card><CardBody className="gap-2">
+      <Card><CardContent className="gap-2">
         {drafts.map((d) => (
           <div key={d.id} className="text-sm bg-default-100 rounded p-2 flex justify-between">
             <span>{d.invoiceNumber} | وضعیت: {d.status} | همگام‌سازی: {d.localSyncStatus}</span>
@@ -70,10 +74,10 @@ export default function AccountingPurchaseDraftsPage() {
             </div>
           </div>
         ))}
-      </CardBody></Card>
+      </CardContent></Card>
 
-      <Modal isOpen={open} onOpenChange={setOpen} size="4xl">
-        <ModalContent>
+      <Modal isOpen={open} onOpenChange={setOpen}>
+        <ModalShell size="full">
           <ModalHeader>{editingId ? 'ویرایش پیش‌نویس خرید' : 'ثبت پیش‌نویس خرید'}</ModalHeader>
           <ModalBody className="gap-3">
             <Input label="شماره فاکتور" value={invoiceNumber} onValueChange={setInvoiceNumber} />
@@ -118,7 +122,7 @@ export default function AccountingPurchaseDraftsPage() {
               await reload();
             }}>ذخیره</Button>
           </ModalFooter>
-        </ModalContent>
+        </ModalShell>
       </Modal>
     </div>
   );

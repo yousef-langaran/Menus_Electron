@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button, Card, CardBody, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from '@heroui/react';
+import { Card, CardContent, Modal, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
+import { Button } from '../ui/compat-button';
+import { Input } from '../ui/compat-input';
+import { ModalShell } from '../ui/modal-shell';
 import { useAuthStore } from '../store/authStore';
 import { createCategory, getCategories, updateCategoryById } from '../services/api';
 
@@ -18,8 +20,7 @@ const emptyForm: CategoryForm = {
 };
 
 export default function CategoriesPage() {
-  const navigate = useNavigate();
-  const { user, token, logout } = useAuthStore();
+  const { user, token } = useAuthStore();
   const restaurantName = user?.restaurants?.[0]?.name;
   const restaurantId = user?.restaurants?.[0]?.id;
   const [rows, setRows] = useState<any[]>([]);
@@ -111,24 +112,19 @@ export default function CategoriesPage() {
 
   return (
     <div className="min-h-screen bg-default-100">
-      <header className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
-        <h1 className="text-xl font-bold">مدیریت دسته‌بندی‌ها</h1>
-        <div className="flex gap-2">
-          <Button variant="flat" color="secondary" onPress={() => navigate('/products')}>مدیریت محصولات</Button>
-          <Button variant="flat" onPress={() => navigate('/order')}>ثبت سفارش</Button>
-          <Button color="danger" variant="flat" onPress={logout}>خروج</Button>
-        </div>
+      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm">
+        <h1 className="text-lg sm:text-xl font-bold">مدیریت دسته‌بندی‌ها</h1>
       </header>
       <div className="p-6 max-w-5xl mx-auto space-y-4">
         <Card>
-          <CardBody className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Input label="جستجو" placeholder="نام دسته‌بندی" value={search} onValueChange={setSearch} />
             <Button color="primary" onPress={openCreate}>افزودن دسته‌بندی جدید</Button>
-          </CardBody>
+          </CardContent>
         </Card>
         {message ? <p className="text-sm text-default-600">{message}</p> : null}
         <Card>
-          <CardBody className="space-y-2">
+          <CardContent className="space-y-2">
             {loading ? (
               <p className="text-default-500">در حال بارگذاری...</p>
             ) : filtered.length === 0 ? (
@@ -144,11 +140,11 @@ export default function CategoriesPage() {
                 </div>
               ))
             )}
-          </CardBody>
+          </CardContent>
         </Card>
       </div>
-      <Modal isOpen={modalOpen} onOpenChange={setModalOpen} size="xl">
-        <ModalContent>
+      <Modal isOpen={modalOpen} onOpenChange={setModalOpen}>
+        <ModalShell size="lg">
           <ModalHeader>{form.id ? 'ویرایش دسته‌بندی' : 'افزودن دسته‌بندی'}</ModalHeader>
           <ModalBody className="grid grid-cols-1 gap-3">
             <Input label="نام فارسی" value={form.name_fa} onValueChange={(v) => setForm((f) => ({ ...f, name_fa: v }))} />
@@ -159,7 +155,7 @@ export default function CategoriesPage() {
             <Button variant="light" onPress={() => setModalOpen(false)}>انصراف</Button>
             <Button color="primary" isLoading={saving} onPress={submit}>{form.id ? 'ذخیره تغییرات' : 'ثبت دسته‌بندی'}</Button>
           </ModalFooter>
-        </ModalContent>
+        </ModalShell>
       </Modal>
     </div>
   );

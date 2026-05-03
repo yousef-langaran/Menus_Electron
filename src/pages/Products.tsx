@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button, Card, CardBody, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from '@heroui/react';
+import { Card, CardContent, Modal, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
+import { Button } from '../ui/compat-button';
+import { Input } from '../ui/compat-input';
+import { ModalShell } from '../ui/modal-shell';
+import { Select, SelectItem } from '../ui/compat-select';
 import { useAuthStore } from '../store/authStore';
 import { createProduct, getCategories, getProducts, updateProductById } from '../services/api';
 
@@ -30,8 +33,7 @@ const normalizeBarcode = (value: string) =>
     .trim();
 
 export default function ProductsPage() {
-  const navigate = useNavigate();
-  const { user, token, logout } = useAuthStore();
+  const { user, token } = useAuthStore();
   const restaurantName = user?.restaurants?.[0]?.name;
   const restaurantId = user?.restaurants?.[0]?.id;
   const [products, setProducts] = useState<any[]>([]);
@@ -198,28 +200,22 @@ export default function ProductsPage() {
 
   return (
     <div className="min-h-screen bg-default-100">
-      <header className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
-        <h1 className="text-xl font-bold">مدیریت محصولات</h1>
-        <div className="flex gap-2">
-          <Button variant="flat" color="secondary" onPress={() => navigate('/categories')}>مدیریت دسته‌بندی‌ها</Button>
-          <Button variant="flat" onPress={() => navigate('/order')}>ثبت سفارش</Button>
-          <Button variant="flat" onPress={() => navigate('/orders')}>سفارشات</Button>
-          <Button color="danger" variant="flat" onPress={logout}>خروج</Button>
-        </div>
+      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm">
+        <h1 className="text-lg sm:text-xl font-bold">مدیریت محصولات</h1>
       </header>
       <div className="p-6 max-w-6xl mx-auto space-y-4">
         <Card>
-          <CardBody className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Button variant="flat" color="secondary" onPress={() => openCreate('')}>افزودن محصول جدید</Button>
             <Input label="جستجو" placeholder="نام یا بارکد" value={search} onValueChange={setSearch} />
             <div className="text-xs text-default-500 flex items-center">
               اسکن بارکد از هر جای صفحه فعال است.
             </div>
-          </CardBody>
+          </CardContent>
         </Card>
         {message ? <p className="text-sm text-default-600">{message}</p> : null}
         <Card>
-          <CardBody className="space-y-2">
+          <CardContent className="space-y-2">
             {loading ? (
               <p className="text-default-500">در حال بارگذاری...</p>
             ) : filtered.length === 0 ? (
@@ -235,12 +231,12 @@ export default function ProductsPage() {
                 </div>
               ))
             )}
-          </CardBody>
+          </CardContent>
         </Card>
       </div>
 
-      <Modal isOpen={modalOpen} onOpenChange={setModalOpen} size="2xl">
-        <ModalContent>
+      <Modal isOpen={modalOpen} onOpenChange={setModalOpen}>
+        <ModalShell size="lg">
           <ModalHeader>{form.id ? 'ویرایش محصول' : 'افزودن محصول'}</ModalHeader>
           <ModalBody className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Input label="نام فارسی" value={form.name_fa} onValueChange={(v) => setForm((f) => ({ ...f, name_fa: v }))} />
@@ -261,7 +257,7 @@ export default function ProductsPage() {
             <Button variant="light" onPress={() => setModalOpen(false)}>انصراف</Button>
             <Button color="primary" isLoading={saving} onPress={submit}>{form.id ? 'ذخیره تغییرات' : 'ثبت محصول'}</Button>
           </ModalFooter>
-        </ModalContent>
+        </ModalShell>
       </Modal>
     </div>
   );
