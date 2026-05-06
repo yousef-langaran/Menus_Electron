@@ -85,7 +85,7 @@ export const Input = forwardRef<HTMLInputElement, CompatInputProps>(function Inp
 
   const inputClass = [classNames?.input, className].filter(Boolean).join(' ') || undefined;
   const inputEl = hasAddon ? (
-    <InputGroup>
+    <InputGroup variant={inputVariant}>
       {startContent ? <InputGroup.Prefix>{startContent}</InputGroup.Prefix> : null}
       <InputGroup.Input
         ref={ref}

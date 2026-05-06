@@ -9,6 +9,7 @@ export function SelectItem({
   value,
   textValue,
   id: explicitId,
+  className,
   ...rest
 }: {
   children: React.ReactNode;
@@ -16,14 +17,19 @@ export function SelectItem({
   textValue?: string;
   id?: string;
 } & Omit<ComponentProps<typeof ListBoxItem>, 'id' | 'children'>) {
-  const labelText = textValue ?? (typeof children === 'string' ? children : String(children ?? ''));
+  const labelText = textValue ?? getTextContent(children);
   const id =
     explicitId ??
     (value != null && String(value) !== ''
       ? String(value)
       : `opt-${labelText.replace(/\s+/g, '-').slice(0, 80)}`);
   return (
-    <ListBoxItem id={id} textValue={labelText} {...rest}>
+    <ListBoxItem
+      id={id}
+      textValue={labelText}
+      className={mergeClasses('text-right', className)}
+      {...rest}
+    >
       {children}
     </ListBoxItem>
   );
@@ -43,7 +49,7 @@ export type LegacySelectProps = Omit<
 
 export function Select({
   label,
-  placeholder,
+  placeholder='انتخاب کنید',
   selectedKeys,
   onSelectionChange,
   children,
@@ -56,6 +62,7 @@ export function Select({
   const arr = selectedKeys ? Array.from(selectedKeys) : [];
   const selectedKey = arr.length ? arr[0] : null;
   const invalid = Boolean(isInvalid ?? errorMessage);
+  const rootClassName = mergeClasses('w-full text-right', className);
   const normalizeReactKey = (k: string) => k.replace(/^\.\$/, '').replace(/^\./, '');
   const ensureIdsFromKeys = (node: ReactNode): ReactNode => {
     if (!isValidElement(node)) return node;
@@ -98,6 +105,7 @@ export function Select({
   return (
     <HeroSelect
       {...(vrest as BaseSelectProps)}
+      dir="rtl"
       selectedKey={selectedKey ?? undefined}
       onSelectionChange={(key) => {
         const resolved = extractSelectionKey(key);
@@ -105,21 +113,35 @@ export function Select({
       }}
       isRequired={isRequired}
       isInvalid={invalid}
-      className={className}
+      className={rootClassName}
+      variant={"secondary"}
+      placeholder={placeholder}
     >
       {label ? (
-        <Label isInvalid={invalid} isRequired={isRequired}>
+        <Label isInvalid={invalid} isRequired={isRequired} className="text-right">
           {label}
         </Label>
       ) : null}
-      <HeroSelect.Trigger>
-        <HeroSelect.Value placeholder={placeholder} />
-        <HeroSelect.Indicator />
+      <HeroSelect.Trigger className="flex w-full min-w-0 items-stretch gap-1 text-right !pl-7 !pr-3">
+        <HeroSelect.Value placeholder={placeholder} className="order-2 min-w-0 flex-1 truncate text-right [direction:rtl]" />
+        <HeroSelect.Indicator className="order-1 shrink-0 !left-2 !right-auto" />
       </HeroSelect.Trigger>
-      <HeroSelect.Popover>
-        <ListBox>{processedChildren}</ListBox>
+      <HeroSelect.Popover placement="bottom end" dir="rtl">
+        <ListBox className="text-right" dir="rtl">{processedChildren}</ListBox>
       </HeroSelect.Popover>
       {errorMessage ? <FieldError>{errorMessage}</FieldError> : null}
     </HeroSelect>
   );
+}
+
+function mergeClasses(...values: Array<string | undefined>) {
+  return values.filter(Boolean).join(' ') || undefined;
+}
+
+function getTextContent(node: ReactNode): string {
+  if (node == null || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map((child) => getTextContent(child)).join(' ').trim();
+  if (isValidElement(node)) return getTextContent(node.props?.children);
+  return '';
 }

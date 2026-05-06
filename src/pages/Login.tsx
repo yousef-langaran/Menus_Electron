@@ -71,7 +71,6 @@ export default function LoginPage() {
               value={mobile}
               onValueChange={(v) => { setMobile(v); setMobileError(''); }}
               isRequired
-              variant={'primary'}
               isInvalid={!!mobileError}
               errorMessage={mobileError}
               size="lg"

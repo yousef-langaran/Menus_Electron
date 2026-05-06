@@ -32,6 +32,20 @@ const normalizeBarcode = (value: string) =>
     .replace(/\s+/g, '')
     .trim();
 
+const normalizeDigits = (value: string) =>
+  String(value || '')
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776));
+
+const normalizePriceInput = (value: string) =>
+  normalizeDigits(value).replace(/[^\d]/g, '');
+
+const formatPriceInput = (value: string) => {
+  const digits = normalizePriceInput(value);
+  if (!digits) return '';
+  return new Intl.NumberFormat('en-US').format(Number(digits));
+};
+
 export default function ProductsPage() {
   const { user, token } = useAuthStore();
   const restaurantName = user?.restaurants?.[0]?.name;
@@ -242,7 +256,13 @@ export default function ProductsPage() {
             <Input label="نام فارسی" value={form.name_fa} onValueChange={(v) => setForm((f) => ({ ...f, name_fa: v }))} />
             <Input label="نام انگلیسی" value={form.name} onValueChange={(v) => setForm((f) => ({ ...f, name: v }))} />
             <Input label="بارکد" value={form.barcode} onValueChange={(v) => setForm((f) => ({ ...f, barcode: v }))} />
-            <Input label="قیمت" type="number" value={form.price} onValueChange={(v) => setForm((f) => ({ ...f, price: v }))} />
+            <Input
+              label="قیمت"
+              type="text"
+              inputMode="numeric"
+              value={formatPriceInput(form.price)}
+              onValueChange={(v) => setForm((f) => ({ ...f, price: normalizePriceInput(v) }))}
+            />
             <Select
               label="دسته‌بندی"
               selectedKeys={form.category_id ? [form.category_id] : []}
