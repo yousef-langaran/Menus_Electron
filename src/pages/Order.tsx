@@ -1857,7 +1857,7 @@ export default function OrderPage() {
                         </div>
 
                         <Textarea label="یادداشت (اختیاری)" placeholder="یادداشت برای آشپزخانه" value={notes}
-                                  onValueChange={setNotes} minRows={2} variant="bordered"
+                                  onValueChange={setNotes} minRows={2}
                                   classNames={{input: 'text-right'}}/>
 
                         <div className="rounded-lg bg-default-100 p-4 space-y-2">
