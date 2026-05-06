@@ -61,7 +61,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-primary-500 to-secondary-500 p-4">
-      <Card className="w-full max-w-[400px] shadow-xl">
+      <Card className="w-full max-w-[400px] shadow-xl bg-transparent">
         <CardContent className="p-8 gap-6">
           <h1 className="text-2xl font-bold text-center text-foreground">ورود به سیستم</h1>
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -71,9 +71,9 @@ export default function LoginPage() {
               value={mobile}
               onValueChange={(v) => { setMobile(v); setMobileError(''); }}
               isRequired
+              variant={'primary'}
               isInvalid={!!mobileError}
               errorMessage={mobileError}
-              variant="bordered"
               size="lg"
               classNames={{ input: 'text-right' }}
             />
@@ -86,22 +86,21 @@ export default function LoginPage() {
               isRequired
               isInvalid={!!passwordError}
               errorMessage={passwordError}
-              variant="bordered"
               size="lg"
               classNames={{ input: 'text-right' }}
               endContent={
-                <button
-                  type="button"
+                <Button
+                  isIconOnly
+                  size={'sm'}
+                  variant={'flat'}
                   className="focus:outline-none p-1"
-                  onClick={() => setIsPasswordVisible((v) => !v)}
-                  aria-label={isPasswordVisible ? 'مخفی کردن رمز عبور' : 'نمایش رمز عبور'}
-                >
+                  onClick={() => setIsPasswordVisible((v) => !v)}>
                   {isPasswordVisible ? (
                     <EyeSlashIcon className="w-5 h-5 text-default-400" />
                   ) : (
                     <EyeIcon className="w-5 h-5 text-default-400" />
                   )}
-                </button>
+                </Button>
               }
             />
             {error && (
