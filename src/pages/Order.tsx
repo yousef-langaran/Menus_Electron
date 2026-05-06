@@ -1238,20 +1238,20 @@ export default function OrderPage() {
                         variant="bordered"
                         classNames={{ input: 'text-right', base: 'max-w-[220px] sm:max-w-xs' }}
                     />
-                    <Input
-                        placeholder="اسکن بارکد محصول"
-                        value={barcodeInput}
-                        onValueChange={setBarcodeInput}
-                        onKeyDown={(e) => {
-                            const keyCode = (e as any).keyCode;
-                            if (e.key === 'Enter' || e.code === 'NumpadEnter' || keyCode === 13) {
-                                e.preventDefault();
-                                handleBarcodeAdd();
-                            }
-                        }}
-                        variant="bordered"
-                        classNames={{ input: 'text-right', base: 'max-w-[200px] sm:max-w-xs' }}
-                    />
+                    {/*<Input*/}
+                    {/*    placeholder="اسکن بارکد محصول"*/}
+                    {/*    value={barcodeInput}*/}
+                    {/*    onValueChange={setBarcodeInput}*/}
+                    {/*    onKeyDown={(e) => {*/}
+                    {/*        const keyCode = (e as any).keyCode;*/}
+                    {/*        if (e.key === 'Enter' || e.code === 'NumpadEnter' || keyCode === 13) {*/}
+                    {/*            e.preventDefault();*/}
+                    {/*            handleBarcodeAdd();*/}
+                    {/*        }*/}
+                    {/*    }}*/}
+                    {/*    variant="bordered"*/}
+                    {/*    classNames={{ input: 'text-right', base: 'max-w-[200px] sm:max-w-xs' }}*/}
+                    {/*/>*/}
                 </div>
                 {editingOrderId != null ? (
                     <Button variant="flat" color="warning" onPress={() => navigate('/orders')}>
