@@ -299,8 +299,8 @@ export function ElectronMenubar() {
 
       <div className="flex items-center gap-2 flex-wrap justify-end ms-auto">
         {restaurantLabel ? (
-          <Chip size="sm" variant="bordered" className="max-w-[140px] truncate text-xs">
-            {restaurantLabel}
+          <Chip color={'accent'} size="sm" variant={'soft'} className="max-w-[140px] truncate text-xs">
+            <Chip.Label>{restaurantLabel}</Chip.Label>
           </Chip>
         ) : null}
         <Chip size="sm" variant="soft" color="default" className="max-w-[160px] truncate text-xs">
