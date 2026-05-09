@@ -94,12 +94,14 @@ export default function LoginPage() {
               isInvalid={!!mobileError}
               errorMessage={mobileError}
               size="lg"
+              variant={"primary"}
               classNames={{ input: 'text-right' }}
             />
             <Input
               label="رمز عبور"
               type={isPasswordVisible ? 'text' : 'password'}
               placeholder="رمز عبور"
+              variant={"primary"}
               value={password}
               onValueChange={(v) => {
                 setPassword(v);
