@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '@heroui/react';
+import {
+  Alert,
+  Button as HeroButton,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@heroui/react';
 import { Input } from '../ui/compat-input';
 import { Button } from '../ui/compat-button';
 import { useAuthStore } from '../store/authStore';
@@ -18,9 +26,6 @@ const EyeSlashIcon = ({ className }: { className?: string }) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
   </svg>
 );
-
-const loginSubmitBtnClass =
-  'w-full min-h-12 font-semibold !bg-linear-to-r !from-[#0a5fa8] !via-[#0b2f6b] !to-[#5db8a1] text-white shadow-lg shadow-[#0a5fa8]/35 hover:opacity-92 active:scale-[0.99] transition-[opacity,transform] border-0 [&[data-pending=true]]:opacity-95';
 
 export default function LoginPage() {
   const [mobile, setMobile] = useState('');
@@ -63,24 +68,23 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      className="min-h-screen flex justify-center items-center p-4 sm:p-6 dir-rtl bg-linear-to-br from-[#0a5fa8] via-[#0b2f6b] to-[#5db8a1] text-foreground"
-      dir="rtl">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(255,255,255,0.18),transparent)]" aria-hidden />
-      <Card className="relative z-[1] w-full max-w-[420px] shadow-2xl rounded-2xl border border-white/25 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/90">
-        <CardContent className="p-8 sm:p-10 flex flex-col gap-6">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <img
-              src="/branding/hoshmenu-electron-logo.png"
-              alt="هوش منو"
-              className="h-[72px] w-auto max-w-[220px] object-contain select-none"
-              draggable={false}
-            />
-            <div>
-              <h1 className="text-xl font-bold text-slate-800 tracking-tight">ورود به برنامه</h1>
-              <p className="mt-1 text-sm text-slate-500 leading-relaxed">مدیریت سفارش و منوی دیجیتال رستوران</p>
-            </div>
+    <div className="flex min-h-screen items-center justify-center bg-default-100 p-4 sm:p-6" dir="rtl">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="flex flex-col items-center gap-3 pt-8 pb-0">
+          <img
+            src="/branding/hoshmenu-electron-logo.png"
+            alt="هوش منو"
+            className="h-[72px] w-auto max-w-[220px] object-contain select-none"
+            draggable={false}
+          />
+          <div className="text-center">
+            <CardTitle className="text-xl font-semibold">ورود به برنامه</CardTitle>
+            <CardDescription className="mt-1.5 text-default-500">
+              مدیریت سفارش و منوی دیجیتال رستوران
+            </CardDescription>
           </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5 px-6 pb-8 pt-6 sm:px-8">
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <Input
               label="شماره موبایل"
@@ -94,14 +98,12 @@ export default function LoginPage() {
               isInvalid={!!mobileError}
               errorMessage={mobileError}
               size="lg"
-              variant={"primary"}
               classNames={{ input: 'text-right' }}
             />
             <Input
               label="رمز عبور"
               type={isPasswordVisible ? 'text' : 'password'}
               placeholder="رمز عبور"
-              variant={"primary"}
               value={password}
               onValueChange={(v) => {
                 setPassword(v);
@@ -113,27 +115,30 @@ export default function LoginPage() {
               size="lg"
               classNames={{ input: 'text-right' }}
               endContent={
-                <Button
+                <HeroButton
+                  type="button"
                   isIconOnly
                   size="sm"
-                  variant="flat"
-                  type="button"
-                  className="focus:outline-none p-1 min-w-8"
-                  onPress={() => setIsPasswordVisible((v) => !v)}>
+                  variant="tertiary"
+                  className="min-w-8 shrink-0"
+                  onPress={() => setIsPasswordVisible((v) => !v)}
+                  aria-label={isPasswordVisible ? 'مخفی کردن رمز' : 'نمایش رمز'}>
                   {isPasswordVisible ? (
-                    <EyeSlashIcon className="w-5 h-5 text-default-400" />
+                    <EyeSlashIcon className="size-5 text-muted" />
                   ) : (
-                    <EyeIcon className="w-5 h-5 text-default-400" />
+                    <EyeIcon className="size-5 text-muted" />
                   )}
-                </Button>
+                </HeroButton>
               }
             />
-            {error && (
-              <div className="px-3 py-2.5 rounded-xl bg-danger-50 text-danger border border-danger-200/80 text-sm text-center leading-snug">
-                {error}
-              </div>
-            )}
-            <Button type="submit" size="lg" isLoading={isLoading} className={loginSubmitBtnClass}>
+            {error ? (
+              <Alert status="danger">
+                <Alert.Content>
+                  <Alert.Description className="text-center">{error}</Alert.Description>
+                </Alert.Content>
+              </Alert>
+            ) : null}
+            <Button type="submit" color="primary" size="lg" isLoading={isLoading} className="w-full font-semibold">
               {isLoading ? 'در حال ورود...' : 'ورود'}
             </Button>
           </form>
