@@ -150,7 +150,7 @@ export function ElectronMenubar() {
     >
       <div className="flex items-center gap-2 pe-2">
         <img
-          src="/branding/hoshmenu-electron-logo.png"
+          src="/branding/hoshmenu-frontend-logo.png"
           alt="هوش منو"
           className="h-7 w-auto ps-1"
         />

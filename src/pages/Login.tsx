@@ -63,7 +63,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-primary-500 to-secondary-500 p-4">
       <Card className="w-full max-w-[400px] shadow-xl bg-transparent">
         <CardContent className="p-8 gap-6">
-          <h1 className="text-2xl font-bold text-center text-foreground">ورود به سیستم</h1>
+          <img
+              src="/branding/hoshmenu-frontend-logo.png"
+              alt="هوش منو"
+          />
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <Input
               label="شماره موبایل"
