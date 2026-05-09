@@ -149,7 +149,11 @@ export function ElectronMenubar() {
       aria-label="منوی اصلی برنامه"
     >
       <div className="flex items-center gap-2 pe-2">
-        <span className="text-sm font-bold tracking-tight text-foreground ps-1">هوشمنو</span>
+        <img
+          src="/branding/hoshmenu-electron-logo.png"
+          alt="هوش منو"
+          className="h-7 w-auto ps-1"
+        />
         <Chip
           size="sm"
           variant="soft"
