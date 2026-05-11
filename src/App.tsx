@@ -4,6 +4,7 @@ import LoginPage from './pages/Login';
 import OrderPage from './pages/Order';
 import SettingsPage from './pages/Settings';
 import OrdersPage from './pages/Orders';
+import OrderReturnsPage from './pages/OrderReturns';
 import AccountingPage from './pages/Accounting';
 import AccountingRawMaterialsPage from './pages/accounting/RawMaterials';
 import AccountingSuppliersPage from './pages/accounting/Suppliers';
@@ -68,6 +69,7 @@ function AppRoutes() {
             <Route element={<RoutePermissionGuard />}>
               <Route path="/order" element={<OrderPage />} />
               <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/order-returns" element={<OrderReturnsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/categories" element={<CategoriesPage />} />
@@ -112,4 +114,3 @@ function App() {
 }
 
 export default App;
-

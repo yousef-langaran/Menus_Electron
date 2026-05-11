@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { fetchOrders, updateOrderStatus } from '../services/api';
+import CreateOrderReturnModal from '../components/CreateOrderReturnModal';
 import { getAllOrders } from '../services/offlineStorage';
 import { connectOrdersSocket, disconnectOrdersSocket } from '../services/ordersSocket';
 import { attachOrdersSocketPanelSidecar } from '../services/ordersSocketPanelSidecar';
@@ -87,6 +88,8 @@ export default function OrdersPage() {
   const [reprintIsOffline, setReprintIsOffline] = useState(false);
   const [reprintSelectedPrinters, setReprintSelectedPrinters] = useState<string[]>([]);
   const [reprintLoading, setReprintLoading] = useState(false);
+  const [returnModalOpen, setReturnModalOpen] = useState(false);
+  const [returnOrder, setReturnOrder] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(ORDERS_PAGE_SIZE);
   const [onlineMeta, setOnlineMeta] = useState(DEFAULT_ONLINE_META);
@@ -560,6 +563,16 @@ export default function OrdersPage() {
     setReprintModalOpen(true);
   };
 
+  const openReturnModal = (order: any) => {
+    setReturnOrder(order);
+    setReturnModalOpen(true);
+  };
+
+  const handleReturnSuccess = () => {
+    setSyncMessage('مرجوعی با موفقیت ثبت شد');
+    loadOnlineOrders();
+  };
+
   const doReprint = async () => {
     if (!window.electronAPI?.printReceipt || !reprintOrder || reprintSelectedPrinters.length === 0) {
       return;
@@ -700,6 +713,7 @@ export default function OrdersPage() {
                 </Button>
                 <Button size="sm" variant="flat" onPress={() => handlePreviewOrder(order)}>پیش‌نمایش رسید</Button>
                 <Button size="sm" variant="flat" color="primary" onPress={() => openReprintModal(order)} isDisabled={!canPrint}>چاپ مجدد</Button>
+                <Button size="sm" variant="flat" color="warning" onPress={() => openReturnModal(order)}>ثبت مرجوعی</Button>
                 <Select
                   size="sm"
                   className="max-w-40"
@@ -973,9 +987,17 @@ export default function OrdersPage() {
           </ModalFooter>
         </ModalShell>
       </Modal>
+
+      {returnOrder && token && restaurantName && (
+        <CreateOrderReturnModal
+          isOpen={returnModalOpen}
+          onClose={() => setReturnModalOpen(false)}
+          order={returnOrder}
+          restaurantName={restaurantName}
+          token={token}
+          onSuccess={handleReturnSuccess}
+        />
+      )}
     </div>
   );
 }
-
-
-

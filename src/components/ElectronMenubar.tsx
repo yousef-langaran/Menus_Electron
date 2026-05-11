@@ -73,6 +73,11 @@ export function ElectronMenubar() {
         label: 'لیست سفارشات',
         visible: (u) => canAccessRoute(u, '/orders'),
       },
+      {
+        path: '/order-returns',
+        label: 'مرجوعی‌ها',
+        visible: (u) => canAccessRoute(u, '/orders'),
+      },
     ],
     [],
   );

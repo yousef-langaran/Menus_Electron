@@ -681,3 +681,70 @@ export async function updateAccountingPurchaseInvoiceStatus(
   );
   return response.data as { invoiceId: number; status: string };
 }
+
+// Order Returns API
+export async function createOrderReturn(returnData: any, token: string) {
+  await apiConfigReady;
+  const response = await api.post('/order-returns', returnData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function fetchOrderReturns(
+  params: {
+    restaurantName?: string;
+    restaurantId?: number;
+    status?: string;
+    page?: number;
+    limit?: number;
+  },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.get('/order-returns', {
+    params,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function fetchOrderReturnById(returnId: number, token: string) {
+  await apiConfigReady;
+  const response = await api.get(`/order-returns/${returnId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function updateOrderReturn(
+  returnId: number,
+  updateData: { status?: string; notes?: string },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.patch(`/order-returns/${returnId}`, updateData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function deleteOrderReturn(returnId: number, token: string) {
+  await apiConfigReady;
+  const response = await api.delete(`/order-returns/${returnId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function fetchOrderReturnStats(
+  params: { restaurantName?: string; restaurantId?: number },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.get('/order-returns/stats', {
+    params,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
