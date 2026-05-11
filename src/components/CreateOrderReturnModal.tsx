@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { Select, SelectItem } from '../ui/compat-select';
-import { createOrderReturn } from '../services/api';
+import { ModalShell } from '../ui/modal-shell';
+import { createOrderReturn, fetchOrderReturns } from '../services/api';
 
 interface CreateOrderReturnModalProps {
   isOpen: boolean;
@@ -32,37 +33,106 @@ export default function CreateOrderReturnModal({
   const [reason, setReason] = useState('customer_request');
   const [notes, setNotes] = useState('');
   const [selectedItems, setSelectedItems] = useState<
-    Array<{ productId: number; quantity: number; unitPrice: number; maxQuantity: number }>
+    Array<{
+      productId: number;
+      quantity: number;
+      unitPrice: number;
+      orderedQuantity: number;
+      returnedQuantity: number;
+      remainingQuantity: number;
+    }>
   >([]);
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (isOpen && order?.items) {
-      // Initialize with all items at quantity 0
-      setSelectedItems(
-        order.items.map((item: any) => ({
-          productId: item.product.id,
-          quantity: 0,
-          unitPrice: item.price,
-          maxQuantity: item.quantity,
-        })),
-      );
+    if (!isOpen || !order?.items || !token || !restaurantName) {
+      return;
     }
-  }, [isOpen, order]);
+
+    let cancelled = false;
+
+    const loadReturnableItems = async () => {
+      setInitializing(true);
+      setError('');
+
+      try {
+        const response = await fetchOrderReturns(
+          {
+            restaurantName,
+            orderId: order.id,
+            limit: 100,
+          },
+          token,
+        );
+
+        const returnedByProduct = new Map<number, number>();
+        for (const orderReturn of response?.data || []) {
+          if (orderReturn?.status === 'rejected') continue;
+          for (const returnItem of orderReturn?.items || []) {
+            const productId = returnItem?.product?.id;
+            if (!productId) continue;
+            const currentValue = returnedByProduct.get(productId) || 0;
+            returnedByProduct.set(productId, currentValue + Number(returnItem.quantity || 0));
+          }
+        }
+
+        const nextItems = order.items.map((item: any) => {
+          const productId = item?.product?.id;
+          const orderedQuantity = Number(item?.quantity || 0);
+          const returnedQuantity = Number(returnedByProduct.get(productId) || 0);
+          const remainingQuantity = Math.max(0, orderedQuantity - returnedQuantity);
+
+          return {
+            productId,
+            quantity: 0,
+            unitPrice: Number(item?.price || 0),
+            orderedQuantity,
+            returnedQuantity,
+            remainingQuantity,
+          };
+        });
+
+        if (!cancelled) {
+          setSelectedItems(nextItems);
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          console.error('Error loading existing returns:', err);
+          setError(err.response?.data?.message || 'خطا در خواندن وضعیت مرجوعی سفارش');
+        }
+      } finally {
+        if (!cancelled) {
+          setInitializing(false);
+        }
+      }
+    };
+
+    void loadReturnableItems();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, order, token, restaurantName]);
 
   const handleQuantityChange = (productId: number, quantity: number) => {
     setSelectedItems((prev) =>
       prev.map((item) =>
         item.productId === productId
-          ? { ...item, quantity: Math.min(Math.max(0, quantity), item.maxQuantity) }
+          ? {
+              ...item,
+              quantity: Math.min(Math.max(0, quantity), item.remainingQuantity),
+            }
           : item,
       ),
     );
   };
 
   const handleSubmit = async () => {
-    const itemsToReturn = selectedItems.filter((item) => item.quantity > 0);
+    const itemsToReturn = selectedItems.filter(
+      (item) => item.quantity > 0 && item.remainingQuantity > 0,
+    );
 
     if (itemsToReturn.length === 0) {
       setError('لطفاً حداقل یک آیتم برای مرجوعی انتخاب کنید');
@@ -104,98 +174,145 @@ export default function CreateOrderReturnModal({
     setError('');
   };
 
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
   const totalReturnAmount = selectedItems.reduce(
     (sum, item) => sum + item.quantity * item.unitPrice,
     0,
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="2xl">
-      <ModalHeader>ایجاد مرجوعی برای سفارش {order?.orderNumber}</ModalHeader>
-      <ModalBody>
+    <Modal isOpen={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <ModalShell size="lg">
+      <ModalHeader className="border-b border-default-200 pb-3">
+        <div className="flex w-full items-center justify-between gap-3" dir="rtl">
+          <div className="flex flex-col">
+            <span className="text-lg font-bold text-foreground">ثبت مرجوعی</span>
+            <span className="text-sm text-default-500">
+              سفارش #{order?.orderNumber || order?.id}
+            </span>
+          </div>
+          <div className="rounded-full bg-warning-100 px-3 py-1 text-xs font-medium text-warning-700">
+            مرجوعی جزئی
+          </div>
+        </div>
+      </ModalHeader>
+      <ModalBody className="py-4">
         <div className="space-y-4" dir="rtl">
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            <div className="rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-danger-700">
               {error}
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium mb-2">دلیل مرجوعی</label>
-            <Select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full">
+          <div className="rounded-2xl border border-default-200 bg-default-50 p-4">
+            <label className="mb-2 block text-sm font-medium text-foreground">دلیل مرجوعی</label>
+            <Select
+              selectedKeys={[reason]}
+              onSelectionChange={(keys) => {
+                const value = Array.from(keys)[0];
+                if (typeof value === 'string') {
+                  setReason(value);
+                }
+              }}
+              className="w-full"
+            >
               {RETURN_REASONS.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
+                <SelectItem key={r.value} textValue={r.label}>
                   {r.label}
                 </SelectItem>
               ))}
             </Select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">آیتم‌های مرجوعی</label>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+          <div className="rounded-2xl border border-default-200 bg-content1 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <label className="block text-sm font-medium text-foreground">آیتم‌های مرجوعی</label>
+              <span className="text-xs text-default-500">فقط تعداد قابل مرجوع فعال است</span>
+            </div>
+            {initializing ? (
+              <div className="py-6 text-center text-gray-500">در حال بررسی اقلام قابل مرجوعی...</div>
+            ) : (
+            <div className="max-h-[360px] space-y-3 overflow-y-auto pl-1">
               {order?.items?.map((orderItem: any, idx: number) => {
                 const selectedItem = selectedItems.find(
                   (si) => si.productId === orderItem.product.id,
                 );
+                const remainingQuantity = selectedItem?.remainingQuantity || 0;
+                const returnedQuantity = selectedItem?.returnedQuantity || 0;
                 return (
-                  <div key={idx} className="border rounded p-3 flex justify-between items-center">
-                    <div className="flex-1">
-                      <p className="font-medium">{orderItem.product.name}</p>
-                      <p className="text-sm text-gray-600">
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-default-200 bg-default-50 p-4"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-foreground">
+                        {orderItem.product.name_fa || orderItem.product.name}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-600">
                         قیمت: {new Intl.NumberFormat('fa-IR').format(orderItem.price)} تومان
                       </p>
                       <p className="text-sm text-gray-600">
                         تعداد در سفارش: {orderItem.quantity}
                       </p>
+                      <p className="text-sm text-gray-600">
+                        مرجوع‌شده: {returnedQuantity} | قابل مرجوع: {remainingQuantity}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm">تعداد مرجوعی:</label>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <label className="text-xs font-medium text-default-600">تعداد مرجوعی</label>
                       <input
                         type="number"
                         min="0"
-                        max={orderItem.quantity}
+                        max={remainingQuantity}
                         value={selectedItem?.quantity || 0}
                         onChange={(e) =>
                           handleQuantityChange(orderItem.product.id, parseInt(e.target.value) || 0)
                         }
-                        className="w-20 px-2 py-1 border rounded"
+                        disabled={remainingQuantity <= 0}
+                        className="w-24 rounded-xl border border-default-300 bg-white px-3 py-2 text-center outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:bg-default-100"
                       />
                     </div>
                   </div>
                 );
               })}
             </div>
+            )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">یادداشت (اختیاری)</label>
+          <div className="rounded-2xl border border-default-200 bg-default-50 p-4">
+            <label className="mb-2 block text-sm font-medium text-foreground">یادداشت (اختیاری)</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
+              className="w-full rounded-2xl border border-default-300 bg-white px-3 py-3 outline-none transition focus:border-primary"
               rows={3}
               placeholder="توضیحات اضافی..."
             />
           </div>
 
-          <div className="bg-gray-100 p-3 rounded">
-            <p className="font-semibold">
+          <div className="rounded-2xl border border-success-200 bg-success-50 p-4">
+            <p className="text-sm text-success-700">جمع مرجوعی انتخاب‌شده</p>
+            <p className="mt-1 text-lg font-bold text-success-800">
               مبلغ کل مرجوعی: {new Intl.NumberFormat('fa-IR').format(totalReturnAmount)} تومان
             </p>
           </div>
         </div>
       </ModalBody>
-      <ModalFooter>
-        <div className="flex gap-2">
-          <Button onClick={handleSubmit} disabled={loading} color="primary">
+      <ModalFooter className="border-t border-default-200 pt-3">
+        <div className="flex w-full flex-row-reverse gap-2" dir="rtl">
+          <Button onClick={handleSubmit} isDisabled={loading || initializing} color="primary">
             {loading ? 'در حال ثبت...' : 'ثبت مرجوعی'}
           </Button>
-          <Button onClick={onClose} variant="outline" disabled={loading}>
+          <Button onClick={handleClose} variant="outline" isDisabled={loading}>
             انصراف
           </Button>
         </div>
       </ModalFooter>
+      </ModalShell>
     </Modal>
   );
 }

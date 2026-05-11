@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { fetchOrders, updateOrderStatus } from '../services/api';
 import CreateOrderReturnModal from '../components/CreateOrderReturnModal';
 import { getAllOrders } from '../services/offlineStorage';
+import { hasModuleAccess } from '../lib/electronPermissions';
 import { connectOrdersSocket, disconnectOrdersSocket } from '../services/ordersSocket';
 import { attachOrdersSocketPanelSidecar } from '../services/ordersSocketPanelSidecar';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
@@ -104,6 +105,17 @@ export default function OrdersPage() {
   const restaurantNameFa = useMemo(
     () => user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || '',
     [user]
+  );
+  const primaryRestaurantId = user?.restaurants?.[0]?.id;
+  const canRegisterReturn = useMemo(
+    () =>
+      hasModuleAccess(
+        user,
+        'orders_management',
+        ['update', 'create', 'manage'],
+        primaryRestaurantId,
+      ),
+    [primaryRestaurantId, user],
   );
   const enabledPrinters = useMemo(
     () => Object.values(printerConfigs || {}).filter((config) => config.enabled),
@@ -713,7 +725,11 @@ export default function OrdersPage() {
                 </Button>
                 <Button size="sm" variant="flat" onPress={() => handlePreviewOrder(order)}>پیش‌نمایش رسید</Button>
                 <Button size="sm" variant="flat" color="primary" onPress={() => openReprintModal(order)} isDisabled={!canPrint}>چاپ مجدد</Button>
-                <Button size="sm" variant="flat" color="warning" onPress={() => openReturnModal(order)}>ثبت مرجوعی</Button>
+                {canRegisterReturn && (
+                  <Button size="sm" variant="flat" color="warning" onPress={() => openReturnModal(order)}>
+                    ثبت مرجوعی
+                  </Button>
+                )}
                 <Select
                   size="sm"
                   className="max-w-40"
