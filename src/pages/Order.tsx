@@ -1471,7 +1471,7 @@ export default function OrderPage() {
                                                                     min={0.1}
                                                                     step={0.1}
                                                                     size="sm"
-                                                                    className="h-7 min-h-7 w-12 max-w-[3.25rem] py-0 text-center text-xs"
+                                                                    className="h-7 min-h-7 w-full max-w-[4.25rem] py-0 text-center text-xs"
                                                                     value={String(item.quantity)}
                                                                     onValueChange={(v) => {
                                                                         const val = parseFloat(String(v).replace(',', '.'));
