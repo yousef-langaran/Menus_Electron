@@ -1108,10 +1108,10 @@ export default function OrderPage() {
         }
     };
 
-    const resetOrderSession = () => {
+    const resetOrderSession = (options?: { skipConfirm?: boolean }) => {
         const hasItems = cart.length > 0;
         const shouldConfirm = hasItems || editingOrderId != null;
-        if (shouldConfirm) {
+        if (shouldConfirm && !options?.skipConfirm) {
             const confirmed = window.confirm('سبد خرید و اطلاعات سفارش ریست شود و سفارش جدید شروع شود؟');
             if (!confirmed) return;
         }
@@ -1136,6 +1136,14 @@ export default function OrderPage() {
             navigate('/order');
         }
     };
+
+    useEffect(() => {
+        const onResetShortcut = () => {
+            resetOrderSession({ skipConfirm: true });
+        };
+        window.addEventListener('menus-electron:reset-order-session', onResetShortcut);
+        return () => window.removeEventListener('menus-electron:reset-order-session', onResetShortcut);
+    }, [resetOrderSession]);
 
     useEffect(() => {
         if (!quickScanEnabled) return;

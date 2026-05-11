@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { I18nProvider } from 'react-aria-components';
 import LoginPage from './pages/Login';
 import OrderPage from './pages/Order';
@@ -44,6 +44,33 @@ function UnauthorizedListener() {
   return null;
 }
 
+function GlobalShortcutListener() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'F2') return;
+      if (!user) return;
+
+      event.preventDefault();
+
+      if (pathname === '/order') {
+        window.dispatchEvent(new Event('menus-electron:reset-order-session'));
+        return;
+      }
+
+      navigate('/order');
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [navigate, pathname, user]);
+
+  return null;
+}
+
 function RequireAuth() {
   const user = useAuthStore((s) => s.user);
   if (!user) return <Navigate to="/login" replace />;
@@ -55,6 +82,7 @@ function AppRoutes() {
   return (
     <I18nProvider locale="fa-IR">
       <UnauthorizedListener />
+      <GlobalShortcutListener />
       <UpdateBanner />
       <OfflineOrdersSync />
       <AccountingSyncManager />
