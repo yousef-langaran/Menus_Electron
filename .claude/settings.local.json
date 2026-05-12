@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"d:\\\\Project\\\\MyProject\\\\Menus\\\\Menus_Electron\" -Depth 0)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(npx tsc *)",
+      "Bash(Get-ChildItem tsconfig*.json)",
+      "Bash(Select-Object Name)",
+      "Bash(npx vite *)"
+    ]
+  }
+}

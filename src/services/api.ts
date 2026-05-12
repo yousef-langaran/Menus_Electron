@@ -558,6 +558,48 @@ export async function closeFiscalYear(
   return response.data;
 }
 
+export interface MasterProduct {
+  id: number;
+  name: string;
+  barcode: string;
+  category?: string;
+}
+
+/** جستجوی محصول پایه بر اساس بارکد — در صورت عدم یافتن یا خطا، null برمی‌گرداند */
+export async function getMasterProductByBarcode(
+  barcode: string,
+  token?: string,
+): Promise<MasterProduct | null> {
+  await apiConfigReady;
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  try {
+    const response = await api.get(`/master-products/barcode/${encodeURIComponent(barcode)}`, { headers });
+    return response.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** ایجاد محصول جدید در رستوران */
+export async function createProduct(
+  data: {
+    name: string;
+    barcode?: string;
+    category?: string;
+    price: number;
+    restaurantId?: number;
+    restaurantName?: string;
+  },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.post('/products', data, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
 export async function updateAccountingPurchaseInvoiceStatus(
   invoiceId: number,
   payload: { restaurantId: number; status: 'pending_approval' | 'approved' | 'rejected' },

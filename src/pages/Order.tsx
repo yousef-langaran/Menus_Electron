@@ -11,7 +11,9 @@ import {
     addCustomer,
     createCustomerAddress,
     validateDiscountCode,
-    fetchOrderById
+    fetchOrderById,
+    getMasterProductByBarcode,
+    createProduct,
 } from '../services/api';
 import {getCachedMenu, cacheMenu} from '../services/cache';
 import {useNavigate, useSearchParams} from 'react-router-dom';
@@ -158,6 +160,16 @@ export default function OrderPage() {
     const scanBufferRef = useRef('');
     const scanLastKeyAtRef = useRef(0);
     const audioCtxRef = useRef<AudioContext | null>(null);
+
+    // ── افزودن محصول جدید هنگام عدم یافتن بارکد ──
+    const [showAddProductModal, setShowAddProductModal] = useState(false);
+    const [addProductBarcode, setAddProductBarcode] = useState('');
+    const [addProductName, setAddProductName] = useState('');
+    const [addProductCategory, setAddProductCategory] = useState('');
+    const [addProductPrice, setAddProductPrice] = useState('');
+    const [isCheckingMasterProduct, setIsCheckingMasterProduct] = useState(false);
+    const [addProductSubmitting, setAddProductSubmitting] = useState(false);
+    const [addProductError, setAddProductError] = useState('');
 
     const isElectronWithPrinters = typeof window !== 'undefined' && Boolean(window.electronAPI) && enabledPrinters.length > 0;
     /** کد تخفیف فقط وقتی فعال است که شماره موبایل وارد شده و اتصال آنلاین باشد */
@@ -876,13 +888,29 @@ export default function OrderPage() {
         return new Intl.NumberFormat('fa-IR').format(price) + ' تومان';
     };
 
-    const handleBarcodeAdd = (rawCode?: string) => {
+    const handleBarcodeAdd = async (rawCode?: string) => {
         const code = (rawCode ?? barcodeInput).trim();
         if (!code) return;
         const matched = products.find((p: any) => String(p?.barcode || '').trim() === code);
         if (!matched) {
             playScanBeep(false);
-            setError('محصولی با این بارکد پیدا نشد');
+            if (!rawCode) setBarcodeInput('');
+            setAddProductBarcode(code);
+            setAddProductName('');
+            setAddProductCategory('');
+            setAddProductPrice('');
+            setAddProductError('');
+            setIsCheckingMasterProduct(true);
+            setShowAddProductModal(true);
+            try {
+                const master = await getMasterProductByBarcode(code, token || undefined);
+                if (master) {
+                    setAddProductName(master.name);
+                    setAddProductCategory(master.category || '');
+                }
+            } finally {
+                setIsCheckingMasterProduct(false);
+            }
             return;
         }
         setSuccessMessage('');
@@ -890,6 +918,40 @@ export default function OrderPage() {
         if (!rawCode) setBarcodeInput('');
         playScanBeep(true);
         setError('');
+    };
+
+    const handleSubmitAddProduct = async () => {
+        if (!addProductName.trim() || !addProductPrice.trim()) {
+            setAddProductError('نام و قیمت محصول الزامی است');
+            return;
+        }
+        if (!token) return;
+        setAddProductSubmitting(true);
+        setAddProductError('');
+        const restaurantName = user?.restaurants?.[0]?.name;
+        const restaurantId = user?.restaurants?.[0]?.id;
+        try {
+            const created = await createProduct(
+                {
+                    name: addProductName.trim(),
+                    barcode: addProductBarcode || undefined,
+                    category: addProductCategory.trim() || undefined,
+                    price: Number(addProductPrice),
+                    restaurantId: restaurantId ? Number(restaurantId) : undefined,
+                    restaurantName,
+                },
+                token,
+            );
+            addToCart(created);
+            playScanBeep(true);
+            setShowAddProductModal(false);
+            // Reload products in background so future scans find the new item
+            getProducts(restaurantName, restaurantId, token).then(setProducts).catch(() => {});
+        } catch {
+            setAddProductError('خطا در ثبت محصول. لطفاً دوباره تلاش کنید.');
+        } finally {
+            setAddProductSubmitting(false);
+        }
     };
 
     const playScanBeep = (ok: boolean) => {
@@ -1588,6 +1650,50 @@ export default function OrderPage() {
                             {isSubmitting
                                 ? (editingOrderId != null ? 'در حال ذخیره...' : 'در حال ثبت...')
                                 : (editingOrderId != null ? 'ذخیرهٔ فاکتور' : 'ثبت نهایی')}
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* مودال افزودن محصول جدید هنگام عدم یافتن بارکد */}
+            <Modal isOpen={showAddProductModal} onOpenChange={setShowAddProductModal} size="lg">
+                <ModalContent>
+                    <ModalHeader>افزودن محصول جدید</ModalHeader>
+                    <ModalBody className="gap-3">
+                        {isCheckingMasterProduct && (
+                            <p className="text-default-500 text-sm text-center py-2">در حال جستجو در محصولات پایه...</p>
+                        )}
+                        <Input label="بارکد" value={addProductBarcode} isReadOnly />
+                        <Input
+                            label="نام محصول"
+                            value={addProductName}
+                            onValueChange={setAddProductName}
+                            isDisabled={isCheckingMasterProduct}
+                        />
+                        <Input
+                            label="دسته‌بندی"
+                            value={addProductCategory}
+                            onValueChange={setAddProductCategory}
+                            isDisabled={isCheckingMasterProduct}
+                        />
+                        <Input
+                            type="number"
+                            label="قیمت (تومان)"
+                            value={addProductPrice}
+                            onValueChange={setAddProductPrice}
+                            isDisabled={isCheckingMasterProduct}
+                        />
+                        {addProductError && <p className="text-danger text-sm">{addProductError}</p>}
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="flat" onPress={() => setShowAddProductModal(false)}>انصراف</Button>
+                        <Button
+                            color="primary"
+                            isLoading={addProductSubmitting}
+                            isDisabled={isCheckingMasterProduct}
+                            onPress={handleSubmitAddProduct}
+                        >
+                            ثبت محصول
                         </Button>
                     </ModalFooter>
                 </ModalContent>
