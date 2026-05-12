@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, CardBody } from '@heroui/react';
+import { Card, CardContent } from '@heroui/react';
+import { Button } from '../../ui/compat-button';
 import { useAuthStore } from '../../store/authStore';
 import { fetchAccountingPurchaseReport, updateAccountingPurchaseInvoiceStatus } from '../../services/api';
 import { useFiscalYearStore } from '../../store/fiscalYearStore';
@@ -36,7 +37,7 @@ export default function AccountingServerPurchasesPage() {
         <Button variant="flat" onPress={() => navigate('/accounting')}>بازگشت</Button>
       </div>
       <Card>
-        <CardBody className="gap-2">
+        <CardContent className="gap-2">
           {rows.length === 0 ? <p className="text-sm text-default-500">موردی یافت نشد.</p> : rows.map((r) => (
             <div key={r.id} className="text-sm bg-default-100 rounded p-2 flex justify-between items-center">
               <span>{r.invoiceNumber} | {r.supplierName} | {r.status} | بدهی: {r.debtAmount}</span>
@@ -48,7 +49,7 @@ export default function AccountingServerPurchasesPage() {
               ) : null}
             </div>
           ))}
-        </CardBody>
+        </CardContent>
       </Card>
     </div>
   );

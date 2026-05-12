@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, CardBody, Select, SelectItem } from '@heroui/react';
+import { Card, CardContent } from '@heroui/react';
+import { Button } from '../ui/compat-button';
+import { Select, SelectItem } from '../ui/compat-select';
 import { useSyncStore } from '../store/syncStore';
 import { useAuthStore } from '../store/authStore';
 import { closeFiscalYear, listFiscalYears, setActiveFiscalYear } from '../services/api';
@@ -32,31 +34,23 @@ export default function AccountingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-default-100">
-      <header className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
-        <h1 className="text-xl font-bold text-foreground">حسابداری (آفلاین)</h1>
-        <div className="flex gap-2">
-          <Button variant="flat" color="default" onPress={() => navigate('/order')}>
-            ثبت سفارش
-          </Button>
-          <Button variant="flat" color="default" onPress={() => navigate('/settings')}>
-            تنظیمات
-          </Button>
-        </div>
+      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm">
+        <h1 className="text-lg sm:text-xl font-bold text-foreground">حسابداری (آفلاین)</h1>
       </header>
 
       <div className="p-6 max-w-5xl mx-auto w-full space-y-4">
         <Card>
-          <CardBody className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+          <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
             <div className="bg-default-100 rounded-lg p-2">عملیات صف: {pendingOps}</div>
             <div className="bg-default-100 rounded-lg p-2">ناموفق: {failedOps}</div>
             <div className="bg-default-100 rounded-lg p-2">در حال سینک: {isSyncing ? 'بله' : 'خیر'}</div>
             <div className="bg-default-100 rounded-lg p-2">
               آخرین سینک: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString('fa-IR') : '—'}
             </div>
-          </CardBody>
+          </CardContent>
         </Card>
         <Card>
-          <CardBody className="flex flex-col gap-3">
+          <CardContent className="flex flex-col gap-3">
             <h3 className="font-semibold">سال مالی فعال</h3>
             <Select
               label="سال مالی"
@@ -89,36 +83,36 @@ export default function AccountingPage() {
                 بستن سال مالی فعال
               </Button>
             ) : null}
-          </CardBody>
+          </CardContent>
         </Card>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           <Card>
-            <CardBody className="gap-2">
+            <CardContent className="gap-2">
               <h3 className="font-semibold">مواد اولیه</h3>
               <p className="text-sm text-default-500">ثبت، جستجو و ویرایش مواد اولیه</p>
               <Button color="primary" onPress={() => navigate('/accounting/raw-materials')}>ورود</Button>
-            </CardBody>
+            </CardContent>
           </Card>
           <Card>
-            <CardBody className="gap-2">
+            <CardContent className="gap-2">
               <h3 className="font-semibold">تامین‌کنندگان</h3>
               <p className="text-sm text-default-500">ثبت، جستجو و ویرایش تامین‌کننده</p>
               <Button color="primary" onPress={() => navigate('/accounting/suppliers')}>ورود</Button>
-            </CardBody>
+            </CardContent>
           </Card>
           <Card>
-            <CardBody className="gap-2">
+            <CardContent className="gap-2">
               <h3 className="font-semibold">پیش‌نویس‌های خرید</h3>
               <p className="text-sm text-default-500">ثبت و مدیریت پیش‌نویس فاکتور خرید</p>
               <Button color="primary" onPress={() => navigate('/accounting/purchase-drafts')}>ورود</Button>
-            </CardBody>
+            </CardContent>
           </Card>
           <Card>
-            <CardBody className="gap-2">
+            <CardContent className="gap-2">
               <h3 className="font-semibold">فاکتورهای سرور</h3>
               <p className="text-sm text-default-500">مشاهده، تایید و رد فاکتورهای خرید سرور</p>
               <Button color="primary" onPress={() => navigate('/accounting/server-purchases')}>ورود</Button>
-            </CardBody>
+            </CardContent>
           </Card>
         </div>
       </div>

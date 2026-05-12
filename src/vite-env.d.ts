@@ -69,6 +69,7 @@ declare global {
       ) => Promise<{ success: boolean; html?: string; imageDataUrl?: string; error?: string }>;
       loadUserSession: () => Promise<{ user: any; token: string; cachedAt: string } | null>;
       saveUserSession: (data: { user: any; token: string }) => Promise<{ success: boolean; error?: string }>;
+      updateUserSessionToken: (token: string) => Promise<{ success: boolean; error?: string }>;
       clearUserSession: () => Promise<{ success: boolean; error?: string }>;
       loadPrinterConfigs: () => Promise<Record<string, any>>;
       savePrinterConfigs: (configs: Record<string, any>) => Promise<{ success: boolean; error?: string }>;

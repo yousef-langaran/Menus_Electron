@@ -5,6 +5,15 @@ import { useAuthStore } from './authStore';
 import {getCachedMenu} from "@/services/cache.ts";
 import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
 
+function extractApiErrorMessage(error: any): string {
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    'خطا در ارتباط با سرور'
+  );
+}
+
 /** نتیجهٔ ثبت کد تخفیف (بعد از اعتبارسنجی) */
 export interface AppliedDiscountCode {
     code: string;
@@ -157,7 +166,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
     submitOrder: async (options) => {
         const state = get();
-        const {token, user} = useAuthStore.getState();
+        const authState = useAuthStore.getState();
+        const token = authState.token;
+        const user = authState.user;
         const onOrderCreated = options?.onOrderCreated;
         const restaurantName = user?.restaurants?.[0]?.name;
         const restaurantId = user?.restaurants?.[0]?.id;
@@ -225,8 +236,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             const isOnline = window.electronAPI ? await window.electronAPI.checkOnline() : navigator.onLine;
 
       if (isOnline) {
+        const latestToken = useAuthStore.getState().token;
+        if (!latestToken) {
+          set({ isSubmitting: false });
+          return { success: false, error: 'نشست کاربری معتبر نیست. دوباره وارد شوید.' };
+        }
         // ارسال در پس‌زمینه — بلافاصله موفق برگرد و چاپ وقتی جواب آمد
-        createOrder(orderData, token)
+        createOrder(orderData, latestToken)
           .then((response) => {
             onOrderCreated?.({
               orderId: response.id,
@@ -237,17 +253,25 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             });
           })
           .catch(async (error: any) => {
-            console.warn('Online submission failed, saving offline:', error);
+            const status = Number(error?.response?.status || 0);
+            if (status === 401) {
+              // Let global 401 handler logout the session; do not store online-auth failures as offline orders.
+              console.warn('Online submission failed with 401:', extractApiErrorMessage(error));
+              return;
+            }
+            console.warn('Online submission failed, saving offline:', extractApiErrorMessage(error));
             const baseURL = API_BASE_URL;
             try {
               if (window.electronAPI) {
-                const res = await window.electronAPI.saveOfflineOrder(orderData, token, baseURL);
+                const freshToken = useAuthStore.getState().token || latestToken;
+                const res = await window.electronAPI.saveOfflineOrder(orderData, freshToken, baseURL);
                 if (res.success && res.orderId) {
                   onOrderCreated?.({ orderId: res.orderId, offline: true });
                   return;
                 }
               }
-              const orderId = await saveOfflineOrder(orderData, token, baseURL);
+              const freshToken = useAuthStore.getState().token || latestToken;
+              const orderId = await saveOfflineOrder(orderData, freshToken, baseURL);
               onOrderCreated?.({ orderId, offline: true });
             } catch (_) {
               // ignore
@@ -261,21 +285,23 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             const baseURL = API_BASE_URL;
             let orderId: number;
             if (window.electronAPI) {
-                const result = await window.electronAPI.saveOfflineOrder(orderData, token, baseURL);
+                const latestToken = useAuthStore.getState().token || token;
+                const result = await window.electronAPI.saveOfflineOrder(orderData, latestToken, baseURL);
                 if (result.success && result.orderId) {
                     orderId = result.orderId;
                 } else {
-                    orderId = await saveOfflineOrder(orderData, token, baseURL);
+                    orderId = await saveOfflineOrder(orderData, latestToken, baseURL);
                 }
             } else {
-                orderId = await saveOfflineOrder(orderData, token, baseURL);
+                const latestToken = useAuthStore.getState().token || token;
+                orderId = await saveOfflineOrder(orderData, latestToken, baseURL);
             }
             onOrderCreated?.({orderId, offline: true});
             set({isSubmitting: false});
             return {success: true, orderId, offline: true};
         } catch (error: any) {
             set({isSubmitting: false});
-            return {success: false, error: error.message || 'خطا در ثبت سفارش'};
+            return {success: false, error: extractApiErrorMessage(error)};
         }
     },
 

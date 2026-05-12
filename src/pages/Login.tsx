@@ -1,6 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardBody, Input, Button } from '@heroui/react';
+import {
+  Alert,
+  Button as HeroButton,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@heroui/react';
+import { Input } from '../ui/compat-input';
+import { Button } from '../ui/compat-button';
 import { useAuthStore } from '../store/authStore';
 import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
 
@@ -58,20 +68,35 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-primary-500 to-secondary-500 p-4">
-      <Card className="w-full max-w-[400px] shadow-xl">
-        <CardBody className="p-8 gap-6">
-          <h1 className="text-2xl font-bold text-center text-foreground">ورود به سیستم</h1>
+    <div className="flex min-h-screen items-center justify-center bg-default-100 p-4 sm:p-6" dir="rtl">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="flex flex-col items-center gap-3 pt-8 pb-0">
+          <img
+            src="/branding/hoshmenu-electron-logo.png"
+            alt="هوش منو"
+            className="h-[72px] w-auto max-w-[220px] object-contain select-none"
+            draggable={false}
+          />
+          <div className="text-center">
+            <CardTitle className="text-xl font-semibold">ورود به برنامه</CardTitle>
+            <CardDescription className="mt-1.5 text-default-500">
+              مدیریت سفارش و منوی دیجیتال رستوران
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5 px-6 pb-8 pt-6 sm:px-8">
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <Input
               label="شماره موبایل"
               placeholder="09123456789"
               value={mobile}
-              onValueChange={(v) => { setMobile(v); setMobileError(''); }}
+              onValueChange={(v) => {
+                setMobile(v);
+                setMobileError('');
+              }}
               isRequired
               isInvalid={!!mobileError}
               errorMessage={mobileError}
-              variant="bordered"
               size="lg"
               classNames={{ input: 'text-right' }}
             />
@@ -80,38 +105,44 @@ export default function LoginPage() {
               type={isPasswordVisible ? 'text' : 'password'}
               placeholder="رمز عبور"
               value={password}
-              onValueChange={(v) => { setPassword(v); setPasswordError(''); }}
+              onValueChange={(v) => {
+                setPassword(v);
+                setPasswordError('');
+              }}
               isRequired
               isInvalid={!!passwordError}
               errorMessage={passwordError}
-              variant="bordered"
               size="lg"
               classNames={{ input: 'text-right' }}
               endContent={
-                <button
+                <HeroButton
                   type="button"
-                  className="focus:outline-none p-1"
-                  onClick={() => setIsPasswordVisible((v) => !v)}
-                  aria-label={isPasswordVisible ? 'مخفی کردن رمز عبور' : 'نمایش رمز عبور'}
-                >
+                  isIconOnly
+                  size="sm"
+                  variant="tertiary"
+                  className="min-w-8 shrink-0"
+                  onPress={() => setIsPasswordVisible((v) => !v)}
+                  aria-label={isPasswordVisible ? 'مخفی کردن رمز' : 'نمایش رمز'}>
                   {isPasswordVisible ? (
-                    <EyeSlashIcon className="w-5 h-5 text-default-400" />
+                    <EyeSlashIcon className="size-5 text-muted" />
                   ) : (
-                    <EyeIcon className="w-5 h-5 text-default-400" />
+                    <EyeIcon className="size-5 text-muted" />
                   )}
-                </button>
+                </HeroButton>
               }
             />
-            {error && (
-              <div className="px-3 py-2 rounded-lg bg-danger-50 text-danger border border-danger-200 text-sm text-center">
-                {error}
-              </div>
-            )}
+            {error ? (
+              <Alert status="danger">
+                <Alert.Content>
+                  <Alert.Description className="text-center">{error}</Alert.Description>
+                </Alert.Content>
+              </Alert>
+            ) : null}
             <Button type="submit" color="primary" size="lg" isLoading={isLoading} className="w-full font-semibold">
               {isLoading ? 'در حال ورود...' : 'ورود'}
             </Button>
           </form>
-        </CardBody>
+        </CardContent>
       </Card>
     </div>
   );

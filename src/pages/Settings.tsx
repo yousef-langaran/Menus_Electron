@@ -1,14 +1,34 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardBody, Button, Input, Select, SelectItem, Checkbox, Switch } from '@heroui/react';
+import { Card, CardContent } from '@heroui/react';
+import { Button } from '../ui/compat-button';
+import { Input } from '../ui/compat-input';
+import { Select, SelectItem } from '../ui/compat-select';
+import { CheckboxCompat as Checkbox } from '../ui/compat-checkbox';
+import { SwitchCompat as Switch } from '../ui/compat-switch';
 import { useAuthStore } from '../store/authStore';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
 import { useThemeStore } from '../store/themeStore';
 import { getReceiptNumberSettingsFromServer, getPrintTemplates, type PrintTemplateItem } from '../services/api';
 import { useSyncStore } from '../store/syncStore';
 
+type CardTerminalFormState = {
+  enabled: boolean;
+  endpointUrl: string;
+  httpMethod: 'POST' | 'PUT';
+  timeoutMs: number;
+  amountFieldName: string;
+  orderIdFieldName: string;
+  restaurantIdFieldName: string;
+  sendAmountUnit: 'toman' | 'rial';
+  authHeaderName: string;
+  authToken: string;
+  successFieldPath: string;
+  messageFieldPath: string;
+  referenceFieldPath: string;
+};
+type CardTerminalProfile = { id: string; name: string; settings: CardTerminalFormState };
+
 export default function SettingsPage() {
-  const navigate = useNavigate();
   const { user, token, logout } = useAuthStore();
   const [isOnline, setIsOnline] = useState(true);
   const [syncStatus, setSyncStatus] = useState('');
@@ -30,6 +50,27 @@ export default function SettingsPage() {
   } = usePrinterSettingsStore();
   const { theme, setTheme } = useThemeStore();
   const [receiptPriceUnit, setReceiptPriceUnit] = useState<'toman' | 'rial'>('toman');
+  const [cardTerminal, setCardTerminal] = useState<CardTerminalFormState>({
+    enabled: false,
+    endpointUrl: '',
+    httpMethod: 'POST',
+    timeoutMs: 10000,
+    amountFieldName: 'amount',
+    orderIdFieldName: 'orderId',
+    restaurantIdFieldName: 'restaurantId',
+    sendAmountUnit: 'toman',
+    authHeaderName: 'Authorization',
+    authToken: '',
+    successFieldPath: 'success',
+    messageFieldPath: 'message',
+    referenceFieldPath: 'refId',
+  });
+  const [cardTerminalStatus, setCardTerminalStatus] = useState('');
+  const [cardTerminalProfiles, setCardTerminalProfiles] = useState<CardTerminalProfile[]>([]);
+  const [selectedCardTerminalId, setSelectedCardTerminalId] = useState<string>('');
+  const [defaultCardTerminalId, setDefaultCardTerminalId] = useState<string>('');
+  const [isSavingCardTerminal, setIsSavingCardTerminal] = useState(false);
+  const [isTestingCardTerminal, setIsTestingCardTerminal] = useState(false);
   const [updateCheckHint, setUpdateCheckHint] = useState('');
   const {
     isOnline: accountingOnline,
@@ -73,6 +114,33 @@ export default function SettingsPage() {
       }
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    const loadCardTerminal = async () => {
+      if (!window.electronAPI?.getCardTerminalConfig) return;
+      try {
+        const cfg = await window.electronAPI.getCardTerminalConfig();
+        const profiles = (cfg?.profiles || []) as CardTerminalProfile[];
+        const selectedId = cfg?.defaultProfileId || profiles[0]?.id || '';
+        setCardTerminalProfiles(profiles);
+        setDefaultCardTerminalId(selectedId);
+        setSelectedCardTerminalId(selectedId);
+        const settings = profiles.find((p) => p.id === selectedId)?.settings;
+        if (settings) {
+          setCardTerminal((prev) => ({
+            ...prev,
+            ...settings,
+            httpMethod: settings.httpMethod === 'PUT' ? 'PUT' : 'POST',
+            sendAmountUnit: settings.sendAmountUnit === 'rial' ? 'rial' : 'toman',
+            timeoutMs: Number(settings.timeoutMs || 10000),
+          }));
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadCardTerminal();
   }, []);
 
   useEffect(() => {
@@ -210,21 +278,85 @@ export default function SettingsPage() {
     }
   };
 
+  const saveCardTerminalConfig = async () => {
+    if (!window.electronAPI?.saveCardTerminalConfig) return;
+    setIsSavingCardTerminal(true);
+    setCardTerminalStatus('');
+    try {
+      const activeId = selectedCardTerminalId || defaultCardTerminalId || cardTerminalProfiles[0]?.id;
+      if (!activeId) {
+        setCardTerminalStatus('ابتدا یک کارتخوان ایجاد کنید.');
+        return;
+      }
+      const nextProfiles = cardTerminalProfiles.map((p) =>
+        p.id === activeId
+          ? {
+              ...p,
+              settings: {
+                ...cardTerminal,
+                timeoutMs: Number(cardTerminal.timeoutMs || 10000),
+              },
+            }
+          : p,
+      );
+      await persistCardTerminalProfiles(nextProfiles, defaultCardTerminalId || activeId, 'تنظیمات کارتخوان ذخیره شد.');
+    } catch (err: any) {
+      setCardTerminalStatus(err?.message || 'خطا در ذخیره تنظیمات کارتخوان');
+    } finally {
+      setIsSavingCardTerminal(false);
+    }
+  };
+
+  const persistCardTerminalProfiles = async (
+    profiles: CardTerminalProfile[],
+    defaultId: string,
+    statusText?: string,
+  ) => {
+    if (!window.electronAPI?.saveCardTerminalConfig) return;
+    const result = await window.electronAPI.saveCardTerminalConfig({
+      profiles,
+      defaultProfileId: defaultId,
+    });
+    if (result?.success) {
+      setCardTerminalProfiles(profiles);
+      setDefaultCardTerminalId(defaultId);
+      if (statusText) setCardTerminalStatus(statusText);
+    } else {
+      setCardTerminalStatus(result?.error || 'ذخیره پروفایل‌های کارتخوان ناموفق بود.');
+    }
+  };
+
+  const testCardTerminalConfig = async () => {
+    if (!window.electronAPI?.testCardTerminalConnection) return;
+    setIsTestingCardTerminal(true);
+    setCardTerminalStatus('');
+    try {
+      const result = await window.electronAPI.testCardTerminalConnection({
+        amount: 10000,
+        restaurantId: user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined,
+        terminalProfileId: selectedCardTerminalId || undefined,
+      });
+      if (result?.success) {
+        setCardTerminalStatus(`تست موفق بود${result.refId ? ` (Ref: ${result.refId})` : ''}`);
+      } else {
+        setCardTerminalStatus(result?.error || 'تست کارتخوان ناموفق بود.');
+      }
+    } catch (err: any) {
+      setCardTerminalStatus(err?.message || 'خطا در تست کارتخوان');
+    } finally {
+      setIsTestingCardTerminal(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-default-100">
-      <header className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
-        <h1 className="text-xl font-bold text-foreground">تنظیمات</h1>
-        <Button color="primary" variant="flat" onPress={() => navigate('/order')}>
-          بازگشت
-        </Button>
-        <Button color="secondary" variant="flat" onPress={() => navigate('/accounting')}>
-          حسابداری
-        </Button>
+      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm">
+        <h1 className="text-lg sm:text-xl font-bold text-foreground">تنظیمات</h1>
       </header>
 
       <div className="flex-1 overflow-auto p-6 max-w-3xl mx-auto w-full space-y-6">
         <Card>
-          <CardBody className="gap-3">
+          <CardContent className="gap-3">
             <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">اطلاعات کاربر</h2>
             <div className="flex justify-between py-2 border-b border-default-200">
               <span className="text-default-500">نام:</span>
@@ -238,12 +370,12 @@ export default function SettingsPage() {
               <span className="text-default-500">رستوران:</span>
               <span>{user?.restaurants?.[0]?.name || 'تعیین نشده'}</span>
             </div>
-          </CardBody>
+          </CardContent>
         </Card>
 
         {window.electronAPI?.getReceiptPriceDisplayUnit && (
           <Card>
-            <CardBody className="gap-3">
+            <CardContent className="gap-3">
               <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">رسید چاپی</h2>
               <p className="text-sm text-default-500">
                 مبالغ سفارش در سیستم به <strong>تومان</strong> ذخیره می‌شود. این گزینه فقط نحوهٔ نمایش روی رسید چاپی و پیش‌نمایش را عوض می‌کند.
@@ -264,12 +396,207 @@ export default function SettingsPage() {
                 <SelectItem key="toman" textValue="تومان">تومان</SelectItem>
                 <SelectItem key="rial" textValue="ریال">ریال (عدد × ۱۰ نسبت به تومان)</SelectItem>
               </Select>
-            </CardBody>
+            </CardContent>
+          </Card>
+        )}
+
+        {window.electronAPI?.saveCardTerminalSettings && (
+          <Card>
+            <CardContent className="gap-3">
+              <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">تنظیمات کارتخوان</h2>
+              <div className="flex justify-between items-center py-1">
+                <span className="text-default-500">فعال‌سازی اتصال کارتخوان در دسکتاپ</span>
+                <Switch
+                  isSelected={cardTerminal.enabled}
+                  onValueChange={(v) => setCardTerminal((prev) => ({ ...prev, enabled: v }))}
+                  aria-label="فعال‌سازی کارتخوان"
+                />
+              </div>
+              {cardTerminalProfiles.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Select
+                    label="کارتخوان انتخابی"
+                    selectedKeys={selectedCardTerminalId ? [selectedCardTerminalId] : []}
+                    onSelectionChange={(keys) => {
+                      const id = String(Array.from(keys)[0] || '');
+                      if (!id) return;
+                      setSelectedCardTerminalId(id);
+                      const next = cardTerminalProfiles.find((p) => p.id === id);
+                      if (next) setCardTerminal(next.settings);
+                    }}
+                    variant="bordered"
+                  >
+                    {cardTerminalProfiles.map((p) => (
+                      <SelectItem key={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </Select>
+                  <Input
+                    label="نام کارتخوان"
+                    value={
+                      cardTerminalProfiles.find((p) => p.id === selectedCardTerminalId)?.name || ''
+                    }
+                    onValueChange={(v) => {
+                      setCardTerminalProfiles((prev) =>
+                        prev.map((p) => (p.id === selectedCardTerminalId ? { ...p, name: v || 'کارتخوان' } : p)),
+                      );
+                    }}
+                    variant="bordered"
+                  />
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Input
+                  label="آدرس API کارتخوان"
+                  placeholder="http://127.0.0.1:8080/pay"
+                  value={cardTerminal.endpointUrl}
+                  onValueChange={(v) => setCardTerminal((prev) => ({ ...prev, endpointUrl: v }))}
+                  variant="bordered"
+                />
+                <Select
+                  label="متد HTTP"
+                  selectedKeys={[cardTerminal.httpMethod]}
+                  onSelectionChange={(keys) => {
+                    const method = Array.from(keys)[0] as string | undefined;
+                    if (!method) return;
+                    setCardTerminal((prev) => ({ ...prev, httpMethod: method === 'PUT' ? 'PUT' : 'POST' }));
+                  }}
+                  variant="bordered"
+                >
+                  <SelectItem key="POST">POST</SelectItem>
+                  <SelectItem key="PUT">PUT</SelectItem>
+                </Select>
+                <Input
+                  type="number"
+                  label="Timeout (ms)"
+                  value={String(cardTerminal.timeoutMs)}
+                  onValueChange={(v) =>
+                    setCardTerminal((prev) => ({ ...prev, timeoutMs: Math.max(3000, Number(v || 10000)) }))
+                  }
+                  variant="bordered"
+                />
+                <Select
+                  label="واحد مبلغ ارسالی"
+                  selectedKeys={[cardTerminal.sendAmountUnit]}
+                  onSelectionChange={(keys) => {
+                    const unit = Array.from(keys)[0] as string | undefined;
+                    if (!unit) return;
+                    setCardTerminal((prev) => ({ ...prev, sendAmountUnit: unit === 'rial' ? 'rial' : 'toman' }));
+                  }}
+                  variant="bordered"
+                >
+                  <SelectItem key="toman">تومان</SelectItem>
+                  <SelectItem key="rial">ریال</SelectItem>
+                </Select>
+                <Input
+                  label="نام فیلد مبلغ"
+                  value={cardTerminal.amountFieldName}
+                  onValueChange={(v) => setCardTerminal((prev) => ({ ...prev, amountFieldName: v }))}
+                  variant="bordered"
+                />
+                <Input
+                  label="نام فیلد شماره سفارش"
+                  value={cardTerminal.orderIdFieldName}
+                  onValueChange={(v) => setCardTerminal((prev) => ({ ...prev, orderIdFieldName: v }))}
+                  variant="bordered"
+                />
+                <Input
+                  label="نام فیلد شناسه رستوران"
+                  value={cardTerminal.restaurantIdFieldName}
+                  onValueChange={(v) => setCardTerminal((prev) => ({ ...prev, restaurantIdFieldName: v }))}
+                  variant="bordered"
+                />
+                <Input
+                  label="نام هدر توکن"
+                  value={cardTerminal.authHeaderName}
+                  onValueChange={(v) => setCardTerminal((prev) => ({ ...prev, authHeaderName: v }))}
+                  variant="bordered"
+                />
+                <Input
+                  label="توکن/کلید احراز هویت"
+                  value={cardTerminal.authToken}
+                  onValueChange={(v) => setCardTerminal((prev) => ({ ...prev, authToken: v }))}
+                  variant="bordered"
+                />
+                <Input
+                  label="مسیر success در پاسخ"
+                  value={cardTerminal.successFieldPath}
+                  onValueChange={(v) => setCardTerminal((prev) => ({ ...prev, successFieldPath: v }))}
+                  variant="bordered"
+                />
+                <Input
+                  label="مسیر message در پاسخ"
+                  value={cardTerminal.messageFieldPath}
+                  onValueChange={(v) => setCardTerminal((prev) => ({ ...prev, messageFieldPath: v }))}
+                  variant="bordered"
+                />
+                <Input
+                  label="مسیر refId در پاسخ"
+                  value={cardTerminal.referenceFieldPath}
+                  onValueChange={(v) => setCardTerminal((prev) => ({ ...prev, referenceFieldPath: v }))}
+                  variant="bordered"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button color="primary" onPress={saveCardTerminalConfig} isLoading={isSavingCardTerminal}>
+                  ذخیره تنظیمات کارتخوان
+                </Button>
+                <Button
+                  variant="flat"
+                  onPress={async () => {
+                    const id = `terminal-${Date.now()}`;
+                    const next: CardTerminalProfile = {
+                      id,
+                      name: `کارتخوان ${cardTerminalProfiles.length + 1}`,
+                      settings: { ...cardTerminal },
+                    };
+                    const profiles = [...cardTerminalProfiles, next];
+                    setSelectedCardTerminalId(id);
+                    await persistCardTerminalProfiles(profiles, defaultCardTerminalId || id, 'کارتخوان جدید اضافه شد.');
+                  }}
+                >
+                  افزودن کارتخوان جدید
+                </Button>
+                <Button
+                  variant="flat"
+                  color="warning"
+                  onPress={async () => {
+                    if (!selectedCardTerminalId) return;
+                    const next = cardTerminalProfiles.filter((p) => p.id !== selectedCardTerminalId);
+                    const fallback = next[0]?.id || '';
+                    setSelectedCardTerminalId(fallback);
+                    if (fallback) {
+                      const settings = next.find((p) => p.id === fallback)?.settings;
+                      if (settings) setCardTerminal(settings);
+                    }
+                    await persistCardTerminalProfiles(next, defaultCardTerminalId === selectedCardTerminalId ? fallback : defaultCardTerminalId, 'کارتخوان حذف شد.');
+                  }}
+                  isDisabled={!selectedCardTerminalId || cardTerminalProfiles.length <= 1}
+                >
+                  حذف کارتخوان انتخابی
+                </Button>
+                <Button
+                  variant="flat"
+                  color="secondary"
+                  onPress={async () => {
+                    if (!selectedCardTerminalId) return;
+                    await persistCardTerminalProfiles(cardTerminalProfiles, selectedCardTerminalId, 'کارتخوان پیش‌فرض تغییر کرد.');
+                  }}
+                >
+                  انتخاب به‌عنوان پیش‌فرض
+                </Button>
+                <Button variant="flat" color="secondary" onPress={testCardTerminalConfig} isLoading={isTestingCardTerminal}>
+                  تست اتصال (ارسال مبلغ نمونه)
+                </Button>
+              </div>
+              {cardTerminalStatus ? (
+                <p className="text-sm rounded-lg bg-default-100 p-2">{cardTerminalStatus}</p>
+              ) : null}
+            </CardContent>
           </Card>
         )}
 
         <Card>
-          <CardBody className="gap-3">
+          <CardContent className="gap-3">
             <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">ظاهر</h2>
             <div className="flex justify-between items-center py-2">
               <span className="text-default-500">حالت تاریک (دارک)</span>
@@ -279,11 +606,11 @@ export default function SettingsPage() {
                 aria-label="حالت تاریک"
               />
             </div>
-          </CardBody>
+          </CardContent>
         </Card>
 
         <Card>
-          <CardBody className="gap-3">
+          <CardContent className="gap-3">
             <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">وضعیت اتصال</h2>
             <div className="flex justify-between items-center py-2">
               <span className="text-default-500">وضعیت:</span>
@@ -291,11 +618,11 @@ export default function SettingsPage() {
                 {isOnline ? 'آنلاین' : 'آفلاین'}
               </span>
             </div>
-          </CardBody>
+          </CardContent>
         </Card>
 
         <Card>
-          <CardBody className="gap-3">
+          <CardContent className="gap-3">
             <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">همگام‌سازی</h2>
             <Button color="primary" onPress={handleSync} className="w-full">
               همگام‌سازی سفارشات آفلاین
@@ -317,12 +644,12 @@ export default function SettingsPage() {
             {accountingLastError ? (
               <p className="text-xs text-danger">خطای سینک حسابداری: {accountingLastError}</p>
             ) : null}
-          </CardBody>
+          </CardContent>
         </Card>
 
         {window.electronAPI?.checkForUpdates && (
           <Card>
-            <CardBody className="gap-3">
+            <CardContent className="gap-3">
               <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">بروزرسانی برنامه</h2>
               <p className="text-default-500 text-sm">در صورت وجود نسخه جدید، بنر بروزرسانی در بالای صفحه نمایش داده می‌شود.</p>
               <Button
@@ -347,12 +674,12 @@ export default function SettingsPage() {
               {updateCheckHint ? (
                 <p className="text-default-600 text-sm text-center">{updateCheckHint}</p>
               ) : null}
-            </CardBody>
+            </CardContent>
           </Card>
         )}
 
         <Card>
-          <CardBody className="gap-4">
+          <CardContent className="gap-4">
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">تنظیمات پرینتر</h2>
               <Button size="sm" variant="light" color="primary" onPress={loadPrinters}>
@@ -375,8 +702,8 @@ export default function SettingsPage() {
                   const kitchenReceipt = receipts.find((r) => r.type === 'kitchen');
                   const templateValue = printerTemplatesMap[printer.name] ? String(printerTemplatesMap[printer.name]!.id) : 'none';
                   return (
-                    <Card key={printer.name} shadow="sm" className="border border-default-200">
-                      <CardBody className="gap-4">
+                    <Card key={printer.name} className="shadow-sm border border-default-200">
+                      <CardContent className="gap-4">
                         <div className="flex flex-col gap-1">
                           <Checkbox
                             isSelected={isEnabled}
@@ -495,7 +822,7 @@ export default function SettingsPage() {
                             </div>
                           </div>
                         )}
-                      </CardBody>
+                      </CardContent>
                     </Card>
                   );
                 })}
@@ -504,15 +831,15 @@ export default function SettingsPage() {
             <p className="text-default-500 text-sm">
               برای هر پرینتر می‌توانید قالب چاپ و نوع/تعداد رسید را جداگانه تنظیم کنید. این تنظیمات برای چاپ خودکار رسید هنگام ثبت سفارش استفاده می‌شود.
             </p>
-          </CardBody>
+          </CardContent>
         </Card>
 
         <Card>
-          <CardBody>
+          <CardContent>
             <Button color="danger" variant="flat" className="w-full" onPress={logout}>
               خروج از حساب کاربری
             </Button>
-          </CardBody>
+          </CardContent>
         </Card>
       </div>
     </div>

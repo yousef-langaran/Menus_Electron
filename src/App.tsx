@@ -1,15 +1,20 @@
-import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { HeroUIProvider } from '@heroui/system';
+import { HashRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { I18nProvider } from 'react-aria-components';
 import LoginPage from './pages/Login';
 import OrderPage from './pages/Order';
 import SettingsPage from './pages/Settings';
 import OrdersPage from './pages/Orders';
+import OrderReturnsPage from './pages/OrderReturns';
 import AccountingPage from './pages/Accounting';
 import AccountingRawMaterialsPage from './pages/accounting/RawMaterials';
 import AccountingSuppliersPage from './pages/accounting/Suppliers';
 import AccountingPurchaseDraftsPage from './pages/accounting/PurchaseDrafts';
 import AccountingServerPurchasesPage from './pages/accounting/ServerPurchases';
+import ProductsPage from './pages/Products';
+import CategoriesPage from './pages/Categories';
 import { useAuthStore } from './store/authStore';
+import { AppShellLayout } from './layouts/AppShellLayout';
+import { RoutePermissionGuard } from './components/RoutePermissionGuard';
 import { usePrinterSettingsStore } from './store/printerSettingsStore';
 import { useEffect } from 'react';
 import { OrdersSocketManager } from './components/OrdersSocketManager';
@@ -39,12 +44,45 @@ function UnauthorizedListener() {
   return null;
 }
 
-function AppRoutes() {
+function GlobalShortcutListener() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'F2') return;
+      if (!user) return;
+
+      event.preventDefault();
+
+      if (pathname === '/order') {
+        window.dispatchEvent(new Event('menus-electron:reset-order-session'));
+        return;
+      }
+
+      navigate('/order');
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [navigate, pathname, user]);
+
+  return null;
+}
+
+function RequireAuth() {
+  const user = useAuthStore((s) => s.user);
+  if (!user) return <Navigate to="/login" replace />;
+  return <Outlet />;
+}
+
+function AppRoutes() {
   const user = useAuthStore((s) => s.user);
   return (
-    <HeroUIProvider navigate={navigate} locale="fa-IR">
+    <I18nProvider locale="fa-IR">
       <UnauthorizedListener />
+      <GlobalShortcutListener />
       <UpdateBanner />
       <OfflineOrdersSync />
       <AccountingSyncManager />
@@ -54,41 +92,26 @@ function AppRoutes() {
           path="/login"
           element={user ? <Navigate to="/order" replace /> : <LoginPage />}
         />
-        <Route
-          path="/order"
-          element={user ? <OrderPage /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/orders"
-          element={user ? <OrdersPage /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/settings"
-          element={user ? <SettingsPage /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/accounting"
-          element={user ? <AccountingPage /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/accounting/raw-materials"
-          element={user ? <AccountingRawMaterialsPage /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/accounting/suppliers"
-          element={user ? <AccountingSuppliersPage /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/accounting/purchase-drafts"
-          element={user ? <AccountingPurchaseDraftsPage /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/accounting/server-purchases"
-          element={user ? <AccountingServerPurchasesPage /> : <Navigate to="/login" replace />}
-        />
+        <Route element={<RequireAuth />}>
+          <Route element={<AppShellLayout />}>
+            <Route element={<RoutePermissionGuard />}>
+              <Route path="/order" element={<OrderPage />} />
+              <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/order-returns" element={<OrderReturnsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/products" element={<ProductsPage />} />
+              <Route path="/categories" element={<CategoriesPage />} />
+              <Route path="/accounting" element={<AccountingPage />} />
+              <Route path="/accounting/raw-materials" element={<AccountingRawMaterialsPage />} />
+              <Route path="/accounting/suppliers" element={<AccountingSuppliersPage />} />
+              <Route path="/accounting/purchase-drafts" element={<AccountingPurchaseDraftsPage />} />
+              <Route path="/accounting/server-purchases" element={<AccountingServerPurchasesPage />} />
+            </Route>
+          </Route>
+        </Route>
         <Route path="/" element={<Navigate to={user ? '/order' : '/login'} replace />} />
       </Routes>
-    </HeroUIProvider>
+    </I18nProvider>
   );
 }
 
@@ -119,4 +142,3 @@ function App() {
 }
 
 export default App;
-

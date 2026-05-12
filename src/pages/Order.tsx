@@ -3,12 +3,15 @@ import {useAuthStore} from '../store/authStore';
 import {useOrderStore} from '../store/orderStore';
 import {
     getProducts,
+    getCategories,
+    createProduct,
     getRestaurantByName,
     getRestaurantById,
     checkUser,
     getAssetBaseUrl,
     getCustomerAddresses,
     addCustomer,
+    updateCustomerProfile,
     createCustomerAddress,
     validateDiscountCode,
     fetchOrderById,
@@ -23,25 +26,47 @@ import {
     getNextReceiptNumberBrowser,
 } from '../utils/receiptNumbersStorage';
 import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
-import {
-    Card,
-    CardBody,
-    Button,
-    Input,
-    Select,
-    SelectItem,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Checkbox,
-    Textarea
-} from '@heroui/react';
+import { Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Button } from '../ui/compat-button';
+import { Input } from '../ui/compat-input';
+import { Select, SelectItem } from '../ui/compat-select';
+import { Textarea } from '../ui/compat-textarea';
+import { ModalShell } from '../ui/modal-shell';
+import { CheckboxCompat as Checkbox } from '../ui/compat-checkbox';
 import {Panel, Group, Separator} from 'react-resizable-panels'
 
+const RESET_ORDER_SHORTCUT_LABEL = 'Ctrl + Shift + Backspace';
+type UiToast = { id: number; type: 'error' | 'success' | 'warning'; message: string };
+const normalizeBarcode = (value: string) =>
+    String(value || '')
+        .replace(/[\u200C\u200F\u202A-\u202E]/g, '')
+        .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+        .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+        .replace(/\s+/g, '')
+        .trim();
+
+/** آیکون مداد/یادداشت برای توضیحات آیتم سبد */
+function CartItemNoteIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            className={className}
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+        >
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+    );
+}
+
 export default function OrderPage() {
-    const {user, token, logout} = useAuthStore();
+    const {user, token} = useAuthStore();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const editParam = searchParams.get('edit');
@@ -83,6 +108,7 @@ export default function OrderPage() {
 
     const [products, setProducts] = useState<any[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
+    const [productCategories, setProductCategories] = useState<any[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string>('');
     const [cartItemOptions, setCartItemOptions] = useState<string[]>([]);
     const [isMobileRequired, setIsMobileRequired] = useState(true);
@@ -92,6 +118,8 @@ export default function OrderPage() {
     const [isCardTerminalEnabled, setIsCardTerminalEnabled] = useState(false);
     const [restrictCardTerminalAccess, setRestrictCardTerminalAccess] = useState(true);
     const [allowDirectSendAmountToCardTerminal, setAllowDirectSendAmountToCardTerminal] = useState(false);
+    const [cardTerminalProfiles, setCardTerminalProfiles] = useState<Array<{ id: string; name: string }>>([]);
+    const [selectedCardTerminalId, setSelectedCardTerminalId] = useState('');
     const [canUseCardTerminal, setCanUseCardTerminal] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -100,7 +128,8 @@ export default function OrderPage() {
     const [isCheckingUser, setIsCheckingUser] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [barcodeInput, setBarcodeInput] = useState('');
-    const [quickScanEnabled, setQuickScanEnabled] = useState(false);
+    const [quickScanEnabled] = useState(true);
+    const [toasts, setToasts] = useState<UiToast[]>([]);
     /** نام مشتری لود شده بعد از تیک (چک کاربر) — برای نمایش و چاپ رسید */
     const [loadedCustomerFirstName, setLoadedCustomerFirstName] = useState('');
     const [loadedCustomerLastName, setLoadedCustomerLastName] = useState('');
@@ -113,6 +142,8 @@ export default function OrderPage() {
     const phoneInputRef = useRef<HTMLInputElement>(null);
     /** ref پنل توضیحات باز — برای تشخیص کلیک داخل پنل در onBlur */
     const notePanelRef = useRef<HTMLDivElement | null>(null);
+    /** دکمهٔ «توضیحات» + پنل باز — برای بستن با کلیک بیرون */
+    const openNoteSectionRef = useRef<HTMLDivElement | null>(null);
     /** نمایش پاپ‌آپ تکمیل سفارش (تخفیف + اطلاعات مشتری) */
     const [showOrderModal, setShowOrderModal] = useState(false);
     /** آدرس‌های ذخیره‌شده مشتری (برای بیرون‌بر) */
@@ -126,7 +157,7 @@ export default function OrderPage() {
     /** انتخاب آدرس: عدد = id آدرس ذخیره، 'new' = آدرس جدید تایپ شده */
     const [selectedAddressId, setSelectedAddressId] = useState<number | 'new' | null>(null);
     /** برای افزودن مشتری جدید */
-    const [addCustomerFirstName, setAddCustomerFirstName] = useState('');
+    const [customerFirstNameInput, setCustomerFirstNameInput] = useState('');
     const hasManagePermission = (currentUser: any, module: 'electron_panel' | 'payment_terminal', restaurantId?: number) => {
         const roles = Array.isArray(currentUser?.roles) ? currentUser.roles : [];
         const isOwnerOrAdmin = roles.some((r: any) => r?.title === 'restaurant_owner' || r?.title === 'admin' || r?.title === 'super_admin');
@@ -140,12 +171,23 @@ export default function OrderPage() {
         });
     };
 
-    const [addCustomerLastName, setAddCustomerLastName] = useState('');
+    const [customerLastNameInput, setCustomerLastNameInput] = useState('');
     const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+    /** فقط وقتی مشتری جدید است و کاربر دکمه افزودن را می‌زند: باکس نام/نام خانوادگی نمایش داده شود */
+    const [showCustomerNameFields, setShowCustomerNameFields] = useState(false);
     /** گزینه چاپ برای این سفارش: همه پرینترهای فعال، بدون چاپ، یا انتخاب پرینترها */
     const [printOption, setPrintOption] = useState<'all' | 'none' | 'select'>('all');
     /** وقتی printOption === 'select'، نام پرینترهای انتخاب‌شده */
     const [selectedPrinterNames, setSelectedPrinterNames] = useState<string[]>([]);
+    const [showCreateProductModal, setShowCreateProductModal] = useState(false);
+    const [creatingProduct, setCreatingProduct] = useState(false);
+    const [newProductForm, setNewProductForm] = useState({
+        name_fa: '',
+        name: '',
+        price: '',
+        category_id: '',
+        barcode: '',
+    });
     /** وضعیت آنلاین برای فعال بودن گزینه کد تخفیف */
     const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
     /** در حال اعتبارسنجی کد تخفیف */
@@ -174,6 +216,15 @@ export default function OrderPage() {
     const isElectronWithPrinters = typeof window !== 'undefined' && Boolean(window.electronAPI) && enabledPrinters.length > 0;
     /** کد تخفیف فقط وقتی فعال است که شماره موبایل وارد شده و اتصال آنلاین باشد */
     const canUseDiscountCode = Boolean(customerPhone.trim()) && isOnline;
+
+    const pushToast = (type: UiToast['type'], message: string) => {
+        if (!message) return;
+        const id = Date.now() + Math.floor(Math.random() * 1000);
+        setToasts((prev) => [...prev, { id, type, message }]);
+        window.setTimeout(() => {
+            setToasts((prev) => prev.filter((t) => t.id !== id));
+        }, 3500);
+    };
 
     useEffect(() => {
         const prev = prevEditingIdRef.current;
@@ -517,6 +568,12 @@ export default function OrderPage() {
                 try {
                     productsData = await getProducts(restaurantName, restaurantId, token);
                     setProducts(productsData);
+                    try {
+                        const c = await getCategories(restaurantName, restaurantId, token);
+                        setProductCategories(Array.isArray(c) ? c : []);
+                    } catch {
+                        setProductCategories([]);
+                    }
 
                     let options: string[] = [];
                     let mobileReq = true;
@@ -619,6 +676,11 @@ export default function OrderPage() {
                 if (response.userExists && (response.firstName != null || response.lastName != null)) {
                     setLoadedCustomerFirstName(response.firstName ?? '');
                     setLoadedCustomerLastName(response.lastName ?? '');
+                    setCustomerFirstNameInput(response.firstName ?? '');
+                    setCustomerLastNameInput(response.lastName ?? '');
+                } else {
+                    setCustomerFirstNameInput('');
+                    setCustomerLastNameInput('');
                 }
             } else {
                 setUserExists(null);
@@ -659,7 +721,11 @@ export default function OrderPage() {
 
         setError('');
         try {
-            const result = await window.electronAPI.sendAmountToCardTerminal({ amount, restaurantId });
+            const result = await window.electronAPI.sendAmountToCardTerminal({
+                amount,
+                restaurantId,
+                terminalProfileId: selectedCardTerminalId || undefined,
+            });
             if (result?.success) {
                 setSuccessMessage('مبلغ با موفقیت به کارتخوان ارسال شد.');
             } else {
@@ -669,6 +735,24 @@ export default function OrderPage() {
             setError(err?.message || 'خطا در ارسال مبلغ به کارتخوان');
         }
     };
+
+    useEffect(() => {
+        const loadCardTerminalProfiles = async () => {
+            try {
+                const cfg = await window.electronAPI?.getCardTerminalConfig?.();
+                const profiles = (cfg?.profiles || []).map((p: any) => ({
+                    id: String(p.id),
+                    name: String(p.name || 'کارتخوان'),
+                }));
+                setCardTerminalProfiles(profiles);
+                setSelectedCardTerminalId(String(cfg?.defaultProfileId || profiles[0]?.id || ''));
+            } catch {
+                setCardTerminalProfiles([]);
+                setSelectedCardTerminalId('');
+            }
+        };
+        loadCardTerminalProfiles();
+    }, []);
 
     const handleSubmit = async () => {
         const normalizedPhone = normalizeIranMobile(customerPhone.trim());
@@ -683,6 +767,52 @@ export default function OrderPage() {
             return;
         }
         setError('');
+
+        const restaurantId = user?.restaurants?.[0]?.id;
+        const restaurantName = user?.restaurants?.[0]?.name;
+        const trimmedFirstName = customerFirstNameInput.trim();
+        const trimmedLastName = customerLastNameInput.trim();
+
+        const syncCustomerProfileBeforeSubmit = async () => {
+            if (!token || (!restaurantId && !restaurantName) || !normalizedPhone) {
+                return;
+            }
+
+            // اگر مشتری وجود دارد (یا قبلا چک شده)، نام را آپدیت کن تا حتی اسم‌های فیک/خالی اصلاح شوند.
+            if (userExists === true) {
+                await updateCustomerProfile(
+                    { restaurantId, restaurantName, phone: normalizedPhone },
+                    { firstName: trimmedFirstName, lastName: trimmedLastName },
+                    token,
+                );
+                setLoadedCustomerFirstName(trimmedFirstName);
+                setLoadedCustomerLastName(trimmedLastName);
+                return;
+            }
+
+            // اگر مشتری جدید است ولی نام/نام خانوادگی وارد شده، همان‌جا مشتری را بساز تا نام ذخیره شود.
+            if (userExists === false && (trimmedFirstName || trimmedLastName)) {
+                const result = await addCustomer(
+                    { restaurantId, restaurantName },
+                    {
+                        mobile: normalizedPhone,
+                        firstName: trimmedFirstName || undefined,
+                        lastName: trimmedLastName || undefined,
+                    },
+                    token,
+                );
+                setUserExists(Boolean(result?.added));
+                setLoadedCustomerFirstName(result?.user?.firstName || trimmedFirstName);
+                setLoadedCustomerLastName(result?.user?.lastName || trimmedLastName);
+            }
+        };
+
+        try {
+            await syncCustomerProfileBeforeSubmit();
+        } catch (err: any) {
+            setError(err?.response?.data?.message || err?.message || 'ذخیره اطلاعات مشتری ناموفق بود');
+            return;
+        }
 
         // اسنپ‌شات برای چاپ رسید وقتی سرویس جواب داد (آنلاین در پس‌زمینه)
         const snapshot = {
@@ -776,7 +906,10 @@ export default function OrderPage() {
         }) => {
             if (isEditingInvoice) return;
             const restaurantName = user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || '';
-            const fullName = [loadedCustomerFirstName, loadedCustomerLastName].filter(Boolean).join(' ').trim();
+            const fullName = [trimmedFirstName || loadedCustomerFirstName, trimmedLastName || loadedCustomerLastName]
+                .filter(Boolean)
+                .join(' ')
+                .trim();
             const serverOrder = res.order;
             const orderData = {
                 id: res.orderId,
@@ -834,6 +967,8 @@ export default function OrderPage() {
             setUserExists(null);
             setLoadedCustomerFirstName('');
             setLoadedCustomerLastName('');
+            setCustomerFirstNameInput('');
+            setCustomerLastNameInput('');
             setPrintOption('all');
             setSelectedPrinterNames([]);
             setTimeout(() => setSuccessMessage(''), 3000);
@@ -889,28 +1024,12 @@ export default function OrderPage() {
     };
 
     const handleBarcodeAdd = async (rawCode?: string) => {
-        const code = (rawCode ?? barcodeInput).trim();
+        const code = normalizeBarcode(rawCode ?? barcodeInput);
         if (!code) return;
-        const matched = products.find((p: any) => String(p?.barcode || '').trim() === code);
+        const matched = products.find((p: any) => normalizeBarcode(String(p?.barcode || '')) === code);
         if (!matched) {
             playScanBeep(false);
-            if (!rawCode) setBarcodeInput('');
-            setAddProductBarcode(code);
-            setAddProductName('');
-            setAddProductCategory('');
-            setAddProductPrice('');
-            setAddProductError('');
-            setIsCheckingMasterProduct(true);
-            setShowAddProductModal(true);
-            try {
-                const master = await getMasterProductByBarcode(code, token || undefined);
-                if (master) {
-                    setAddProductName(master.name);
-                    setAddProductCategory(master.category || '');
-                }
-            } finally {
-                setIsCheckingMasterProduct(false);
-            }
+            setError('محصولی با این بارکد پیدا نشد');
             return;
         }
         setSuccessMessage('');
@@ -918,6 +1037,54 @@ export default function OrderPage() {
         if (!rawCode) setBarcodeInput('');
         playScanBeep(true);
         setError('');
+    };
+
+    const submitCreateProductFromBarcode = async () => {
+        if (!token) return;
+        if (!newProductForm.name_fa.trim()) {
+            setError('نام فارسی محصول الزامی است');
+            return;
+        }
+        if (!(Number(newProductForm.price) > 0)) {
+            setError('قیمت محصول باید بیشتر از صفر باشد');
+            return;
+        }
+        if (!(Number(newProductForm.category_id) > 0)) {
+            setError('دسته‌بندی محصول را انتخاب کنید');
+            return;
+        }
+        setCreatingProduct(true);
+        setError('');
+        try {
+            const created = await createProduct(
+                {
+                    name_fa: newProductForm.name_fa.trim(),
+                    name: newProductForm.name.trim() || undefined,
+                    price: Number(newProductForm.price),
+                    category_id: Number(newProductForm.category_id),
+                    barcode: newProductForm.barcode.trim() || undefined,
+                    isAvailable: true,
+                    restaurantId: user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined,
+                },
+                token,
+            );
+            const createdProduct = created || {
+                id: Date.now(),
+                ...newProductForm,
+                price: Number(newProductForm.price),
+            };
+            setProducts((prev) => [createdProduct, ...prev]);
+            addToCart(createdProduct);
+            setShowCreateProductModal(false);
+            setBarcodeInput('');
+            playScanBeep(true);
+            setSuccessMessage('محصول جدید ثبت و به سبد اضافه شد');
+        } catch (err: any) {
+            playScanBeep(false);
+            setError(err?.response?.data?.message || err?.message || 'ثبت محصول ناموفق بود');
+        } finally {
+            setCreatingProduct(false);
+        }
     };
 
     const handleSubmitAddProduct = async () => {
@@ -981,14 +1148,47 @@ export default function OrderPage() {
         }
     };
 
+    const resetOrderSession = (options?: { skipConfirm?: boolean }) => {
+        const hasItems = cart.length > 0;
+        const shouldConfirm = hasItems || editingOrderId != null;
+        if (shouldConfirm && !options?.skipConfirm) {
+            const confirmed = window.confirm('سبد خرید و اطلاعات سفارش ریست شود و سفارش جدید شروع شود؟');
+            if (!confirmed) return;
+        }
+        clearCart();
+        setShowOrderModal(false);
+        setError('');
+        setSuccessMessage('');
+        setUserExists(null);
+        setLoadedCustomerFirstName('');
+        setLoadedCustomerLastName('');
+                setCustomerFirstNameInput('');
+                setCustomerLastNameInput('');
+        setPrintOption('all');
+        setSelectedPrinterNames([]);
+        setExpandedNoteProductId(null);
+        setDiscountCodeError('');
+        setSearchTerm('');
+        setBarcodeInput('');
+        setSelectedAddressId(null);
+        setCustomerAddresses([]);
+        if (editingOrderId != null) {
+            navigate('/order');
+        }
+    };
+
+    useEffect(() => {
+        const onResetShortcut = () => {
+            resetOrderSession({ skipConfirm: true });
+        };
+        window.addEventListener('menus-electron:reset-order-session', onResetShortcut);
+        return () => window.removeEventListener('menus-electron:reset-order-session', onResetShortcut);
+    }, [resetOrderSession]);
+
     useEffect(() => {
         if (!quickScanEnabled) return;
         const onKeyDown = (e: KeyboardEvent) => {
-            const target = e.target as HTMLElement | null;
-            const tag = target?.tagName?.toLowerCase();
-            const inTypingField =
-                tag === 'input' || tag === 'textarea' || tag === 'select' || Boolean(target?.isContentEditable);
-            if (inTypingField) return;
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
 
             const now = Date.now();
             if (now - scanLastKeyAtRef.current > 250) {
@@ -996,22 +1196,38 @@ export default function OrderPage() {
             }
             scanLastKeyAtRef.current = now;
 
-            if (e.key === 'Enter') {
-                const code = scanBufferRef.current.trim();
+            const isEnter = e.key === 'Enter' || e.code === 'NumpadEnter' || (e as any).keyCode === 13;
+            if (isEnter) {
+                const code = normalizeBarcode(scanBufferRef.current);
                 scanBufferRef.current = '';
                 if (code.length >= 3) {
+                    // خیلی مهم: Enter اسکنر نباید باعث submit/click/باز شدن مودال شود.
                     e.preventDefault();
+                    e.stopPropagation();
                     handleBarcodeAdd(code);
                 }
                 return;
             }
+
             if (e.key.length === 1) {
                 scanBufferRef.current += e.key;
             }
         };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
+        // capture=true تا قبل از اکشن‌های فوکوس‌دار (button/input) Enter اسکنر مهار شود.
+        window.addEventListener('keydown', onKeyDown, true);
+        return () => window.removeEventListener('keydown', onKeyDown, true);
     }, [quickScanEnabled, products]);
+
+    useEffect(() => {
+        const onShortcut = (e: KeyboardEvent) => {
+            const isResetShortcut = e.ctrlKey && e.shiftKey && e.key === 'Backspace';
+            if (!isResetShortcut) return;
+            e.preventDefault();
+            resetOrderSession();
+        };
+        window.addEventListener('keydown', onShortcut);
+        return () => window.removeEventListener('keydown', onShortcut);
+    }, [resetOrderSession]);
 
     useEffect(() => {
         const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
@@ -1023,13 +1239,41 @@ export default function OrderPage() {
         );
     }, [isScaleIntegrationEnabled, restrictScaleAccess, isCardTerminalEnabled, restrictCardTerminalAccess, user]);
 
+    useEffect(() => {
+        if (!error) return;
+        pushToast('error', error);
+        setError('');
+    }, [error]);
+
+    useEffect(() => {
+        if (!orderEditError) return;
+        pushToast('error', orderEditError);
+        setOrderEditError('');
+    }, [orderEditError]);
+
+    useEffect(() => {
+        if (!successMessage) return;
+        pushToast('success', successMessage);
+        setSuccessMessage('');
+    }, [successMessage]);
+
+    useEffect(() => {
+        if (expandedNoteProductId == null) return;
+        const onPointerDown = (e: PointerEvent) => {
+            const root = openNoteSectionRef.current;
+            const t = e.target as Node | null;
+            if (!root || !t || root.contains(t)) return;
+            setExpandedNoteProductId(null);
+        };
+        document.addEventListener('pointerdown', onPointerDown, true);
+        return () => document.removeEventListener('pointerdown', onPointerDown, true);
+    }, [expandedNoteProductId]);
 
     return (
-        <div onClick={()=> setSearchTerm('')} className="min-h-screen flex flex-col bg-default-100">
-            <header
-                className="bg-content1 border-b border-default-200 px-6 py-4 flex justify-between items-center shadow-sm">
-                <div className={'flex items-center justify-center gap-4'}>
-                    <h1 className="text-xl font-bold text-foreground whitespace-nowrap">
+        <div onClick={()=> setSearchTerm('')} className="flex flex-col flex-1 min-h-0 bg-default-100">
+            <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+                <div className="flex flex-wrap items-center gap-3 min-w-0 flex-1">
+                    <h1 className="text-lg sm:text-xl font-bold text-foreground whitespace-nowrap">
                         {editingOrderId != null ? `ویرایش فاکتور #${editingOrderId}` : 'ثبت سفارش'}
                     </h1>
                     <Input
@@ -1040,67 +1284,46 @@ export default function OrderPage() {
                             setSearchTerm(value)
                         }}
                         variant="bordered"
-                        classNames={{input: "text-right"}}
+                        classNames={{ input: 'text-right', base: 'max-w-[220px] sm:max-w-xs' }}
                     />
-                    <Input
-                        placeholder="اسکن بارکد محصول"
-                        value={barcodeInput}
-                        onValueChange={setBarcodeInput}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleBarcodeAdd();
-                            }
-                        }}
-                        variant="bordered"
-                        classNames={{input: "text-right"}}
-                    />
+                    {/*<Input*/}
+                    {/*    placeholder="اسکن بارکد محصول"*/}
+                    {/*    value={barcodeInput}*/}
+                    {/*    onValueChange={setBarcodeInput}*/}
+                    {/*    onKeyDown={(e) => {*/}
+                    {/*        const keyCode = (e as any).keyCode;*/}
+                    {/*        if (e.key === 'Enter' || e.code === 'NumpadEnter' || keyCode === 13) {*/}
+                    {/*            e.preventDefault();*/}
+                    {/*            handleBarcodeAdd();*/}
+                    {/*        }*/}
+                    {/*    }}*/}
+                    {/*    variant="bordered"*/}
+                    {/*    classNames={{ input: 'text-right', base: 'max-w-[200px] sm:max-w-xs' }}*/}
+                    {/*/>*/}
                 </div>
-
-                <div className="flex gap-2">
-                    <Button
-                        variant={quickScanEnabled ? "solid" : "bordered"}
-                        color="primary"
-                        onPress={() => setQuickScanEnabled((v) => !v)}
-                    >
-                        {quickScanEnabled ? 'اسکن سریع: روشن' : 'اسکن سریع: خاموش'}
+                {editingOrderId != null ? (
+                    <Button variant="flat" color="warning" onPress={() => navigate('/orders')}>
+                        انصراف از ویرایش
                     </Button>
-                    {editingOrderId != null && (
-                        <Button variant="flat" color="warning" onPress={() => navigate('/orders')}>
-                            انصراف از ویرایش
-                        </Button>
-                    )}
-                    <Button variant="flat" color="default" onPress={() => navigate('/orders')}>
-                        سفارشات
-                    </Button>
-                    <Button variant="flat" color="secondary" onPress={() => navigate('/accounting')}>
-                        حسابداری
-                    </Button>
-                    <Button color="primary" variant="flat" onPress={() => navigate('/settings')}>
-                        تنظیمات
-                    </Button>
-                    <Button color="danger" variant="flat" onPress={logout}>
-                        خروج
-                    </Button>
-                </div>
+                ) : null}
             </header>
 
-            {orderEditError && editingOrderId != null && (
-                <div className="px-6 py-3 bg-danger-50 text-danger border-b border-danger-200 text-center" role="alert">
-                    {orderEditError}
-                </div>
-            )}
-            {error && (
-                <div className="px-6 py-3 bg-danger-50 text-danger border-b border-danger-200 text-center" role="alert">
-                    {error}
-                </div>
-            )}
-            {successMessage && (
-                <div className="px-6 py-3 bg-success-50 text-success-700 border-b border-success-200 text-center"
-                     role="alert">
-                    {successMessage}
-                </div>
-            )}
+            <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 flex flex-col gap-2 w-[min(92vw,520px)] pointer-events-none">
+                {toasts.map((toast) => (
+                    <div
+                        key={toast.id}
+                        className={
+                            toast.type === 'error'
+                                ? 'rounded-lg border border-danger-300 bg-danger-50 px-4 py-2 text-danger-700 shadow-md'
+                                : toast.type === 'success'
+                                  ? 'rounded-lg border border-success-300 bg-success-50 px-4 py-2 text-success-700 shadow-md'
+                                  : 'rounded-lg border border-warning-300 bg-warning-50 px-4 py-2 text-warning-800 shadow-md'
+                        }
+                    >
+                        {toast.message}
+                    </div>
+                ))}
+            </div>
             {isScaleIntegrationEnabled && !canUseScale && (
                 <div className="px-6 py-3 bg-warning-50 text-warning-700 border-b border-warning-200 text-center" role="alert">
                     اتصال ترازو برای این کاربر غیرفعال است. برای دسترسی، از مدیر بخواهید مجوز مدیریت پنل الکترون را فعال کند.
@@ -1115,8 +1338,8 @@ export default function OrderPage() {
                 {/*<div className="flex-1 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-5 p-5 overflow-hidden">*/}
                 <Panel>
                     <Card className="overflow-hidden flex flex-col min-h-0 h-[calc(100vh_-120px)]">
-                        <CardBody className="flex-1 overflow-hidden flex flex-row gap-0 p-0">
-                            <div className="flex-1 overflow-y-auto p-5 min-w-0 relative">
+                        <CardContent className="flex-1 overflow-hidden flex flex-row gap-0 p-0">
+                            <div className="flex-1 overflow-y-auto p-2 sm:p-3 min-w-0 relative">
                                 {orderEditLoading && (
                                     <div
                                         className="absolute inset-0 z-10 flex items-center justify-center bg-content1/80 text-default-600 text-sm">
@@ -1127,43 +1350,54 @@ export default function OrderPage() {
                                     <div className="flex items-center justify-center py-12 text-default-500">در حال
                                         بارگذاری...</div>
                                 ) : (
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
-                                        {filteredProducts.map(product => (
-                                            <Card
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                        {filteredProducts.map((product) => (
+                                            <button
                                                 key={product.id}
-                                                isPressable
-                                                className="border border-default-200"
-                                                onPress={() => {
+                                                type="button"
+                                                className="flex flex-col rounded-lg border border-default-200 bg-content1 text-start overflow-hidden outline-none transition hover:border-primary hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-content1 p-0 cursor-pointer"
+                                                onClick={() => {
                                                     setSuccessMessage('');
                                                     addToCart(product);
                                                 }}
                                             >
-                                                <CardBody className="p-0 overflow-hidden">
-                                                    {product.multiMedia?.url && (
-                                                        <img
-                                                            src={`${getAssetBaseUrl()}${product.multiMedia.url}`}
-                                                            alt={product.name_fa || product.name}
-                                                            className="w-full aspect-square object-cover"
-                                                        />
-                                                    )}
-                                                    <div className="p-3 text-right">
-                                                        <h3 className="font-semibold text-foreground text-sm">{product.name_fa || product.name}</h3>
-                                                        <p className="text-primary text-sm mt-1">{formatPrice(staffCartUnitPrice(product))}</p>
-                                                    </div>
-                                                </CardBody>
-                                            </Card>
+                                                {product.multiMedia?.url ? (
+                                                    <img
+                                                        src={`${getAssetBaseUrl()}${product.multiMedia.url}`}
+                                                        alt={product.name_fa || product.name}
+                                                        className="w-full h-[4.5rem] sm:h-20 object-cover shrink-0"
+                                                    />
+                                                ) : null}
+                                                <div
+                                                    className={
+                                                        product.multiMedia?.url
+                                                            ? 'px-2 py-1.5 text-right min-h-0'
+                                                            : 'px-2 py-2 text-right min-h-0'
+                                                    }
+                                                >
+                                                    <span className="font-semibold text-foreground text-xs leading-snug line-clamp-2 block">
+                                                        {product.name_fa || product.name}
+                                                    </span>
+                                                    <span className="text-primary text-xs mt-0.5 block tabular-nums">
+                                                        {formatPrice(staffCartUnitPrice(product))}
+                                                    </span>
+                                                </div>
+                                            </button>
                                         ))}
                                     </div>
                                 )}
                             </div>
                             <aside
                                 className="w-52 flex-shrink-0 border-r border-default-200 p-4 flex flex-col gap-2 overflow-y-auto">
-                                <span className="font-semibold text-foreground text-sm mb-1">دسته‌بندی‌ها</span>
+                                <span className="mb-1 w-full text-right text-sm font-semibold text-foreground">
+                                    دسته‌بندی‌ها
+                                </span>
                                 <Button
                                     size="sm"
+                                    fullWidth
                                     variant={selectedCategory === '' ? 'solid' : 'bordered'}
                                     color="primary"
-                                    className="justify-start"
+                                    className="h-auto min-h-8 max-w-full justify-start py-2 text-right"
                                     onPress={() => {
                                         setSelectedCategory('')
                                     }}
@@ -1174,9 +1408,10 @@ export default function OrderPage() {
                                     <Button
                                         key={cat}
                                         size="sm"
+                                        fullWidth
                                         variant={selectedCategory === cat ? 'solid' : 'bordered'}
                                         color="primary"
-                                        className="justify-start"
+                                        className="h-auto min-h-8 max-w-full justify-start whitespace-normal py-2 text-right leading-snug"
                                         onPress={() => {
                                             setSelectedCategory(cat)
                                             setSearchTerm('')
@@ -1186,19 +1421,19 @@ export default function OrderPage() {
                                     </Button>
                                 ))}
                             </aside>
-                        </CardBody>
+                        </CardContent>
                     </Card>
                 </Panel>
                 <Separator className={'px-2'}/>
                 <Panel maxSize={500} minSize={350}>
-                    <div className="flex flex-col gap-4 overflow-hidden min-h-0 h-[calc(100vh_-120px)]">
+                    <div className="flex flex-col gap-2 overflow-hidden min-h-0 h-[calc(100vh_-120px)]">
                         <Card className="flex-1 overflow-hidden min-h-0">
-                            <CardBody className="overflow-y-auto">
-                                <h2 className="text-lg font-semibold text-foreground mb-3">سبد خرید</h2>
+                            <CardContent className="overflow-y-auto p-2 sm:p-3">
+                                <h2 className="text-sm font-semibold text-foreground mb-2">سبد خرید</h2>
                                 {cart.length === 0 ? (
-                                    <p className="text-default-500 py-6 text-center">سبد خرید خالی است</p>
+                                    <p className="text-default-500 text-sm py-4 text-center">سبد خرید خالی است</p>
                                 ) : (
-                                    <div className="flex flex-col gap-3">
+                                    <div className="flex flex-col gap-1.5">
                                         {cart.map(item => {
                                             const noteValue = item.itemOption || '';
                                             const isNoteOpen = expandedNoteProductId === item.productId;
@@ -1208,13 +1443,12 @@ export default function OrderPage() {
                                                 updateCartItemOption(item.productId, current + sep + opt);
                                             };
                                             const notePreview = noteValue.trim();
-                                            const notePreviewShort = notePreview.length > 28 ? notePreview.slice(0, 28) + '…' : notePreview;
                                             const isInteractive = (e: React.MouseEvent) =>
                                                 (e.target as HTMLElement).closest('button, input, textarea, select');
                                             return (
                                                 <div
                                                     key={item.productId}
-                                                    className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-default-200 bg-content1"
+                                                    className="flex flex-col gap-2 rounded-lg border border-default-200 bg-content1 p-2"
                                                     onClick={(e) => {
                                                         if (isInteractive(e)) return;
                                                         updateCartQuantity(item.productId, item.quantity + 1);
@@ -1230,111 +1464,182 @@ export default function OrderPage() {
                                                         removeFromCart(item.productId);
                                                     }}
                                                 >
-                                                    {item.product.multiMedia?.url && (
-                                                        <div
-                                                            className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0">
-                                                            <img
-                                                                src={`${getAssetBaseUrl()}${item.product.multiMedia.url}`}
-                                                                alt=""
-                                                                className="w-full h-full object-cover"
-                                                            />
+                                                    <div className="flex w-full items-start gap-2">
+                                                        {item.product.multiMedia?.url ? (
+                                                            <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md">
+                                                                <img
+                                                                    src={`${getAssetBaseUrl()}${item.product.multiMedia.url}`}
+                                                                    alt=""
+                                                                    className="h-full w-full object-cover"
+                                                                />
+                                                            </div>
+                                                        ) : null}
+                                                        <div className="min-w-0 flex-1">
+                                                            <span className="block text-right text-sm font-medium leading-relaxed text-foreground break-words">
+                                                                {item.product.name_fa || item.product.name}
+                                                            </span>
+                                                            {notePreview ? (
+                                                                <p className="mt-1 text-right text-xs leading-relaxed text-default-600 break-words whitespace-pre-wrap">
+                                                                    {notePreview}
+                                                                </p>
+                                                            ) : null}
                                                         </div>
-                                                    )}
-                                                    <div className="flex-1 min-w-0">
-                                                        <span
-                                                            className="font-medium text-foreground block">{item.product.name_fa || item.product.name}</span>
-                                                        <div className="flex items-center gap-1 mt-1">
-                                                            <Button size="sm" isIconOnly variant="flat"
-                                                                    onPress={() => updateCartQuantity(item.productId, Math.max(0.1, item.quantity - 1))}>−</Button>
-                                                            <Input
-                                                                type="number"
-                                                                min={0.1}
-                                                                step={0.1}
-                                                                size="sm"
-                                                                className="w-16 text-center"
-                                                                value={String(item.quantity)}
-                                                                onValueChange={(v) => {
-                                                                    const val = parseFloat(String(v).replace(',', '.'));
-                                                                    if (!Number.isNaN(val)) {
-                                                                        if (val <= 0) removeFromCart(item.productId);
-                                                                        else updateCartQuantity(item.productId, val);
-                                                                    }
-                                                                }}
-                                                                onBlur={(e) => {
-                                                                    const raw = (e.target as HTMLInputElement).value.replace(',', '.');
-                                                                    const v = parseFloat(raw);
-                                                                    if (raw === '' || Number.isNaN(v) || v <= 0) updateCartQuantity(item.productId, 1);
-                                                                }}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            />
-                                                            <Button size="sm" isIconOnly variant="flat"
-                                                                    onPress={() => updateCartQuantity(item.productId, item.quantity + 1)}>+</Button>
-                                                        </div>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="light"
-                                                            className={`mt-1 ${notePreview ? 'text-primary' : ''}`}
-                                                            onPress={() => setExpandedNoteProductId((id) => (id === item.productId ? null : item.productId))}
-                                                            title={notePreview || 'افزودن توضیحات'}
-                                                        >
-                                                            {notePreview ? notePreviewShort : 'توضیحات'}
-                                                        </Button>
                                                     </div>
-                                                    {isNoteOpen && (
-                                                        <div ref={notePanelRef}
-                                                             className="w-full mt-2 p-2 rounded-lg bg-default-100 border border-default-200 space-y-2">
-                                                            {cartItemOptions.length > 0 && (
-                                                                <div className="flex flex-wrap gap-1">
-                                                                    {cartItemOptions.map(opt => (
-                                                                        <Button key={opt} size="sm" variant="bordered"
-                                                                                onPress={() => appendOption(opt)}
-                                                                                title={`افزودن: ${opt}`}>
-                                                                            + {opt}
-                                                                        </Button>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                            <Textarea
-                                                                value={noteValue}
-                                                                onValueChange={(v) => updateCartItemOption(item.productId, v)}
-                                                                onBlur={(e) => {
-                                                                    const next = e.relatedTarget;
-                                                                    if (next != null && notePanelRef.current?.contains(next as Node)) return;
-                                                                    setExpandedNoteProductId(null);
-                                                                }}
-                                                                placeholder="توضیح دستی (اختیاری)"
-                                                                minRows={2}
+                                                    <div
+                                                        ref={isNoteOpen ? openNoteSectionRef : undefined}
+                                                        className="flex w-full min-w-0 flex-col gap-1.5"
+                                                    >
+                                                        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2">
+                                                            <div className="flex shrink-0 items-center gap-0.5">
+                                                                <Button
+                                                                    size="sm"
+                                                                    isIconOnly
+                                                                    variant="flat"
+                                                                    className="h-7 min-h-7 w-7 min-w-7 text-sm"
+                                                                    onPress={() => {
+                                                                        if (item.quantity <= 1) {
+                                                                            removeFromCart(item.productId);
+                                                                            return;
+                                                                        }
+                                                                        updateCartQuantity(item.productId, item.quantity - 1);
+                                                                    }}
+                                                                >
+                                                                    −
+                                                                </Button>
+                                                                <Input
+                                                                    type="number"
+                                                                    min={0.1}
+                                                                    step={0.1}
+                                                                    size="sm"
+                                                                    className="h-7 min-h-7 w-full max-w-[4.25rem] py-0 text-center text-xs"
+                                                                    value={String(item.quantity)}
+                                                                    onValueChange={(v) => {
+                                                                        const val = parseFloat(String(v).replace(',', '.'));
+                                                                        if (!Number.isNaN(val)) {
+                                                                            if (val <= 0) removeFromCart(item.productId);
+                                                                            else updateCartQuantity(item.productId, val);
+                                                                        }
+                                                                    }}
+                                                                    onBlur={(e) => {
+                                                                        const raw = (e.target as HTMLInputElement).value.replace(',', '.');
+                                                                        const v = parseFloat(raw);
+                                                                        if (raw === '' || Number.isNaN(v) || v <= 0) updateCartQuantity(item.productId, 1);
+                                                                    }}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                                <Button
+                                                                    size="sm"
+                                                                    isIconOnly
+                                                                    variant="flat"
+                                                                    className="h-7 min-h-7 w-7 min-w-7 text-sm"
+                                                                    onPress={() => updateCartQuantity(item.productId, item.quantity + 1)}
+                                                                >
+                                                                    +
+                                                                </Button>
+                                                            </div>
+                                                            <Button
                                                                 size="sm"
-                                                                classNames={{input: 'text-right'}}
-                                                            />
-                                                            <Button size="sm" variant="flat"
-                                                                    onPress={() => setExpandedNoteProductId(null)}>بستن</Button>
+                                                                isIconOnly
+                                                                variant="flat"
+                                                                className={`h-6 min-h-6 w-6 min-w-6 shrink-0 ${notePreview || isNoteOpen ? 'text-primary' : 'text-default-400'}`}
+                                                                onPress={() =>
+                                                                    setExpandedNoteProductId((id) => (id === item.productId ? null : item.productId))
+                                                                }
+                                                                title={notePreview ? 'ویرایش توضیحات' : 'توضیحات'}
+                                                                aria-label={notePreview ? 'ویرایش توضیحات' : 'افزودن توضیحات'}
+                                                            >
+                                                                <CartItemNoteIcon className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <div className="flex shrink-0 items-center gap-1">
+                                                                <span className="text-xs font-semibold tabular-nums text-foreground">
+                                                                    {formatPrice(item.totalPrice)}
+                                                                </span>
+                                                                <Button
+                                                                    size="sm"
+                                                                    color="danger"
+                                                                    variant="light"
+                                                                    isIconOnly
+                                                                    className="h-7 min-h-7 w-7 min-w-7 text-sm"
+                                                                    onPress={() => removeFromCart(item.productId)}
+                                                                >
+                                                                    ×
+                                                                </Button>
+                                                            </div>
                                                         </div>
-                                                    )}
-                                                    <div className="flex items-center gap-2">
-                                                        <span
-                                                            className="font-semibold text-foreground">{formatPrice(item.totalPrice)}</span>
-                                                        <Button size="sm" color="danger" variant="light" isIconOnly
-                                                                onPress={() => removeFromCart(item.productId)}>×</Button>
+                                                        {isNoteOpen ? (
+                                                            <div
+                                                                ref={notePanelRef}
+                                                                className="w-full rounded-md border border-default-200 bg-default-100 p-1.5 space-y-1.5"
+                                                            >
+                                                                {cartItemOptions.length > 0 ? (
+                                                                    <div className="flex flex-wrap gap-0.5">
+                                                                        {cartItemOptions.map((opt) => (
+                                                                            <Button
+                                                                                key={opt}
+                                                                                size="sm"
+                                                                                variant="bordered"
+                                                                                className="h-7 min-h-7 px-2 text-xs"
+                                                                                onPress={() => appendOption(opt)}
+                                                                                title={`افزودن: ${opt}`}
+                                                                            >
+                                                                                + {opt}
+                                                                            </Button>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : null}
+                                                                <Textarea
+                                                                    value={noteValue}
+                                                                    onValueChange={(v) => updateCartItemOption(item.productId, v)}
+                                                                    onBlur={(e) => {
+                                                                        const next = e.relatedTarget;
+                                                                        if (next != null && notePanelRef.current?.contains(next as Node)) return;
+                                                                        setExpandedNoteProductId(null);
+                                                                    }}
+                                                                    placeholder="توضیح دستی (اختیاری)"
+                                                                    minRows={2}
+                                                                    size="sm"
+                                                                    classNames={{ input: 'min-h-[4rem] text-right text-xs' }}
+                                                                />
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="flat"
+                                                                    className="h-7 min-h-7 text-xs"
+                                                                    onPress={() => setExpandedNoteProductId(null)}
+                                                                >
+                                                                    بستن
+                                                                </Button>
+                                                            </div>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             );
                                         })}
-                                        <div className="border-t border-default-200 pt-3 mt-3 sticky bottom-0 bg-background shadow">
-                                            <div className="flex justify-between font-semibold text-foreground">
-                                                <span>جمع کل:</span>
-                                                <span>{formatPrice(getTotalAmount())}</span>
+                                        <div className="sticky bottom-0 z-[1] -mx-2 mt-3 border-t border-default-200 bg-content1/95 px-2 pt-3 pb-0.5 backdrop-blur-sm sm:-mx-3 sm:px-3">
+                                            <div className="flex items-center justify-between gap-3 rounded-lg border border-default-200 bg-default-100 px-3 py-2.5 shadow-sm">
+                                                <span className="text-sm font-medium text-default-600">جمع کل</span>
+                                                <span className="text-base font-bold tabular-nums tracking-tight text-foreground">
+                                                    {formatPrice(getTotalAmount())}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
                                 )}
-                            </CardBody>
+                            </CardContent>
                         </Card>
 
+                        {/*<Button*/}
+                        {/*    variant="flat"*/}
+                        {/*    color="warning"*/}
+                        {/*    size="md"*/}
+                        {/*    className="w-full font-semibold"*/}
+                        {/*    onPress={resetOrderSession}*/}
+                        {/*>*/}
+                        {/*    شروع سفارش جدید (ریست کامل) — {RESET_ORDER_SHORTCUT_LABEL}*/}
+                        {/*</Button>*/}
                         <Button
                             color="primary"
-                            size="lg"
-                            className="w-full font-semibold"
+                            size="md"
+                            className="w-full font-semibold min-h-10"
                             onPress={() => setShowOrderModal(true)}
                             isDisabled={cart.length === 0 || orderEditLoading || Boolean(orderEditError && editingOrderId != null)}
                         >
@@ -1345,9 +1650,8 @@ export default function OrderPage() {
                 {/*</div>*/}
             </Group>
 
-            <Modal isOpen={showOrderModal} onOpenChange={setShowOrderModal} size="2xl" scrollBehavior="inside"
-                   classNames={{base: 'order-modal'}}>
-                <ModalContent>
+            <Modal isOpen={showOrderModal} onOpenChange={setShowOrderModal} className="order-modal">
+                <ModalShell size="lg" scrollBehavior="inside">
                     <ModalHeader className="flex flex-col gap-1 text-right">
                         <h2 className="text-lg font-semibold">
                             {editingOrderId != null ? `ذخیرهٔ تغییرات — فاکتور #${editingOrderId}` : 'تکمیل و ثبت سفارش'}
@@ -1376,6 +1680,9 @@ export default function OrderPage() {
                                     setUserExists(null);
                                     setLoadedCustomerFirstName('');
                                     setLoadedCustomerLastName('');
+                                    setCustomerFirstNameInput('');
+                                    setCustomerLastNameInput('');
+                                    setShowCustomerNameFields(false);
                                     setSuccessMessage('');
                                     setError('');
                                 }}
@@ -1393,52 +1700,48 @@ export default function OrderPage() {
                                 <span
                                     className="text-success text-sm">{[loadedCustomerFirstName, loadedCustomerLastName].filter(Boolean).join(' ').trim() || 'مشتری ثبت‌نام شده'}</span>
                             )}
+                            {(userExists === true || showCustomerNameFields) && (
+                                <div className="flex flex-col gap-2 p-3 rounded-lg bg-default-50 border border-default-200">
+                                    <span className="text-default-700 text-sm font-medium">نام مشتری (اختیاری)</span>
+                                    <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
+                                        <Input
+                                            placeholder="نام"
+                                            value={customerFirstNameInput}
+                                            onValueChange={setCustomerFirstNameInput}
+                                            size="sm"
+                                            variant="bordered"
+                                            classNames={{input: 'text-right'}}
+                                        />
+                                        <Input
+                                            placeholder="نام خانوادگی"
+                                            value={customerLastNameInput}
+                                            onValueChange={setCustomerLastNameInput}
+                                            size="sm"
+                                            variant="bordered"
+                                            classNames={{input: 'text-right'}}
+                                        />
+                                    </div>
+                                    <small className="text-default-500 text-xs">
+                                        اگر مشتری قبلاً با نام اشتباه/فیک ذخیره شده باشد، با ثبت سفارش نام جدید به‌روزرسانی می‌شود.
+                                    </small>
+                                </div>
+                            )}
                             {userExists === false && (
                                 <div
                                     className="flex flex-col gap-3 p-3 rounded-lg bg-warning-50 border border-warning-200">
                                     <span className="text-warning-700 text-sm font-medium">مشتری جدید</span>
                                     <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
-                                        <Input placeholder="نام (اختیاری)" value={addCustomerFirstName}
-                                               onValueChange={setAddCustomerFirstName} size="sm" variant="bordered"
-                                               classNames={{input: 'text-right'}}/>
-                                        <Input placeholder="نام خانوادگی (اختیاری)" value={addCustomerLastName}
-                                               onValueChange={setAddCustomerLastName} size="sm" variant="bordered"
-                                               classNames={{input: 'text-right'}}/>
                                         <Button
                                             size="sm"
                                             color="primary"
-                                            isLoading={isAddingCustomer}
+                                            isDisabled={showCustomerNameFields}
                                             onPress={async () => {
-                                                const normalized = normalizeIranMobile(customerPhone.trim());
-                                                if (!isValidIranMobile(normalized)) {
-                                                    setError('فرمت شماره موبایل معتبر نیست. مثال: 09123456789');
-                                                    return;
-                                                }
-                                                const restaurantId = user?.restaurants?.[0]?.id;
-                                                const restaurantName = user?.restaurants?.[0]?.name;
-                                                if (!token || (!restaurantId && !restaurantName)) return;
-                                                setIsAddingCustomer(true);
-                                                try {
-                                                    await addCustomer(
-                                                        {restaurantId, restaurantName},
-                                                        {
-                                                            mobile: normalized,
-                                                            firstName: addCustomerFirstName.trim() || undefined,
-                                                            lastName: addCustomerLastName.trim() || undefined
-                                                        },
-                                                        token,
-                                                    );
-                                                    setUserExists(true);
-                                                    setAddCustomerFirstName('');
-                                                    setAddCustomerLastName('');
-                                                } catch (err) {
-                                                    console.error('Add customer failed:', err);
-                                                } finally {
-                                                    setIsAddingCustomer(false);
-                                                }
+                                                // فقط باکس نام/نام خانوادگی را نشان می‌دهیم.
+                                                // ساخت/آپدیت مشتری در submit سفارش انجام می‌شود.
+                                                setShowCustomerNameFields(true);
                                             }}
                                         >
-                                            {isAddingCustomer ? '...' : 'افزودن به مشتریان'}
+                                            {showCustomerNameFields ? 'نام مشتری را وارد کنید' : 'افزودن به مشتریان'}
                                         </Button>
                                     </div>
                                 </div>
@@ -1518,11 +1821,28 @@ export default function OrderPage() {
                                 ) : !canUseCardTerminal ? (
                                     <p className="text-warning-700">دسترسی استفاده از کارتخوان برای شما فعال نیست.</p>
                                 ) : allowDirectSendAmountToCardTerminal ? (
-                                    <div className="flex items-center justify-between gap-3">
-                                        <p className="text-success-700">ارسال مستقیم مبلغ به کارتخوان فعال است.</p>
-                                        <Button size="sm" color="primary" variant="flat" onPress={handleSendAmountToCardTerminal}>
-                                            ارسال مبلغ {formatPrice(getFinalAmount())}
-                                        </Button>
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-success-700">ارسال مستقیم مبلغ به کارتخوان فعال است.</p>
+                                            <Button size="sm" color="primary" variant="flat" onPress={handleSendAmountToCardTerminal}>
+                                                ارسال مبلغ {formatPrice(getFinalAmount())}
+                                            </Button>
+                                        </div>
+                                        {cardTerminalProfiles.length > 1 && (
+                                            <Select
+                                                size="sm"
+                                                label="انتخاب کارتخوان"
+                                                selectedKeys={selectedCardTerminalId ? [selectedCardTerminalId] : []}
+                                                onSelectionChange={(keys) => {
+                                                    const next = String(Array.from(keys)[0] || '');
+                                                    setSelectedCardTerminalId(next);
+                                                }}
+                                            >
+                                                {cardTerminalProfiles.map((terminal) => (
+                                                    <SelectItem key={terminal.id}>{terminal.name}</SelectItem>
+                                                ))}
+                                            </Select>
+                                        )}
                                     </div>
                                 ) : (
                                     <p className="text-default-600">ارسال مستقیم مبلغ به کارتخوان توسط مدیر غیرفعال شده است.</p>
@@ -1585,7 +1905,7 @@ export default function OrderPage() {
                         </div>
 
                         <Textarea label="یادداشت (اختیاری)" placeholder="یادداشت برای آشپزخانه" value={notes}
-                                  onValueChange={setNotes} minRows={2} variant="bordered"
+                                  onValueChange={setNotes} minRows={2}
                                   classNames={{input: 'text-right'}}/>
 
                         <div className="rounded-lg bg-default-100 p-4 space-y-2">
@@ -1652,7 +1972,55 @@ export default function OrderPage() {
                                 : (editingOrderId != null ? 'ذخیرهٔ فاکتور' : 'ثبت نهایی')}
                         </Button>
                     </ModalFooter>
-                </ModalContent>
+                </ModalShell>
+            </Modal>
+            <Modal isOpen={showCreateProductModal} onOpenChange={setShowCreateProductModal}>
+                <ModalShell size="lg">
+                    <ModalHeader>افزودن محصول جدید با بارکد</ModalHeader>
+                    <ModalBody className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <Input
+                            label="بارکد"
+                            value={newProductForm.barcode}
+                            readOnly={true}
+                            onValueChange={(v) => setNewProductForm((f) => ({ ...f, barcode: v }))}
+                        />
+                        <Input
+                            label="نام فارسی"
+                            autoFocus={true}
+                            value={newProductForm.name_fa}
+                            onValueChange={(v) => setNewProductForm((f) => ({ ...f, name_fa: v }))}
+                        />
+                        <Input
+                            label="نام انگلیسی (اختیاری)"
+                            value={newProductForm.name}
+                            onValueChange={(v) => setNewProductForm((f) => ({ ...f, name: v }))}
+                        />
+                        <Input
+                            label="قیمت"
+                            type="number"
+                            value={newProductForm.price}
+                            onValueChange={(v) => setNewProductForm((f) => ({ ...f, price: v }))}
+                        />
+                        <Select
+                            label="دسته‌بندی"
+                            selectedKeys={newProductForm.category_id ? [newProductForm.category_id] : []}
+                            onSelectionChange={(keys) => {
+                                const selected = String(Array.from(keys)[0] || '');
+                                setNewProductForm((f) => ({ ...f, category_id: selected }));
+                            }}
+                        >
+                            {productCategories.map((c: any) => (
+                                <SelectItem key={String(c.id)}>{c.name_fa || c.name}</SelectItem>
+                            ))}
+                        </Select>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="light" onPress={() => setShowCreateProductModal(false)}>انصراف</Button>
+                        <Button color="primary" isLoading={creatingProduct} onPress={submitCreateProductFromBarcode}>
+                            ثبت و افزودن به سبد
+                        </Button>
+                    </ModalFooter>
+                </ModalShell>
             </Modal>
 
             {/* مودال افزودن محصول جدید هنگام عدم یافتن بارکد */}

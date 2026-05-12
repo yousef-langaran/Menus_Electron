@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '@heroui/styles';
 
 @config '../tailwind.config.mjs';
 
@@ -63,11 +64,13 @@
     line-height: 1.5;
     direction: rtl;
     text-align: right;
-    background-color: #f5f5f5;
+    background-color: var(--background);
+    color: var(--foreground);
   }
 
   html.dark body {
-    background-color: #18181b;
+    background-color: var(--background);
+    color: var(--foreground);
   }
 
   #root {
@@ -112,14 +115,78 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f5f5f5;
-  color: #333;
+  background: var(--background);
+  color: var(--foreground);
   font-size: 18px;
 }
 
 html.dark .app-loading-screen {
-  background: #18181b;
-  color: #e4e4e7;
+  background: var(--background);
+  color: var(--foreground);
 }
 
+/* تم برند هوش‌منو: اکسنت و موفقیت روی توکن‌های HeroUI (دکمهٔ primary، Chip، فوکوس) */
+@layer base {
+  :root,
+  .light,
+  .default,
+  [data-theme='light'],
+  [data-theme='default'] {
+    --accent: oklch(0.46 0.13 254);
+    --accent-foreground: var(--snow);
+    --success: oklch(0.58 0.11 168);
+    --success-foreground: var(--snow);
+    --focus: var(--accent);
+  }
 
+  .dark,
+  [data-theme='dark'] {
+    --accent: oklch(0.58 0.14 254);
+    --accent-foreground: var(--snow);
+    --success: oklch(0.62 0.1 168);
+    --success-foreground: var(--snow);
+    --focus: var(--accent);
+  }
+}
+
+/* اسکرول‌بار مینیمال (Electron = Chromium + Firefox) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(0 0 0 / 0.18) transparent;
+}
+
+html.dark * {
+  scrollbar-color: rgb(255 255 255 / 0.14) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background-color: rgb(0 0 0 / 0.14);
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(0 0 0 / 0.28);
+}
+
+html.dark *::-webkit-scrollbar-thumb {
+  background-color: rgb(255 255 255 / 0.1);
+}
+
+html.dark *::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(255 255 255 / 0.2);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}

@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, CardBody, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from '@heroui/react';
+import { Card, CardContent, Modal, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
+import { Button } from '../../ui/compat-button';
+import { Input } from '../../ui/compat-input';
+import { ModalShell } from '../../ui/modal-shell';
+import { Select, SelectItem } from '../../ui/compat-select';
 import { useAuthStore } from '../../store/authStore';
 import { accountingDb, createRawMaterialLocal, deleteRawMaterialLocal, updateRawMaterialLocal } from '../../services/accountingLocalDb';
 
@@ -44,7 +48,7 @@ export default function AccountingRawMaterialsPage() {
         </div>
       </div>
       <Card>
-        <CardBody className="gap-3">
+        <CardContent className="gap-3">
           <Input placeholder="جستجو (نام/بارکد)" value={search} onValueChange={setSearch} />
           {filtered.map((m) => (
             <div key={m.id} className="text-sm bg-default-100 rounded p-2 flex justify-between items-center">
@@ -55,11 +59,11 @@ export default function AccountingRawMaterialsPage() {
               </div>
             </div>
           ))}
-        </CardBody>
+        </CardContent>
       </Card>
 
       <Modal isOpen={createOpen} onOpenChange={setCreateOpen}>
-        <ModalContent>
+        <ModalShell size="md">
           <ModalHeader>ثبت ماده اولیه</ModalHeader>
           <ModalBody className="gap-3">
             <Input label="نام" value={name} onValueChange={setName} />
@@ -76,11 +80,11 @@ export default function AccountingRawMaterialsPage() {
               setName(''); setMinStock('0'); setCreateOpen(false); await reload();
             }}>ثبت</Button>
           </ModalFooter>
-        </ModalContent>
+        </ModalShell>
       </Modal>
 
       <Modal isOpen={editOpen} onOpenChange={setEditOpen}>
-        <ModalContent>
+        <ModalShell size="md">
           <ModalHeader>ویرایش ماده اولیه</ModalHeader>
           <ModalBody><Input label="نام جدید" value={name} onValueChange={setName} /></ModalBody>
           <ModalFooter>
@@ -91,7 +95,7 @@ export default function AccountingRawMaterialsPage() {
               setEditOpen(false); await reload();
             }}>ذخیره</Button>
           </ModalFooter>
-        </ModalContent>
+        </ModalShell>
       </Modal>
     </div>
   );

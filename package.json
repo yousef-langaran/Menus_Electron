@@ -26,31 +26,30 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@heroui/react": "^2.6.13",
-    "@heroui/system": "^2.4.18",
-    "@heroui/theme": "^2.4.24",
+    "@heroui/react": "^3.0.1",
+    "@heroui/styles": "^3.0.1",
     "axios": "^1.7.9",
     "dexie": "^3.2.4",
     "dotenv": "^17.2.4",
     "electron-updater": "^6.3.9",
     "framer-motion": "^11.16.4",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "react-resizable-panels": "^4.10.0",
     "react-router-dom": "^6.26.0",
     "socket.io-client": "^4.8.1",
     "zustand": "^4.5.5"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.18",
+    "@tailwindcss/vite": "^4.2.1",
     "@types/node": "^20.14.0",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.1",
     "concurrently": "^8.2.2",
     "electron": "^30.0.0",
     "electron-builder": "^24.13.3",
-    "tailwindcss": "^4.1.18",
+    "tailwindcss": "^4.2.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.0",
     "wait-on": "^7.2.0"
@@ -81,6 +80,7 @@
       "node_modules/**/*"
     ],
     "win": {
+      "artifactName": "Hosh-Menu-Setup.${ext}",
       "target": [
         "nsis"
       ],

@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadUserSession: () => ipcRenderer.invoke('load-user-session'),
   saveUserSession: (session: { user: any; token: string }) =>
     ipcRenderer.invoke('save-user-session', session),
+  updateUserSessionToken: (token: string) => ipcRenderer.invoke('update-user-session-token', token),
   clearUserSession: () => ipcRenderer.invoke('clear-user-session'),
   loadPrinterConfigs: () => ipcRenderer.invoke('load-printer-configs'),
   savePrinterConfigs: (configs: Record<string, any>) =>
@@ -38,7 +39,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getReceiptPriceDisplayUnit: () => ipcRenderer.invoke('get-receipt-price-display-unit'),
   saveReceiptPriceDisplayUnit: (unit: 'toman' | 'rial') =>
     ipcRenderer.invoke('save-receipt-price-display-unit', unit),
-  sendAmountToCardTerminal: (payload: { amount: number; orderId?: number; restaurantId?: number }) =>
+  getCardTerminalSettings: () => ipcRenderer.invoke('get-card-terminal-settings'),
+  saveCardTerminalSettings: (settings: any) =>
+    ipcRenderer.invoke('save-card-terminal-settings', settings),
+  getCardTerminalConfig: () => ipcRenderer.invoke('get-card-terminal-config'),
+  saveCardTerminalConfig: (config: any) => ipcRenderer.invoke('save-card-terminal-config', config),
+  testCardTerminalConnection: (payload: { amount?: number; restaurantId?: number; orderId?: number; terminalProfileId?: string }) =>
+    ipcRenderer.invoke('test-card-terminal-connection', payload),
+  sendAmountToCardTerminal: (payload: { amount: number; orderId?: number; restaurantId?: number; terminalProfileId?: string }) =>
     ipcRenderer.invoke('send-amount-to-card-terminal', payload),
   getReceiptNumbersMap: () => ipcRenderer.invoke('get-receipt-numbers-map'),
   assignReceiptNumberForOrder: (orderKeys: string[]) =>
@@ -111,6 +119,7 @@ declare global {
       ) => Promise<{ success: boolean; html?: string; imageDataUrl?: string; error?: string }>;
       loadUserSession: () => Promise<{ user: any; token: string; cachedAt: string } | null>;
       saveUserSession: (data: { user: any; token: string }) => Promise<{ success: boolean; error?: string }>;
+      updateUserSessionToken: (token: string) => Promise<{ success: boolean; error?: string }>;
       clearUserSession: () => Promise<{ success: boolean; error?: string }>;
       loadPrinterConfigs: () => Promise<Record<string, any>>;
       savePrinterConfigs: (configs: Record<string, any>) => Promise<{ success: boolean; error?: string }>;
@@ -118,7 +127,14 @@ declare global {
       saveReceiptNumberSettings: (settings: any) => Promise<{ success: boolean; error?: string }>;
       getReceiptPriceDisplayUnit: () => Promise<'toman' | 'rial'>;
       saveReceiptPriceDisplayUnit: (unit: 'toman' | 'rial') => Promise<{ success: boolean; error?: string }>;
-      sendAmountToCardTerminal: (payload: { amount: number; orderId?: number; restaurantId?: number }) => Promise<{ success: boolean; error?: string; refId?: string }>;
+      getCardTerminalSettings: () => Promise<any>;
+      saveCardTerminalSettings: (settings: any) => Promise<{ success: boolean; error?: string; settings?: any }>;
+      getCardTerminalConfig: () => Promise<{ profiles: any[]; defaultProfileId: string | null }>;
+      saveCardTerminalConfig: (config: any) => Promise<{ success: boolean; error?: string; config?: any }>;
+      testCardTerminalConnection: (
+        payload: { amount?: number; restaurantId?: number; orderId?: number; terminalProfileId?: string }
+      ) => Promise<{ success: boolean; error?: string; refId?: string; message?: string }>;
+      sendAmountToCardTerminal: (payload: { amount: number; orderId?: number; restaurantId?: number; terminalProfileId?: string }) => Promise<{ success: boolean; error?: string; refId?: string }>;
       getReceiptNumbersMap: () => Promise<Record<string, number>>;
       assignReceiptNumberForOrder: (orderKeys: string[]) => Promise<number>;
       cacheImage: (imageUrl: string) => Promise<{ success: boolean; url?: string; error?: string }>;

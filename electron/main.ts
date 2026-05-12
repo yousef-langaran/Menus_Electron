@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 import { app, BrowserWindow, ipcMain, dialog, session } from 'electron';
+import axios from 'axios';
 
 // بارگذاری .env — در build: کنار exe یا در userData؛ در dev: روت پروژه
 // چند مسیر پشت‌سرهم با override: آخرین فایل موجود برای هر کلید برنده است (مثلاً userData روی exe).
@@ -43,6 +44,7 @@ import { saveOfflineOrder as dbSaveOfflineOrder, getAllOrders } from './database
 import {
   loadUserSession as loadUserSessionPrefs,
   saveUserSession as saveUserSessionPrefs,
+  updateUserSessionToken as updateUserSessionTokenPrefs,
   clearUserSession as clearUserSessionPrefs,
   loadPrinterConfigs as loadPrinterConfigsPrefs,
   savePrinterConfigs as savePrinterConfigsPrefs,
@@ -57,6 +59,11 @@ import {
   assignReceiptNumberForOrder,
   loadReceiptPriceDisplayUnit,
   saveReceiptPriceDisplayUnit,
+  loadCardTerminalSettings,
+  saveCardTerminalSettings,
+  loadCardTerminalConfig,
+  saveCardTerminalConfig,
+  type CardTerminalSettings,
 } from './database/preferences';
 import { getApiConfig } from './config/api';
 import { setupAutoUpdater, checkForUpdates, startUpdateDownload, quitAndInstall } from './updater';
@@ -172,7 +179,7 @@ app.whenReady().then(() => {
       responseHeaders: {
         ...details.responseHeaders,
         'Access-Control-Allow-Origin': ['*'],
-        'Access-Control-Allow-Methods': ['GET, POST, PUT, DELETE, OPTIONS'],
+        'Access-Control-Allow-Methods': ['GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS'],
         'Access-Control-Allow-Headers': ['Content-Type, Authorization, x-restaurant-name, x-selected-restaurant-id, x-domain-type'],
       },
     });
@@ -188,16 +195,8 @@ app.whenReady().then(() => {
     }
   });
 
-  // Check for online status periodically and sync
-  setInterval(async () => {
-    if (await isOnline()) {
-      try {
-        await syncOfflineOrders();
-      } catch (error) {
-        console.error('Sync error:', error);
-      }
-    }
-  }, 30000); // Check every 30 seconds
+  // سفارش‌های آفلاین فقط از رندرر با IPC «sync-orders» و توکن زندهٔ zustand سینک می‌شوند
+  // (سینک دوره‌ای بدون توکن، نشست ذخیره‌شدهٔ قدیمی main را می‌فرستاد و 401 می‌گرفت).
 });
 
 app.on('window-all-closed', () => {
@@ -215,14 +214,201 @@ ipcMain.handle('check-online', async () => {
   return await isOnline();
 });
 
-ipcMain.handle('send-amount-to-card-terminal', async (_event, payload: { amount?: number }) => {
+function pickByPath(source: any, pathExpr: string): any {
+  const clean = String(pathExpr || '').trim();
+  if (!clean) return undefined;
+  return clean.split('.').reduce((acc: any, part) => {
+    if (acc == null) return undefined;
+    return acc[part];
+  }, source);
+}
+
+function isTruthyApiValue(value: any): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value > 0;
+  if (typeof value === 'string') {
+    const v = value.trim().toLowerCase();
+    return ['1', 'true', 'ok', 'success', 'successful', 'approved'].includes(v);
+  }
+  return Boolean(value);
+}
+
+async function sendAmountUsingCardTerminalSettings(
+  settings: CardTerminalSettings,
+  payload: { amount?: number; orderId?: number; restaurantId?: number },
+) {
   const amount = Number(payload?.amount || 0);
   if (!(amount > 0)) {
     return { success: false, error: 'مبلغ معتبر نیست' };
   }
-  // Integration hook: implement vendor SDK/API here.
-  return { success: false, error: 'اتصال کارتخوان هنوز پیکربندی نشده است' };
+  if (!settings.enabled) {
+    return { success: false, error: 'کارتخوان در تنظیمات دسکتاپ غیرفعال است' };
+  }
+  if (!settings.endpointUrl?.trim()) {
+    return { success: false, error: 'آدرس API کارتخوان تنظیم نشده است' };
+  }
+
+  const amountToSend =
+    settings.sendAmountUnit === 'rial' ? Math.round(amount * 10) : Math.round(amount);
+
+  const requestBody: Record<string, any> = {
+    [settings.amountFieldName || 'amount']: amountToSend,
+  };
+  const orderId = Number(payload?.orderId || 0);
+  const restaurantId = Number(payload?.restaurantId || 0);
+  if (orderId > 0 && settings.orderIdFieldName) {
+    requestBody[settings.orderIdFieldName] = orderId;
+  }
+  if (restaurantId > 0 && settings.restaurantIdFieldName) {
+    requestBody[settings.restaurantIdFieldName] = restaurantId;
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (settings.authToken?.trim()) {
+    headers[settings.authHeaderName || 'Authorization'] = settings.authToken.trim();
+  }
+
+  const response = await axios.request({
+    method: settings.httpMethod || 'POST',
+    url: settings.endpointUrl.trim(),
+    data: requestBody,
+    headers,
+    timeout: Number(settings.timeoutMs || 10000),
+  });
+
+  const responseData = response?.data;
+  const successValue = pickByPath(responseData, settings.successFieldPath || 'success');
+  const messageValue = pickByPath(responseData, settings.messageFieldPath || 'message');
+  const refValue = pickByPath(responseData, settings.referenceFieldPath || 'refId');
+  const ok = successValue === undefined ? true : isTruthyApiValue(successValue);
+  if (!ok) {
+    return {
+      success: false,
+      error: String(messageValue || 'پرداخت توسط کارتخوان ناموفق بود'),
+      refId: refValue != null ? String(refValue) : undefined,
+    };
+  }
+  return {
+    success: true,
+    message: String(messageValue || 'درخواست با موفقیت به کارتخوان ارسال شد'),
+    refId: refValue != null ? String(refValue) : undefined,
+  };
+}
+
+async function resolveCardTerminalSettingsByProfile(profileId?: string): Promise<CardTerminalSettings> {
+  const config = await loadCardTerminalConfig();
+  const selected =
+    (profileId ? config.profiles.find((p) => p.id === profileId) : undefined) ||
+    config.profiles.find((p) => p.id === config.defaultProfileId) ||
+    config.profiles[0];
+  if (selected) {
+    return selected.settings;
+  }
+  return loadCardTerminalSettings();
+}
+
+ipcMain.handle('get-card-terminal-settings', async () => {
+  try {
+    return await loadCardTerminalSettings();
+  } catch (error) {
+    console.error('get-card-terminal-settings error:', error);
+    return {
+      enabled: false,
+      endpointUrl: '',
+      httpMethod: 'POST',
+      timeoutMs: 10000,
+      amountFieldName: 'amount',
+      orderIdFieldName: 'orderId',
+      restaurantIdFieldName: 'restaurantId',
+      sendAmountUnit: 'toman',
+      authHeaderName: 'Authorization',
+      authToken: '',
+      successFieldPath: 'success',
+      messageFieldPath: 'message',
+      referenceFieldPath: 'refId',
+    };
+  }
 });
+
+ipcMain.handle('get-card-terminal-config', async () => {
+  try {
+    return await loadCardTerminalConfig();
+  } catch (error) {
+    console.error('get-card-terminal-config error:', error);
+    return { profiles: [], defaultProfileId: null };
+  }
+});
+
+ipcMain.handle('save-card-terminal-settings', async (_event, settings: Partial<CardTerminalSettings>) => {
+  try {
+    const saved = await saveCardTerminalSettings(settings || {});
+    return { success: true, settings: saved };
+  } catch (error) {
+    console.error('save-card-terminal-settings error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('save-card-terminal-config', async (_event, config: any) => {
+  try {
+    const saved = await saveCardTerminalConfig(config || {});
+    return { success: true, config: saved };
+  } catch (error) {
+    console.error('save-card-terminal-config error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle(
+  'test-card-terminal-connection',
+  async (
+    _event,
+    payload: { amount?: number; orderId?: number; restaurantId?: number; terminalProfileId?: string },
+  ) => {
+    try {
+      const settings = await resolveCardTerminalSettingsByProfile(payload?.terminalProfileId);
+      return await sendAmountUsingCardTerminalSettings(settings, {
+        amount: Number(payload?.amount || 1000),
+        orderId: payload?.orderId,
+        restaurantId: payload?.restaurantId,
+      });
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'خطا در تست ارتباط کارتخوان';
+      return { success: false, error: String(message) };
+    }
+  },
+);
+
+ipcMain.handle(
+  'send-amount-to-card-terminal',
+  async (
+    _event,
+    payload: {
+      amount?: number;
+      orderId?: number;
+      restaurantId?: number;
+      terminalProfileId?: string;
+    },
+  ) => {
+    try {
+      const settings = await resolveCardTerminalSettingsByProfile(payload?.terminalProfileId);
+      return await sendAmountUsingCardTerminalSettings(settings, payload || {});
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'ارسال مبلغ به کارتخوان ناموفق بود';
+      return { success: false, error: String(message) };
+    }
+  },
+);
 
 ipcMain.handle('sync-orders', async (_event, token?: string) => {
   try {
@@ -353,10 +539,21 @@ ipcMain.handle('save-user-session', async (_event, sessionData) => {
   try {
     if (sessionData?.user && sessionData?.token) {
       await saveUserSessionPrefs(sessionData.user, sessionData.token);
+      return { success: true };
     }
-    return { success: true };
+    return { success: false, error: 'missing user or token' };
   } catch (error) {
     console.error('Save user session error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('update-user-session-token', async (_event, token: string) => {
+  try {
+    await updateUserSessionTokenPrefs(String(token || ''));
+    return { success: true };
+  } catch (error) {
+    console.error('Update user session token error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });

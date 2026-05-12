@@ -85,6 +85,20 @@ export class MenusAccountingDb extends Dexie {
         '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt',
       syncMeta: 'key',
     });
+    this.version(4).stores({
+      rawMaterials: 'id, restaurantId, updatedAt, name, barcode',
+      suppliers: 'id, restaurantId, updatedAt, name',
+      finalProducts: 'id, restaurantId, updatedAt, name, productId',
+      recipeItems: 'id, restaurantId, updatedAt, finalProductId, rawMaterialId',
+      cashBankAccounts: 'id, restaurantId, updatedAt, accountType, name',
+      operationalExpenses: 'id, restaurantId, updatedAt, expenseDate, expenseCategoryId',
+      purchaseInvoices:
+        'id, restaurantId, updatedAt, supplierId, status, purchaseDate, localSyncStatus, syncError, [restaurantId+localSyncStatus]',
+      purchaseInvoiceItems: 'id, purchaseInvoiceId, rawMaterialId',
+      syncOperations:
+        '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
+      syncMeta: 'key',
+    });
   }
 }
 
@@ -107,14 +121,26 @@ export async function getPendingAccountingOperations(
   restaurantId: number,
   limit = 200,
 ): Promise<LocalSyncOperation[]> {
-  return accountingDb.syncOperations
-    .where('[restaurantId+status]')
-    .anyOf([
-      [restaurantId, 'pending'],
-      [restaurantId, 'failed'],
-    ])
-    .limit(limit)
-    .toArray();
+  try {
+    return await accountingDb.syncOperations
+      .where('[restaurantId+status]')
+      .anyOf([
+        [restaurantId, 'pending'],
+        [restaurantId, 'failed'],
+      ])
+      .limit(limit)
+      .toArray();
+  } catch {
+    // Fallback for legacy IndexedDB schemas missing compound index.
+    const rows = await accountingDb.syncOperations.toArray();
+    return rows
+      .filter(
+        (row) =>
+          row.restaurantId === restaurantId &&
+          (row.status === 'pending' || row.status === 'failed'),
+      )
+      .slice(0, limit);
+  }
 }
 
 export async function updateOperationSyncStatus(

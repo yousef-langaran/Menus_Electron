@@ -57,6 +57,16 @@ export const apiConfigReady: Promise<void> =
 // Add request interceptor for debugging
 api.interceptors.request.use(
   (config) => {
+    const requestUrl = String(config.url || '');
+    const isAuthRequest = requestUrl.includes('/auth/');
+    if (typeof window !== 'undefined' && !isAuthRequest) {
+      const liveToken = (window as any).__menusAuthToken as string | undefined;
+      if (liveToken) {
+        const headers: any = config.headers || {};
+        headers.Authorization = `Bearer ${liveToken}`;
+        config.headers = headers;
+      }
+    }
     console.log('API Request:', {
       method: config.method,
       url: config.url,
@@ -197,6 +207,89 @@ export async function getProducts(restaurantName?: string, restaurantId?: number
 
   const response = await api.post('/products/filter/public', body, { headers });
   return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function getCategories(restaurantName?: string, restaurantId?: number, token?: string) {
+  await apiConfigReady;
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const body: any = {};
+  if (restaurantName) body.restaurantName = restaurantName;
+  if (restaurantId) body.restaurantId = restaurantId;
+  const response = await api.post('/categories/findAll', body, { headers });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function createCategory(
+  body: {
+    name_fa: string;
+    name?: string;
+    description?: string;
+    restaurantId?: number;
+  },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.post('/categories', body, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function updateCategoryById(
+  categoryId: number,
+  body: Partial<{
+    name_fa: string;
+    name?: string;
+    description?: string;
+  }>,
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.patch(`/categories/${categoryId}`, body, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function createProduct(
+  body: {
+    name_fa: string;
+    name?: string;
+    price: number;
+    category_id: number;
+    barcode?: string;
+    isAvailable?: boolean;
+    restaurantId?: number;
+  },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.post('/products', body, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function updateProductById(
+  productId: number,
+  body: Partial<{
+    name_fa: string;
+    name?: string;
+    price: number;
+    category_id: number;
+    barcode?: string;
+    isAvailable?: boolean;
+  }>,
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.patch(`/products/${productId}`, body, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
 }
 
 export async function createOrder(orderData: any, token: string) {
@@ -350,6 +443,23 @@ export async function addCustomer(
   await apiConfigReady;
   const response = await api.post('/customers/add', body, {
     params: { restaurantId: params.restaurantId, restaurantName: params.restaurantName },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function updateCustomerProfile(
+  params: { restaurantId?: number; restaurantName?: string; phone: string },
+  body: { firstName?: string; lastName?: string },
+  token: string,
+): Promise<{ id: number; firstName: string; lastName: string; mobile: string }> {
+  await apiConfigReady;
+  const response = await api.patch('/customers/profile', body, {
+    params: {
+      restaurantId: params.restaurantId,
+      restaurantName: params.restaurantName,
+      phone: params.phone,
+    },
     headers: { Authorization: `Bearer ${token}` },
   });
   return response.data;
@@ -612,4 +722,72 @@ export async function updateAccountingPurchaseInvoiceStatus(
     { headers: { Authorization: `Bearer ${token}` } },
   );
   return response.data as { invoiceId: number; status: string };
+}
+
+// Order Returns API
+export async function createOrderReturn(returnData: any, token: string) {
+  await apiConfigReady;
+  const response = await api.post('/order-returns', returnData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function fetchOrderReturns(
+  params: {
+    restaurantName?: string;
+    restaurantId?: number;
+    orderId?: number;
+    status?: string;
+    page?: number;
+    limit?: number;
+  },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.get('/order-returns', {
+    params,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function fetchOrderReturnById(returnId: number, token: string) {
+  await apiConfigReady;
+  const response = await api.get(`/order-returns/${returnId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function updateOrderReturn(
+  returnId: number,
+  updateData: { status?: string; notes?: string },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.patch(`/order-returns/${returnId}`, updateData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function deleteOrderReturn(returnId: number, token: string) {
+  await apiConfigReady;
+  const response = await api.delete(`/order-returns/${returnId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function fetchOrderReturnStats(
+  params: { restaurantName?: string; restaurantId?: number },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.get('/order-returns/stats', {
+    params,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
 }

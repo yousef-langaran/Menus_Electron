@@ -43,6 +43,21 @@ interface AuthState {
   loadCachedUser: () => Promise<void>;
 }
 
+function syncLiveAuthToken(token: string | null) {
+  if (typeof window === 'undefined') return;
+  if (token) {
+    (window as any).__menusAuthToken = token;
+    const api = (window as any).electronAPI;
+    if (api?.updateUserSessionToken) {
+      void api.updateUserSessionToken(token).catch((err: unknown) => {
+        console.warn('[Auth] updateUserSessionToken (main process):', err);
+      });
+    }
+  } else {
+    delete (window as any).__menusAuthToken;
+  }
+}
+
 const needsProfileRefresh = (user?: User | null) =>
   !user?.restaurants || user.restaurants.length === 0;
 
@@ -67,7 +82,7 @@ const hydrateUserProfile = async (token: string, fallbackUser: User): Promise<Us
   return fallbackUser;
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: null,
   isLoading: false,
@@ -77,6 +92,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (mobile: string, password: string) => {
     set({ isLoading: true, error: null });
     try {
+      // Always drop stale session before issuing a fresh login.
+      await clearUserCache();
+      set({ user: null, token: null });
       console.log('[AuthStore] Logging in user...');
       const response = await apiLogin(mobile, password);
 
@@ -123,6 +141,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
 
       await cacheUser(hydratedUser, token);
+      syncLiveAuthToken(token);
       set({
         user: hydratedUser,
         token,
@@ -157,12 +176,25 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     await clearUserCache();
+    syncLiveAuthToken(null);
     set({ user: null, token: null, isHydrated: true });
   },
 
   loadCachedUser: async () => {
+    // If a fresh login already populated state, do not overwrite with cached session.
+    if (get().token && get().user) {
+      set({ isHydrated: true });
+      return;
+    }
     const cached = await getCachedUser();
     if (cached && cached.user && cached.token) {
+      // Guard against async race:
+      // if a fresh login happened while we were loading cache, do not overwrite live auth.
+      const liveTokenBeforeHydration = get().token;
+      if (liveTokenBeforeHydration && liveTokenBeforeHydration !== cached.token) {
+        set({ isHydrated: true });
+        return;
+      }
       console.log('[AuthStore] Cached user found, checking profile hydration', {
         hasRestaurants: !!cached.user.restaurants,
         restaurantCount: cached.user.restaurants?.length,
@@ -192,9 +224,16 @@ export const useAuthStore = create<AuthState>((set) => ({
       console.log('[AuthStore] Cached user ready', {
         restaurants: resolvedUser?.restaurants?.length,
       });
+      const liveTokenAfterHydration = get().token;
+      if (liveTokenAfterHydration && liveTokenAfterHydration !== cached.token) {
+        set({ isHydrated: true });
+        return;
+      }
+      syncLiveAuthToken(cached.token);
       set({ user: resolvedUser, token: cached.token, isHydrated: true });
       return;
     }
+    syncLiveAuthToken(null);
     set({ isHydrated: true });
   },
 }));
@@ -268,6 +307,15 @@ async function checkSubscription(user: User | null, token: string): Promise<{ va
     return { valid: true };
   } catch (error: any) {
     console.warn('[AuthStore] Failed to check subscription online:', error);
+    // 401 یعنی توکن روی سرور باطل شده؛ کش اشتراک محلی را با نشست معتبر اشتباه نگیریم.
+    if (error?.response?.status === 401) {
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(storageDataKey);
+      return {
+        valid: false,
+        message: 'نشست شما منقضی یا باطل شده است. لطفاً دوباره وارد شوید.',
+      };
+    }
   }
 
   // در حالت آفلاین، از اطلاعات کش شده استفاده می‌کنیم
