@@ -691,25 +691,6 @@ export async function getMasterProductByBarcode(
   }
 }
 
-/** ایجاد محصول جدید در رستوران */
-export async function createProduct(
-  data: {
-    name: string;
-    barcode?: string;
-    category?: string;
-    price: number;
-    restaurantId?: number;
-    restaurantName?: string;
-  },
-  token: string,
-) {
-  await apiConfigReady;
-  const response = await api.post('/products', data, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return response.data;
-}
-
 export async function updateAccountingPurchaseInvoiceStatus(
   invoiceId: number,
   payload: { restaurantId: number; status: 'pending_approval' | 'approved' | 'rejected' },

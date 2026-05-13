@@ -16,7 +16,6 @@ import {
     validateDiscountCode,
     fetchOrderById,
     getMasterProductByBarcode,
-    createProduct,
 } from '../services/api';
 import {getCachedMenu, cacheMenu} from '../services/cache';
 import {useNavigate, useSearchParams} from 'react-router-dom';
@@ -203,15 +202,7 @@ export default function OrderPage() {
     const scanLastKeyAtRef = useRef(0);
     const audioCtxRef = useRef<AudioContext | null>(null);
 
-    // ── افزودن محصول جدید هنگام عدم یافتن بارکد ──
-    const [showAddProductModal, setShowAddProductModal] = useState(false);
-    const [addProductBarcode, setAddProductBarcode] = useState('');
-    const [addProductName, setAddProductName] = useState('');
-    const [addProductCategory, setAddProductCategory] = useState('');
-    const [addProductPrice, setAddProductPrice] = useState('');
     const [isCheckingMasterProduct, setIsCheckingMasterProduct] = useState(false);
-    const [addProductSubmitting, setAddProductSubmitting] = useState(false);
-    const [addProductError, setAddProductError] = useState('');
 
     const isElectronWithPrinters = typeof window !== 'undefined' && Boolean(window.electronAPI) && enabledPrinters.length > 0;
     /** کد تخفیف فقط وقتی فعال است که شماره موبایل وارد شده و اتصال آنلاین باشد */
@@ -1029,7 +1020,25 @@ export default function OrderPage() {
         const matched = products.find((p: any) => normalizeBarcode(String(p?.barcode || '')) === code);
         if (!matched) {
             playScanBeep(false);
-            setError('محصولی با این بارکد پیدا نشد');
+            if (!rawCode) setBarcodeInput('');
+            setNewProductForm({ name_fa: '', name: '', price: '', category_id: '', barcode: code });
+            setIsCheckingMasterProduct(true);
+            setShowCreateProductModal(true);
+            try {
+                const master = await getMasterProductByBarcode(code, token || undefined);
+                if (master) {
+                    const matchedCat = productCategories.find(
+                        (c: any) => (c.name_fa || c.name || '').toLowerCase() === (master.category || '').toLowerCase(),
+                    );
+                    setNewProductForm((f) => ({
+                        ...f,
+                        name_fa: master.name || '',
+                        category_id: matchedCat ? String(matchedCat.id) : '',
+                    }));
+                }
+            } finally {
+                setIsCheckingMasterProduct(false);
+            }
             return;
         }
         setSuccessMessage('');
@@ -1084,40 +1093,6 @@ export default function OrderPage() {
             setError(err?.response?.data?.message || err?.message || 'ثبت محصول ناموفق بود');
         } finally {
             setCreatingProduct(false);
-        }
-    };
-
-    const handleSubmitAddProduct = async () => {
-        if (!addProductName.trim() || !addProductPrice.trim()) {
-            setAddProductError('نام و قیمت محصول الزامی است');
-            return;
-        }
-        if (!token) return;
-        setAddProductSubmitting(true);
-        setAddProductError('');
-        const restaurantName = user?.restaurants?.[0]?.name;
-        const restaurantId = user?.restaurants?.[0]?.id;
-        try {
-            const created = await createProduct(
-                {
-                    name: addProductName.trim(),
-                    barcode: addProductBarcode || undefined,
-                    category: addProductCategory.trim() || undefined,
-                    price: Number(addProductPrice),
-                    restaurantId: restaurantId ? Number(restaurantId) : undefined,
-                    restaurantName,
-                },
-                token,
-            );
-            addToCart(created);
-            playScanBeep(true);
-            setShowAddProductModal(false);
-            // Reload products in background so future scans find the new item
-            getProducts(restaurantName, restaurantId, token).then(setProducts).catch(() => {});
-        } catch {
-            setAddProductError('خطا در ثبت محصول. لطفاً دوباره تلاش کنید.');
-        } finally {
-            setAddProductSubmitting(false);
         }
     };
 
@@ -1978,6 +1953,9 @@ export default function OrderPage() {
                 <ModalShell size="lg">
                     <ModalHeader>افزودن محصول جدید با بارکد</ModalHeader>
                     <ModalBody className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {isCheckingMasterProduct && (
+                            <p className="text-default-500 text-sm text-center col-span-2 py-1">در حال جستجو در محصولات پایه...</p>
+                        )}
                         <Input
                             label="بارکد"
                             value={newProductForm.barcode}
@@ -1986,24 +1964,28 @@ export default function OrderPage() {
                         />
                         <Input
                             label="نام فارسی"
-                            autoFocus={true}
+                            autoFocus={!isCheckingMasterProduct}
                             value={newProductForm.name_fa}
+                            isDisabled={isCheckingMasterProduct}
                             onValueChange={(v) => setNewProductForm((f) => ({ ...f, name_fa: v }))}
                         />
                         <Input
                             label="نام انگلیسی (اختیاری)"
                             value={newProductForm.name}
+                            isDisabled={isCheckingMasterProduct}
                             onValueChange={(v) => setNewProductForm((f) => ({ ...f, name: v }))}
                         />
                         <Input
                             label="قیمت"
                             type="number"
                             value={newProductForm.price}
+                            isDisabled={isCheckingMasterProduct}
                             onValueChange={(v) => setNewProductForm((f) => ({ ...f, price: v }))}
                         />
                         <Select
                             label="دسته‌بندی"
                             selectedKeys={newProductForm.category_id ? [newProductForm.category_id] : []}
+                            isDisabled={isCheckingMasterProduct}
                             onSelectionChange={(keys) => {
                                 const selected = String(Array.from(keys)[0] || '');
                                 setNewProductForm((f) => ({ ...f, category_id: selected }));
@@ -2016,56 +1998,13 @@ export default function OrderPage() {
                     </ModalBody>
                     <ModalFooter>
                         <Button variant="light" onPress={() => setShowCreateProductModal(false)}>انصراف</Button>
-                        <Button color="primary" isLoading={creatingProduct} onPress={submitCreateProductFromBarcode}>
+                        <Button color="primary" isLoading={creatingProduct} isDisabled={isCheckingMasterProduct} onPress={submitCreateProductFromBarcode}>
                             ثبت و افزودن به سبد
                         </Button>
                     </ModalFooter>
                 </ModalShell>
             </Modal>
 
-            {/* مودال افزودن محصول جدید هنگام عدم یافتن بارکد */}
-            <Modal isOpen={showAddProductModal} onOpenChange={setShowAddProductModal} size="lg">
-                <ModalContent>
-                    <ModalHeader>افزودن محصول جدید</ModalHeader>
-                    <ModalBody className="gap-3">
-                        {isCheckingMasterProduct && (
-                            <p className="text-default-500 text-sm text-center py-2">در حال جستجو در محصولات پایه...</p>
-                        )}
-                        <Input label="بارکد" value={addProductBarcode} isReadOnly />
-                        <Input
-                            label="نام محصول"
-                            value={addProductName}
-                            onValueChange={setAddProductName}
-                            isDisabled={isCheckingMasterProduct}
-                        />
-                        <Input
-                            label="دسته‌بندی"
-                            value={addProductCategory}
-                            onValueChange={setAddProductCategory}
-                            isDisabled={isCheckingMasterProduct}
-                        />
-                        <Input
-                            type="number"
-                            label="قیمت (تومان)"
-                            value={addProductPrice}
-                            onValueChange={setAddProductPrice}
-                            isDisabled={isCheckingMasterProduct}
-                        />
-                        {addProductError && <p className="text-danger text-sm">{addProductError}</p>}
-                    </ModalBody>
-                    <ModalFooter>
-                        <Button variant="flat" onPress={() => setShowAddProductModal(false)}>انصراف</Button>
-                        <Button
-                            color="primary"
-                            isLoading={addProductSubmitting}
-                            isDisabled={isCheckingMasterProduct}
-                            onPress={handleSubmitAddProduct}
-                        >
-                            ثبت محصول
-                        </Button>
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
         </div>
     );
 }

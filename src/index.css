@@ -1,5 +1,5 @@
 @import 'tailwindcss';
-@import '@heroui/styles';
+@import '@heroui/styles/css';
 
 @config '../tailwind.config.mjs';
 

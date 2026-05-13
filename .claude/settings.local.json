@@ -6,7 +6,11 @@
       "Bash(npx tsc *)",
       "Bash(Get-ChildItem tsconfig*.json)",
       "Bash(Select-Object Name)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(dir \"d:\\\\Project\\\\MyProject\\\\Menus\\\\Menus_Electron\\\\node_modules\\\\@heroui\" /b)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); deps={**d.get\\('dependencies',{}\\),**d.get\\('devDependencies',{}\\)}; [print\\(k,v\\) for k,v in deps.items\\(\\) if 'heroui' in k.lower\\(\\) or 'next' in k.lower\\(\\)]\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k,':',v\\) for k,v in d.items\\(\\) if k in ['main','module','exports','style','css']]\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('packageManager:', d.get\\('packageManager','not set'\\)\\)\")"
     ]
   }
 }
