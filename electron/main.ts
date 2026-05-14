@@ -1,8 +1,9 @@
 import { config as dotenvConfig } from 'dotenv';
 import * as path from 'path';
 import * as fs from 'fs';
+import { pathToFileURL } from 'url';
 
-import { app, BrowserWindow, ipcMain, dialog, session } from 'electron';
+import { app, BrowserWindow, nativeImage, ipcMain, dialog, session } from 'electron';
 import axios from 'axios';
 
 // بارگذاری .env — در build: کنار exe یا در userData؛ در dev: روت پروژه
@@ -67,6 +68,13 @@ import {
 } from './database/preferences';
 import { getApiConfig } from './config/api';
 import { setupAutoUpdater, checkForUpdates, startUpdateDownload, quitAndInstall } from './updater';
+
+/** مسیر فایل‌های asset برای هر دو حالت dev و packaged */
+function getAssetPath(...parts: string[]): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'assets', ...parts)
+    : path.join(__dirname, '..', 'assets', ...parts);
+}
 
 let mainWindow: BrowserWindow | null = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -150,7 +158,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    icon: path.join(__dirname, '../assets/icon.png'),
+    icon: nativeImage.createFromPath(getAssetPath('icon.png')),
     title: 'hosh menu',
   });
 
@@ -668,8 +676,7 @@ ipcMain.handle('cache-image', async (_event, imageUrl: string) => {
   try {
     const cachedPath = await cacheImage(imageUrl);
     if (cachedPath) {
-      // تبدیل به file:// URL برای استفاده در renderer
-      return { success: true, url: `file://${cachedPath}` };
+      return { success: true, url: pathToFileURL(cachedPath).href };
     }
     return { success: false, error: 'Failed to cache image' };
   } catch (error) {
@@ -682,9 +689,9 @@ ipcMain.handle('get-cached-image', async (_event, imageUrl: string) => {
   try {
     const cachedPath = getCachedImagePath(imageUrl);
     if (cachedPath) {
-      return { success: true, url: `file://${cachedPath}` };
+      return { success: true, url: pathToFileURL(cachedPath).href };
     }
-    return { success: false, url: imageUrl }; // اگر cache نشده باشد، URL اصلی را برگردان
+    return { success: false, url: imageUrl };
   } catch (error) {
     console.error('Get cached image error:', error);
     return { success: false, url: imageUrl };
@@ -696,7 +703,7 @@ ipcMain.handle('cache-images', async (_event, imageUrls: string[]) => {
     const results = await cacheImages(imageUrls || []);
     const urlMap: Record<string, string> = {};
     for (const [originalUrl, cachedPath] of Object.entries(results)) {
-      urlMap[originalUrl] = `file://${cachedPath}`;
+      urlMap[originalUrl] = pathToFileURL(cachedPath).href;
     }
     return { success: true, urls: urlMap };
   } catch (error) {
@@ -714,4 +721,19 @@ ipcMain.handle('start-update-download', () => {
 });
 ipcMain.handle('quit-and-install', () => {
   quitAndInstall();
+});
+
+// اطلاعات مسیر ذخیره‌سازی داده‌ها
+ipcMain.handle('get-data-dir', () => {
+  const userData = app.getPath('userData');
+  return {
+    userData,
+    files: {
+      'تنظیمات برنامه': path.join(userData, 'menus-preferences.json'),
+      'شماره‌گذاری فیش': path.join(userData, 'receipt-counter.json'),
+      'نقشه شماره رسید': path.join(userData, 'receipt-numbers.json'),
+      'سفارش‌های آفلاین': path.join(userData, 'offline-orders.json'),
+      'کش تصاویر': path.join(userData, 'imageCache'),
+    },
+  };
 });

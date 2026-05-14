@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { app } from 'electron';
 import * as https from 'https';
 import * as http from 'http';
@@ -140,9 +141,8 @@ export function clearImageCache(): void {
 export function getImageUrl(imageUrl: string): string {
   const cachedPath = getCachedImagePath(imageUrl);
   if (cachedPath) {
-    // در Electron می‌توانیم از file:// protocol استفاده کنیم
-    return `file://${cachedPath}`;
+    return pathToFileURL(cachedPath).href;
   }
-  return imageUrl; // اگر cache نشده باشد، URL اصلی را برگردان
+  return imageUrl;
 }
 

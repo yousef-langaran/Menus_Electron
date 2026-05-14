@@ -79,18 +79,33 @@
       "dist-react/**/*",
       "node_modules/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      }
+    ],
     "win": {
       "artifactName": "Hosh-Menu-Setup.${ext}",
       "target": [
         "nsis"
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Hosh Menu",
+      "deleteAppDataOnUninstall": false,
+      "perMachine": false
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "icon": "assets/icon.icns"
+      "icon": "assets/icon.png"
     },
     "linux": {
       "target": [

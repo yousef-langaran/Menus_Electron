@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   startUpdateDownload: () => ipcRenderer.invoke('start-update-download'),
   quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
+  getDataDir: () => ipcRenderer.invoke('get-data-dir'),
   onUpdateAvailable: (callback: (info: { version: string }) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, info: { version: string }) => callback(info);
     ipcRenderer.on('update-available', handler);
@@ -151,6 +152,7 @@ declare global {
       onUpdateNotAvailable: (callback: () => void) => () => void;
       onUpdateDownloaded: (callback: () => void) => () => void;
       onUpdateError: (callback: (message: string) => void) => () => void;
+      getDataDir: () => Promise<{ userData: string; files: Record<string, string> }>;
     };
   }
 }

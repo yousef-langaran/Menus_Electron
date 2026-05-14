@@ -72,6 +72,7 @@ export default function SettingsPage() {
   const [isSavingCardTerminal, setIsSavingCardTerminal] = useState(false);
   const [isTestingCardTerminal, setIsTestingCardTerminal] = useState(false);
   const [updateCheckHint, setUpdateCheckHint] = useState('');
+  const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string, string> } | null>(null);
   const {
     isOnline: accountingOnline,
     isSyncing: accountingSyncing,
@@ -80,6 +81,10 @@ export default function SettingsPage() {
     lastSyncedAt: accountingLastSyncedAt,
     lastError: accountingLastError,
   } = useSyncStore();
+
+  useEffect(() => {
+    window.electronAPI?.getDataDir?.().then(setDataDir).catch(() => {});
+  }, []);
 
   useEffect(() => {
     checkOnlineStatus();
@@ -831,6 +836,35 @@ export default function SettingsPage() {
             <p className="text-default-500 text-sm">
               برای هر پرینتر می‌توانید قالب چاپ و نوع/تعداد رسید را جداگانه تنظیم کنید. این تنظیمات برای چاپ خودکار رسید هنگام ثبت سفارش استفاده می‌شود.
             </p>
+          </CardContent>
+        </Card>
+
+        {/* مسیر ذخیره‌سازی داده‌ها */}
+        <Card>
+          <CardContent className="flex flex-col gap-3">
+            <h3 className="font-semibold text-default-700 text-sm">مسیر ذخیره‌سازی داده‌های برنامه</h3>
+            {dataDir ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1">
+                  <span className="text-default-500 text-xs">پوشه داده‌ها (userData):</span>
+                  <code dir="ltr" className="block text-xs bg-default-100 px-2 py-1.5 rounded-lg break-all text-default-700 select-all">
+                    {dataDir.userData}
+                  </code>
+                </div>
+                <div className="flex flex-col gap-2 mt-1">
+                  {Object.entries(dataDir.files).map(([label, filePath]) => (
+                    <div key={label} className="flex flex-col gap-0.5">
+                      <span className="text-default-500 text-xs">{label}:</span>
+                      <code dir="ltr" className="block text-xs bg-default-100 px-2 py-1.5 rounded-lg break-all text-default-500 select-all">
+                        {filePath}
+                      </code>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-default-400 text-xs">در حال بارگذاری...</p>
+            )}
           </CardContent>
         </Card>
 

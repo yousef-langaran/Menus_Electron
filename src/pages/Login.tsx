@@ -72,7 +72,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="flex flex-col items-center gap-3 pt-8 pb-0">
           <img
-            src="/branding/hoshmenu-electron-logo.png"
+            src="./branding/hoshmenu-electron-logo.png"
             alt="هوش منو"
             className="h-[72px] w-auto max-w-[220px] object-contain select-none"
             draggable={false}
