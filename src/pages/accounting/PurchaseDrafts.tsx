@@ -190,7 +190,7 @@ export default function AccountingPurchaseDraftsPage() {
 
       {/* مودال افزودن ماده اولیه جدید هنگام عدم یافتن بارکد */}
       <Modal isOpen={addMaterialOpen} onOpenChange={setAddMaterialOpen} size="lg">
-        <ModalContent>
+        <ModalShell>
           <ModalHeader>افزودن ماده اولیه جدید</ModalHeader>
           <ModalBody className="gap-3">
             {isCheckingMasterProduct && (
@@ -231,7 +231,7 @@ export default function AccountingPurchaseDraftsPage() {
               ثبت ماده اولیه
             </Button>
           </ModalFooter>
-        </ModalContent>
+        </ModalShell>
       </Modal>
     </div>
   );

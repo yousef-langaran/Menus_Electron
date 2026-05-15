@@ -173,17 +173,15 @@ export function ElectronMenubar() {
 
       {salesVis.length > 0 ? (
         <Dropdown.Root>
-          <Dropdown.Trigger>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={menuBtnClass(salesGroupActive(pathname))}
-            >
-              <span className="inline-flex items-center gap-1">
-                سفارش و فروش
-                <span className="text-[10px] opacity-60">▾</span>
-              </span>
-            </Button>
+          <Dropdown.Trigger
+            variant="ghost"
+            size="sm"
+            className={menuBtnClass(salesGroupActive(pathname))}
+          >
+            <span className="inline-flex items-center gap-1">
+              سفارش و فروش
+              <span className="text-[10px] opacity-60">▾</span>
+            </span>
           </Dropdown.Trigger>
           <Dropdown.Popover>
             <Dropdown.Menu aria-label="سفارش و فروش" onAction={onMenuAction}>
@@ -206,13 +204,11 @@ export function ElectronMenubar() {
 
       {catalogVis.length > 0 ? (
         <Dropdown.Root>
-          <Dropdown.Trigger>
-            <Button variant="ghost" size="sm" className={menuBtnClass(catalogGroupActive(pathname))}>
-              <span className="inline-flex items-center gap-1">
-                کاتالوگ
-                <span className="text-[10px] opacity-60">▾</span>
-              </span>
-            </Button>
+          <Dropdown.Trigger variant="ghost" size="sm" className={menuBtnClass(catalogGroupActive(pathname))}>
+            <span className="inline-flex items-center gap-1">
+              کاتالوگ
+              <span className="text-[10px] opacity-60">▾</span>
+            </span>
           </Dropdown.Trigger>
           <Dropdown.Popover>
             <Dropdown.Menu aria-label="کاتالوگ" onAction={onMenuAction}>
@@ -235,13 +231,11 @@ export function ElectronMenubar() {
 
       {accountingVis.length > 0 ? (
         <Dropdown.Root>
-          <Dropdown.Trigger>
-            <Button variant="ghost" size="sm" className={menuBtnClass(accountingGroupActive(pathname))}>
-              <span className="inline-flex items-center gap-1">
-                حسابداری
-                <span className="text-[10px] opacity-60">▾</span>
-              </span>
-            </Button>
+          <Dropdown.Trigger variant="ghost" size="sm" className={menuBtnClass(accountingGroupActive(pathname))}>
+            <span className="inline-flex items-center gap-1">
+              حسابداری
+              <span className="text-[10px] opacity-60">▾</span>
+            </span>
           </Dropdown.Trigger>
           <Dropdown.Popover>
             <Dropdown.Menu aria-label="حسابداری" className="max-h-[70vh] overflow-y-auto" onAction={onMenuAction}>
@@ -280,17 +274,15 @@ export function ElectronMenubar() {
 
       {systemVis.length > 0 ? (
         <Dropdown.Root>
-          <Dropdown.Trigger>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={menuBtnClass(systemVis.some((i) => pathname === i.path))}
-            >
-              <span className="inline-flex items-center gap-1">
-                سیستم
-                <span className="text-[10px] opacity-60">▾</span>
-              </span>
-            </Button>
+          <Dropdown.Trigger
+            variant="ghost"
+            size="sm"
+            className={menuBtnClass(systemVis.some((i) => pathname === i.path))}
+          >
+            <span className="inline-flex items-center gap-1">
+              سیستم
+              <span className="text-[10px] opacity-60">▾</span>
+            </span>
           </Dropdown.Trigger>
           <Dropdown.Popover>
             <Dropdown.Menu aria-label="سیستم" onAction={onMenuAction}>
