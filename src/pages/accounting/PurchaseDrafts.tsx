@@ -19,6 +19,18 @@ import { getMasterProductByBarcode } from '../../services/api';
 
 const RAW_MATERIAL_UNITS = ['gram', 'kilogram', 'liter', 'milliliter', 'piece', 'pack'];
 
+const normalizePriceInput = (value: string) =>
+  String(value || '')
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+    .replace(/[^\d]/g, '');
+
+const formatPriceInput = (value: string) => {
+  const digits = normalizePriceInput(value);
+  if (!digits) return '';
+  return new Intl.NumberFormat('en-US').format(Number(digits));
+};
+
 export default function AccountingPurchaseDraftsPage() {
   const navigate = useNavigate();
   const { user, token } = useAuthStore((s) => ({ user: s.user, token: s.token }));
@@ -128,7 +140,14 @@ export default function AccountingPurchaseDraftsPage() {
             <Select label="تامین‌کننده" selectedKeys={supplierId ? [supplierId] : []} onSelectionChange={(k) => setSupplierId(String(Array.from(k)[0] || ''))}>
               {suppliers.map((s) => <SelectItem key={String(s.id)}>{s.name}</SelectItem>)}
             </Select>
-            <Input type="number" label="هزینه جانبی" value={extraCosts} onValueChange={setExtraCosts} />
+            <Input
+              type="text"
+              inputMode="numeric"
+              label="هزینه جانبی"
+              value={formatPriceInput(extraCosts)}
+              onValueChange={(v) => setExtraCosts(normalizePriceInput(v))}
+              endContent={<span className="text-default-400 text-sm whitespace-nowrap">تومان</span>}
+            />
             <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
               <Input label="بارکد" value={barcode} onValueChange={setBarcode} />
               <Button variant="flat" onPress={async () => {
@@ -163,7 +182,14 @@ export default function AccountingPurchaseDraftsPage() {
                   {materialOptions.map((m) => <SelectItem key={m.id}>{m.label}</SelectItem>)}
                 </Select>
                 <Input type="number" label="مقدار" value={line.quantity} onValueChange={(v) => setItems((prev) => prev.map((x, i) => i === idx ? { ...x, quantity: v } : x))} />
-                <Input type="number" label="قیمت واحد" value={line.unitPrice} onValueChange={(v) => setItems((prev) => prev.map((x, i) => i === idx ? { ...x, unitPrice: v } : x))} />
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  label="قیمت واحد"
+                  value={formatPriceInput(line.unitPrice)}
+                  onValueChange={(v) => setItems((prev) => prev.map((x, i) => i === idx ? { ...x, unitPrice: normalizePriceInput(v) } : x))}
+                  endContent={<span className="text-default-400 text-sm whitespace-nowrap">تومان</span>}
+                />
                 <Button color="danger" variant="light" onPress={() => setItems((prev) => prev.filter((_, i) => i !== idx))}>حذف</Button>
               </div>
             ))}
@@ -212,11 +238,13 @@ export default function AccountingPurchaseDraftsPage() {
               {RAW_MATERIAL_UNITS.map((u) => <SelectItem key={u}>{u}</SelectItem>)}
             </Select>
             <Input
-              type="number"
+              type="text"
+              inputMode="numeric"
               label="قیمت واحد (برای این فاکتور)"
-              value={addMaterialPrice}
-              onValueChange={setAddMaterialPrice}
+              value={formatPriceInput(addMaterialPrice)}
+              onValueChange={(v) => setAddMaterialPrice(normalizePriceInput(v))}
               isDisabled={isCheckingMasterProduct}
+              endContent={<span className="text-default-400 text-sm whitespace-nowrap">تومان</span>}
             />
             {addMaterialError && <p className="text-danger text-sm">{addMaterialError}</p>}
           </ModalBody>

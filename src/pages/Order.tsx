@@ -47,6 +47,18 @@ const normalizeBarcode = (value: string) =>
         .replace(/\s+/g, '')
         .trim();
 
+const normalizePriceInput = (value: string) =>
+    String(value || '')
+        .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+        .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+        .replace(/[^\d]/g, '');
+
+const formatPriceInput = (value: string) => {
+    const digits = normalizePriceInput(value);
+    if (!digits) return '';
+    return new Intl.NumberFormat('en-US').format(Number(digits));
+};
+
 /** آیکون مداد/یادداشت برای توضیحات آیتم سبد */
 function CartItemNoteIcon({ className }: { className?: string }) {
     return (
@@ -1935,11 +1947,26 @@ export default function OrderPage() {
                                 </div>
                             ) : (
                                 <>
-                                    <Input type="number" min={0} max={discountType === 'percentage' ? 100 : undefined}
-                                           placeholder={discountType === 'percentage' ? 'مثال: 10' : 'مثال: 50000'}
-                                           value={discountAmount ? String(discountAmount) : ''}
-                                           onValueChange={(v) => setDiscountAmount(Number(v) || 0)} variant="bordered"
-                                           classNames={{input: 'text-right'}}/>
+                                    <Input
+                                        type={discountType === 'fixed' ? 'text' : 'number'}
+                                        inputMode={discountType === 'fixed' ? 'numeric' : undefined}
+                                        min={0}
+                                        max={discountType === 'percentage' ? 100 : undefined}
+                                        placeholder={discountType === 'percentage' ? 'مثال: 10' : 'مثال: 50,000'}
+                                        value={discountType === 'fixed'
+                                            ? (discountAmount ? formatPriceInput(String(discountAmount)) : '')
+                                            : (discountAmount ? String(discountAmount) : '')}
+                                        onValueChange={(v) => setDiscountAmount(
+                                            discountType === 'fixed'
+                                                ? (Number(normalizePriceInput(v)) || 0)
+                                                : (Number(v) || 0)
+                                        )}
+                                        endContent={discountType === 'fixed'
+                                            ? <span className="text-default-400 text-sm whitespace-nowrap">تومان</span>
+                                            : undefined}
+                                        variant="bordered"
+                                        classNames={{input: 'text-right'}}
+                                    />
                                     {getDiscountAmount() > 0 && <small className="text-default-500">مبلغ
                                         تخفیف: {formatPrice(getDiscountAmount())}</small>}
                                 </>
@@ -2060,11 +2087,12 @@ export default function OrderPage() {
                             onValueChange={(v) => setNewProductForm((f) => ({ ...f, name: v }))}
                         />
                         <Input
-                            label="قیمت"
-                            type="number"
-                            value={newProductForm.price}
+                            label="قیمت (تومان)"
+                            type="text"
+                            inputMode="numeric"
+                            value={formatPriceInput(newProductForm.price)}
                             isDisabled={isCheckingMasterProduct}
-                            onValueChange={(v) => setNewProductForm((f) => ({ ...f, price: v }))}
+                            onValueChange={(v) => setNewProductForm((f) => ({ ...f, price: normalizePriceInput(v) }))}
                         />
                         <Select
                             label="دسته‌بندی"
