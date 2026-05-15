@@ -2,7 +2,6 @@ import {useState, useEffect, useRef} from 'react';
 import {useAuthStore} from '../store/authStore';
 import {useOrderStore} from '../store/orderStore';
 import {
-    getProducts,
     getCategories,
     createProduct,
     getRestaurantByName,
@@ -16,6 +15,9 @@ import {
     validateDiscountCode,
     fetchOrderById,
     getMasterProductByBarcode,
+    searchMasterProducts,
+    getProductsLastUpdatedAt,
+    getProductsPublicPaginated,
 } from '../services/api';
 import {getCachedMenu, cacheMenu} from '../services/cache';
 import {useNavigate, useSearchParams} from 'react-router-dom';
@@ -31,6 +33,7 @@ import { Input } from '../ui/compat-input';
 import { Select, SelectItem } from '../ui/compat-select';
 import { Textarea } from '../ui/compat-textarea';
 import { ModalShell } from '../ui/modal-shell';
+import { NameAutocomplete } from '../ui/NameAutocomplete';
 import { CheckboxCompat as Checkbox } from '../ui/compat-checkbox';
 import {Panel, Group, Separator} from 'react-resizable-panels'
 
@@ -203,6 +206,8 @@ export default function OrderPage() {
     const audioCtxRef = useRef<AudioContext | null>(null);
 
     const [isCheckingMasterProduct, setIsCheckingMasterProduct] = useState(false);
+    const [nameSuggestions, setNameSuggestions] = useState<import('../services/api').MasterProduct[]>([]);
+    const nameSuggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const isElectronWithPrinters = typeof window !== 'undefined' && Boolean(window.electronAPI) && enabledPrinters.length > 0;
     /** کد تخفیف فقط وقتی فعال است که شماره موبایل وارد شده و اتصال آنلاین باشد */
@@ -519,13 +524,12 @@ export default function OrderPage() {
         setError('');
 
         try {
-            // Try to get cached menu first
             const restaurantName = user?.restaurants?.[0]?.name;
             const restaurantId = user?.restaurants?.[0]?.id;
-
             let productsData: any[] = [];
-            const cached = await getCachedMenu(restaurantId, restaurantName);
 
+            // ۱. نمایش فوری از کش — کاربر بلافاصله محصولات می‌بیند
+            const cached = await getCachedMenu(restaurantId, restaurantName);
             if (cached) {
                 productsData = cached.products;
                 setProducts(productsData);
@@ -550,73 +554,108 @@ export default function OrderPage() {
                 setIsLoading(false);
             }
 
-            // Try to fetch from server if online
+            // ۲. بررسی اتصال
             const isOnline = window.electronAPI
                 ? await window.electronAPI.checkOnline()
                 : navigator.onLine;
 
-            if (token && isOnline) {
-                try {
-                    productsData = await getProducts(restaurantName, restaurantId, token);
-                    setProducts(productsData);
-                    try {
-                        const c = await getCategories(restaurantName, restaurantId, token);
-                        setProductCategories(Array.isArray(c) ? c : []);
-                    } catch {
-                        setProductCategories([]);
-                    }
+            if (!token || !isOnline) {
+                if (!cached) setError('شما در حالت آفلاین هستید و منو در حافظه ذخیره نشده است.');
+                return;
+            }
 
-                    let options: string[] = [];
-                    let mobileReq = true;
-                    let scaleEnabled = false;
-                    let scaleRestricted = true;
-                    let cardTerminalEnabled = false;
-                    let cardTerminalRestricted = true;
-                    let directAmountSendEnabled = false;
+            try {
+                // ۳. بررسی آیا محصولات تغییر کرده‌اند (نتیجه را برای کش نگه می‌داریم — بدون request دوم)
+                let serverLastUpdatedAt: string | null = null;
+                let shouldFetchProducts = true;
+                if (restaurantId) {
                     try {
-                        const restaurant = restaurantId
-                            ? await getRestaurantById(Number(restaurantId), token)
-                            : await getRestaurantByName(restaurantName || '', token);
+                        const { lastUpdatedAt: serverTs } = await getProductsLastUpdatedAt(Number(restaurantId), token);
+                        serverLastUpdatedAt = serverTs;
+                        if (serverTs && serverTs === cached?.lastUpdatedAt) {
+                            shouldFetchProducts = false;
+                        }
+                    } catch {}
+                }
 
-                        const raw = restaurant?.cartItemOptions;
-                        options = Array.isArray(raw) ? raw.filter((s: any) => s != null && String(s).trim()) : [];
-                        mobileReq = restaurant?.panelSettings?.isMobileRequiredInElectronPanel ?? true;
-                        scaleEnabled = Boolean(restaurant?.panelSettings?.isScaleIntegrationEnabled);
-                        scaleRestricted = restaurant?.panelSettings?.restrictScaleAccessToElectronManagers !== false;
-                        cardTerminalEnabled = Boolean(restaurant?.panelSettings?.isCardTerminalEnabled);
-                        cardTerminalRestricted = restaurant?.panelSettings?.restrictCardTerminalAccessToElectronManagers !== false;
-                        directAmountSendEnabled = Boolean(restaurant?.panelSettings?.allowDirectSendAmountToCardTerminal);
-                        setCartItemOptions(options);
-                        setIsMobileRequired(mobileReq);
-                        setIsScaleIntegrationEnabled(scaleEnabled);
-                        setRestrictScaleAccess(scaleRestricted);
-                        setCanUseScale(!scaleEnabled || !scaleRestricted || hasManagePermission(user, 'electron_panel', Number(restaurantId)));
-                        setIsCardTerminalEnabled(cardTerminalEnabled);
-                        setRestrictCardTerminalAccess(cardTerminalRestricted);
-                        setAllowDirectSendAmountToCardTerminal(directAmountSendEnabled);
-                        setCanUseCardTerminal(
-                            !cardTerminalEnabled ||
-                            !cardTerminalRestricted ||
-                            hasManagePermission(user, 'payment_terminal', Number(restaurantId))
+                // ۴. categories + restaurant را موازی شروع کن — همزمان با fetch محصولات
+                const categoriesPromise = getCategories(restaurantName, restaurantId, token).catch(() => null);
+                const restaurantPromise = (restaurantId
+                    ? getRestaurantById(Number(restaurantId), token)
+                    : getRestaurantByName(restaurantName || '', token)
+                ).catch(() => null);
+
+                // ۵. دریافت محصولات قدم‌قدم — در این حین categories و restaurant در پس‌زمینه می‌آیند
+                if (shouldFetchProducts) {
+                    const CHUNK = 100;
+                    const firstChunk = await getProductsPublicPaginated(
+                        { restaurantId, restaurantName, page: 1, limit: CHUNK },
+                        token,
+                    );
+                    productsData = firstChunk.data;
+                    setProducts([...productsData]);
+                    setIsLoading(false);
+
+                    const totalPages = Math.ceil(firstChunk.total / CHUNK);
+                    for (let pg = 2; pg <= totalPages; pg++) {
+                        const chunk = await getProductsPublicPaginated(
+                            { restaurantId, restaurantName, page: pg, limit: CHUNK },
+                            token,
                         );
-                    } catch (_) {
-                        setCartItemOptions((prev) => prev);
-                        setIsMobileRequired((prev) => prev);
-                        setIsScaleIntegrationEnabled((prev) => prev);
-                        setRestrictScaleAccess((prev) => prev);
-                        setCanUseScale((prev) => prev);
-                        setIsCardTerminalEnabled((prev) => prev);
-                        setRestrictCardTerminalAccess((prev) => prev);
-                        setAllowDirectSendAmountToCardTerminal((prev) => prev);
-                        setCanUseCardTerminal((prev) => prev);
+                        productsData = [...productsData, ...chunk.data];
+                        setProducts([...productsData]);
                     }
+                }
 
+                // ۶. انتظار برای نتایج موازی (معمولاً تا اینجا آماده‌اند)
+                const [categoriesResult, restaurantResult] = await Promise.all([
+                    categoriesPromise,
+                    restaurantPromise,
+                ]);
+
+                if (categoriesResult) {
+                    setProductCategories(Array.isArray(categoriesResult) ? categoriesResult : []);
+                }
+
+                let options: string[] = [];
+                let mobileReq = cached?.isMobileRequiredInElectronPanel ?? true;
+                let scaleEnabled = Boolean(cached?.isScaleIntegrationEnabled);
+                let scaleRestricted = cached?.restrictScaleAccessToElectronManagers !== false;
+                let cardTerminalEnabled = Boolean(cached?.isCardTerminalEnabled);
+                let cardTerminalRestricted = cached?.restrictCardTerminalAccessToElectronManagers !== false;
+                let directAmountSendEnabled = Boolean(cached?.allowDirectSendAmountToCardTerminal);
+
+                if (restaurantResult) {
+                    const raw = restaurantResult.cartItemOptions;
+                    options = Array.isArray(raw) ? raw.filter((s: any) => s != null && String(s).trim()) : [];
+                    mobileReq = restaurantResult.panelSettings?.isMobileRequiredInElectronPanel ?? true;
+                    scaleEnabled = Boolean(restaurantResult.panelSettings?.isScaleIntegrationEnabled);
+                    scaleRestricted = restaurantResult.panelSettings?.restrictScaleAccessToElectronManagers !== false;
+                    cardTerminalEnabled = Boolean(restaurantResult.panelSettings?.isCardTerminalEnabled);
+                    cardTerminalRestricted = restaurantResult.panelSettings?.restrictCardTerminalAccessToElectronManagers !== false;
+                    directAmountSendEnabled = Boolean(restaurantResult.panelSettings?.allowDirectSendAmountToCardTerminal);
+                    setCartItemOptions(options);
+                    setIsMobileRequired(mobileReq);
+                    setIsScaleIntegrationEnabled(scaleEnabled);
+                    setRestrictScaleAccess(scaleRestricted);
+                    setCanUseScale(!scaleEnabled || !scaleRestricted || hasManagePermission(user, 'electron_panel', Number(restaurantId)));
+                    setIsCardTerminalEnabled(cardTerminalEnabled);
+                    setRestrictCardTerminalAccess(cardTerminalRestricted);
+                    setAllowDirectSendAmountToCardTerminal(directAmountSendEnabled);
+                    setCanUseCardTerminal(
+                        !cardTerminalEnabled ||
+                        !cardTerminalRestricted ||
+                        hasManagePermission(user, 'payment_terminal', Number(restaurantId))
+                    );
+                }
+
+                // ۷. کش‌گذاری — فقط اگر محصولات تغییر کرده باشند (از serverLastUpdatedAt ذخیره‌شده استفاده می‌شود)
+                if (shouldFetchProducts) {
                     const uniqueCategories = Array.from(
                         new Set(productsData.map(p => p.category?.name_fa).filter(Boolean))
                     );
                     setCategories(uniqueCategories as string[]);
 
-                    // Cache the menu (including cart item options for offline)
                     await cacheMenu(
                         restaurantId || 0,
                         restaurantName || '',
@@ -629,15 +668,14 @@ export default function OrderPage() {
                         cardTerminalEnabled,
                         cardTerminalRestricted,
                         directAmountSendEnabled,
+                        serverLastUpdatedAt,
                     );
-                } catch (err) {
-                    console.warn('Failed to fetch products from server:', err);
-                    if (productsData.length === 0) {
-                        setError('خطا در بارگذاری منو. از حالت آفلاین استفاده می‌شود.');
-                    }
                 }
-            } else if (productsData.length === 0) {
-                setError('شما در حالت آفلاین هستید و منو در حافظه ذخیره نشده است.');
+            } catch (err) {
+                console.warn('Failed to fetch products from server:', err);
+                if (productsData.length === 0) {
+                    setError('خطا در بارگذاری منو. از حالت آفلاین استفاده می‌شود.');
+                }
             }
         } catch (err: any) {
             setError(err.message || 'خطا در بارگذاری منو');
@@ -1165,18 +1203,14 @@ export default function OrderPage() {
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-            const now = Date.now();
-            if (now - scanLastKeyAtRef.current > 250) {
-                scanBufferRef.current = '';
-            }
-            scanLastKeyAtRef.current = now;
-
             const isEnter = e.key === 'Enter' || e.code === 'NumpadEnter' || (e as any).keyCode === 13;
+            const now = Date.now();
+
             if (isEnter) {
                 const code = normalizeBarcode(scanBufferRef.current);
                 scanBufferRef.current = '';
+                scanLastKeyAtRef.current = 0;
                 if (code.length >= 3) {
-                    // خیلی مهم: Enter اسکنر نباید باعث submit/click/باز شدن مودال شود.
                     e.preventDefault();
                     e.stopPropagation();
                     handleBarcodeAdd(code);
@@ -1184,13 +1218,43 @@ export default function OrderPage() {
                 return;
             }
 
+            if (now - scanLastKeyAtRef.current > 250) {
+                scanBufferRef.current = '';
+            }
+            scanLastKeyAtRef.current = now;
             if (e.key.length === 1) {
                 scanBufferRef.current += e.key;
+                // Detect /barcode/ pattern — scanner with slash prefix/suffix, no Enter
+                const buf = scanBufferRef.current;
+                if (buf.length >= 3 && buf[0] === '/' && buf[buf.length - 1] === '/') {
+                    const code = normalizeBarcode(buf.slice(1, -1));
+                    if (code.length >= 3) {
+                        scanBufferRef.current = '';
+                        scanLastKeyAtRef.current = 0;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleBarcodeAdd(code);
+                    }
+                }
             }
         };
-        // capture=true تا قبل از اکشن‌های فوکوس‌دار (button/input) Enter اسکنر مهار شود.
-        window.addEventListener('keydown', onKeyDown, true);
-        return () => window.removeEventListener('keydown', onKeyDown, true);
+        document.addEventListener('keydown', onKeyDown, true);
+        return () => document.removeEventListener('keydown', onKeyDown, true);
+    }, [quickScanEnabled, products]);
+
+    // Handle barcode scanners that work via clipboard paste
+    useEffect(() => {
+        if (!quickScanEnabled) return;
+        const onPaste = (e: ClipboardEvent) => {
+            const text = e.clipboardData?.getData('text/plain') || '';
+            const code = normalizeBarcode(text);
+            if (code.length < 3) return;
+            e.preventDefault();
+            e.stopPropagation();
+            handleBarcodeAdd(code);
+        };
+        document.addEventListener('paste', onPaste, true);
+        return () => document.removeEventListener('paste', onPaste, true);
     }, [quickScanEnabled, products]);
 
     useEffect(() => {
@@ -1962,12 +2026,29 @@ export default function OrderPage() {
                             readOnly={true}
                             onValueChange={(v) => setNewProductForm((f) => ({ ...f, barcode: v }))}
                         />
-                        <Input
-                            label="نام فارسی"
-                            autoFocus={!isCheckingMasterProduct}
-                            value={newProductForm.name_fa}
-                            isDisabled={isCheckingMasterProduct}
-                            onValueChange={(v) => setNewProductForm((f) => ({ ...f, name_fa: v }))}
+                        <NameAutocomplete
+                          value={newProductForm.name_fa}
+                          autoFocus={!isCheckingMasterProduct}
+                          isDisabled={isCheckingMasterProduct}
+                          onValueChange={(v) => {
+                            setNewProductForm((f) => ({ ...f, name_fa: v }));
+                            if (nameSuggestTimerRef.current) clearTimeout(nameSuggestTimerRef.current);
+                            if (!v.trim()) { setNameSuggestions([]); return; }
+                            nameSuggestTimerRef.current = setTimeout(async () => {
+                              const results = await searchMasterProducts(v, token || undefined);
+                              setNameSuggestions(results);
+                            }, 300);
+                          }}
+                          suggestions={nameSuggestions}
+                          onSelect={(s) => {
+                            setNewProductForm((f) => ({
+                              ...f,
+                              name_fa: s.name,
+                              name: f.name || s.name,
+                              barcode: f.barcode || s.barcode || '',
+                            }));
+                            setNameSuggestions([]);
+                          }}
                         />
                         <Input
                             label="نام انگلیسی (اختیاری)"

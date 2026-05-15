@@ -17,7 +17,8 @@ export async function cacheMenu(
   restrictScaleAccessToElectronManagers?: boolean,
   isCardTerminalEnabled?: boolean,
   restrictCardTerminalAccessToElectronManagers?: boolean,
-  allowDirectSendAmountToCardTerminal?: boolean
+  allowDirectSendAmountToCardTerminal?: boolean,
+  lastUpdatedAt?: string | null,
 ) {
   menuCache = {
     restaurantId,
@@ -31,6 +32,7 @@ export async function cacheMenu(
     isCardTerminalEnabled: isCardTerminalEnabled || false,
     restrictCardTerminalAccessToElectronManagers: restrictCardTerminalAccessToElectronManagers !== false,
     allowDirectSendAmountToCardTerminal: allowDirectSendAmountToCardTerminal || false,
+    lastUpdatedAt: lastUpdatedAt ?? null,
     cachedAt: new Date().toISOString(),
   };
 

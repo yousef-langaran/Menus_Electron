@@ -675,6 +675,23 @@ export interface MasterProduct {
   category?: string;
 }
 
+/** جستجوی محصولات پایه بر اساس نام — حداکثر ۸ نتیجه برمی‌گرداند */
+export async function searchMasterProducts(
+  query: string,
+  token?: string,
+): Promise<MasterProduct[]> {
+  await apiConfigReady;
+  if (!query.trim()) return [];
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  try {
+    const response = await api.get('/master-products', { headers, params: { search: query.trim(), limit: 8 } });
+    return response.data?.data ?? [];
+  } catch {
+    return [];
+  }
+}
+
 /** جستجوی محصول پایه بر اساس بارکد — در صورت عدم یافتن یا خطا، null برمی‌گرداند */
 export async function getMasterProductByBarcode(
   barcode: string,
@@ -768,6 +785,77 @@ export async function fetchOrderReturnStats(
   await apiConfigReady;
   const response = await api.get('/order-returns/stats', {
     params,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+/** آخرین زمان به‌روزرسانی محصولات رستوران — برای بررسی تغییر بدون دریافت کل لیست */
+export async function getProductsLastUpdatedAt(
+  restaurantId: number,
+  token?: string,
+): Promise<{ lastUpdatedAt: string | null }> {
+  await apiConfigReady;
+  const headers: any = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  try {
+    const response = await api.get('/products/last-updated-at', {
+      headers,
+      params: { restaurantId },
+    });
+    return response.data;
+  } catch {
+    return { lastUpdatedAt: null };
+  }
+}
+
+/** دریافت محصولات به‌صورت صفحه‌بندی‌شده — عمومی، برای ثبت سفارش */
+export async function getProductsPublicPaginated(
+  params: {
+    restaurantId?: number;
+    restaurantName?: string;
+    page: number;
+    limit: number;
+  },
+  token?: string,
+): Promise<{ data: any[]; total: number; page: number; limit: number }> {
+  await apiConfigReady;
+  const headers: any = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (params.restaurantName) headers['x-restaurant-name'] = params.restaurantName;
+  if (params.restaurantId) headers['x-selected-restaurant-id'] = String(params.restaurantId);
+  const body: any = {
+    restaurantId: params.restaurantId,
+    restaurantName: params.restaurantName,
+    page: params.page,
+    limit: params.limit,
+    includeStaffInventoryOrderPrice: true,
+  };
+  const response = await api.post('/products/filter/public/paginated', body, { headers });
+  return response.data;
+}
+
+/** دریافت محصولات با صفحه‌بندی و جستجو — برای پنل مدیریت ادمین */
+export async function getProductsAdmin(
+  params: {
+    restaurantId?: number;
+    restaurantName?: string;
+    page: number;
+    limit: number;
+    search?: string;
+  },
+  token: string,
+): Promise<{ data: any[]; total: number; page: number; limit: number }> {
+  await apiConfigReady;
+  const body: any = {
+    restaurantId: params.restaurantId,
+    restaurantName: params.restaurantName,
+    page: params.page,
+    limit: params.limit,
+    search: params.search,
+    includeStaffInventoryOrderPrice: true,
+  };
+  const response = await api.post('/products/filter/admin', body, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return response.data;
