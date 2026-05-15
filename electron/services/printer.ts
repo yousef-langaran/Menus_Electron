@@ -660,7 +660,7 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
           <td>
             <span class="item-name">${title}</span>
           </td>
-          <td class="col-qty">${item.quantity}</td>
+          <td class="col-qty">${item.quantity}${item.product?.unit && item.product.unit !== 'عدد' ? ` ${item.product.unit}` : ''}</td>
           <td class="col-price">${formatPrice(+item.price* +item.quantity)}</td>
         </tr>`;
   }).join('')}
@@ -965,7 +965,8 @@ function renderLayoutModuleHtml(
       const price = showPrice ? `<td style="padding:2px 4px;vertical-align:top">${formatPrice(item.price)}</td>` : '';
       const border = tableStyle === 'bordered' ? 'border-bottom:1px solid #000' : '';
       const titleCell = `<span>${name}</span>${notePart}${descBlock}`;
-      return `<tr style="${border}"><td style="padding:2px 4px;vertical-align:top">${titleCell}</td><td style="padding:2px 4px;white-space:nowrap;vertical-align:top">${item.quantity} ×</td>${price}</tr>`;
+      const unitStr = item.product?.unit && item.product.unit !== 'عدد' ? ` ${item.product.unit}` : '';
+      return `<tr style="${border}"><td style="padding:2px 4px;vertical-align:top">${titleCell}</td><td style="padding:2px 4px;white-space:nowrap;vertical-align:top">${item.quantity}${unitStr} ×</td>${price}</tr>`;
     }).join('');
     return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse"><tbody>${rows}</tbody></table></div>`;
   }
@@ -1197,7 +1198,7 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
             <span class="item-name">${title}</span>
             ${lineNote ? `<div class="item-details">${lineNote}</div>` : ''}
           </div>
-          <div class="item-quantity">${item.quantity} ×</div>
+          <div class="item-quantity">${item.quantity}${item.product?.unit && item.product.unit !== 'عدد' ? ` ${item.product.unit}` : ''} ×</div>
         </div>
       `;
   }).join('')}

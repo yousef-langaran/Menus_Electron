@@ -17,6 +17,11 @@ import {
 
 const PAGE_SIZE = 20;
 
+const PRODUCT_UNITS = [
+  'عدد', 'کیلوگرم', 'گرم', 'لیتر', 'میلی‌لیتر',
+  'متر', 'سانتی‌متر', 'بسته', 'جعبه', 'پرس', 'وعده', 'پیمانه', 'قوطی', 'بطری',
+];
+
 type ProductForm = {
   id?: number;
   barcode: string;
@@ -24,6 +29,7 @@ type ProductForm = {
   name: string;
   price: string;
   category_id: string;
+  unit: string;
 };
 
 const emptyForm: ProductForm = {
@@ -32,6 +38,7 @@ const emptyForm: ProductForm = {
   name: '',
   price: '',
   category_id: '',
+  unit: 'عدد',
 };
 
 const normalizeBarcode = (value: string) =>
@@ -122,6 +129,7 @@ export default function ProductsPage() {
       ...emptyForm,
       barcode,
       category_id: String(categories?.[0]?.id || ''),
+      unit: 'عدد',
     });
     setModalOpen(true);
   };
@@ -134,6 +142,7 @@ export default function ProductsPage() {
       name: String(product?.name || ''),
       price: String(product?.price ?? ''),
       category_id: String(product?.category?.id || product?.category_id || categories?.[0]?.id || ''),
+      unit: product?.unit || 'عدد',
     });
     setModalOpen(true);
   };
@@ -266,6 +275,7 @@ export default function ProductsPage() {
             price: Number(form.price),
             category_id: Number(form.category_id),
             barcode: form.barcode.trim() || undefined,
+            unit: form.unit || 'عدد',
           },
           token,
         );
@@ -280,6 +290,7 @@ export default function ProductsPage() {
             barcode: form.barcode.trim() || undefined,
             isAvailable: true,
             restaurantId: restaurantId ? Number(restaurantId) : undefined,
+            unit: form.unit || 'عدد',
           },
           token,
         );
@@ -406,6 +417,15 @@ export default function ProductsPage() {
             >
               {categories.map((c) => (
                 <SelectItem key={String(c.id)}>{c.name_fa || c.name}</SelectItem>
+              ))}
+            </Select>
+            <Select
+              label="واحد شمارش"
+              selectedKeys={[form.unit || 'عدد']}
+              onSelectionChange={(keys) => setForm((f) => ({ ...f, unit: String(Array.from(keys)[0] || 'عدد') }))}
+            >
+              {PRODUCT_UNITS.map((u) => (
+                <SelectItem key={u}>{u}</SelectItem>
               ))}
             </Select>
           </ModalBody>

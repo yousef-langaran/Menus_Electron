@@ -1545,6 +1545,9 @@ export default function OrderPage() {
                                                                 >
                                                                     −
                                                                 </Button>
+                                                                {item.product?.unit && item.product.unit !== 'عدد' && (
+                                                                    <span className="text-xs text-default-400 leading-none">{item.product.unit}</span>
+                                                                )}
                                                                 <Input
                                                                     type="number"
                                                                     min={0.1}
