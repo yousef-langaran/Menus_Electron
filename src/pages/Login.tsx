@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Alert,
   Button as HeroButton,
   Card,
   CardContent,
@@ -13,6 +12,7 @@ import { Input } from '../ui/compat-input';
 import { Button } from '../ui/compat-button';
 import { useAuthStore } from '../store/authStore';
 import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
+import { toast } from '../utils/toast';
 
 const EyeIcon = ({ className }: { className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
@@ -31,7 +31,6 @@ export default function LoginPage() {
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [error, setError] = useState('');
   const [mobileError, setMobileError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -40,7 +39,6 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setMobileError('');
     setPasswordError('');
     const mobileTrim = mobile.trim();
@@ -61,7 +59,8 @@ export default function LoginPage() {
       await login(normalizeIranMobile(mobileTrim), password);
       navigate('/order');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'خطا در ورود به سیستم');
+      const msg = err instanceof Error ? err.message : 'خطا در ورود به سیستم';
+      toast.error('ورود ناموفق', { description: msg });
     } finally {
       setIsLoading(false);
     }
@@ -131,13 +130,6 @@ export default function LoginPage() {
                 </HeroButton>
               }
             />
-            {error ? (
-              <Alert status="danger">
-                <Alert.Content>
-                  <Alert.Description className="text-center">{error}</Alert.Description>
-                </Alert.Content>
-              </Alert>
-            ) : null}
             <Button type="submit" color="primary" size="lg" isLoading={isLoading} className="w-full font-semibold">
               {isLoading ? 'در حال ورود...' : 'ورود'}
             </Button>

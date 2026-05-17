@@ -5,6 +5,7 @@ import { fetchOrderReturns, updateOrderReturn, deleteOrderReturn } from '../serv
 import { Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter, Chip } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { Select, SelectItem } from '../ui/compat-select';
+import { toast } from '../utils/toast';
 
 const RETURNS_PAGE_SIZE = 20;
 
@@ -49,7 +50,6 @@ export default function OrderReturnsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [returns, setReturns] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedReturn, setSelectedReturn] = useState<any>(null);
@@ -78,7 +78,6 @@ export default function OrderReturnsPage() {
     if (!token || !restaurantName) return;
 
     setLoading(true);
-    setError('');
 
     try {
       const params: any = {
@@ -101,7 +100,7 @@ export default function OrderReturnsPage() {
         logout();
         navigate('/login');
       } else {
-        setError(err.response?.data?.message || 'خطا در بارگذاری مرجوعی‌ها');
+        toast.error(err.response?.data?.message || 'خطا در بارگذاری مرجوعی‌ها');
       }
     } finally {
       setLoading(false);
@@ -117,7 +116,7 @@ export default function OrderReturnsPage() {
     if (!selectedReturn || !token) return;
 
     if (newStatus === 'rejected' && !rejectionReason.trim()) {
-      alert('لطفاً دلیل رد مرجوعی را وارد کنید');
+      toast.error('لطفاً دلیل رد مرجوعی را وارد کنید');
       return;
     }
 
@@ -135,7 +134,7 @@ export default function OrderReturnsPage() {
       setShowRejectionInput(false);
     } catch (err: any) {
       console.error('Error updating return status:', err);
-      alert(err.response?.data?.message || 'خطا در به‌روزرسانی وضعیت');
+      toast.error(err.response?.data?.message || 'خطا در به‌روزرسانی وضعیت');
     } finally {
       setUpdateLoading(false);
     }
@@ -150,7 +149,7 @@ export default function OrderReturnsPage() {
       await loadReturns();
     } catch (err: any) {
       console.error('Error deleting return:', err);
-      alert(err.response?.data?.message || 'خطا در حذف مرجوعی');
+      toast.error(err.response?.data?.message || 'خطا در حذف مرجوعی');
     }
   };
 
@@ -162,12 +161,6 @@ export default function OrderReturnsPage() {
           بازگشت به سفارشات
         </Button>
       </div>
-
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
 
       <div className="mb-4 flex gap-4 items-center">
         <Select

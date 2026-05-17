@@ -16,6 +16,7 @@ import {
   updatePurchaseInvoiceDraftLocal,
 } from '../../services/accountingLocalDb';
 import { getMasterProductByBarcode } from '../../services/api';
+import { toast } from '../../utils/toast';
 
 const RAW_MATERIAL_UNITS = ['gram', 'kilogram', 'liter', 'milliliter', 'piece', 'pack'];
 
@@ -45,7 +46,6 @@ export default function AccountingPurchaseDraftsPage() {
   const [extraCosts, setExtraCosts] = useState('0');
   const [items, setItems] = useState<Array<{ rawMaterialId: string; quantity: string; unitPrice: string }>>([]);
   const [barcode, setBarcode] = useState('');
-  const [error, setError] = useState('');
 
   // ── افزودن ماده اولیه جدید هنگام عدم یافتن بارکد ──
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
@@ -55,7 +55,6 @@ export default function AccountingPurchaseDraftsPage() {
   const [addMaterialPrice, setAddMaterialPrice] = useState('');
   const [isCheckingMasterProduct, setIsCheckingMasterProduct] = useState(false);
   const [addMaterialSubmitting, setAddMaterialSubmitting] = useState(false);
-  const [addMaterialError, setAddMaterialError] = useState('');
 
   const reload = async () => {
     if (!restaurantId) return;
@@ -74,11 +73,10 @@ export default function AccountingPurchaseDraftsPage() {
 
   const handleSubmitAddMaterial = async () => {
     if (!restaurantId || !addMaterialName.trim()) {
-      setAddMaterialError('نام ماده اولیه الزامی است');
+      toast.error('نام ماده اولیه الزامی است');
       return;
     }
     setAddMaterialSubmitting(true);
-    setAddMaterialError('');
     try {
       const newMaterial = await createRawMaterialLocal({
         restaurantId,
@@ -96,7 +94,7 @@ export default function AccountingPurchaseDraftsPage() {
       setBarcode('');
       setAddMaterialOpen(false);
     } catch {
-      setAddMaterialError('خطا در ثبت ماده اولیه. لطفاً دوباره تلاش کنید.');
+      toast.error('خطا در ثبت ماده اولیه. لطفاً دوباره تلاش کنید.');
     } finally {
       setAddMaterialSubmitting(false);
     }
@@ -163,7 +161,6 @@ export default function AccountingPurchaseDraftsPage() {
                 setAddMaterialName('');
                 setAddMaterialUnit('piece');
                 setAddMaterialPrice('');
-                setAddMaterialError('');
                 setIsCheckingMasterProduct(true);
                 setAddMaterialOpen(true);
                 try {
@@ -194,20 +191,19 @@ export default function AccountingPurchaseDraftsPage() {
               </div>
             ))}
             <Button variant="secondary" onPress={() => setItems((prev) => [...prev, { rawMaterialId: '', quantity: '1', unitPrice: '0' }])}>افزودن آیتم</Button>
-            {error ? <p className="text-danger text-sm">{error}</p> : null}
           </ModalBody>
           <ModalFooter>
             <Button variant="flat" onPress={() => setOpen(false)}>انصراف</Button>
             <Button color="primary" onPress={async () => {
               if (!restaurantId || !supplierId || !invoiceNumber.trim()) return;
               const lines = items.map((x) => ({ rawMaterialId: Number(x.rawMaterialId), quantity: Number(x.quantity || 0), unitPrice: Number(x.unitPrice || 0) })).filter((x) => x.rawMaterialId > 0 && x.quantity > 0);
-              if (!lines.length) { setError('حداقل یک آیتم معتبر وارد کنید.'); return; }
+              if (!lines.length) { toast.error('حداقل یک آیتم معتبر وارد کنید.'); return; }
               if (editingId) {
                 await updatePurchaseInvoiceDraftLocal({ invoiceId: editingId, restaurantId, supplierId: Number(supplierId), invoiceNumber: invoiceNumber.trim(), purchaseDate: new Date().toISOString().slice(0, 10), items: lines, extraCosts: Number(extraCosts || 0) });
               } else {
                 await createPurchaseInvoiceLocal({ restaurantId, supplierId: Number(supplierId), invoiceNumber: invoiceNumber.trim(), purchaseDate: new Date().toISOString().slice(0, 10), items: lines, extraCosts: Number(extraCosts || 0) });
               }
-              setOpen(false); setItems([]); setInvoiceNumber(''); setSupplierId(''); setExtraCosts('0'); setEditingId(null); setError('');
+              setOpen(false); setItems([]); setInvoiceNumber(''); setSupplierId(''); setExtraCosts('0'); setEditingId(null);
               await reload();
             }}>ذخیره</Button>
           </ModalFooter>
@@ -246,7 +242,6 @@ export default function AccountingPurchaseDraftsPage() {
               isDisabled={isCheckingMasterProduct}
               endContent={<span className="text-default-400 text-sm whitespace-nowrap">تومان</span>}
             />
-            {addMaterialError && <p className="text-danger text-sm">{addMaterialError}</p>}
           </ModalBody>
           <ModalFooter>
             <Button variant="flat" onPress={() => setAddMaterialOpen(false)}>انصراف</Button>

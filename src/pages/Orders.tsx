@@ -17,6 +17,7 @@ import { Button } from '../ui/compat-button';
 import { Select, SelectItem } from '../ui/compat-select';
 import { ModalShell } from '../ui/modal-shell';
 import { CheckboxCompat as Checkbox } from '../ui/compat-checkbox';
+import { toast } from '../utils/toast';
 
 const ORDERS_PAGE_SIZE = 20;
 const ORDERS_PAGE_SIZE_OPTIONS = [20, 50, 100];
@@ -63,10 +64,7 @@ export default function OrdersPage() {
   const [offlineOrders, setOfflineOrders] = useState<any[]>([]);
   const [onlineLoading, setOnlineLoading] = useState(false);
   const [offlineLoading, setOfflineLoading] = useState(false);
-  const [onlineError, setOnlineError] = useState('');
-  const [offlineError, setOfflineError] = useState('');
   const [statusUpdateLoading, setStatusUpdateLoading] = useState<number | null>(null);
-  const [syncMessage, setSyncMessage] = useState('');
   const [syncInProgress, setSyncInProgress] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const printerConfigs = usePrinterSettingsStore((state) => state.configs);
@@ -77,7 +75,6 @@ export default function OrdersPage() {
   const [previewTitle, setPreviewTitle] = useState('');
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState('');
   const [receiptNumbersMap, setReceiptNumbersMap] = useState<Record<string, number>>({});
   /** پرینتری که تنظیماتش برای پیش‌نمایش استفاده می‌شود */
   const [previewPrinterName, setPreviewPrinterName] = useState<string>('');
@@ -220,8 +217,7 @@ export default function OrdersPage() {
         setIsOnline(status);
         if (!status) {
           setOnlineOrders([]);
-          setOnlineError('');
-          setSyncMessage('شما آفلاین هستید. سفارشات جدید در حافظه نگهداری می‌شوند.');
+          toast.info('شما آفلاین هستید. سفارشات جدید در حافظه نگهداری می‌شوند.');
           loadOfflineOrders();
         }
         // وقتی آنلاین شد، useEffect با وابستگی isOnline خودش loadOnlineOrders را یک بار صدا می‌زند
@@ -234,8 +230,7 @@ export default function OrdersPage() {
       const handleOffline = () => {
         setIsOnline(false);
         setOnlineOrders([]);
-        setOnlineError('');
-        setSyncMessage('شما آفلاین هستید. سفارشات جدید در حافظه نگهداری می‌شوند.');
+        toast.info('شما آفلاین هستید. سفارشات جدید در حافظه نگهداری می‌شوند.');
         loadOfflineOrders();
       };
       window.addEventListener('online', handleOnline);
@@ -283,7 +278,7 @@ export default function OrdersPage() {
     console.log('[OrdersPage] Socket created, setting up listeners');
 
     const handleNewOrder = (order: any) => {
-      setSyncMessage(`سفارش جدید ${order.orderNumber || order.id} ثبت شد.`);
+      toast.success(`سفارش جدید ${order.orderNumber || order.id} ثبت شد.`);
       loadOnlineOrders();
     };
 
@@ -294,7 +289,7 @@ export default function OrdersPage() {
     const handleSocketError = (message: any) => {
       const resolvedMessage =
         typeof message === 'string' ? message : 'خطا در ارتباط زنده سفارش‌ها.';
-      setSyncMessage(resolvedMessage);
+      toast.error(resolvedMessage);
     };
 
     const handleConnect = () => {
@@ -303,7 +298,7 @@ export default function OrdersPage() {
 
     const handleConnectError = (error: Error) => {
       console.error('Orders socket connection error:', error);
-      setSyncMessage('اتصال سوکت سفارش‌ها برقرار نشد.');
+      toast.error('اتصال سوکت سفارش‌ها برقرار نشد.');
     };
 
     socket.on('connect', handleConnect);
@@ -326,13 +321,12 @@ export default function OrdersPage() {
   const loadOnlineOrders = async () => {
     if (!isOnline) return;
     if (!token) {
-      setOnlineError('برای مشاهده سفارشات آنلاین، ابتدا وارد شوید.');
+      toast.warning('برای مشاهده سفارشات آنلاین، ابتدا وارد شوید.');
       setOnlineOrders([]);
       setOnlineMeta(DEFAULT_ONLINE_META);
       return;
     }
     setOnlineLoading(true);
-    setOnlineError('');
     try {
       const params: Record<string, string | number> = {
         page: currentPage,
@@ -362,7 +356,7 @@ export default function OrdersPage() {
       }
     } catch (error: any) {
       console.error('Failed to fetch orders:', error);
-      setOnlineError(error?.response?.data?.message || 'خطا در دریافت سفارشات آنلاین');
+      toast.error(error?.response?.data?.message || 'خطا در دریافت سفارشات آنلاین');
       setOnlineOrders([]);
       setOnlineMeta(DEFAULT_ONLINE_META);
     } finally {
@@ -375,14 +369,13 @@ export default function OrdersPage() {
 
   const loadOfflineOrders = async () => {
     setOfflineLoading(true);
-    setOfflineError('');
     try {
       const orders = await getAllOrders();
       const unsynced = Array.isArray(orders) ? orders.filter((order) => !order.synced) : [];
       setOfflineOrders(unsynced);
     } catch (error) {
       console.error('Failed to load offline orders:', error);
-      setOfflineError('خطا در دریافت سفارشات آفلاین');
+      toast.error('خطا در دریافت سفارشات آفلاین');
     } finally {
       setOfflineLoading(false);
       if (window.electronAPI?.getReceiptNumbersMap) {
@@ -398,7 +391,7 @@ export default function OrdersPage() {
       await loadOnlineOrders();
     } catch (error: any) {
       console.error('Failed to update status:', error);
-      setOnlineError(error?.response?.data?.message || 'خطا در تغییر وضعیت سفارش');
+      toast.error(error?.response?.data?.message || 'خطا در تغییر وضعیت سفارش');
     } finally {
       setStatusUpdateLoading(null);
     }
@@ -411,7 +404,6 @@ export default function OrdersPage() {
     }
 
     setSyncInProgress(true);
-    setSyncMessage(auto ? 'در حال همگام‌سازی خودکار سفارشات...' : 'در حال ارسال سفارشات آفلاین...');
     try {
           const result = await window.electronAPI.syncOrders(token || undefined);
         if (result) {
@@ -420,7 +412,7 @@ export default function OrdersPage() {
             : null;
 
           if (unauthorizedError) {
-            setSyncMessage('نشست شما منقضی شده است. لطفاً دوباره وارد شوید و سپس همگام‌سازی را تکرار کنید.');
+            toast.warning('نشست شما منقضی شده است. لطفاً دوباره وارد شوید و سپس همگام‌سازی را تکرار کنید.');
             if (!auto) {
               await logout();
               navigate('/login');
@@ -428,13 +420,13 @@ export default function OrdersPage() {
             return;
           }
 
-          setSyncMessage(`ارسال انجام شد: ${result.success} موفق، ${result.failed} ناموفق`);
+          toast.success(`ارسال انجام شد: ${result.success} موفق، ${result.failed} ناموفق`);
         }
       await loadOfflineOrders();
       await loadOnlineOrders();
     } catch (error: any) {
       console.error('Sync error:', error);
-      setSyncMessage(error?.message || 'خطا در همگام‌سازی سفارشات آفلاین');
+      toast.error(error?.message || 'خطا در همگام‌سازی سفارشات آفلاین');
     } finally {
       setSyncInProgress(false);
     }
@@ -442,7 +434,7 @@ export default function OrdersPage() {
 
   const handleManualSync = () => {
     if (!isOnline) {
-      setSyncMessage('برای ارسال سفارشات آفلاین ابتدا باید آنلاین شوید.');
+      toast.warning('برای ارسال سفارشات آفلاین ابتدا باید آنلاین شوید.');
       return;
     }
     syncAndRefresh();
@@ -512,7 +504,6 @@ export default function OrdersPage() {
 
   const runPreviewWithPrinter = async (orderPayload: any, printerName: string) => {
     setPreviewLoading(true);
-    setPreviewError('');
     try {
       const options = await getPreviewOptionsForPrinter(printerName);
       if (window.electronAPI?.generateReceiptPreview) {
@@ -523,11 +514,13 @@ export default function OrdersPage() {
         setPreviewHtml(result.html || '');
         setPreviewImage(result.imageDataUrl || '');
       } else {
-        setPreviewError('پیش‌نمایش رسید فقط در نسخهٔ دسکتاپ (اپ الکترون) در دسترس است.');
+        toast.error('پیش‌نمایش رسید فقط در نسخهٔ دسکتاپ (اپ الکترون) در دسترس است.');
+        closePreview();
       }
     } catch (error: any) {
       console.error('Preview error:', error);
-      setPreviewError(error?.message || 'خطا در ساخت پیش‌نمایش رسید');
+      toast.error(error?.message || 'خطا در ساخت پیش‌نمایش رسید');
+      closePreview();
     } finally {
       setPreviewLoading(false);
     }
@@ -540,7 +533,6 @@ export default function OrdersPage() {
     setPreviewPrinterName(targetPrinter);
     setPreviewHtml('');
     setPreviewImage('');
-    setPreviewError('');
     setPreviewVisible(true);
     await runPreviewWithPrinter(orderPayload, targetPrinter);
   };
@@ -566,7 +558,7 @@ export default function OrdersPage() {
 
   const openReprintModal = (order: any, isOffline = false) => {
     if (!enabledPrinters.length) {
-      setSyncMessage('ابتدا در صفحه تنظیمات، حداقل یک پرینتر را فعال کنید.');
+      toast.warning('ابتدا در صفحه تنظیمات، حداقل یک پرینتر را فعال کنید.');
       return;
     }
     setReprintOrder(order);
@@ -581,7 +573,7 @@ export default function OrdersPage() {
   };
 
   const handleReturnSuccess = () => {
-    setSyncMessage('مرجوعی با موفقیت ثبت شد');
+    toast.success('مرجوعی با موفقیت ثبت شد');
     loadOnlineOrders();
   };
 
@@ -635,13 +627,13 @@ export default function OrdersPage() {
           return next;
         });
       }
-      setSyncMessage(`چاپ مجدد با ${printersToUse.map((p) => p.displayName || p.name).join('، ')} انجام شد.`);
+      toast.success(`چاپ مجدد با ${printersToUse.map((p) => p.displayName || p.name).join('، ')} انجام شد.`);
       setReprintModalOpen(false);
       setReprintOrder(null);
       loadReceiptNumbersMap();
     } catch (error: any) {
       console.error('Reprint error:', error);
-      setSyncMessage(error?.message || 'خطا در ارسال به پرینتر');
+      toast.error(error?.message || 'خطا در ارسال به پرینتر');
     } finally {
       setReprintLoading(false);
     }
@@ -650,7 +642,6 @@ export default function OrdersPage() {
   const closePreview = () => {
     setPreviewVisible(false);
     setPreviewHtml('');
-    setPreviewError('');
     setPreviewImage('');
     setPreviewTitle('');
     setPreviewOrderPayload(null);
@@ -669,9 +660,6 @@ export default function OrdersPage() {
   const renderOnlineOrders = () => {
     if (onlineLoading) {
       return <div className="py-12 text-center text-default-500">در حال بارگذاری...</div>;
-    }
-    if (onlineError) {
-      return <div className="py-4 text-danger text-center">{onlineError}</div>;
     }
     if (!onlineOrders.length) {
       return <div className="py-12 text-center text-default-500">سفارشی برای نمایش وجود ندارد.</div>;
@@ -802,9 +790,6 @@ export default function OrdersPage() {
     if (offlineLoading) {
       return <div className="py-12 text-center text-default-500">در حال بارگذاری سفارشات آفلاین...</div>;
     }
-    if (offlineError) {
-      return <div className="py-4 text-danger text-center">{offlineError}</div>;
-    }
     if (!offlineOrders.length) {
       return <div className="py-12 text-center text-default-500">سفارشی در حافظه آفلاین وجود ندارد.</div>;
     }
@@ -864,10 +849,6 @@ export default function OrdersPage() {
                 {isOnline ? 'شما آنلاین هستید' : 'شما آفلاین هستید'}
               </div>
             </div>
-
-            {syncMessage && (
-              <div className="px-4 py-2 rounded-lg bg-primary-50 text-primary-700 text-sm">{syncMessage}</div>
-            )}
 
             {!isOnline && offlineOrders.length > 0 && (
               <p className="text-default-500 text-sm">
@@ -946,8 +927,6 @@ export default function OrdersPage() {
           <ModalBody>
             {previewLoading ? (
               <div className="py-12 text-center text-default-500">در حال آماده‌سازی پیش‌نمایش...</div>
-            ) : previewError ? (
-              <div className="py-4 text-danger text-center">{previewError}</div>
             ) : previewImage ? (
               <img src={previewImage} alt="receipt-preview" className="max-w-full h-auto mx-auto" />
             ) : (

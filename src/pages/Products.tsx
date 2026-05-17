@@ -16,6 +16,7 @@ import {
   type LocalProduct,
 } from '../services/catalogLocalDb';
 import { runCatalogSync } from '../services/catalogSync';
+import { toast } from '../utils/toast';
 
 const PAGE_SIZE = 20;
 
@@ -95,7 +96,6 @@ export default function ProductsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
   const scanBufferRef = useRef('');
   const scanLastKeyAtRef = useRef(0);
   const [nameSuggestions, setNameSuggestions] = useState<import('../services/api').MasterProduct[]>([]);
@@ -183,7 +183,7 @@ export default function ProductsPage() {
 
     const found = allProducts.find((p) => normalizeBarcode(p.barcode || '') === code);
     if (found) {
-      setMessage('بارکد موجود بود؛ فرم ویرایش باز شد.');
+      toast.info('بارکد موجود بود؛ فرم ویرایش باز شد.');
       openEdit(found);
       return;
     }
@@ -197,7 +197,7 @@ export default function ProductsPage() {
       category_id: String(categories[0]?.id || ''),
     });
     setModalOpen(true);
-    setMessage(
+    toast.info(
       master
         ? `محصول «${master.name}» از پایگاه اصلی یافت شد؛ فرم افزودن باز شد.`
         : 'بارکد جدید است؛ فرم افزودن باز شد.',
@@ -219,7 +219,7 @@ export default function ProductsPage() {
           e.stopPropagation();
           if (modalOpen) {
             setForm((prev) => ({ ...prev, barcode: code }));
-            setMessage(form.id ? 'بارکد در فرم ویرایش اعمال شد.' : 'بارکد در فرم افزودن اعمال شد.');
+            toast.info(form.id ? 'بارکد در فرم ویرایش اعمال شد.' : 'بارکد در فرم افزودن اعمال شد.');
             return;
           }
           void handleBarcodeActionWithCode(code);
@@ -243,7 +243,7 @@ export default function ProductsPage() {
             e.stopPropagation();
             if (modalOpen) {
               setForm((prev) => ({ ...prev, barcode: code }));
-              setMessage(form.id ? 'بارکد در فرم ویرایش اعمال شد.' : 'بارکد در فرم افزودن اعمال شد.');
+              toast.info(form.id ? 'بارکد در فرم ویرایش اعمال شد.' : 'بارکد در فرم افزودن اعمال شد.');
             } else {
               void handleBarcodeActionWithCode(code);
             }
@@ -264,7 +264,7 @@ export default function ProductsPage() {
       e.stopPropagation();
       if (modalOpen) {
         setForm((prev) => ({ ...prev, barcode: code }));
-        setMessage(form.id ? 'بارکد در فرم ویرایش اعمال شد.' : 'بارکد در فرم افزودن اعمال شد.');
+        toast.info(form.id ? 'بارکد در فرم ویرایش اعمال شد.' : 'بارکد در فرم افزودن اعمال شد.');
       } else {
         void handleBarcodeActionWithCode(code);
       }
@@ -276,15 +276,15 @@ export default function ProductsPage() {
   const submit = async () => {
     if (!token || !restaurantId) return;
     if (!form.name_fa.trim()) {
-      setMessage('نام فارسی الزامی است');
+      toast.error('نام فارسی الزامی است');
       return;
     }
     if (!(Number(form.price) > 0)) {
-      setMessage('قیمت باید بیشتر از صفر باشد');
+      toast.error('قیمت باید بیشتر از صفر باشد');
       return;
     }
     if (!(Number(form.category_id) !== 0)) {
-      setMessage('دسته‌بندی را انتخاب کنید');
+      toast.error('دسته‌بندی را انتخاب کنید');
       return;
     }
     setSaving(true);
@@ -298,7 +298,7 @@ export default function ProductsPage() {
           barcode: form.barcode.trim() || null,
           unit: form.unit || 'عدد',
         });
-        setMessage(isOnline ? 'محصول ویرایش شد' : 'محصول ذخیره شد — در انتظار سینک');
+        isOnline ? toast.success('محصول ویرایش شد') : toast.info('محصول ذخیره شد — در انتظار سینک');
       } else {
         await createProductLocal({
           restaurantId,
@@ -310,7 +310,7 @@ export default function ProductsPage() {
           unit: form.unit || 'عدد',
           isAvailable: true,
         });
-        setMessage(isOnline ? 'محصول جدید ثبت شد' : 'محصول ذخیره شد — در انتظار سینک');
+        isOnline ? toast.success('محصول جدید ثبت شد') : toast.info('محصول ذخیره شد — در انتظار سینک');
       }
       setModalOpen(false);
       await loadFromDb();
@@ -325,7 +325,7 @@ export default function ProductsPage() {
         }
       }
     } catch (e: any) {
-      setMessage(e?.message || 'خطا در ذخیره محصول');
+      toast.error(e?.message || 'خطا در ذخیره محصول');
     } finally {
       setSaving(false);
     }
@@ -356,7 +356,6 @@ export default function ProductsPage() {
             </div>
           </CardContent>
         </Card>
-        {message ? <p className="text-sm text-default-600">{message}</p> : null}
         <Card>
           <CardContent className="space-y-2">
             {loading ? (

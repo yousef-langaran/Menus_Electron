@@ -12,6 +12,7 @@ import {
   type LocalCategory,
 } from '../services/catalogLocalDb';
 import { runCatalogSync } from '../services/catalogSync';
+import { toast } from '../utils/toast';
 
 type CategoryForm = {
   id?: number;
@@ -53,7 +54,6 @@ export default function CategoriesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<CategoryForm>(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -85,7 +85,6 @@ export default function CategoriesPage() {
 
   const openCreate = () => {
     setForm(emptyForm);
-    setMessage('');
     setModalOpen(true);
   };
 
@@ -96,7 +95,6 @@ export default function CategoriesPage() {
       name: row.name || '',
       description: row.description || '',
     });
-    setMessage('');
     setModalOpen(true);
   };
 
@@ -104,7 +102,7 @@ export default function CategoriesPage() {
     if (!token || !restaurantId) return;
     const trimmedNameFa = form.name_fa.trim();
     if (!trimmedNameFa) {
-      setMessage('نام فارسی دسته‌بندی الزامی است');
+      toast.error('نام فارسی دسته‌بندی الزامی است');
       return;
     }
 
@@ -114,7 +112,7 @@ export default function CategoriesPage() {
       (c) => c.name_fa.trim() === trimmedNameFa && c.id !== form.id,
     );
     if (isDuplicate) {
-      setMessage('این نام فارسی قبلاً استفاده شده است');
+      toast.error('این نام فارسی قبلاً استفاده شده است');
       return;
     }
 
@@ -126,7 +124,7 @@ export default function CategoriesPage() {
           name: form.name.trim() || '',
           description: form.description.trim() || '',
         });
-        setMessage(isOnline ? 'دسته‌بندی ویرایش شد' : 'دسته‌بندی ذخیره شد — در انتظار سینک');
+        isOnline ? toast.success('دسته‌بندی ویرایش شد') : toast.info('دسته‌بندی ذخیره شد — در انتظار سینک');
       } else {
         await createCategoryLocal({
           restaurantId,
@@ -134,7 +132,7 @@ export default function CategoriesPage() {
           name: form.name.trim() || undefined,
           description: form.description.trim() || undefined,
         });
-        setMessage(isOnline ? 'دسته‌بندی جدید ثبت شد' : 'دسته‌بندی ذخیره شد — در انتظار سینک');
+        isOnline ? toast.success('دسته‌بندی جدید ثبت شد') : toast.info('دسته‌بندی ذخیره شد — در انتظار سینک');
       }
       setModalOpen(false);
       await loadFromDb();
@@ -148,7 +146,7 @@ export default function CategoriesPage() {
         }
       }
     } catch (e: any) {
-      setMessage(e?.message || 'خطا در ذخیره دسته‌بندی');
+      toast.error(e?.message || 'خطا در ذخیره دسته‌بندی');
     } finally {
       setSaving(false);
     }
@@ -191,7 +189,6 @@ export default function CategoriesPage() {
             <Button color="primary" onPress={openCreate}>افزودن دسته‌بندی جدید</Button>
           </CardContent>
         </Card>
-        {message ? <p className="text-sm text-default-600">{message}</p> : null}
         <Card>
           <CardContent className="space-y-2">
             {loading ? (
@@ -241,11 +238,6 @@ export default function CategoriesPage() {
         <ModalShell size="lg">
           <ModalHeader>{form.id !== undefined ? 'ویرایش دسته‌بندی' : 'افزودن دسته‌بندی'}</ModalHeader>
           <ModalBody className="grid grid-cols-1 gap-3">
-            {message && (
-              <p className="text-sm text-danger-600 bg-danger-50 border border-danger-200 rounded px-3 py-2">
-                {message}
-              </p>
-            )}
             <Input label="نام فارسی" value={form.name_fa} onValueChange={(v) => setForm((f) => ({ ...f, name_fa: v }))} />
             <Input label="نام انگلیسی (اختیاری)" value={form.name} onValueChange={(v) => setForm((f) => ({ ...f, name: v }))} />
             <Input label="توضیحات (اختیاری)" value={form.description} onValueChange={(v) => setForm((f) => ({ ...f, description: v }))} />

@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { I18nProvider } from 'react-aria-components';
+import { Toast } from '@heroui/react';
 import LoginPage from './pages/Login';
 import OrderPage from './pages/Order';
 import SettingsPage from './pages/Settings';
@@ -82,6 +83,7 @@ function AppRoutes() {
   const user = useAuthStore((s) => s.user);
   return (
     <I18nProvider locale="fa-IR">
+      <Toast.Provider placement="top start" maxVisibleToasts={4} />
       <UnauthorizedListener />
       <GlobalShortcutListener />
       <UpdateBanner />

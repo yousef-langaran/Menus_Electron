@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from '../utils/toast';
 
 // مقدار پیش‌فرض از env ویترین (فقط در زمان build درج می‌شود)
 const getDefaultBaseUrl = () => {
@@ -111,26 +112,83 @@ function dispatchUnauthorized(): void {
   window.dispatchEvent(new Event('menus-electron:unauthorized'));
 }
 
-// Add response interceptor for debugging
+function extractApiErrorMessage(error: unknown): string | null {
+  const err = error as { response?: { data?: unknown } };
+  const data = err?.response?.data as Record<string, unknown> | undefined;
+  if (!data || typeof data !== 'object') return null;
+  const m = data.message;
+  if (Array.isArray(m)) {
+    const parts = m.map((x) => (typeof x === 'string' ? x : String(x ?? ''))).filter(Boolean);
+    return parts.length ? parts.join(' — ') : null;
+  }
+  if (typeof m === 'string' && m.trim()) return m.trim();
+  const e = data.error;
+  if (typeof e === 'string' && e.trim()) return e.trim();
+  return null;
+}
+
+const DEDUP_MS = 1200;
+const dedup = { key: '', at: 0 };
+
+function showApiErrorToast(error: unknown, normalizedPath: string): void {
+  const err = error as { config?: { skipGlobalErrorToast?: boolean }; response?: { status?: number }; request?: unknown };
+  if (err?.config?.skipGlobalErrorToast === true) return;
+
+  const status = err?.response?.status;
+  const hasResponse = !!err?.response;
+  const isNetworkError = !hasResponse && !!err?.request;
+
+  if (status === 401) return;
+
+  let title: string;
+  let description: string | undefined;
+  let dedupKey: string;
+
+  if (status === 403) {
+    title = 'دسترسی غیرمجاز';
+    description = extractApiErrorMessage(error) || 'دسترسی به این بخش یا عملیات مجاز نیست.';
+    dedupKey = `403:${normalizedPath}:${description}`;
+  } else if (isNetworkError) {
+    title = 'خطای اتصال';
+    description = 'امکان برقراری ارتباط با سرور نیست. اتصال اینترنت یا وضعیت سرویس را بررسی کنید.';
+    dedupKey = `net:${normalizedPath}`;
+  } else if (typeof status === 'number' && status >= 500) {
+    title = 'خطای سرور';
+    description = extractApiErrorMessage(error) || 'لطفاً بعداً دوباره تلاش کنید.';
+    dedupKey = `5xx:${normalizedPath}:${status}:${description}`;
+  } else if (status === 404) {
+    title = 'یافت نشد';
+    description = extractApiErrorMessage(error) || undefined;
+    dedupKey = `404:${normalizedPath}:${description ?? ''}`;
+  } else if (typeof status === 'number' && status >= 400 && status < 500) {
+    const extracted = extractApiErrorMessage(error);
+    if (!extracted) return;
+    title = extracted;
+    dedupKey = `4xx:${status}:${normalizedPath}:${title}`;
+  } else {
+    return;
+  }
+
+  const now = Date.now();
+  if (dedupKey === dedup.key && now - dedup.at < DEDUP_MS) return;
+  dedup.key = dedupKey;
+  dedup.at = now;
+
+  try {
+    toast.error(title, description ? { description } : undefined);
+  } catch { /* noop */ }
+}
+
 api.interceptors.response.use(
-  (response) => {
-    console.log('API Response:', {
-      status: response.status,
-      url: response.config.url,
-      data: response.data,
-    });
-    return response;
-  },
+  (response) => response,
   (error) => {
     console.error('Response error:', {
       status: error.response?.status,
-      statusText: error.response?.statusText,
       data: error.response?.data,
       url: error.config?.url,
     });
     const status = error?.response?.status;
-    const requestUrl: string = error?.config?.url || '';
-    const normalizedPath = normalizeRequestPath(requestUrl);
+    const normalizedPath = normalizeRequestPath(error?.config?.url || '');
     const skipGlobal401 =
       Boolean(error?.config?.skipGlobal401Handler) ||
       AUTH_WHITELIST_ENDPOINTS.some((endpoint) => normalizedPath.includes(endpoint));
@@ -138,13 +196,14 @@ api.interceptors.response.use(
     if (status === 401 && !skipGlobal401 && !isHandlingUnauthorized) {
       isHandlingUnauthorized = true;
       try {
+        toast.error('انقضای نشست', { description: 'لطفاً دوباره وارد شوید.' });
         dispatchUnauthorized();
       } finally {
-        setTimeout(() => {
-          isHandlingUnauthorized = false;
-        }, 1500);
+        setTimeout(() => { isHandlingUnauthorized = false; }, 1500);
       }
     }
+
+    showApiErrorToast(error, normalizedPath);
     return Promise.reject(error);
   }
 );

@@ -149,6 +149,43 @@ html.dark .app-loading-screen {
   }
 }
 
+/* ─── HeroUI Toast ─────────────────────────────────────────────────── */
+/* portal خارج از #root رندر می‌شود؛ direction و فونت را صریح ست می‌کنیم */
+.toast-region {
+  direction: rtl;
+  font-family: iranyekan, var(--font-sans, sans-serif);
+}
+
+@layer components {
+  .toast {
+    @apply shadow-xl;
+    border-radius: min(16px, var(--radius-2xl, 12px));
+    min-width: 280px;
+    max-width: 380px;
+  }
+
+  .toast__title {
+    @apply font-semibold text-sm leading-5;
+  }
+
+  .toast__description {
+    @apply text-xs leading-relaxed;
+    opacity: 0.8;
+  }
+}
+
+/* خط رنگی سمت راست برای انواع مختلف toast (خارج از layer چون CSS variable است) */
+.toast--success  { box-shadow: inset 3px 0 0 oklch(0.58 0.11 168), 0 10px 40px -4px rgb(0 0 0 / 0.15); }
+.toast--danger   { box-shadow: inset 3px 0 0 oklch(0.58 0.18 25),  0 10px 40px -4px rgb(0 0 0 / 0.15); }
+.toast--warning  { box-shadow: inset 3px 0 0 oklch(0.72 0.15 70),  0 10px 40px -4px rgb(0 0 0 / 0.15); }
+.toast--accent   { box-shadow: inset 3px 0 0 oklch(0.46 0.13 254), 0 10px 40px -4px rgb(0 0 0 / 0.15); }
+
+html.dark .toast--success { box-shadow: inset 3px 0 0 oklch(0.62 0.1 168),  0 10px 40px -4px rgb(0 0 0 / 0.3); }
+html.dark .toast--danger  { box-shadow: inset 3px 0 0 oklch(0.62 0.18 25),  0 10px 40px -4px rgb(0 0 0 / 0.3); }
+html.dark .toast--warning { box-shadow: inset 3px 0 0 oklch(0.75 0.15 70),  0 10px 40px -4px rgb(0 0 0 / 0.3); }
+html.dark .toast--accent  { box-shadow: inset 3px 0 0 oklch(0.58 0.14 254), 0 10px 40px -4px rgb(0 0 0 / 0.3); }
+/* ─────────────────────────────────────────────────────────────────── */
+
 /* اسکرول‌بار مینیمال (Electron = Chromium + Firefox) */
 * {
   scrollbar-width: thin;

@@ -10,6 +10,7 @@ import { usePrinterSettingsStore } from '../store/printerSettingsStore';
 import { useThemeStore } from '../store/themeStore';
 import { getReceiptNumberSettingsFromServer, getPrintTemplates, type PrintTemplateItem } from '../services/api';
 import { useSyncStore } from '../store/syncStore';
+import { toast } from '../utils/toast';
 
 type CardTerminalFormState = {
   enabled: boolean;
@@ -31,9 +32,7 @@ type CardTerminalProfile = { id: string; name: string; settings: CardTerminalFor
 export default function SettingsPage() {
   const { user, token, logout } = useAuthStore();
   const [isOnline, setIsOnline] = useState(true);
-  const [syncStatus, setSyncStatus] = useState('');
   const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
-  const [printerError, setPrinterError] = useState('');
   const [availablePrinters, setAvailablePrinters] = useState<Array<{ name: string; displayName?: string; description?: string }>>([]);
   const [printTemplates, setPrintTemplates] = useState<PrintTemplateItem[]>([]);
   const [printerTemplatesMap, setPrinterTemplatesMap] = useState<Record<string, { id: number; name: string; paperWidth: number; paperLength: number; margin: number; layout?: unknown } | null>>({});
@@ -65,13 +64,11 @@ export default function SettingsPage() {
     messageFieldPath: 'message',
     referenceFieldPath: 'refId',
   });
-  const [cardTerminalStatus, setCardTerminalStatus] = useState('');
   const [cardTerminalProfiles, setCardTerminalProfiles] = useState<CardTerminalProfile[]>([]);
   const [selectedCardTerminalId, setSelectedCardTerminalId] = useState<string>('');
   const [defaultCardTerminalId, setDefaultCardTerminalId] = useState<string>('');
   const [isSavingCardTerminal, setIsSavingCardTerminal] = useState(false);
   const [isTestingCardTerminal, setIsTestingCardTerminal] = useState(false);
-  const [updateCheckHint, setUpdateCheckHint] = useState('');
   const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string, string> } | null>(null);
   const {
     isOnline: accountingOnline,
@@ -100,8 +97,8 @@ export default function SettingsPage() {
   useEffect(() => {
     const api = window.electronAPI;
     if (!api?.onUpdateNotAvailable || !api?.onUpdateAvailable) return;
-    const unsubNa = api.onUpdateNotAvailable(() => setUpdateCheckHint('شما آخرین نسخه را دارید.'));
-    const unsubAv = api.onUpdateAvailable(() => setUpdateCheckHint(''));
+    const unsubNa = api.onUpdateNotAvailable(() => toast.info('شما آخرین نسخه را دارید.'));
+    const unsubAv = api.onUpdateAvailable(() => {});
     return () => {
       unsubNa?.();
       unsubAv?.();
@@ -252,32 +249,30 @@ export default function SettingsPage() {
 
   const handleSync = async () => {
     if (!window.electronAPI) {
-      setSyncStatus('این قابلیت فقط در Electron در دسترس است');
+      toast.warning('این قابلیت فقط در Electron در دسترس است');
       return;
     }
-    setSyncStatus('در حال همگام‌سازی...');
     if (!token) {
-      setSyncStatus('برای ارسال سفارشات ابتدا وارد شوید.');
+      toast.warning('برای ارسال سفارشات ابتدا وارد شوید.');
       return;
     }
     try {
       const result = await window.electronAPI.syncOrders(token);
-      setSyncStatus(`همگام‌سازی انجام شد: ${result.success} موفق، ${result.failed} ناموفق`);
+      toast.success(`همگام‌سازی انجام شد: ${result.success} موفق، ${result.failed} ناموفق`);
     } catch (err: unknown) {
-      setSyncStatus(`خطا در همگام‌سازی: ${err instanceof Error ? err.message : 'نامشخص'}`);
+      toast.error(`خطا در همگام‌سازی: ${err instanceof Error ? err.message : 'نامشخص'}`);
     }
   };
 
   const loadPrinters = async () => {
     if (!window.electronAPI) return;
     setIsLoadingPrinters(true);
-    setPrinterError('');
     try {
       const printers = await window.electronAPI.getPrinters();
       setAvailablePrinters(printers);
     } catch (err: unknown) {
       console.error('Printer load error:', err);
-      setPrinterError(err instanceof Error ? err.message : 'خطا در دریافت لیست پرینترها');
+      toast.error(err instanceof Error ? err.message : 'خطا در دریافت لیست پرینترها');
     } finally {
       setIsLoadingPrinters(false);
     }
@@ -286,11 +281,10 @@ export default function SettingsPage() {
   const saveCardTerminalConfig = async () => {
     if (!window.electronAPI?.saveCardTerminalConfig) return;
     setIsSavingCardTerminal(true);
-    setCardTerminalStatus('');
     try {
       const activeId = selectedCardTerminalId || defaultCardTerminalId || cardTerminalProfiles[0]?.id;
       if (!activeId) {
-        setCardTerminalStatus('ابتدا یک کارتخوان ایجاد کنید.');
+        toast.warning('ابتدا یک کارتخوان ایجاد کنید.');
         return;
       }
       const nextProfiles = cardTerminalProfiles.map((p) =>
@@ -306,7 +300,7 @@ export default function SettingsPage() {
       );
       await persistCardTerminalProfiles(nextProfiles, defaultCardTerminalId || activeId, 'تنظیمات کارتخوان ذخیره شد.');
     } catch (err: any) {
-      setCardTerminalStatus(err?.message || 'خطا در ذخیره تنظیمات کارتخوان');
+      toast.error(err?.message || 'خطا در ذخیره تنظیمات کارتخوان');
     } finally {
       setIsSavingCardTerminal(false);
     }
@@ -325,16 +319,15 @@ export default function SettingsPage() {
     if (result?.success) {
       setCardTerminalProfiles(profiles);
       setDefaultCardTerminalId(defaultId);
-      if (statusText) setCardTerminalStatus(statusText);
+      if (statusText) toast.success(statusText);
     } else {
-      setCardTerminalStatus(result?.error || 'ذخیره پروفایل‌های کارتخوان ناموفق بود.');
+      toast.error(result?.error || 'ذخیره پروفایل‌های کارتخوان ناموفق بود.');
     }
   };
 
   const testCardTerminalConfig = async () => {
     if (!window.electronAPI?.testCardTerminalConnection) return;
     setIsTestingCardTerminal(true);
-    setCardTerminalStatus('');
     try {
       const result = await window.electronAPI.testCardTerminalConnection({
         amount: 10000,
@@ -342,12 +335,12 @@ export default function SettingsPage() {
         terminalProfileId: selectedCardTerminalId || undefined,
       });
       if (result?.success) {
-        setCardTerminalStatus(`تست موفق بود${result.refId ? ` (Ref: ${result.refId})` : ''}`);
+        toast.success(`تست موفق بود${result.refId ? ` (Ref: ${result.refId})` : ''}`);
       } else {
-        setCardTerminalStatus(result?.error || 'تست کارتخوان ناموفق بود.');
+        toast.error(result?.error || 'تست کارتخوان ناموفق بود.');
       }
     } catch (err: any) {
-      setCardTerminalStatus(err?.message || 'خطا در تست کارتخوان');
+      toast.error(err?.message || 'خطا در تست کارتخوان');
     } finally {
       setIsTestingCardTerminal(false);
     }
@@ -593,9 +586,6 @@ export default function SettingsPage() {
                   تست اتصال (ارسال مبلغ نمونه)
                 </Button>
               </div>
-              {cardTerminalStatus ? (
-                <p className="text-sm rounded-lg bg-default-100 p-2">{cardTerminalStatus}</p>
-              ) : null}
             </CardContent>
           </Card>
         )}
@@ -632,9 +622,6 @@ export default function SettingsPage() {
             <Button color="primary" onPress={handleSync} className="w-full">
               همگام‌سازی سفارشات آفلاین
             </Button>
-            {syncStatus && (
-              <p className="px-3 py-2 rounded-lg bg-default-100 text-foreground text-center text-sm">{syncStatus}</p>
-            )}
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="rounded-lg bg-default-100 p-2">آنلاین: {accountingOnline ? 'بله' : 'خیر'}</div>
               <div className="rounded-lg bg-default-100 p-2">در حال سینک: {accountingSyncing ? 'بله' : 'خیر'}</div>
@@ -662,23 +649,19 @@ export default function SettingsPage() {
                 variant="flat"
                 onPress={() => {
                   void (async () => {
-                    setUpdateCheckHint('');
                     try {
                       const result = await window.electronAPI?.checkForUpdates?.();
                       if (result && 'ok' in result && !result.ok && result.message) {
-                        setUpdateCheckHint(result.message);
+                        toast.error(result.message);
                       }
                     } catch {
-                      setUpdateCheckHint('خطا در درخواست بررسی بروزرسانی.');
+                      toast.error('خطا در درخواست بررسی بروزرسانی.');
                     }
                   })();
                 }}
               >
                 بررسی بروزرسانی
               </Button>
-              {updateCheckHint ? (
-                <p className="text-default-600 text-sm text-center">{updateCheckHint}</p>
-              ) : null}
             </CardContent>
           </Card>
         )}
@@ -693,8 +676,6 @@ export default function SettingsPage() {
             </div>
             {isLoadingPrinters ? (
               <p className="text-default-500">در حال دریافت لیست پرینترها...</p>
-            ) : printerError ? (
-              <p className="text-danger">{printerError}</p>
             ) : availablePrinters.length === 0 ? (
               <p className="text-default-500">هیچ پرینتری یافت نشد.</p>
             ) : (
