@@ -20,6 +20,7 @@ import {
     getProductsPublicPaginated,
 } from '../services/api';
 import {getCachedMenu, cacheMenu} from '../services/cache';
+import { getLocalProducts, getLocalCategories } from '../services/catalogLocalDb';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {usePrinterSettingsStore} from '../store/printerSettingsStore';
 import {
@@ -566,13 +567,42 @@ export default function OrderPage() {
                 setIsLoading(false);
             }
 
+            // ۱.۵. اگر کش localStorage خالی بود، از Dexie (catalog offline DB) می‌خوانیم
+            let hasDexieFallback = false;
+            if (!cached && restaurantId) {
+                try {
+                    const [{ data: localProds }, localCats] = await Promise.all([
+                        getLocalProducts(restaurantId),
+                        getLocalCategories(restaurantId),
+                    ]);
+                    const syncedProds = localProds.filter((p) => p._syncStatus === 'synced');
+                    const syncedCats = localCats.filter((c) => c._syncStatus === 'synced');
+                    if (syncedProds.length > 0) {
+                        const catMap = new Map(syncedCats.map((c) => [c.id, c]));
+                        const enriched = syncedProds.map((p) => ({
+                            ...p,
+                            category: catMap.get(p.category_id) || { id: p.category_id, name_fa: '' },
+                        }));
+                        productsData = enriched;
+                        setProducts(enriched);
+                        setProductCategories(syncedCats);
+                        const uniqueCatNames = Array.from(
+                            new Set(syncedCats.map((c) => c.name_fa).filter(Boolean)),
+                        );
+                        setCategories(uniqueCatNames);
+                        setIsLoading(false);
+                        hasDexieFallback = true;
+                    }
+                } catch {}
+            }
+
             // ۲. بررسی اتصال
             const isOnline = window.electronAPI
                 ? await window.electronAPI.checkOnline()
                 : navigator.onLine;
 
             if (!token || !isOnline) {
-                if (!cached) setError('شما در حالت آفلاین هستید و منو در حافظه ذخیره نشده است.');
+                if (!cached && !hasDexieFallback) setError('شما در حالت آفلاین هستید و منو در حافظه ذخیره نشده است.');
                 return;
             }
 

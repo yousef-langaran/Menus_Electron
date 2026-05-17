@@ -21,6 +21,7 @@ import { OrdersSocketManager } from './components/OrdersSocketManager';
 import { UpdateBanner } from './components/UpdateBanner';
 import { OfflineOrdersSync } from './components/OfflineOrdersSync';
 import { AccountingSyncManager } from './components/AccountingSyncManager';
+import { CatalogSyncManager } from './components/CatalogSyncManager';
 
 /** پس از 401 از API، خروج از نشست و رفتن به صفحهٔ ورود (بدون وابستگی دایره‌ای به axios) */
 function UnauthorizedListener() {
@@ -86,6 +87,7 @@ function AppRoutes() {
       <UpdateBanner />
       <OfflineOrdersSync />
       <AccountingSyncManager />
+      <CatalogSyncManager />
       <OrdersSocketManager />
       <Routes>
         <Route

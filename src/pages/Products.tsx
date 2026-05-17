@@ -6,14 +6,16 @@ import { ModalShell } from '../ui/modal-shell';
 import { Select, SelectItem } from '../ui/compat-select';
 import { useAuthStore } from '../store/authStore';
 import { NameAutocomplete } from '../ui/NameAutocomplete';
+import { getMasterProductByBarcode, searchMasterProducts } from '../services/api';
 import {
-  getCategories,
-  getMasterProductByBarcode,
-  getProductsAdmin,
-  searchMasterProducts,
-  updateProductById,
-  createProduct,
-} from '../services/api';
+  createProductLocal,
+  getLocalCategories,
+  getLocalProducts,
+  updateProductLocal,
+  type LocalCategory,
+  type LocalProduct,
+} from '../services/catalogLocalDb';
+import { runCatalogSync } from '../services/catalogSync';
 
 const PAGE_SIZE = 20;
 
@@ -64,17 +66,32 @@ const formatPriceInput = (value: string) => {
   return new Intl.NumberFormat('en-US').format(Number(digits));
 };
 
+function SyncBadge({ status, error }: { status: LocalProduct['_syncStatus']; error?: string | null }) {
+  if (status === 'synced') return null;
+  if (status === 'pending_create' || status === 'pending_update') {
+    return (
+      <span className="text-xs bg-warning-100 text-warning-700 border border-warning-300 px-2 py-0.5 rounded-full">
+        در انتظار سینک
+      </span>
+    );
+  }
+  return (
+    <span className="text-xs bg-danger-100 text-danger-700 border border-danger-300 px-2 py-0.5 rounded-full" title={error ?? ''}>
+      خطای سینک
+    </span>
+  );
+}
+
 export default function ProductsPage() {
   const { user, token } = useAuthStore();
   const restaurantName = user?.restaurants?.[0]?.name;
   const restaurantId = user?.restaurants?.[0]?.id;
 
-  const [products, setProducts] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [allProducts, setAllProducts] = useState<LocalProduct[]>([]);
+  const [categories, setCategories] = useState<LocalCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -84,65 +101,78 @@ export default function ProductsPage() {
   const [nameSuggestions, setNameSuggestions] = useState<import('../services/api').MasterProduct[]>([]);
   const nameSuggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
+  // فیلتر و صفحه‌بندی در حافظه
+  const filteredProducts = (() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return allProducts;
+    return allProducts.filter(
+      (p) =>
+        p.name_fa.toLowerCase().includes(q) ||
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.barcode || '').includes(q),
+    );
+  })();
+  const total = filteredProducts.length;
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const products = filteredProducts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const loadPage = async (pageNum: number, searchQuery: string) => {
-    if (!token) return;
+  const loadFromDb = async () => {
+    if (!restaurantId) return;
     setLoading(true);
     try {
-      const result = await getProductsAdmin(
-        { restaurantId, restaurantName, page: pageNum, limit: PAGE_SIZE, search: searchQuery },
-        token,
-      );
-      setProducts(result.data);
-      setTotal(result.total);
-      setPage(pageNum);
+      const [{ data }, cats] = await Promise.all([
+        getLocalProducts(restaurantId),
+        getLocalCategories(restaurantId),
+      ]);
+      setAllProducts(data);
+      setCategories(cats);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadCategories = async () => {
-    if (!token) return;
-    try {
-      const c = await getCategories(restaurantName, restaurantId, token);
-      setCategories(c);
-    } catch {}
-  };
-
   useEffect(() => {
-    void loadPage(1, '');
-    void loadCategories();
-  }, [token, restaurantId]);
+    void loadFromDb();
+    const onSync = () => void loadFromDb();
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('catalog:synced', onSync);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('catalog:synced', onSync);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [restaurantId]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
+    setPage(1);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    searchTimerRef.current = setTimeout(() => {
-      void loadPage(1, value);
-    }, 400);
   };
 
   const openCreate = (barcode: string) => {
     setForm({
       ...emptyForm,
       barcode,
-      category_id: String(categories?.[0]?.id || ''),
+      category_id: String(categories.find((c) => c._syncStatus === 'synced')?.id || categories[0]?.id || ''),
       unit: 'عدد',
     });
     setModalOpen(true);
   };
 
-  const openEdit = (product: any) => {
+  const openEdit = (product: LocalProduct) => {
     setForm({
-      id: Number(product.id),
-      barcode: String(product?.barcode || ''),
-      name_fa: String(product?.name_fa || ''),
-      name: String(product?.name || ''),
-      price: String(product?.price ?? ''),
-      category_id: String(product?.category?.id || product?.category_id || categories?.[0]?.id || ''),
-      unit: product?.unit || 'عدد',
+      id: product.id,
+      barcode: product.barcode || '',
+      name_fa: product.name_fa,
+      name: product.name || '',
+      price: String(product.price),
+      category_id: String(product.category_id || categories[0]?.id || ''),
+      unit: product.unit || 'عدد',
     });
     setModalOpen(true);
   };
@@ -151,19 +181,12 @@ export default function ProductsPage() {
     const code = normalizeBarcode(rawCode);
     if (!code) return;
 
-    // جستجو در سرور برای بارکد
-    try {
-      const result = await getProductsAdmin(
-        { restaurantId, restaurantName, page: 1, limit: 1, search: code },
-        token!,
-      );
-      const found = result.data.find((p: any) => normalizeBarcode(String(p?.barcode || '')) === code);
-      if (found) {
-        setMessage('بارکد موجود بود؛ فرم ویرایش باز شد.');
-        openEdit(found);
-        return;
-      }
-    } catch {}
+    const found = allProducts.find((p) => normalizeBarcode(p.barcode || '') === code);
+    if (found) {
+      setMessage('بارکد موجود بود؛ فرم ویرایش باز شد.');
+      openEdit(found);
+      return;
+    }
 
     const master = await getMasterProductByBarcode(code, token ?? undefined);
     setForm({
@@ -171,7 +194,7 @@ export default function ProductsPage() {
       barcode: code,
       name_fa: master?.name || '',
       name: master?.name || '',
-      category_id: String(categories?.[0]?.id || ''),
+      category_id: String(categories[0]?.id || ''),
     });
     setModalOpen(true);
     setMessage(
@@ -251,7 +274,7 @@ export default function ProductsPage() {
   }, [categories, modalOpen, form.id]);
 
   const submit = async () => {
-    if (!token) return;
+    if (!token || !restaurantId) return;
     if (!form.name_fa.trim()) {
       setMessage('نام فارسی الزامی است');
       return;
@@ -260,46 +283,49 @@ export default function ProductsPage() {
       setMessage('قیمت باید بیشتر از صفر باشد');
       return;
     }
-    if (!(Number(form.category_id) > 0)) {
+    if (!(Number(form.category_id) !== 0)) {
       setMessage('دسته‌بندی را انتخاب کنید');
       return;
     }
     setSaving(true);
     try {
-      if (form.id) {
-        await updateProductById(
-          form.id,
-          {
-            name_fa: form.name_fa.trim(),
-            name: form.name.trim() || undefined,
-            price: Number(form.price),
-            category_id: Number(form.category_id),
-            barcode: form.barcode.trim() || undefined,
-            unit: form.unit || 'عدد',
-          },
-          token,
-        );
-        setMessage('محصول ویرایش شد');
+      if (form.id !== undefined) {
+        await updateProductLocal(form.id, {
+          name_fa: form.name_fa.trim(),
+          name: form.name.trim() || '',
+          price: Number(form.price),
+          category_id: Number(form.category_id),
+          barcode: form.barcode.trim() || null,
+          unit: form.unit || 'عدد',
+        });
+        setMessage(isOnline ? 'محصول ویرایش شد' : 'محصول ذخیره شد — در انتظار سینک');
       } else {
-        await createProduct(
-          {
-            name_fa: form.name_fa.trim(),
-            name: form.name.trim() || undefined,
-            price: Number(form.price),
-            category_id: Number(form.category_id),
-            barcode: form.barcode.trim() || undefined,
-            isAvailable: true,
-            restaurantId: restaurantId ? Number(restaurantId) : undefined,
-            unit: form.unit || 'عدد',
-          },
-          token,
-        );
-        setMessage('محصول جدید ثبت شد');
+        await createProductLocal({
+          restaurantId,
+          name_fa: form.name_fa.trim(),
+          name: form.name.trim() || undefined,
+          price: Number(form.price),
+          category_id: Number(form.category_id),
+          barcode: form.barcode.trim() || undefined,
+          unit: form.unit || 'عدد',
+          isAvailable: true,
+        });
+        setMessage(isOnline ? 'محصول جدید ثبت شد' : 'محصول ذخیره شد — در انتظار سینک');
       }
       setModalOpen(false);
-      await loadPage(page, search);
+      await loadFromDb();
+
+      // سینک فوری اگر آنلاین هستیم
+      if (isOnline) {
+        try {
+          await runCatalogSync({ restaurantId, restaurantName, token });
+          await loadFromDb();
+        } catch {
+          // سینک background انجام خواهد داد
+        }
+      }
     } catch (e: any) {
-      setMessage(e?.response?.data?.message || e?.message || 'خطا در ذخیره محصول');
+      setMessage(e?.message || 'خطا در ذخیره محصول');
     } finally {
       setSaving(false);
     }
@@ -307,8 +333,13 @@ export default function ProductsPage() {
 
   return (
     <div className="min-h-screen bg-default-100">
-      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm">
+      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm flex items-center justify-between">
         <h1 className="text-lg sm:text-xl font-bold">مدیریت محصولات</h1>
+        {!isOnline && (
+          <span className="text-xs bg-warning-100 text-warning-700 border border-warning-300 px-2 py-1 rounded-full">
+            آفلاین — تغییرات ذخیره می‌شوند
+          </span>
+        )}
       </header>
       <div className="p-6 max-w-6xl mx-auto space-y-4">
         <Card>
@@ -335,9 +366,14 @@ export default function ProductsPage() {
             ) : (
               products.map((p) => (
                 <div key={p.id} className="flex items-center justify-between rounded-lg border border-default-200 p-3">
-                  <div>
-                    <div className="font-semibold">{p.name_fa || p.name}</div>
-                    <div className="text-xs text-default-500">بارکد: {p.barcode || '—'} | قیمت: {p.price}</div>
+                  <div className="space-y-1">
+                    <div className="font-semibold flex items-center gap-2">
+                      {p.name_fa || p.name}
+                      <SyncBadge status={p._syncStatus} error={p._syncError} />
+                    </div>
+                    <div className="text-xs text-default-500">
+                      بارکد: {p.barcode || '—'} | قیمت: {p.price.toLocaleString('fa-IR')}
+                    </div>
                   </div>
                   <Button size="sm" variant="flat" color="primary" onPress={() => openEdit(p)}>ویرایش</Button>
                 </div>
@@ -346,14 +382,13 @@ export default function ProductsPage() {
           </CardContent>
         </Card>
 
-        {/* کنترل‌های صفحه‌بندی */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-3">
             <Button
               size="sm"
               variant="flat"
               isDisabled={page <= 1 || loading}
-              onPress={() => loadPage(page - 1, search)}
+              onPress={() => setPage((p) => p - 1)}
             >
               قبلی
             </Button>
@@ -364,7 +399,7 @@ export default function ProductsPage() {
               size="sm"
               variant="flat"
               isDisabled={page >= totalPages || loading}
-              onPress={() => loadPage(page + 1, search)}
+              onPress={() => setPage((p) => p + 1)}
             >
               بعدی
             </Button>
@@ -377,7 +412,7 @@ export default function ProductsPage() {
 
       <Modal isOpen={modalOpen} onOpenChange={setModalOpen}>
         <ModalShell size="lg">
-          <ModalHeader>{form.id ? 'ویرایش محصول' : 'افزودن محصول'}</ModalHeader>
+          <ModalHeader>{form.id !== undefined ? 'ویرایش محصول' : 'افزودن محصول'}</ModalHeader>
           <ModalBody className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <NameAutocomplete
               value={form.name_fa}
@@ -416,7 +451,9 @@ export default function ProductsPage() {
               onSelectionChange={(keys) => setForm((f) => ({ ...f, category_id: String(Array.from(keys)[0] || '') }))}
             >
               {categories.map((c) => (
-                <SelectItem key={String(c.id)}>{c.name_fa || c.name}</SelectItem>
+                <SelectItem key={String(c.id)}>
+                  {c.name_fa || c.name}{c._syncStatus !== 'synced' ? ' ⏳' : ''}
+                </SelectItem>
               ))}
             </Select>
             <Select
@@ -431,7 +468,9 @@ export default function ProductsPage() {
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onPress={() => setModalOpen(false)}>انصراف</Button>
-            <Button color="primary" isLoading={saving} onPress={submit}>{form.id ? 'ذخیره تغییرات' : 'ثبت محصول'}</Button>
+            <Button color="primary" isLoading={saving} onPress={submit}>
+              {form.id !== undefined ? 'ذخیره تغییرات' : 'ثبت محصول'}
+            </Button>
           </ModalFooter>
         </ModalShell>
       </Modal>

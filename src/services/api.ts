@@ -263,6 +263,7 @@ export async function createProduct(
     barcode?: string;
     isAvailable?: boolean;
     restaurantId?: number;
+    unit?: string;
   },
   token: string,
 ) {
@@ -282,6 +283,7 @@ export async function updateProductById(
     category_id: number;
     barcode?: string;
     isAvailable?: boolean;
+    unit?: string;
   }>,
   token: string,
 ) {
@@ -833,6 +835,25 @@ export async function getProductsPublicPaginated(
   };
   const response = await api.post('/products/filter/public/paginated', body, { headers });
   return response.data;
+}
+
+/** آخرین زمان به‌روزرسانی دسته‌بندی‌های رستوران — برای بررسی تغییر بدون دریافت کل لیست */
+export async function getCategoriesLastUpdatedAt(
+  restaurantId: number,
+  token?: string,
+): Promise<{ lastUpdatedAt: string | null }> {
+  await apiConfigReady;
+  const headers: any = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  try {
+    const response = await api.get('/categories/last-updated-at', {
+      headers,
+      params: { restaurantId },
+    });
+    return response.data;
+  } catch {
+    return { lastUpdatedAt: null };
+  }
 }
 
 /** دریافت محصولات با صفحه‌بندی و جستجو — برای پنل مدیریت ادمین */
