@@ -92,6 +92,7 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState<LocalCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<ProductForm>(emptyForm);
@@ -106,13 +107,11 @@ export default function ProductsPage() {
   // فیلتر و صفحه‌بندی در حافظه
   const filteredProducts = (() => {
     const q = search.trim().toLowerCase();
-    if (!q) return allProducts;
-    return allProducts.filter(
-      (p) =>
-        p.name_fa.toLowerCase().includes(q) ||
-        (p.name || '').toLowerCase().includes(q) ||
-        (p.barcode || '').includes(q),
-    );
+    return allProducts.filter((p) => {
+      const catMatch = selectedCategoryId === null || p.category_id === selectedCategoryId;
+      const searchMatch = !q || p.name_fa.toLowerCase().includes(q) || (p.name || '').toLowerCase().includes(q) || (p.barcode || '').includes(q);
+      return catMatch && searchMatch;
+    });
   })();
   const total = filteredProducts.length;
   const totalPages = Math.ceil(total / PAGE_SIZE);
@@ -152,6 +151,11 @@ export default function ProductsPage() {
     setSearch(value);
     setPage(1);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+  };
+
+  const handleCategoryFilter = (catId: number | null) => {
+    setSelectedCategoryId(catId);
+    setPage(1);
   };
 
   const openCreate = (barcode: string) => {
@@ -356,6 +360,29 @@ export default function ProductsPage() {
             </div>
           </CardContent>
         </Card>
+        {categories.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant={selectedCategoryId === null ? 'solid' : 'bordered'}
+              color="primary"
+              onPress={() => handleCategoryFilter(null)}
+            >
+              همه
+            </Button>
+            {categories.map((c) => (
+              <Button
+                key={c.id}
+                size="sm"
+                variant={selectedCategoryId === c.id ? 'solid' : 'bordered'}
+                color="primary"
+                onPress={() => handleCategoryFilter(c.id)}
+              >
+                {c.name_fa || c.name}
+              </Button>
+            ))}
+          </div>
+        )}
         <Card>
           <CardContent className="space-y-2">
             {loading ? (
@@ -372,6 +399,7 @@ export default function ProductsPage() {
                     </div>
                     <div className="text-xs text-default-500">
                       بارکد: {p.barcode || '—'} | قیمت: {p.price.toLocaleString('fa-IR')}
+                      {(() => { const cat = categories.find((c) => c.id === p.category_id); return cat ? ` | ${cat.name_fa || cat.name}` : ''; })()}
                     </div>
                   </div>
                   <Button size="sm" variant="flat" color="primary" onPress={() => openEdit(p)}>ویرایش</Button>

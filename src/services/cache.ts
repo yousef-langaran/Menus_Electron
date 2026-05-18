@@ -19,12 +19,14 @@ export async function cacheMenu(
   restrictCardTerminalAccessToElectronManagers?: boolean,
   allowDirectSendAmountToCardTerminal?: boolean,
   lastUpdatedAt?: string | null,
+  productCategories?: any[],
 ) {
   menuCache = {
     restaurantId,
     restaurantName,
     products,
     categories,
+    productCategories: productCategories || [],
     cartItemOptions: cartItemOptions || [],
     isMobileRequiredInElectronPanel: isMobileRequiredInElectronPanel || false,
     isScaleIntegrationEnabled: isScaleIntegrationEnabled || false,

@@ -40,6 +40,11 @@ import {Panel, Group, Separator} from 'react-resizable-panels'
 import { toast } from '../utils/toast';
 
 const RESET_ORDER_SHORTCUT_LABEL = 'Ctrl + Shift + Backspace';
+
+const PRODUCT_UNITS = [
+    'عدد', 'کیلوگرم', 'گرم', 'لیتر', 'میلی‌لیتر',
+    'متر', 'سانتی‌متر', 'بسته', 'جعبه', 'پرس', 'وعده', 'پیمانه', 'قوطی', 'بطری',
+];
 const normalizeBarcode = (value: string) =>
     String(value || '')
         .replace(/[\u200C\u200F\u202A-\u202E]/g, '')
@@ -201,6 +206,7 @@ export default function OrderPage() {
         price: '',
         category_id: '',
         barcode: '',
+        unit: 'عدد',
     });
     /** وضعیت آنلاین برای فعال بودن گزینه کد تخفیف */
     const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -538,6 +544,7 @@ export default function OrderPage() {
                 productsData = cached.products;
                 setProducts(productsData);
                 setCategories(cached.categories);
+                setProductCategories(Array.isArray(cached.productCategories) ? cached.productCategories : []);
                 setCartItemOptions(Array.isArray(cached.cartItemOptions) ? cached.cartItemOptions : []);
                 setIsMobileRequired(cached.isMobileRequiredInElectronPanel ?? true);
                 setIsScaleIntegrationEnabled(Boolean(cached.isScaleIntegrationEnabled));
@@ -702,6 +709,7 @@ export default function OrderPage() {
                         cardTerminalRestricted,
                         directAmountSendEnabled,
                         serverLastUpdatedAt,
+                        Array.isArray(categoriesResult) ? categoriesResult : [],
                     );
                 }
             } catch (err) {
@@ -1092,7 +1100,7 @@ export default function OrderPage() {
         if (!matched) {
             playScanBeep(false);
             if (!rawCode) setBarcodeInput('');
-            setNewProductForm({ name_fa: '', name: '', price: '', category_id: '', barcode: code });
+            setNewProductForm({ name_fa: '', name: '', price: '', category_id: '', barcode: code, unit: 'عدد' });
             setIsCheckingMasterProduct(true);
             setShowCreateProductModal(true);
             try {
@@ -1143,15 +1151,17 @@ export default function OrderPage() {
                     price: Number(newProductForm.price),
                     category_id: Number(newProductForm.category_id),
                     barcode: newProductForm.barcode.trim() || undefined,
+                    unit: newProductForm.unit || 'عدد',
                     isAvailable: true,
                     restaurantId: user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined,
                 },
                 token,
             );
-            const createdProduct = created || {
-                id: Date.now(),
-                ...newProductForm,
-                price: Number(newProductForm.price),
+            const catObj = productCategories.find((c: any) => String(c.id) === String(newProductForm.category_id));
+            const createdProduct = {
+                ...(created || { id: Date.now(), ...newProductForm, price: Number(newProductForm.price) }),
+                category: catObj || (created?.category ?? { id: Number(newProductForm.category_id), name_fa: '' }),
+                unit: newProductForm.unit || 'عدد',
             };
             setProducts((prev) => [createdProduct, ...prev]);
             addToCart(createdProduct);
@@ -2110,6 +2120,18 @@ export default function OrderPage() {
                         >
                             {productCategories.map((c: any) => (
                                 <SelectItem key={String(c.id)}>{c.name_fa || c.name}</SelectItem>
+                            ))}
+                        </Select>
+                        <Select
+                            label="واحد شمارش"
+                            selectedKeys={[newProductForm.unit || 'عدد']}
+                            isDisabled={isCheckingMasterProduct}
+                            onSelectionChange={(keys) => {
+                                setNewProductForm((f) => ({ ...f, unit: String(Array.from(keys)[0] || 'عدد') }));
+                            }}
+                        >
+                            {PRODUCT_UNITS.map((u) => (
+                                <SelectItem key={u}>{u}</SelectItem>
                             ))}
                         </Select>
                     </ModalBody>
