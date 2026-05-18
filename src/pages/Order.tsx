@@ -119,6 +119,13 @@ export default function OrderPage() {
         setDiscountType,
         setDiscountCode,
         setAppliedDiscountCode,
+        splitCash,
+        splitCard,
+        splitOnline,
+        setSplitCash,
+        setSplitCard,
+        setSplitOnline,
+        getSplitCreditAmount,
         submitOrder,
         clearCart,
         getTotalAmount,
@@ -1882,7 +1889,142 @@ export default function OrderPage() {
                             <SelectItem key="card" textValue="کارت">کارت</SelectItem>
                             <SelectItem key="online" textValue="آنلاین">آنلاین</SelectItem>
                             <SelectItem key="mixed" textValue="ترکیبی">ترکیبی</SelectItem>
+                            <SelectItem key="credit" textValue="اعتباری (نسیه)">اعتباری (نسیه)</SelectItem>
                         </Select>
+                        {paymentMethod === 'mixed' && (() => {
+                            const finalAmt = getFinalAmount();
+                            const paidNow = splitCash + splitCard + splitOnline;
+                            const creditAmt = Math.max(0, finalAmt - paidNow);
+                            const isOver = paidNow > finalAmt;
+                            const hasCredit = creditAmt > 0;
+                            return (
+                                <div className={`rounded-lg border p-3 flex flex-col gap-3 ${hasCredit ? 'border-warning-200 bg-warning-50' : 'border-default-200 bg-default-50'}`}>
+                                    <p className="text-sm font-semibold text-foreground">تقسیم پرداخت</p>
+
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <Input
+                                            label="نقد (تومان)"
+                                            value={splitCash > 0 ? formatPriceInput(String(splitCash)) : ''}
+                                            onChange={(e) => setSplitCash(Number(normalizePriceInput(e.target.value)) || 0)}
+                                            placeholder="0"
+                                            type="text"
+                                            inputMode="numeric"
+                                            size="sm"
+                                            variant="bordered"
+                                            classNames={{ input: 'text-center' }}
+                                        />
+                                        <Input
+                                            label="کارت (تومان)"
+                                            value={splitCard > 0 ? formatPriceInput(String(splitCard)) : ''}
+                                            onChange={(e) => setSplitCard(Number(normalizePriceInput(e.target.value)) || 0)}
+                                            placeholder="0"
+                                            type="text"
+                                            inputMode="numeric"
+                                            size="sm"
+                                            variant="bordered"
+                                            classNames={{ input: 'text-center' }}
+                                        />
+                                        <Input
+                                            label="آنلاین (تومان)"
+                                            value={splitOnline > 0 ? formatPriceInput(String(splitOnline)) : ''}
+                                            onChange={(e) => setSplitOnline(Number(normalizePriceInput(e.target.value)) || 0)}
+                                            placeholder="0"
+                                            type="text"
+                                            inputMode="numeric"
+                                            size="sm"
+                                            variant="bordered"
+                                            classNames={{ input: 'text-center' }}
+                                        />
+                                    </div>
+
+                                    <div className={`rounded-lg p-2.5 text-sm flex flex-col gap-1 ${isOver ? 'bg-danger-100 border border-danger-300' : 'bg-white border border-default-200'}`}>
+                                        {paidNow > 0 && (
+                                            <div className="flex justify-between text-default-600">
+                                                <span>پرداخت‌شده</span>
+                                                <span className="text-success-700 font-semibold">{formatPrice(paidNow)}</span>
+                                            </div>
+                                        )}
+                                        <div className={`flex justify-between font-semibold ${isOver ? 'text-danger' : hasCredit ? 'text-warning-700' : 'text-success-700'}`}>
+                                            <span>{isOver ? '⚠ بیشتر از مبلغ سفارش' : hasCredit ? 'نسیه (اعتباری)' : '✓ کامل پرداخت شد'}</span>
+                                            <span>{formatPrice(isOver ? paidNow - finalAmt : creditAmt)}</span>
+                                        </div>
+                                        {isOver && (
+                                            <p className="text-xs text-danger-700">مبلغ سفارش: {formatPrice(finalAmt)}</p>
+                                        )}
+                                        {hasCredit && !isOver && (
+                                            <p className="text-xs text-warning-600">شماره تماس مشتری الزامی است</p>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                        {paymentMethod === 'credit' && (() => {
+                            const finalAmt = getFinalAmount();
+                            const creditAmt = getSplitCreditAmount();
+                            const preAmt = splitCash + splitCard + splitOnline;
+                            const isOver = preAmt > finalAmt;
+                            return (
+                                <div className="rounded-lg border border-warning-200 bg-warning-50 p-3 flex flex-col gap-3">
+                                    <p className="text-sm font-semibold text-warning-800">تقسیم پرداخت — نسیه</p>
+
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <Input
+                                            label="نقد (تومان)"
+                                            value={splitCash > 0 ? formatPriceInput(String(splitCash)) : ''}
+                                            onChange={(e) => setSplitCash(Number(normalizePriceInput(e.target.value)) || 0)}
+                                            placeholder="0"
+                                            type="text"
+                                            inputMode="numeric"
+                                            size="sm"
+                                            variant="bordered"
+                                            classNames={{ input: 'text-center' }}
+                                        />
+                                        <Input
+                                            label="کارت (تومان)"
+                                            value={splitCard > 0 ? formatPriceInput(String(splitCard)) : ''}
+                                            onChange={(e) => setSplitCard(Number(normalizePriceInput(e.target.value)) || 0)}
+                                            placeholder="0"
+                                            type="text"
+                                            inputMode="numeric"
+                                            size="sm"
+                                            variant="bordered"
+                                            classNames={{ input: 'text-center' }}
+                                        />
+                                        <Input
+                                            label="آنلاین (تومان)"
+                                            value={splitOnline > 0 ? formatPriceInput(String(splitOnline)) : ''}
+                                            onChange={(e) => setSplitOnline(Number(normalizePriceInput(e.target.value)) || 0)}
+                                            placeholder="0"
+                                            type="text"
+                                            inputMode="numeric"
+                                            size="sm"
+                                            variant="bordered"
+                                            classNames={{ input: 'text-center' }}
+                                        />
+                                    </div>
+
+                                    <div className={`rounded-lg p-2.5 text-sm flex flex-col gap-1 ${isOver ? 'bg-danger-100 border border-danger-300' : 'bg-white border border-warning-100'}`}>
+                                        {preAmt > 0 && (
+                                            <div className="flex justify-between text-default-600">
+                                                <span>پرداخت‌شده الان</span>
+                                                <span className="text-success-700 font-semibold">{formatPrice(preAmt)}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between font-semibold">
+                                            <span className={creditAmt > 0 ? 'text-danger' : 'text-success-700'}>
+                                                {creditAmt > 0 ? 'اعتباری (نسیه)' : 'کل پرداخت شد ✓'}
+                                            </span>
+                                            <span className={creditAmt > 0 ? 'text-danger' : 'text-success-700'}>
+                                                {formatPrice(creditAmt)}
+                                            </span>
+                                        </div>
+                                        {isOver && (
+                                            <p className="text-xs text-danger-700 mt-0.5">⚠ مجموع پرداختی از مبلغ سفارش ({formatPrice(finalAmt)}) بیشتر است</p>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })()}
                         {paymentMethod === 'card' && (
                             <div className="rounded-lg border border-default-200 bg-default-50 p-3 text-sm">
                                 {!isCardTerminalEnabled ? (

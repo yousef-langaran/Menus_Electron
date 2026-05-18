@@ -37,7 +37,7 @@ interface OrderState {
   serviceType: 'dine_in' | 'takeaway';
   tableNumber: string;
   customerAddress: string;
-  paymentMethod: 'cash' | 'card' | 'online' | 'mixed';
+  paymentMethod: 'cash' | 'card' | 'online' | 'mixed' | 'credit';
   notes: string;
   discountAmount: number; // user input value (برای درصدی/تومانی)
   discountType: DiscountType;
@@ -45,6 +45,10 @@ interface OrderState {
   /** کد تخفیف ثبت‌شده (بعد از زدن «ثبت») — برای نمایش مبلغ و ارسال به سرور */
   appliedDiscountCode: AppliedDiscountCode | null;
   isSubmitting: boolean;
+  /** تقسیم پرداخت برای سفارشات اعتباری ترکیبی */
+  splitCash: number;
+  splitCard: number;
+  splitOnline: number;
   addToCart: (product: any) => void;
   updateCartQuantity: (productId: number, quantity: number) => void;
   updateCartItemOption: (productId: number, itemOption: string) => void;
@@ -53,12 +57,16 @@ interface OrderState {
   setServiceType: (type: 'dine_in' | 'takeaway') => void;
   setTableNumber: (table: string) => void;
   setCustomerAddress: (address: string) => void;
-  setPaymentMethod: (method: 'cash' | 'card' | 'online' | 'mixed') => void;
+  setPaymentMethod: (method: 'cash' | 'card' | 'online' | 'mixed' | 'credit') => void;
   setNotes: (notes: string) => void;
   setDiscountAmount: (amount: number) => void;
   setDiscountType: (type: DiscountType) => void;
   setDiscountCode: (code: string) => void;
   setAppliedDiscountCode: (applied: AppliedDiscountCode | null) => void;
+  setSplitCash: (amount: number) => void;
+  setSplitCard: (amount: number) => void;
+  setSplitOnline: (amount: number) => void;
+  getSplitCreditAmount: () => number;
   submitOrder: (options?: {
     editingOrderId?: number;
     onOrderCreated?: (result: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean; order?: any }) => void;
@@ -90,6 +98,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     discountCode: '',
     appliedDiscountCode: null,
     isSubmitting: false,
+    splitCash: 0,
+    splitCard: 0,
+    splitOnline: 0,
 
     addToCart: (product) => {
         const cart = get().cart;
@@ -163,6 +174,14 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     setDiscountType: (type) => set({discountType: type, ...(type !== 'code' ? {appliedDiscountCode: null} : {})}),
     setDiscountCode: (code) => set({discountCode: (code || '').trim()}),
     setAppliedDiscountCode: (applied) => set({appliedDiscountCode: applied}),
+    setSplitCash: (amount) => set({splitCash: Math.max(0, amount)}),
+    setSplitCard: (amount) => set({splitCard: Math.max(0, amount)}),
+    setSplitOnline: (amount) => set({splitOnline: Math.max(0, amount)}),
+    getSplitCreditAmount: () => {
+        const { splitCash, splitCard, splitOnline } = get();
+        const final = get().getFinalAmount();
+        return Math.max(0, final - splitCash - splitCard - splitOnline);
+    },
 
     submitOrder: async (options) => {
         const state = get();
@@ -183,8 +202,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             return {success: false, error: 'سبد خرید خالی است'};
         }
 
-        if (isMobileRequiredInElectronPanel && !state.customerPhone.trim()) {
-            return {success: false, error: 'شماره تماس مشتری الزامی است'};
+        const mixedHasCredit = state.paymentMethod === 'mixed' &&
+            (state.splitCash + state.splitCard + state.splitOnline) < state.getFinalAmount() &&
+            (state.splitCash + state.splitCard + state.splitOnline) > 0;
+        if ((isMobileRequiredInElectronPanel || state.paymentMethod === 'credit' || mixedHasCredit) && !state.customerPhone.trim()) {
+            return {success: false, error: 'برای سفارش دارای نسیه، شماره تماس مشتری الزامی است'};
         }
         if (state.customerPhone.trim() && !isValidIranMobile(state.customerPhone)) {
             return {success: false, error: 'فرمت شماره موبایل معتبر نیست. مثال: 09123456789'};
@@ -198,6 +220,23 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             return {success: false, error: 'لطفاً با زدن «ثبت» کد تخفیف را اعمال کنید.'};
         }
 
+        if (state.paymentMethod === 'mixed') {
+            const total = state.splitCash + state.splitCard + state.splitOnline;
+            const final = state.getFinalAmount();
+            if (total === 0) {
+                return {success: false, error: 'برای پرداخت ترکیبی، مبالغ روش‌های پرداخت را وارد کنید'};
+            }
+            if (total > final) {
+                return {success: false, error: 'مجموع مبالغ پرداختی از مبلغ نهایی سفارش بیشتر است'};
+            }
+        }
+        if (state.paymentMethod === 'credit') {
+            const preAmt = state.splitCash + state.splitCard + state.splitOnline;
+            if (preAmt > state.getFinalAmount()) {
+                return {success: false, error: 'مجموع مبالغ پرداختی از مبلغ نهایی سفارش بیشتر است'};
+            }
+        }
+
         set({isSubmitting: true});
 
     const discountAmount = state.getDiscountAmount();
@@ -208,7 +247,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       customerAddress: state.serviceType === 'takeaway' ? state.customerAddress.trim() : undefined,
       tableNumber: state.serviceType === 'dine_in' ? state.tableNumber.trim() : undefined,
       serviceType: state.serviceType,
-      paymentMethod: state.paymentMethod,
+      paymentMethod: mixedHasCredit ? 'credit' : state.paymentMethod,
       totalAmount: state.getTotalAmount(),
       finalAmount: useDiscountCode ? state.getTotalAmount() : state.getFinalAmount(),
       discountAmount: useDiscountCode ? 0 : discountAmount,
@@ -221,6 +260,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           }),
       notes: state.notes.trim() || undefined,
       restaurantName: user?.restaurants?.[0]?.name || '',
+      ...(state.paymentMethod === 'credit' || mixedHasCredit
+        ? { creditPaidAmount: state.splitCash + state.splitCard + state.splitOnline }
+        : {}),
       items: state.cart.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -316,6 +358,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             discountType: 'fixed',
             discountCode: '',
             appliedDiscountCode: null,
+            splitCash: 0,
+            splitCard: 0,
+            splitOnline: 0,
         });
     },
 
