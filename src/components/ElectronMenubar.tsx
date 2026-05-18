@@ -118,7 +118,10 @@ export function ElectronMenubar() {
   );
 
   const systemItems: NavLeaf[] = useMemo(
-    () => [{ path: '/settings', label: 'تنظیمات و سخت‌افزار', visible: (u) => canAccessRoute(u, '/settings') }],
+    () => [
+      { path: '/settings', label: 'تنظیمات و سخت‌افزار', visible: (u) => canAccessRoute(u, '/settings') },
+      { path: '/card-terminals', label: 'مدیریت کارتخوان‌ها', visible: (u) => canAccessRoute(u, '/card-terminals') },
+    ],
     [],
   );
 
@@ -277,7 +280,7 @@ export function ElectronMenubar() {
           <Dropdown.Trigger
             variant="ghost"
             size="sm"
-            className={menuBtnClass(systemVis.some((i) => pathname === i.path))}
+            className={menuBtnClass(systemVis.some((i) => pathname === i.path || pathname.startsWith(i.path + '/')))}
           >
             <span className="inline-flex items-center gap-1">
               سیستم

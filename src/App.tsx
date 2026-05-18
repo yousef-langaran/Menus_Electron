@@ -13,6 +13,7 @@ import AccountingPurchaseDraftsPage from './pages/accounting/PurchaseDrafts';
 import AccountingServerPurchasesPage from './pages/accounting/ServerPurchases';
 import ProductsPage from './pages/Products';
 import CategoriesPage from './pages/Categories';
+import CardTerminalsPage from './pages/CardTerminals';
 import { useAuthStore } from './store/authStore';
 import { AppShellLayout } from './layouts/AppShellLayout';
 import { RoutePermissionGuard } from './components/RoutePermissionGuard';
@@ -110,6 +111,7 @@ function AppRoutes() {
               <Route path="/accounting/suppliers" element={<AccountingSuppliersPage />} />
               <Route path="/accounting/purchase-drafts" element={<AccountingPurchaseDraftsPage />} />
               <Route path="/accounting/server-purchases" element={<AccountingServerPurchasesPage />} />
+              <Route path="/card-terminals" element={<CardTerminalsPage />} />
             </Route>
           </Route>
         </Route>

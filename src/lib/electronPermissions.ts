@@ -87,6 +87,13 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
     );
   }
 
+  if (p === '/card-terminals') {
+    return (
+      hasModuleAccess(user, 'electron_panel', ['read', 'manage'], rid) ||
+      isOwnerOrAdmin(user)
+    );
+  }
+
   if (p === '/accounting' || p.startsWith('/accounting/')) {
     return (
       hasModuleAccess(user, 'accounting', ['read', 'manage'], rid) ||

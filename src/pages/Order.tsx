@@ -148,6 +148,9 @@ export default function OrderPage() {
     const [cardTerminalProfiles, setCardTerminalProfiles] = useState<Array<{ id: string; name: string }>>([]);
     const [selectedCardTerminalId, setSelectedCardTerminalId] = useState('');
     const [canUseCardTerminal, setCanUseCardTerminal] = useState(true);
+    const [cardTerminalStatus, setCardTerminalStatus] = useState<'idle' | 'sending' | 'approved' | 'failed'>('idle');
+    const [cardTerminalError, setCardTerminalError] = useState('');
+    const [cardTerminalRefId, setCardTerminalRefId] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
@@ -772,30 +775,56 @@ export default function OrderPage() {
         }
     };
 
+    const resetCardTerminalStatus = () => {
+        setCardTerminalStatus('idle');
+        setCardTerminalError('');
+        setCardTerminalRefId('');
+    };
+
     const handleSendAmountToCardTerminal = async () => {
         const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
+        // پیش از ارسال، اطمینان از کامل بودن فرم (چون terminal success → submit خودکار)
+        const normalizedPhone = normalizeIranMobile(customerPhone.trim());
+        if (isMobileRequired && !customerPhone.trim()) {
+            setCardTerminalError('ابتدا شماره تماس مشتری را وارد کنید.');
+            setCardTerminalStatus('failed');
+            return;
+        }
+        if (customerPhone.trim() && !isValidIranMobile(normalizedPhone)) {
+            setCardTerminalError('فرمت شماره موبایل معتبر نیست.');
+            setCardTerminalStatus('failed');
+            return;
+        }
         if (!isCardTerminalEnabled) {
-            setError('قابلیت کارتخوان برای این رستوران فعال نیست.');
+            setCardTerminalError('قابلیت کارتخوان برای این رستوران فعال نیست.');
+            setCardTerminalStatus('failed');
             return;
         }
         if (!canUseCardTerminal) {
-            setError('شما دسترسی استفاده از کارتخوان ندارید.');
+            setCardTerminalError('شما دسترسی استفاده از کارتخوان ندارید.');
+            setCardTerminalStatus('failed');
             return;
         }
         if (!allowDirectSendAmountToCardTerminal) {
-            setError('ارسال مستقیم مبلغ به کارتخوان توسط مدیر غیرفعال است.');
+            setCardTerminalError('ارسال مستقیم مبلغ به کارتخوان توسط مدیر غیرفعال است.');
+            setCardTerminalStatus('failed');
             return;
         }
         const amount = Number(getFinalAmount() || 0);
         if (!(amount > 0)) {
-            setError('برای ارسال به کارتخوان، مبلغ سفارش باید بیشتر از صفر باشد.');
+            setCardTerminalError('برای ارسال به کارتخوان، مبلغ سفارش باید بیشتر از صفر باشد.');
+            setCardTerminalStatus('failed');
             return;
         }
         if (!window.electronAPI?.sendAmountToCardTerminal) {
-            setError('نسخه پنل دسکتاپ از کارتخوان پشتیبانی نمی‌کند.');
+            setCardTerminalError('نسخه پنل دسکتاپ از کارتخوان پشتیبانی نمی‌کند.');
+            setCardTerminalStatus('failed');
             return;
         }
 
+        setCardTerminalStatus('sending');
+        setCardTerminalError('');
+        setCardTerminalRefId('');
         setError('');
         try {
             const result = await window.electronAPI.sendAmountToCardTerminal({
@@ -804,13 +833,23 @@ export default function OrderPage() {
                 terminalProfileId: selectedCardTerminalId || undefined,
             });
             if (result?.success) {
-                setSuccessMessage('مبلغ با موفقیت به کارتخوان ارسال شد.');
+                setCardTerminalStatus('approved');
+                setCardTerminalRefId(result.refId || '');
+                // کارتخوان تأیید کرد — سفارش به‌صورت خودکار ثبت می‌شود
+                await handleSubmit();
             } else {
-                setError(result?.error || 'ارسال مبلغ به کارتخوان ناموفق بود.');
+                setCardTerminalStatus('failed');
+                setCardTerminalError(result?.error || 'کارتخوان جواب مثبت نداد.');
             }
         } catch (err: any) {
-            setError(err?.message || 'خطا در ارسال مبلغ به کارتخوان');
+            setCardTerminalStatus('failed');
+            setCardTerminalError(err?.message || 'خطا در ارتباط با کارتخوان');
         }
+    };
+
+    const handleCardManualConfirm = async () => {
+        resetCardTerminalStatus();
+        await handleSubmit();
     };
 
     useEffect(() => {
@@ -830,6 +869,14 @@ export default function OrderPage() {
         };
         loadCardTerminalProfiles();
     }, []);
+
+    useEffect(() => {
+        if (!showOrderModal) {
+            setCardTerminalStatus('idle');
+            setCardTerminalError('');
+            setCardTerminalRefId('');
+        }
+    }, [showOrderModal]);
 
     const handleSubmit = async () => {
         const normalizedPhone = normalizeIranMobile(customerPhone.trim());
@@ -1235,6 +1282,7 @@ export default function OrderPage() {
         setBarcodeInput('');
         setSelectedAddressId(null);
         setCustomerAddresses([]);
+        resetCardTerminalStatus();
         if (editingOrderId != null) {
             navigate('/order');
         }
@@ -1883,7 +1931,14 @@ export default function OrderPage() {
 
                         <Select label="روش پرداخت" selectedKeys={[paymentMethod]} onSelectionChange={(keys) => {
                             const v = Array.from(keys)[0];
-                            if (v) setPaymentMethod(v as any);
+                            if (v) {
+                                setPaymentMethod(v as any);
+                                if (v !== 'card') {
+                                    setCardTerminalStatus('idle');
+                                    setCardTerminalError('');
+                                    setCardTerminalRefId('');
+                                }
+                            }
                         }} variant="bordered">
                             <SelectItem key="cash" textValue="نقد">نقد</SelectItem>
                             <SelectItem key="card" textValue="کارت">کارت</SelectItem>
@@ -2025,38 +2080,86 @@ export default function OrderPage() {
                                 </div>
                             );
                         })()}
-                        {paymentMethod === 'card' && (
-                            <div className="rounded-lg border border-default-200 bg-default-50 p-3 text-sm">
-                                {!isCardTerminalEnabled ? (
-                                    <p className="text-default-600">کارتخوان برای این رستوران فعال نشده است.</p>
-                                ) : !canUseCardTerminal ? (
-                                    <p className="text-warning-700">دسترسی استفاده از کارتخوان برای شما فعال نیست.</p>
-                                ) : allowDirectSendAmountToCardTerminal ? (
+                        {paymentMethod === 'card' && isCardTerminalEnabled && canUseCardTerminal && allowDirectSendAmountToCardTerminal && (
+                            <div className="rounded-xl border border-default-200 bg-default-50 p-3 flex flex-col gap-3 text-sm">
+                                <p className="font-medium text-foreground">پرداخت کارتخوان</p>
+
+                                {/* انتخاب دستگاه اگر بیش از یک کارتخوان تعریف شده */}
+                                {cardTerminalProfiles.length > 1 && cardTerminalStatus === 'idle' && (
+                                    <Select
+                                        size="sm"
+                                        label="انتخاب کارتخوان"
+                                        selectedKeys={selectedCardTerminalId ? [selectedCardTerminalId] : []}
+                                        onSelectionChange={(keys) => {
+                                            const next = String(Array.from(keys)[0] || '');
+                                            setSelectedCardTerminalId(next);
+                                        }}
+                                        variant="bordered"
+                                    >
+                                        {cardTerminalProfiles.map((terminal) => (
+                                            <SelectItem key={terminal.id}>{terminal.name}</SelectItem>
+                                        ))}
+                                    </Select>
+                                )}
+
+                                {/* حالت: آماده */}
+                                {cardTerminalStatus === 'idle' && (
+                                    <Button
+                                        color="primary"
+                                        size="sm"
+                                        onPress={handleSendAmountToCardTerminal}
+                                    >
+                                        ارسال {formatPrice(getFinalAmount())} به کارتخوان
+                                    </Button>
+                                )}
+
+                                {/* حالت: در حال ارسال */}
+                                {cardTerminalStatus === 'sending' && (
+                                    <div className="flex items-center gap-2 text-primary-700 py-1">
+                                        <span className="animate-spin text-base">⏳</span>
+                                        <span>در حال ارتباط با کارتخوان — لطفاً کارت بکشید...</span>
+                                    </div>
+                                )}
+
+                                {/* حالت: کارتخوان تأیید کرد */}
+                                {cardTerminalStatus === 'approved' && (
+                                    <div className="flex items-center gap-2 text-success-700 py-1">
+                                        <span className="text-base">✅</span>
+                                        <span>
+                                            کارتخوان تأیید کرد، در حال ثبت سفارش...
+                                            {cardTerminalRefId && <span className="text-xs text-default-500 mr-2">(Ref: {cardTerminalRefId})</span>}
+                                        </span>
+                                    </div>
+                                )}
+
+                                {/* حالت: خطا / بدون جواب */}
+                                {cardTerminalStatus === 'failed' && (
                                     <div className="flex flex-col gap-2">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <p className="text-success-700">ارسال مستقیم مبلغ به کارتخوان فعال است.</p>
-                                            <Button size="sm" color="primary" variant="flat" onPress={handleSendAmountToCardTerminal}>
-                                                ارسال مبلغ {formatPrice(getFinalAmount())}
-                                            </Button>
+                                        <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-danger-700 text-xs">
+                                            ⚠ {cardTerminalError || 'کارتخوان جواب نداد یا خطا رخ داد.'}
                                         </div>
-                                        {cardTerminalProfiles.length > 1 && (
-                                            <Select
+                                        <div className="flex gap-2 flex-wrap">
+                                            <Button
                                                 size="sm"
-                                                label="انتخاب کارتخوان"
-                                                selectedKeys={selectedCardTerminalId ? [selectedCardTerminalId] : []}
-                                                onSelectionChange={(keys) => {
-                                                    const next = String(Array.from(keys)[0] || '');
-                                                    setSelectedCardTerminalId(next);
+                                                variant="flat"
+                                                onPress={() => {
+                                                    resetCardTerminalStatus();
                                                 }}
                                             >
-                                                {cardTerminalProfiles.map((terminal) => (
-                                                    <SelectItem key={terminal.id}>{terminal.name}</SelectItem>
-                                                ))}
-                                            </Select>
-                                        )}
+                                                تلاش مجدد
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                color="warning"
+                                                onPress={handleCardManualConfirm}
+                                            >
+                                                ثبت دستی — کارت کشیده شد
+                                            </Button>
+                                        </div>
+                                        <p className="text-xs text-default-400">
+                                            اگر پرداخت روی دستگاه کارتخوان انجام شد ولی اپ جواب نداد، از «ثبت دستی» استفاده کنید.
+                                        </p>
                                     </div>
-                                ) : (
-                                    <p className="text-default-600">ارسال مستقیم مبلغ به کارتخوان توسط مدیر غیرفعال شده است.</p>
                                 )}
                             </div>
                         )}
@@ -2190,13 +2293,16 @@ export default function OrderPage() {
                     </ModalBody>
                     <ModalFooter className="gap-2">
                         <Button variant="flat" onPress={() => setShowOrderModal(false)}
-                                isDisabled={isSubmitting}>انصراف</Button>
-                        <Button color="primary" onPress={handleSubmit} isLoading={isSubmitting}
-                                isDisabled={cart.length === 0}>
-                            {isSubmitting
-                                ? (editingOrderId != null ? 'در حال ذخیره...' : 'در حال ثبت...')
-                                : (editingOrderId != null ? 'ذخیرهٔ فاکتور' : 'ثبت نهایی')}
-                        </Button>
+                                isDisabled={isSubmitting || cardTerminalStatus === 'sending' || cardTerminalStatus === 'approved'}>انصراف</Button>
+                        {/* وقتی کارتخوان فعال است و حالت idle، دکمه ثبت مستقیم پنهان می‌شود */}
+                        {!(paymentMethod === 'card' && isCardTerminalEnabled && canUseCardTerminal && allowDirectSendAmountToCardTerminal && cardTerminalStatus !== 'failed') && (
+                            <Button color="primary" onPress={handleSubmit} isLoading={isSubmitting}
+                                    isDisabled={cart.length === 0 || cardTerminalStatus === 'sending' || cardTerminalStatus === 'approved'}>
+                                {isSubmitting
+                                    ? (editingOrderId != null ? 'در حال ذخیره...' : 'در حال ثبت...')
+                                    : (editingOrderId != null ? 'ذخیرهٔ فاکتور' : 'ثبت نهایی')}
+                            </Button>
+                        )}
                     </ModalFooter>
                 </ModalShell>
             </Modal>
