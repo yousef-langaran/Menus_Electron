@@ -8,6 +8,8 @@ import {
   setSyncMeta,
   updateOperationSyncStatus,
   upsertPulledEntities,
+  upsertPulledInvoices,
+  upsertPulledInvoiceItems,
 } from './accountingLocalDb';
 import {
   createPurchaseInvoiceAccounting,
@@ -83,46 +85,8 @@ export async function runAccountingSync(args: {
   let pushFailed = 0;
   let draftPurchaseSynced = 0;
 
-  const pendingDraftInvoices = await getPendingPurchaseInvoiceDrafts(restaurantId, 50);
-  for (const draft of pendingDraftInvoices) {
-    try {
-      await markPurchaseInvoiceSyncState(draft.id, {
-        localSyncStatus: 'syncing',
-        syncError: null,
-      });
-      const lineItems = await getPurchaseInvoiceItemsByInvoiceId(draft.id);
-      const response = await createPurchaseInvoiceAccounting(
-        {
-          restaurantId,
-          supplierId: Number(draft.supplierId),
-          invoiceNumber: String(draft.invoiceNumber || `DRAFT-${draft.id}`),
-          purchaseDate:
-            String(draft.purchaseDate || '').slice(0, 10) ||
-            new Date().toISOString().slice(0, 10),
-          items: (lineItems || []).map((x) => ({
-            rawMaterialId: Number(x.rawMaterialId),
-            quantity: Number(x.quantity),
-            unitPrice: Number(x.unitPrice),
-          })),
-          extraCosts: Number(draft.extraCosts || 0),
-          status: 'pending_approval',
-        },
-        token,
-      );
-      draftPurchaseSynced += 1;
-      await markPurchaseInvoiceSyncState(draft.id, {
-        localSyncStatus: 'synced',
-        syncError: null,
-        serverInvoiceId: response.invoiceId,
-      });
-    } catch (error: any) {
-      await markPurchaseInvoiceSyncState(draft.id, {
-        localSyncStatus: 'failed',
-        syncError: error?.response?.data?.message || error?.message || 'Draft purchase sync failed',
-      });
-    }
-  }
-
+  // Push entity operations (suppliers, materials, final products, etc.) FIRST so that
+  // the server has them before any purchase invoice draft references their IDs.
   if (pendingOps.length > 0) {
     for (const op of pendingOps) {
       if (!op.id) continue;
@@ -159,6 +123,50 @@ export async function runAccountingSync(args: {
     }
   }
 
+  // Push draft purchase invoices AFTER entities so supplierId / finalProductId / rawMaterialId
+  // references are guaranteed to exist on the server side.
+  const pendingDraftInvoices = await getPendingPurchaseInvoiceDrafts(restaurantId, 50);
+  for (const draft of pendingDraftInvoices) {
+    try {
+      await markPurchaseInvoiceSyncState(draft.id, {
+        localSyncStatus: 'syncing',
+        syncError: null,
+      });
+      const lineItems = await getPurchaseInvoiceItemsByInvoiceId(draft.id);
+      const response = await createPurchaseInvoiceAccounting(
+        {
+          restaurantId,
+          supplierId: Number(draft.supplierId),
+          invoiceNumber: String(draft.invoiceNumber || `DRAFT-${draft.id}`),
+          purchaseDate:
+            String(draft.purchaseDate || '').slice(0, 10) ||
+            new Date().toISOString().slice(0, 10),
+          items: (lineItems || []).map((x) => ({
+            ...(x.rawMaterialId ? { rawMaterialId: Number(x.rawMaterialId) } : {}),
+            ...(x.finalProductId ? { finalProductId: Number(x.finalProductId) } : {}),
+            quantity: Number(x.quantity),
+            unitPrice: Number(x.unitPrice),
+            ...(x.salePrice != null ? { salePrice: Number(x.salePrice) } : {}),
+          })),
+          extraCosts: Number(draft.extraCosts || 0),
+          status: 'pending_approval',
+        },
+        token,
+      );
+      draftPurchaseSynced += 1;
+      await markPurchaseInvoiceSyncState(draft.id, {
+        localSyncStatus: 'synced',
+        syncError: null,
+        serverInvoiceId: response.invoiceId,
+      });
+    } catch (error: any) {
+      await markPurchaseInvoiceSyncState(draft.id, {
+        localSyncStatus: 'failed',
+        syncError: error?.response?.data?.message || error?.message || 'Draft purchase sync failed',
+      });
+    }
+  }
+
   const pullSinceKey = `accounting:lastPullAt:${restaurantId}`;
   const since = await getSyncMeta(pullSinceKey);
   const pullResult = await syncAccountingPull(restaurantId, token, since || undefined, 1000);
@@ -170,6 +178,8 @@ export async function runAccountingSync(args: {
     upsertPulledEntities('recipe_item', pullResult.data.recipes || []),
     upsertPulledEntities('cash_bank_account', pullResult.data.cashBankAccounts || []),
     upsertPulledEntities('operational_expense', pullResult.data.operationalExpenses || []),
+    upsertPulledInvoices(restaurantId, pullResult.data.purchaseInvoices || []),
+    upsertPulledInvoiceItems(pullResult.data.purchaseInvoiceItems || []),
   ]);
 
   const syncedAt = pullResult.syncedAt || new Date().toISOString();

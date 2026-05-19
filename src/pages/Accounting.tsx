@@ -102,16 +102,9 @@ export default function AccountingPage() {
           </Card>
           <Card>
             <CardContent className="gap-2">
-              <h3 className="font-semibold">پیش‌نویس‌های خرید</h3>
-              <p className="text-sm text-default-500">ثبت و مدیریت پیش‌نویس فاکتور خرید</p>
+              <h3 className="font-semibold">فاکتورهای خرید</h3>
+              <p className="text-sm text-default-500">ثبت پیش‌نویس، مشاهده و تایید فاکتورهای خرید</p>
               <Button color="primary" onPress={() => navigate('/accounting/purchase-drafts')}>ورود</Button>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="gap-2">
-              <h3 className="font-semibold">فاکتورهای سرور</h3>
-              <p className="text-sm text-default-500">مشاهده، تایید و رد فاکتورهای خرید سرور</p>
-              <Button color="primary" onPress={() => navigate('/accounting/server-purchases')}>ورود</Button>
             </CardContent>
           </Card>
         </div>

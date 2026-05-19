@@ -626,6 +626,8 @@ export async function syncAccountingPull(
       recipes: any[];
       cashBankAccounts: any[];
       operationalExpenses: any[];
+      purchaseInvoices: any[];
+      purchaseInvoiceItems: any[];
     };
   };
 }
@@ -636,7 +638,7 @@ export async function createPurchaseInvoiceAccounting(
     supplierId: number;
     invoiceNumber: string;
     purchaseDate: string;
-    items: Array<{ rawMaterialId: number; quantity: number; unitPrice: number }>;
+    items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number }>;
     extraCosts?: number;
     status?: 'draft' | 'pending_approval' | 'approved' | 'rejected';
     notes?: string;

@@ -99,6 +99,21 @@ export class MenusAccountingDb extends Dexie {
         '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
       syncMeta: 'key',
     });
+    // v5: adds finalProductId index to purchaseInvoiceItems
+    this.version(5).stores({
+      rawMaterials: 'id, restaurantId, updatedAt, name, barcode',
+      suppliers: 'id, restaurantId, updatedAt, name',
+      finalProducts: 'id, restaurantId, updatedAt, name, productId',
+      recipeItems: 'id, restaurantId, updatedAt, finalProductId, rawMaterialId',
+      cashBankAccounts: 'id, restaurantId, updatedAt, accountType, name',
+      operationalExpenses: 'id, restaurantId, updatedAt, expenseDate, expenseCategoryId',
+      purchaseInvoices:
+        'id, restaurantId, updatedAt, supplierId, status, purchaseDate, localSyncStatus, syncError, [restaurantId+localSyncStatus]',
+      purchaseInvoiceItems: 'id, purchaseInvoiceId, rawMaterialId, finalProductId',
+      syncOperations:
+        '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
+      syncMeta: 'key',
+    });
   }
 }
 
@@ -180,9 +195,91 @@ export async function upsertPulledEntities(entityType: SyncEntityType, rows: any
   await table.bulkPut(rows || []);
 }
 
+/**
+ * Merge server-pulled purchase invoices into the local Dexie table.
+ * Avoids duplicates: if a local draft was already synced (serverInvoiceId == server.id),
+ * update its status instead of inserting a second record.
+ */
+export async function upsertPulledInvoices(restaurantId: number, serverInvoices: any[]) {
+  if (!serverInvoices?.length) return;
+
+  // Build a map: serverInvoiceId → local Dexie record id
+  const localRows = await accountingDb.purchaseInvoices
+    .where('restaurantId').equals(restaurantId).toArray();
+  const serverIdToLocalId = new Map<number, number>();
+  for (const row of localRows) {
+    if (row.serverInvoiceId != null) serverIdToLocalId.set(Number(row.serverInvoiceId), row.id);
+  }
+
+  const toInsert: any[] = [];
+  for (const inv of serverInvoices) {
+    const localId = serverIdToLocalId.get(Number(inv.id));
+    if (localId != null) {
+      // Already tracked as a local draft — just refresh mutable fields.
+      await accountingDb.purchaseInvoices.update(localId, {
+        status: inv.status,
+        totalAmount: inv.totalAmount,
+        supplierName: inv.supplierName,
+        localSyncStatus: 'synced',
+        updatedAt: typeof inv.updatedAt === 'string' ? inv.updatedAt : new Date(inv.updatedAt).toISOString(),
+      });
+    } else {
+      toInsert.push({
+        ...inv,
+        localSyncStatus: 'synced',
+        syncError: null,
+        serverInvoiceId: Number(inv.id),
+        updatedAt: typeof inv.updatedAt === 'string' ? inv.updatedAt : new Date(inv.updatedAt).toISOString(),
+        createdAt: typeof inv.createdAt === 'string' ? inv.createdAt : new Date(inv.createdAt).toISOString(),
+      });
+    }
+  }
+  if (toInsert.length) await accountingDb.purchaseInvoices.bulkPut(toInsert);
+}
+
+export async function upsertPulledInvoiceItems(items: any[]) {
+  if (!items?.length) return;
+  await accountingDb.purchaseInvoiceItems.bulkPut(items);
+}
+
 export async function getSyncMeta(key: string): Promise<string | null> {
   const row = await accountingDb.syncMeta.get(key);
   return row?.value ?? null;
+}
+
+export async function resetAccountingPullTimestamp(restaurantId: number): Promise<void> {
+  await accountingDb.syncMeta.delete(`accounting:lastPullAt:${restaurantId}`);
+}
+
+/**
+ * Resets ALL entity sync operations (any status) back to 'pending' so they are
+ * re-pushed on the next sync.  Safe because rawUpsertSyncEntity uses ON CONFLICT
+ * DO UPDATE — re-sending an already-synced entity is idempotent.
+ *
+ * Use this when the server may have stored wrong sequence-generated ids instead of
+ * the client-generated bigint ids (the pre-fix TypeORM upsert bug).
+ */
+export async function resetEntitySyncOperationsToPending(restaurantId: number): Promise<number> {
+  const entityTypes: SyncEntityType[] = [
+    'supplier', 'raw_material', 'final_product', 'recipe_item', 'cash_bank_account', 'operational_expense',
+  ];
+  const all = await accountingDb.syncOperations
+    .where('restaurantId')
+    .equals(restaurantId)
+    .toArray();
+  const toReset = all.filter((op) => entityTypes.includes(op.entityType as SyncEntityType));
+  const now = new Date().toISOString();
+  await Promise.all(
+    toReset.map((op) =>
+      accountingDb.syncOperations.update(op.id!, {
+        status: 'pending',
+        retryCount: 0,
+        errorMessage: undefined,
+        updatedAt: now,
+      }),
+    ),
+  );
+  return toReset.length;
 }
 
 export async function setSyncMeta(key: string, value: string): Promise<void> {
@@ -384,7 +481,7 @@ export async function createPurchaseInvoiceLocal(input: {
   supplierId: number;
   invoiceNumber: string;
   purchaseDate: string;
-  items: Array<{ rawMaterialId: number; quantity: number; unitPrice: number }>;
+  items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number }>;
   extraCosts?: number;
 }) {
   const id = nextLocalEntityId();
@@ -392,9 +489,11 @@ export async function createPurchaseInvoiceLocal(input: {
   const items = input.items.map((x) => ({
     id: nextLocalEntityId(),
     purchaseInvoiceId: id,
-    rawMaterialId: x.rawMaterialId,
+    rawMaterialId: x.rawMaterialId ?? null,
+    finalProductId: x.finalProductId ?? null,
     quantity: Number(x.quantity),
     unitPrice: Number(x.unitPrice),
+    salePrice: x.salePrice != null ? Number(x.salePrice) : null,
     lineTotal: Number((Number(x.quantity) * Number(x.unitPrice)).toFixed(2)),
   }));
   const totalAmount = Number(
@@ -457,7 +556,7 @@ export async function updatePurchaseInvoiceDraftLocal(input: {
   supplierId: number;
   invoiceNumber: string;
   purchaseDate: string;
-  items: Array<{ rawMaterialId: number; quantity: number; unitPrice: number }>;
+  items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number }>;
   extraCosts?: number;
 }) {
   const existing = await accountingDb.purchaseInvoices.get(input.invoiceId);
@@ -466,9 +565,11 @@ export async function updatePurchaseInvoiceDraftLocal(input: {
   const lineItems = input.items.map((x) => ({
     id: nextLocalEntityId(),
     purchaseInvoiceId: input.invoiceId,
-    rawMaterialId: x.rawMaterialId,
+    rawMaterialId: x.rawMaterialId ?? null,
+    finalProductId: x.finalProductId ?? null,
     quantity: Number(x.quantity),
     unitPrice: Number(x.unitPrice),
+    salePrice: x.salePrice != null ? Number(x.salePrice) : null,
     lineTotal: Number((Number(x.quantity) * Number(x.unitPrice)).toFixed(2)),
   }));
   const totalAmount = Number(
@@ -495,6 +596,55 @@ export async function updatePurchaseInvoiceDraftLocal(input: {
   };
   await accountingDb.purchaseInvoices.put(nextInvoice);
   return { invoice: nextInvoice, items: lineItems };
+}
+
+export async function createFinalProductLocal(input: {
+  restaurantId: number;
+  name: string;
+  productId?: number;
+}) {
+  const id = nextLocalEntityId();
+  const now = new Date().toISOString();
+  const row = {
+    id,
+    restaurantId: input.restaurantId,
+    name: input.name.trim(),
+    productId: input.productId ?? null,
+    barcode: null,
+    salePrice: 0,
+    isActive: true,
+    currentStock: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await accountingDb.finalProducts.put(row);
+  await enqueueAccountingOperation({
+    localOpId: nextOpId(),
+    restaurantId: input.restaurantId,
+    entityType: 'final_product',
+    entityId: String(id),
+    operationType: 'create',
+    payload: row,
+    version: 1,
+    clientUpdatedAt: now,
+  });
+  return row;
+}
+
+/** پیدا کردن یا ساختن FinalProduct حسابداری برای یک محصول منو */
+export async function getOrCreateFinalProductByProductId(
+  restaurantId: number,
+  menuProductId: number,
+  name: string,
+): Promise<number> {
+  const results = await accountingDb.finalProducts
+    .where('productId')
+    .equals(menuProductId)
+    .toArray();
+  const existing = results.find((fp) => fp.restaurantId === restaurantId);
+  if (existing) return existing.id;
+  const newFp = await createFinalProductLocal({ restaurantId, name, productId: menuProductId });
+  return newFp.id;
 }
 
 export async function deletePurchaseInvoiceDraftLocal(invoiceId: number) {

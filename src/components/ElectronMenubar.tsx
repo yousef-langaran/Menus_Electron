@@ -105,13 +105,8 @@ export function ElectronMenubar() {
       },
       {
         path: '/accounting/purchase-drafts',
-        label: 'پیش‌نویس خرید',
+        label: 'فاکتورهای خرید',
         visible: (u) => canAccessRoute(u, '/accounting/purchase-drafts'),
-      },
-      {
-        path: '/accounting/server-purchases',
-        label: 'خریدهای سرور',
-        visible: (u) => canAccessRoute(u, '/accounting/server-purchases'),
       },
     ],
     [],
