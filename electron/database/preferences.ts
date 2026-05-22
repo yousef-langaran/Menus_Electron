@@ -10,6 +10,50 @@ export type CardTerminalSendAmountUnit = 'toman' | 'rial';
 
 export type ScaleConnectionType = 'serial' | 'tcp';
 
+export type CallerIdInputMode = 'webhook' | 'serial';
+export type CallerIdSerialFormat = 'auto' | 'at-clip' | 'cid-nmbr' | 'caller-field' | 'raw-number';
+
+export interface CallerIdSettings {
+  enabled: boolean;
+  /** نحوه دریافت تماس: webhook (VOIP) یا serial (دستگاه USB) */
+  inputMode: CallerIdInputMode;
+
+  // ─── تنظیمات Webhook ───────────────────────────────────────────
+  /** پورت محلی که اپ روی آن منتظر webhook می‌ماند */
+  webhookPort: number;
+  /** توکن/رمز برای تأیید هویت درخواست‌های ورودی (اختیاری) */
+  webhookSecret: string;
+  /** نام فیلد در بدنه webhook که شماره تماس‌گیرنده را دارد */
+  phoneField: string;
+
+  // ─── تنظیمات دستگاه USB / Serial ─────────────────────────────
+  /** نام پورت COM دستگاه USB Caller ID (مثلاً COM3) */
+  serialPortName: string;
+  /** نرخ baud دستگاه (معمولاً 9600) */
+  serialBaudRate: number;
+  /** فرمت داده دستگاه */
+  serialFormat: CallerIdSerialFormat;
+
+  // ─── تنظیمات عمومی ────────────────────────────────────────────
+  /** مدت زمان نمایش اعلان تماس ورودی (ثانیه) */
+  notifyDurationSec: number;
+  /** پخش صدا هنگام تماس ورودی */
+  playSoundEnabled: boolean;
+}
+
+export const DEFAULT_CALLER_ID_SETTINGS: CallerIdSettings = {
+  enabled: false,
+  inputMode: 'webhook',
+  webhookPort: 5055,
+  webhookSecret: '',
+  phoneField: 'caller',
+  serialPortName: '',
+  serialBaudRate: 9600,
+  serialFormat: 'auto',
+  notifyDurationSec: 30,
+  playSoundEnabled: true,
+};
+
 export interface ScaleSettings {
   connectionType: ScaleConnectionType;
   portName: string;
@@ -121,6 +165,7 @@ interface PreferencesFile {
   cardTerminalProfiles?: CardTerminalProfile[];
   defaultCardTerminalProfileId?: string | null;
   scaleSettings?: ScaleSettings;
+  callerIdSettings?: CallerIdSettings;
 }
 
 const FILE_NAME = 'menus-preferences.json';
@@ -637,6 +682,45 @@ export async function saveScaleSettings(settings: Partial<ScaleSettings>): Promi
     ...(settings || {}),
   };
   prefs.scaleSettings = merged;
+  await writePreferences(prefs);
+  return merged;
+}
+
+export async function loadCallerIdSettings(): Promise<CallerIdSettings> {
+  const prefs = await readPreferences();
+  const raw = prefs.callerIdSettings;
+  if (!raw) return { ...DEFAULT_CALLER_ID_SETTINGS };
+  const validFormats: CallerIdSerialFormat[] = ['auto', 'at-clip', 'cid-nmbr', 'caller-field', 'raw-number'];
+  return {
+    enabled: Boolean(raw.enabled),
+    inputMode: raw.inputMode === 'serial' ? 'serial' : 'webhook',
+    webhookPort: Number.isFinite(Number(raw.webhookPort)) && Number(raw.webhookPort) > 0
+      ? Number(raw.webhookPort)
+      : DEFAULT_CALLER_ID_SETTINGS.webhookPort,
+    webhookSecret: String(raw.webhookSecret || ''),
+    phoneField: String(raw.phoneField || DEFAULT_CALLER_ID_SETTINGS.phoneField).trim() || DEFAULT_CALLER_ID_SETTINGS.phoneField,
+    serialPortName: String(raw.serialPortName || ''),
+    serialBaudRate: Number.isFinite(Number(raw.serialBaudRate)) && Number(raw.serialBaudRate) > 0
+      ? Number(raw.serialBaudRate)
+      : DEFAULT_CALLER_ID_SETTINGS.serialBaudRate,
+    serialFormat: validFormats.includes(raw.serialFormat as CallerIdSerialFormat)
+      ? raw.serialFormat as CallerIdSerialFormat
+      : 'auto',
+    notifyDurationSec: Number.isFinite(Number(raw.notifyDurationSec)) && Number(raw.notifyDurationSec) > 0
+      ? Number(raw.notifyDurationSec)
+      : DEFAULT_CALLER_ID_SETTINGS.notifyDurationSec,
+    playSoundEnabled: raw.playSoundEnabled !== false,
+  };
+}
+
+export async function saveCallerIdSettings(settings: Partial<CallerIdSettings>): Promise<CallerIdSettings> {
+  const prefs = await readPreferences();
+  const merged: CallerIdSettings = {
+    ...DEFAULT_CALLER_ID_SETTINGS,
+    ...(prefs.callerIdSettings || {}),
+    ...(settings || {}),
+  };
+  prefs.callerIdSettings = merged;
   await writePreferences(prefs);
   return merged;
 }

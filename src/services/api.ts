@@ -496,6 +496,47 @@ export async function getCustomerAddresses(
   return Array.isArray(response.data) ? response.data : [];
 }
 
+export interface CallerLookupResult {
+  isKnown: boolean;
+  phone: string;
+  customer: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    mobile: string;
+    email: string | null;
+  } | null;
+  totalOrders: number;
+  totalSpent: number;
+  lastOrderDate: string | null;
+  recentOrders: {
+    id: number;
+    orderNumber: string;
+    totalAmount: number;
+    status: string;
+    createdAt: string;
+    items: any[];
+  }[];
+  addresses: {
+    id: number;
+    label: string | null;
+    address: string;
+    isDefault: boolean;
+  }[];
+}
+
+export async function callerLookup(
+  params: { restaurantId?: number; restaurantName?: string; phone: string },
+  token: string,
+): Promise<CallerLookupResult> {
+  await apiConfigReady;
+  const response = await api.get('/customers/caller-lookup', {
+    params: { restaurantId: params.restaurantId, restaurantName: params.restaurantName, phone: params.phone },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
 export async function addCustomer(
   params: { restaurantId?: number; restaurantName?: string },
   body: { mobile: string; firstName?: string; lastName?: string },

@@ -67,7 +67,11 @@ import {
   loadCardTerminalConfig,
   saveCardTerminalConfig,
   type CardTerminalSettings,
+  loadCallerIdSettings,
+  saveCallerIdSettings,
 } from './database/preferences';
+import { startCallerIdWebhook, stopCallerIdWebhook, getWebhookStatus } from './services/callerIdWebhook';
+import { callerIdSerialService, setupCallerIdSerial } from './services/callerIdSerial';
 import { getApiConfig } from './config/api';
 import { scaleService, listSerialPorts } from './services/scale';
 import { setupAutoUpdater, checkForUpdates, startUpdateDownload, quitAndInstall } from './updater';
@@ -198,6 +202,16 @@ app.whenReady().then(() => {
 
   createWindow();
   setupAutoUpdater(mainWindow);
+  loadCallerIdSettings().then((s) => {
+    if (s.inputMode === 'serial') {
+      setupCallerIdSerial(
+        { enabled: s.enabled, portName: s.serialPortName, baudRate: s.serialBaudRate, format: s.serialFormat },
+        () => mainWindow,
+      );
+    } else {
+      startCallerIdWebhook(() => mainWindow).catch((e) => console.error('[CallerID] webhook start error:', e));
+    }
+  }).catch(() => {});
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -211,6 +225,8 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  stopCallerIdWebhook().catch(() => {});
+  callerIdSerialService.disconnect().catch(() => {});
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -812,4 +828,83 @@ ipcMain.handle('scale:request-weight', () => {
 ipcMain.handle('scale:clear-weight', () => {
   scaleService.clearLatestWeight();
   return { success: true };
+});
+
+ipcMain.handle('caller-id:get-settings', async () => {
+  try {
+    return await loadCallerIdSettings();
+  } catch (err: any) {
+    return { success: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle('caller-id:save-settings', async (_event, settings: any) => {
+  try {
+    const saved = await saveCallerIdSettings(settings);
+    // راه‌اندازی مجدد بر اساس mode جدید
+    if (saved.inputMode === 'serial') {
+      await stopCallerIdWebhook();
+      setupCallerIdSerial(
+        { enabled: saved.enabled, portName: saved.serialPortName, baudRate: saved.serialBaudRate, format: saved.serialFormat },
+        () => mainWindow,
+      );
+    } else {
+      await callerIdSerialService.disconnect();
+      await startCallerIdWebhook(() => mainWindow);
+    }
+    return { success: true, settings: saved };
+  } catch (err: any) {
+    return { success: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle('caller-id:webhook-status', () => {
+  return getWebhookStatus();
+});
+
+ipcMain.handle('caller-id:serial-list-ports', async () => {
+  try {
+    const sp = require('serialport');
+    const ports = await sp.SerialPort.list();
+    return ports.map((p: any) => ({
+      path: p.path,
+      manufacturer: p.manufacturer,
+      friendlyName: p.friendlyName,
+      pnpId: p.pnpId,
+    }));
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.handle('caller-id:serial-connect', async (_event, settings: any) => {
+  try {
+    const result = await callerIdSerialService.connect(settings);
+    if (result.success) {
+      callerIdSerialService.onCall((phone) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('caller-id:incoming-call', {
+            phone,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      });
+    }
+    return result;
+  } catch (err: any) {
+    return { success: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle('caller-id:serial-disconnect', async () => {
+  try {
+    await callerIdSerialService.disconnect();
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle('caller-id:serial-status', () => {
+  return { connected: callerIdSerialService.isConnected() };
 });

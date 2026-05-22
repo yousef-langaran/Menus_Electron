@@ -21,7 +21,7 @@ import {
 } from '../services/api';
 import {getCachedMenu, cacheMenu} from '../services/cache';
 import { getLocalProducts, getLocalCategories } from '../services/catalogLocalDb';
-import {useNavigate, useSearchParams} from 'react-router-dom';
+import {useNavigate, useSearchParams, useLocation} from 'react-router-dom';
 import {usePrinterSettingsStore} from '../store/printerSettingsStore';
 import {
     saveReceiptNumbersToStorage,
@@ -88,6 +88,7 @@ function CartItemNoteIcon({ className }: { className?: string }) {
 export default function OrderPage() {
     const {user, token} = useAuthStore();
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams] = useSearchParams();
     const editParam = searchParams.get('edit');
     const parsedEditId = editParam != null ? Number(editParam) : NaN;
@@ -132,6 +133,14 @@ export default function OrderPage() {
         getFinalAmount,
         getDiscountAmount,
     } = useOrderStore();
+
+    useEffect(() => {
+        const prefill = (location.state as any)?.prefill;
+        if (!prefill) return;
+        if (prefill.customerPhone) setCustomerPhone(String(prefill.customerPhone));
+        if (prefill.customerAddress) setCustomerAddress(String(prefill.customerAddress));
+        window.history.replaceState({}, '');
+    }, []);
 
     const [products, setProducts] = useState<any[]>([]);
     const [categories, setCategories] = useState<string[]>([]);

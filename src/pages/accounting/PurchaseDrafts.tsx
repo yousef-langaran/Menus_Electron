@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, Chip, Modal, ModalBody, ModalFooter, ModalHeader, Spinner } from '@heroui/react';
+import { Card, CardContent, Chip, Modal, ModalBody, ModalFooter, ModalHeader, Spinner, Tab, TabList, TabListContainer, Tabs } from '@heroui/react';
 import { Button } from '../../ui/compat-button';
 import { Input } from '../../ui/compat-input';
 import { ModalShell } from '../../ui/modal-shell';
@@ -655,30 +655,22 @@ export default function AccountingPurchaseDraftsPage() {
                     </div>
 
                     {/* Type toggle */}
-                    <div className="flex rounded-lg overflow-hidden border border-default-300 w-fit text-xs">
-                      <button
-                        type="button"
-                        onClick={() => updateItem(idx, { type: 'raw_material', menuProductId: '', finalProductId: '' })}
-                        className={`px-3 py-1.5 transition-colors cursor-pointer ${
-                          !isFinalProduct
-                            ? 'bg-primary text-primary-foreground font-medium'
-                            : 'text-default-500 hover:bg-default-200'
-                        }`}
-                      >
-                        ماده اولیه
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateItem(idx, { type: 'final_product', rawMaterialId: '' })}
-                        className={`px-3 py-1.5 transition-colors cursor-pointer ${
-                          isFinalProduct
-                            ? 'bg-primary text-primary-foreground font-medium'
-                            : 'text-default-500 hover:bg-default-200'
-                        }`}
-                      >
-                        محصول رستوران
-                      </button>
-                    </div>
+                    <Tabs
+                      selectedKey={isFinalProduct ? 'final_product' : 'raw_material'}
+                      onSelectionChange={(k) =>
+                        k === 'final_product'
+                          ? updateItem(idx, { type: 'final_product', rawMaterialId: '' })
+                          : updateItem(idx, { type: 'raw_material', menuProductId: '', finalProductId: '' })
+                      }
+                      aria-label="نوع آیتم فاکتور"
+                    >
+                      <TabListContainer>
+                        <TabList>
+                          <Tab id="raw_material">ماده اولیه</Tab>
+                          <Tab id="final_product">محصول رستوران</Tab>
+                        </TabList>
+                      </TabListContainer>
+                    </Tabs>
 
                     {/* Product/material selector */}
                     {activeOptions.length === 0 ? (

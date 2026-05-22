@@ -92,6 +92,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-error', handler);
     return () => ipcRenderer.removeListener('update-error', handler);
   },
+  getCallerIdSettings: () => ipcRenderer.invoke('caller-id:get-settings'),
+  saveCallerIdSettings: (settings: any) => ipcRenderer.invoke('caller-id:save-settings', settings),
+  getCallerIdWebhookStatus: () => ipcRenderer.invoke('caller-id:webhook-status'),
+  callerIdSerialListPorts: () => ipcRenderer.invoke('caller-id:serial-list-ports'),
+  callerIdSerialConnect: (settings: any) => ipcRenderer.invoke('caller-id:serial-connect', settings),
+  callerIdSerialDisconnect: () => ipcRenderer.invoke('caller-id:serial-disconnect'),
+  callerIdSerialStatus: () => ipcRenderer.invoke('caller-id:serial-status'),
+  onIncomingCall: (callback: (payload: { phone: string; timestamp: string }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, payload: { phone: string; timestamp: string }) =>
+      callback(payload);
+    ipcRenderer.on('caller-id:incoming-call', handler);
+    return () => ipcRenderer.removeListener('caller-id:incoming-call', handler);
+  },
 });
 
 declare global {
@@ -177,6 +190,14 @@ declare global {
       scaleRequestWeight: () => Promise<{ success: boolean }>;
       scaleClearWeight: () => Promise<{ success: boolean }>;
       onScaleWeightUpdate: (callback: (weight: number) => void) => () => void;
+      getCallerIdSettings: () => Promise<any>;
+      saveCallerIdSettings: (settings: any) => Promise<{ success: boolean; settings?: any; error?: string }>;
+      getCallerIdWebhookStatus: () => Promise<{ running: boolean; port: number | null }>;
+      callerIdSerialListPorts: () => Promise<Array<{ path: string; manufacturer?: string; friendlyName?: string; pnpId?: string }>>;
+      callerIdSerialConnect: (settings: any) => Promise<{ success: boolean; error?: string }>;
+      callerIdSerialDisconnect: () => Promise<{ success: boolean; error?: string }>;
+      callerIdSerialStatus: () => Promise<{ connected: boolean }>;
+      onIncomingCall: (callback: (payload: { phone: string; timestamp: string }) => void) => () => void;
     };
   }
 }

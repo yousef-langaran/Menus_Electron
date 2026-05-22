@@ -24,6 +24,8 @@ import { UpdateBanner } from './components/UpdateBanner';
 import { OfflineOrdersSync } from './components/OfflineOrdersSync';
 import { AccountingSyncManager } from './components/AccountingSyncManager';
 import { CatalogSyncManager } from './components/CatalogSyncManager';
+import { CallerIdOverlay } from './components/CallerIdOverlay';
+import { useCallerIdStore } from './store/callerIdStore';
 
 /** پس از 401 از API، خروج از نشست و رفتن به صفحهٔ ورود (بدون وابستگی دایره‌ای به axios) */
 function UnauthorizedListener() {
@@ -80,6 +82,28 @@ function RequireAuth() {
   return <Outlet />;
 }
 
+function CallerIdManager() {
+  const { handleIncomingCall, loadSettings, settings } = useCallerIdStore();
+  const { token, user } = useAuthStore();
+  const restaurantId = user?.restaurants?.[0]?.id ?? null;
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onIncomingCall || !settings?.enabled) return;
+    const unsub = api.onIncomingCall(({ phone, timestamp }) => {
+      if (!token || !restaurantId) return;
+      handleIncomingCall(phone, timestamp, restaurantId, token);
+    });
+    return () => unsub?.();
+  }, [settings?.enabled, token, restaurantId]);
+
+  return null;
+}
+
 function AppRoutes() {
   const user = useAuthStore((s) => s.user);
   return (
@@ -92,6 +116,8 @@ function AppRoutes() {
       <AccountingSyncManager />
       <CatalogSyncManager />
       <OrdersSocketManager />
+      <CallerIdManager />
+      <CallerIdOverlay />
       <Routes>
         <Route
           path="/login"

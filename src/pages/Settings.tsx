@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent } from '@heroui/react';
+import { Card, CardContent, Tab, TabList, TabListContainer, Tabs } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { Input } from '../ui/compat-input';
 import { Select, SelectItem } from '../ui/compat-select';
@@ -54,6 +54,25 @@ export default function SettingsPage() {
   const [scaleConnecting, setScaleConnecting] = useState(false);
   const [scaleSaving, setScaleSaving] = useState(false);
 
+  const [callerIdEnabled, setCallerIdEnabled] = useState(false);
+  const [callerIdMode, setCallerIdMode] = useState<'webhook' | 'serial'>('webhook');
+  // webhook
+  const [callerIdPort, setCallerIdPort] = useState('5055');
+  const [callerIdSecret, setCallerIdSecret] = useState('');
+  const [callerIdPhoneField, setCallerIdPhoneField] = useState('caller');
+  // serial / USB
+  const [callerIdSerialPort, setCallerIdSerialPort] = useState('');
+  const [callerIdSerialBaud, setCallerIdSerialBaud] = useState('9600');
+  const [callerIdSerialFormat, setCallerIdSerialFormat] = useState('auto');
+  const [callerIdSerialPorts, setCallerIdSerialPorts] = useState<Array<{ path: string; manufacturer?: string; friendlyName?: string }>>([]);
+  const [callerIdSerialConnected, setCallerIdSerialConnected] = useState(false);
+  const [callerIdSerialConnecting, setCallerIdSerialConnecting] = useState(false);
+  // common
+  const [callerIdDuration, setCallerIdDuration] = useState('30');
+  const [callerIdSound, setCallerIdSound] = useState(true);
+  const [callerIdSaving, setCallerIdSaving] = useState(false);
+  const [callerIdWebhookRunning, setCallerIdWebhookRunning] = useState(false);
+
   useEffect(() => {
     window.electronAPI?.getDataDir?.().then(setDataDir).catch(() => {});
   }, []);
@@ -68,7 +87,104 @@ export default function SettingsPage() {
     loadFromStorage();
     loadPrinters();
     loadScaleData();
+    loadCallerIdData();
   }, []);
+
+  const loadCallerIdData = async () => {
+    const api = window.electronAPI;
+    if (!api?.getCallerIdSettings) return;
+    try {
+      const [s, status, serialStatus, ports] = await Promise.all([
+        api.getCallerIdSettings(),
+        api.getCallerIdWebhookStatus?.() ?? Promise.resolve({ running: false, port: null }),
+        api.callerIdSerialStatus?.() ?? Promise.resolve({ connected: false }),
+        api.callerIdSerialListPorts?.() ?? Promise.resolve([]),
+      ]);
+      setCallerIdEnabled(Boolean(s.enabled));
+      setCallerIdMode(s.inputMode === 'serial' ? 'serial' : 'webhook');
+      setCallerIdPort(String(s.webhookPort || 5055));
+      setCallerIdSecret(String(s.webhookSecret || ''));
+      setCallerIdPhoneField(String(s.phoneField || 'caller'));
+      setCallerIdSerialPort(String(s.serialPortName || ''));
+      setCallerIdSerialBaud(String(s.serialBaudRate || 9600));
+      setCallerIdSerialFormat(String(s.serialFormat || 'auto'));
+      setCallerIdDuration(String(s.notifyDurationSec || 30));
+      setCallerIdSound(s.playSoundEnabled !== false);
+      setCallerIdWebhookRunning(Boolean(status?.running));
+      setCallerIdSerialConnected(Boolean(serialStatus?.connected));
+      setCallerIdSerialPorts(ports ?? []);
+    } catch {}
+  };
+
+  const handleCallerIdSerialRefreshPorts = async () => {
+    const api = window.electronAPI;
+    if (!api?.callerIdSerialListPorts) return;
+    try {
+      const ports = await api.callerIdSerialListPorts();
+      setCallerIdSerialPorts(ports ?? []);
+      if (!ports?.length) toast.info('دستگاه USB یافت نشد');
+    } catch { toast.error('خطا در خواندن پورت‌ها'); }
+  };
+
+  const handleCallerIdSerialConnect = async () => {
+    const api = window.electronAPI;
+    if (!api?.callerIdSerialConnect) return;
+    setCallerIdSerialConnecting(true);
+    try {
+      const result = await api.callerIdSerialConnect({
+        enabled: true,
+        portName: callerIdSerialPort,
+        baudRate: Number(callerIdSerialBaud) || 9600,
+        format: callerIdSerialFormat,
+      });
+      if (result.success) {
+        setCallerIdSerialConnected(true);
+        toast.success('دستگاه Caller ID متصل شد');
+      } else {
+        toast.error(`خطا: ${result.error || 'اتصال ناموفق'}`);
+      }
+    } catch { toast.error('خطا در اتصال به دستگاه'); }
+    finally { setCallerIdSerialConnecting(false); }
+  };
+
+  const handleCallerIdSerialDisconnect = async () => {
+    const api = window.electronAPI;
+    if (!api?.callerIdSerialDisconnect) return;
+    try {
+      await api.callerIdSerialDisconnect();
+      setCallerIdSerialConnected(false);
+      toast.info('دستگاه Caller ID قطع شد');
+    } catch { toast.error('خطا در قطع اتصال'); }
+  };
+
+  const handleCallerIdSave = async () => {
+    const api = window.electronAPI;
+    if (!api?.saveCallerIdSettings) return;
+    setCallerIdSaving(true);
+    try {
+      await api.saveCallerIdSettings({
+        enabled: callerIdEnabled,
+        inputMode: callerIdMode,
+        webhookPort: Number(callerIdPort) || 5055,
+        webhookSecret: callerIdSecret,
+        phoneField: callerIdPhoneField || 'caller',
+        serialPortName: callerIdSerialPort,
+        serialBaudRate: Number(callerIdSerialBaud) || 9600,
+        serialFormat: callerIdSerialFormat,
+        notifyDurationSec: Number(callerIdDuration) || 30,
+        playSoundEnabled: callerIdSound,
+      });
+      const status = await api.getCallerIdWebhookStatus?.();
+      setCallerIdWebhookRunning(Boolean(status?.running));
+      const serialStatus = await api.callerIdSerialStatus?.();
+      setCallerIdSerialConnected(Boolean(serialStatus?.connected));
+      toast.success('تنظیمات Caller ID ذخیره شد');
+    } catch {
+      toast.error('خطا در ذخیره تنظیمات Caller ID');
+    } finally {
+      setCallerIdSaving(false);
+    }
+  };
 
   const loadScaleData = async () => {
     const api = window.electronAPI;
@@ -745,6 +861,178 @@ export default function SettingsPage() {
               <p className="text-xs text-default-400">
                 پس از تنظیم، دکمه «اتصال و تست» را بزنید. اگر موفق شد ترازو آماده استفاده در فاکتور است.
               </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Caller ID Settings */}
+        {window.electronAPI?.getCallerIdSettings && (
+          <Card>
+            <CardContent>
+              <div className="flex flex-col gap-4">
+                {/* header + master toggle */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="font-semibold text-foreground">شناسایی تماس‌گیرنده (Caller ID)</h2>
+                    <p className="text-xs text-default-400 mt-0.5">
+                      هنگام تماس ورودی، اطلاعات مشتری و سوابق سفارش نمایش داده می‌شود.
+                    </p>
+                  </div>
+                  <Switch isSelected={callerIdEnabled} onValueChange={setCallerIdEnabled} size="sm" aria-label="فعال‌سازی Caller ID" />
+                </div>
+
+                {callerIdEnabled && (
+                  <div className="flex flex-col gap-4 border-t border-default-200 pt-3">
+
+                    {/* mode selector */}
+                    <Tabs
+                      selectedKey={callerIdMode}
+                      onSelectionChange={(k) => setCallerIdMode(k as 'webhook' | 'serial')}
+                      aria-label="نوع ورودی Caller ID"
+                    >
+                      <TabListContainer>
+                        <TabList>
+                          <Tab id="webhook">🌐 VOIP / Webhook</Tab>
+                          <Tab id="serial">🔌 دستگاه USB</Tab>
+                        </TabList>
+                      </TabListContainer>
+                    </Tabs>
+
+                    {/* ─── Webhook mode ─── */}
+                    {callerIdMode === 'webhook' && (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex gap-2 flex-wrap items-end">
+                          <Input label="پورت webhook محلی" value={callerIdPort} onValueChange={setCallerIdPort}
+                            placeholder="5055" variant="bordered" size="sm" className="w-36"
+                            description="سیستم VOIP به این پورت POST می‌زند" />
+                          <Input label="نام فیلد شماره تماس" value={callerIdPhoneField} onValueChange={setCallerIdPhoneField}
+                            placeholder="caller" variant="bordered" size="sm" className="w-40"
+                            description='نام فیلد در body JSON' />
+                        </div>
+                        <Input label="توکن احراز هویت (اختیاری)" value={callerIdSecret} onValueChange={setCallerIdSecret}
+                          placeholder="X-Secret یا Bearer token" variant="bordered" size="sm" type="password"
+                          description="اگر خالی باشد همه درخواست‌ها پذیرفته می‌شوند" />
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${callerIdWebhookRunning ? 'bg-green-500' : 'bg-gray-400'}`} />
+                          <span className="text-xs text-default-500">
+                            {callerIdWebhookRunning ? `webhook فعال روی پورت ${callerIdPort}` : 'webhook غیرفعال'}
+                          </span>
+                        </div>
+                        <div className="rounded-xl bg-default-100 p-3 text-xs text-default-500 flex flex-col gap-1">
+                          <p className="font-semibold text-default-600">نحوه اتصال VOIP / FXO Gateway</p>
+                          <code className="bg-default-200 rounded px-1.5 py-0.5 font-mono text-default-700 break-all">
+                            POST http://127.0.0.1:{callerIdPort}/call
+                          </code>
+                          <code className="bg-default-200 rounded px-1.5 py-0.5 font-mono text-default-700">
+                            {`{"${callerIdPhoneField || 'caller'}": "09123456789"}`}
+                          </code>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ─── USB/Serial mode ─── */}
+                    {callerIdMode === 'serial' && (
+                      <div className="flex flex-col gap-3">
+                        <p className="text-xs text-default-500">
+                          دستگاه‌های USB Caller ID موجود در بازار (جعبه تلفن با USB) را انتخاب کنید.
+                          پس از وصل کردن USB، پورت‌ها را رفرش کنید.
+                        </p>
+
+                        <div className="flex gap-2 flex-wrap items-end">
+                          <Select
+                            label="دستگاه USB Caller ID"
+                            placeholder="انتخاب پورت..."
+                            variant="bordered"
+                            size="sm"
+                            className="flex-1 min-w-[160px]"
+                            selectedKeys={callerIdSerialPort ? [callerIdSerialPort] : []}
+                            onSelectionChange={(keys) => setCallerIdSerialPort(Array.from(keys)[0] as string)}
+                          >
+                            {callerIdSerialPorts.map((p) => (
+                              <SelectItem key={p.path} value={p.path}>
+                                {p.path}{p.friendlyName ? ` — ${p.friendlyName}` : p.manufacturer ? ` (${p.manufacturer})` : ''}
+                              </SelectItem>
+                            ))}
+                          </Select>
+                          <Button size="sm" variant="flat" onPress={handleCallerIdSerialRefreshPorts}>
+                            رفرش پورت‌ها
+                          </Button>
+                        </div>
+
+                        <div className="flex gap-2 flex-wrap items-end">
+                          <Select
+                            label="نرخ Baud"
+                            variant="bordered"
+                            size="sm"
+                            className="w-36"
+                            selectedKeys={[callerIdSerialBaud]}
+                            onSelectionChange={(keys) => setCallerIdSerialBaud(Array.from(keys)[0] as string)}
+                          >
+                            {['1200', '2400', '4800', '9600', '19200', '38400', '57600', '115200'].map((b) => (
+                              <SelectItem key={b}>{b}</SelectItem>
+                            ))}
+                          </Select>
+                          <Select
+                            label="فرمت دستگاه"
+                            variant="bordered"
+                            size="sm"
+                            className="flex-1 min-w-[180px]"
+                            selectedKeys={[callerIdSerialFormat]}
+                            onSelectionChange={(keys) => setCallerIdSerialFormat(Array.from(keys)[0] as string)}
+                          >
+                            <SelectItem key="auto">خودکار (تشخیص فرمت)</SelectItem>
+                            <SelectItem key="at-clip">مودم AT — +CLIP</SelectItem>
+                            <SelectItem key="cid-nmbr">CID — NMBR=...</SelectItem>
+                            <SelectItem key="caller-field">CALLER: / NUMBER:</SelectItem>
+                            <SelectItem key="raw-number">شماره خالص</SelectItem>
+                          </Select>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${callerIdSerialConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
+                          <span className="text-xs text-default-500">
+                            {callerIdSerialConnected ? `متصل روی ${callerIdSerialPort}` : 'قطع'}
+                          </span>
+                        </div>
+
+                        <div className="flex gap-2 flex-wrap">
+                          {callerIdSerialConnected ? (
+                            <Button size="sm" color="danger" variant="flat" onPress={handleCallerIdSerialDisconnect}>
+                              قطع اتصال دستگاه
+                            </Button>
+                          ) : (
+                            <Button size="sm" color="primary" variant="flat"
+                              isLoading={callerIdSerialConnecting} onPress={handleCallerIdSerialConnect}>
+                              اتصال و تست دستگاه
+                            </Button>
+                          )}
+                        </div>
+
+                        <div className="rounded-xl bg-default-100 p-3 text-xs text-default-500 flex flex-col gap-1.5">
+                          <p className="font-semibold text-default-600">دستگاه‌های USB سازگار</p>
+                          <p>اکثر جعبه‌های Caller ID موجود در بازار ایران با فرمت «خودکار» کار می‌کنند.</p>
+                          <p>اگر دستگاه شما از نوع مودم USB است (AT commands)، گزینه «مودم AT» را انتخاب کنید.</p>
+                          <p>در صورت اتصال، هر تماس ورودی را با تست واقعی بررسی کنید.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ─── تنظیمات عمومی ─── */}
+                    <div className="flex flex-col gap-2 border-t border-default-200 pt-3">
+                      <Input label="مدت نمایش اعلان (ثانیه)" value={callerIdDuration} onValueChange={setCallerIdDuration}
+                        placeholder="30" variant="bordered" size="sm" className="w-44" />
+                      <div className="flex items-center gap-2">
+                        <Switch isSelected={callerIdSound} onValueChange={setCallerIdSound} size="sm" aria-label="پخش صدا" />
+                        <span className="text-sm text-default-600">پخش صدای زنگ هنگام تماس ورودی</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <Button size="sm" variant="flat" isLoading={callerIdSaving} onPress={handleCallerIdSave}>
+                  ذخیره تنظیمات Caller ID
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
