@@ -7,6 +7,24 @@ export type ReceiptNumberResetPolicy = 'never' | 'minutely' | 'daily' | 'weekly'
 /** واحد نمایش مبلغ در رسید چاپی (مقادیر سفارش در دیتابیس به تومان هستند؛ در حالت ریال ×۱۰ نمایش داده می‌شود) */
 export type ReceiptPriceDisplayUnit = 'toman' | 'rial';
 export type CardTerminalSendAmountUnit = 'toman' | 'rial';
+
+export type ScaleConnectionType = 'serial' | 'tcp';
+
+export interface ScaleSettings {
+  connectionType: ScaleConnectionType;
+  portName: string;
+  baudRate: number;
+  host: string;
+  tcpPort: number;
+}
+
+export const DEFAULT_SCALE_SETTINGS: ScaleSettings = {
+  connectionType: 'serial',
+  portName: '',
+  baudRate: 9600,
+  host: '',
+  tcpPort: 8000,
+};
 export type CardTerminalHttpMethod = 'POST' | 'PUT';
 
 export interface CardTerminalSettings {
@@ -102,6 +120,7 @@ interface PreferencesFile {
   cardTerminalSettings?: CardTerminalSettings;
   cardTerminalProfiles?: CardTerminalProfile[];
   defaultCardTerminalProfileId?: string | null;
+  scaleSettings?: ScaleSettings;
 }
 
 const FILE_NAME = 'menus-preferences.json';
@@ -595,4 +614,29 @@ export async function assignReceiptNumberForOrder(orderKeys: string[]): Promise<
   const receiptNumber = await getNextReceiptNumber();
   setReceiptNumbersForOrder(keys, receiptNumber);
   return receiptNumber;
+}
+
+export async function loadScaleSettings(): Promise<ScaleSettings> {
+  const prefs = await readPreferences();
+  const raw = prefs.scaleSettings;
+  if (!raw) return { ...DEFAULT_SCALE_SETTINGS };
+  return {
+    connectionType: raw.connectionType === 'tcp' ? 'tcp' : 'serial',
+    portName: String(raw.portName || ''),
+    baudRate: Number.isFinite(Number(raw.baudRate)) && Number(raw.baudRate) > 0 ? Number(raw.baudRate) : 9600,
+    host: String(raw.host || ''),
+    tcpPort: Number.isFinite(Number(raw.tcpPort)) && Number(raw.tcpPort) > 0 ? Number(raw.tcpPort) : 8000,
+  };
+}
+
+export async function saveScaleSettings(settings: Partial<ScaleSettings>): Promise<ScaleSettings> {
+  const prefs = await readPreferences();
+  const merged: ScaleSettings = {
+    ...DEFAULT_SCALE_SETTINGS,
+    ...(prefs.scaleSettings || {}),
+    ...(settings || {}),
+  };
+  prefs.scaleSettings = merged;
+  await writePreferences(prefs);
+  return merged;
 }

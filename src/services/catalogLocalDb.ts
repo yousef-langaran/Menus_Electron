@@ -23,6 +23,7 @@ export interface LocalProduct {
   price: number;
   category_id: number;  // می‌تواند temp (منفی) باشد اگر دسته offline ساخته شده
   unit: string;
+  useScaleForWeight?: boolean;
   isAvailable: boolean;
   sortOrder: number;
   updatedAt: string;
@@ -278,11 +279,11 @@ export async function bulkUpsertProducts(
   products: any[],
   restaurantId: number,
 ): Promise<void> {
-  const pendingIds = new Set(
-    (await catalogDb.products.where('restaurantId').equals(restaurantId).toArray())
-      .filter((p) => p._syncStatus !== 'synced')
-      .map((p) => p.id),
-  );
+  const allLocal = await catalogDb.products.where('restaurantId').equals(restaurantId).toArray();
+  const pendingIds = new Set(allLocal.filter((p) => p._syncStatus !== 'synced').map((p) => p.id));
+  // نگه‌داری فیلدهای local-only مثل useScaleForWeight
+  const localMap = new Map(allLocal.map((p) => [p.id, p]));
+
   const rows: LocalProduct[] = products
     .filter((p) => !pendingIds.has(Number(p.id)))
     .map((p) => ({
@@ -294,6 +295,7 @@ export async function bulkUpsertProducts(
       category_id: Number(p.category?.id ?? p.category_id ?? 0),
       barcode: p.barcode ?? null,
       unit: p.unit || 'عدد',
+      useScaleForWeight: localMap.get(Number(p.id))?.useScaleForWeight ?? false,
       isAvailable: p.isAvailable !== false,
       sortOrder: Number(p.sortOrder ?? 0),
       updatedAt: p.update_at || p.updatedAt || new Date().toISOString(),

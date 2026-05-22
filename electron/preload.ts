@@ -58,6 +58,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startUpdateDownload: () => ipcRenderer.invoke('start-update-download'),
   quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
   getDataDir: () => ipcRenderer.invoke('get-data-dir'),
+  scaleListPorts: () => ipcRenderer.invoke('scale:list-ports'),
+  scaleLoadSettings: () => ipcRenderer.invoke('scale:load-settings'),
+  scaleSaveSettings: (settings: any) => ipcRenderer.invoke('scale:save-settings', settings),
+  scaleConnect: (settings: any) => ipcRenderer.invoke('scale:connect', settings),
+  scaleDisconnect: () => ipcRenderer.invoke('scale:disconnect'),
+  scaleStatus: () => ipcRenderer.invoke('scale:status'),
+  scaleReadWeight: () => ipcRenderer.invoke('scale:read-weight'),
+  scaleRequestWeight: () => ipcRenderer.invoke('scale:request-weight'),
+  scaleClearWeight: () => ipcRenderer.invoke('scale:clear-weight'),
+  onScaleWeightUpdate: (callback: (weight: number) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, weight: number) => callback(weight);
+    ipcRenderer.on('scale:weight-update', handler);
+    return () => ipcRenderer.removeListener('scale:weight-update', handler);
+  },
   onUpdateAvailable: (callback: (info: { version: string }) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, info: { version: string }) => callback(info);
     ipcRenderer.on('update-available', handler);
@@ -153,6 +167,16 @@ declare global {
       onUpdateDownloaded: (callback: () => void) => () => void;
       onUpdateError: (callback: (message: string) => void) => () => void;
       getDataDir: () => Promise<{ userData: string; files: Record<string, string> }>;
+      scaleListPorts: () => Promise<Array<{ path: string; manufacturer?: string; friendlyName?: string }>>;
+      scaleLoadSettings: () => Promise<{ connectionType: 'serial' | 'tcp'; portName: string; baudRate: number; host: string; tcpPort: number } | null>;
+      scaleSaveSettings: (settings: any) => Promise<{ success: boolean; settings?: any; error?: string }>;
+      scaleConnect: (settings: any) => Promise<{ success: boolean; error?: string }>;
+      scaleDisconnect: () => Promise<{ success: boolean; error?: string }>;
+      scaleStatus: () => Promise<{ connected: boolean; latestWeight: number | null }>;
+      scaleReadWeight: () => Promise<{ success: boolean; weight?: number; error?: string }>;
+      scaleRequestWeight: () => Promise<{ success: boolean }>;
+      scaleClearWeight: () => Promise<{ success: boolean }>;
+      onScaleWeightUpdate: (callback: (weight: number) => void) => () => void;
     };
   }
 }

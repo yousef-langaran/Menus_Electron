@@ -142,6 +142,11 @@ export default function OrderPage() {
     const [isScaleIntegrationEnabled, setIsScaleIntegrationEnabled] = useState(false);
     const [restrictScaleAccess, setRestrictScaleAccess] = useState(true);
     const [canUseScale, setCanUseScale] = useState(true);
+    const [scaleModalOpen, setScaleModalOpen] = useState(false);
+    const [scaleModalProduct, setScaleModalProduct] = useState<any>(null);
+    const [scaleWeight, setScaleWeight] = useState<number | null>(null);
+    const [scaleReading, setScaleReading] = useState(false);
+    const [scaleError, setScaleError] = useState('');
     const [isCardTerminalEnabled, setIsCardTerminalEnabled] = useState(false);
     const [restrictCardTerminalAccess, setRestrictCardTerminalAccess] = useState(true);
     const [allowDirectSendAmountToCardTerminal, setAllowDirectSendAmountToCardTerminal] = useState(false);
@@ -1143,6 +1148,59 @@ export default function OrderPage() {
         return Number(product?.price || 0);
     };
 
+    const openScaleModal = async (product: any) => {
+        setScaleModalProduct(product);
+        setScaleWeight(null);
+        setScaleError('');
+        setScaleModalOpen(true);
+        setScaleReading(true);
+        try {
+            await window.electronAPI?.scaleClearWeight?.();
+            await window.electronAPI?.scaleRequestWeight?.();
+            const result = await window.electronAPI?.scaleReadWeight?.();
+            if (result?.success && result.weight != null) {
+                setScaleWeight(result.weight);
+            } else {
+                setScaleError(result?.error || 'وزنی دریافت نشد');
+            }
+        } catch (err: any) {
+            setScaleError(String(err?.message || 'خطا در خواندن ترازو'));
+        } finally {
+            setScaleReading(false);
+        }
+    };
+
+    const handleScaleConfirm = () => {
+        if (!scaleModalProduct || scaleWeight == null) return;
+        const product = scaleModalProduct;
+        const unit = product.unit || 'عدد';
+
+        // تبدیل وزن بر اساس واحد محصول
+        // ترازو همیشه کیلوگرم می‌فرستد؛ اگر واحد گرم باشد ×۱۰۰۰
+        let qty = scaleWeight;
+        if (unit === 'گرم') qty = Math.round(scaleWeight * 1000);
+
+        const existingItem = cart.find((i: any) => i.productId === product.id);
+        if (existingItem) {
+            updateCartQuantity(product.id, existingItem.quantity + qty);
+        } else {
+            addToCart(product);
+            updateCartQuantity(product.id, qty);
+        }
+        setScaleModalOpen(false);
+        setScaleModalProduct(null);
+        setScaleWeight(null);
+    };
+
+    const handleProductClick = (product: any) => {
+        setSuccessMessage('');
+        if (product.useScaleForWeight && isScaleIntegrationEnabled && canUseScale) {
+            void openScaleModal(product);
+        } else {
+            addToCart(product);
+        }
+    };
+
     const formatPrice = (price: number) => {
         return new Intl.NumberFormat('fa-IR').format(price) + ' تومان';
     };
@@ -1367,6 +1425,16 @@ export default function OrderPage() {
     }, [resetOrderSession]);
 
     useEffect(() => {
+        if (!scaleModalOpen || !window.electronAPI?.onScaleWeightUpdate) return;
+        const unsub = window.electronAPI.onScaleWeightUpdate((weight) => {
+            setScaleWeight(weight);
+            setScaleReading(false);
+            setScaleError('');
+        });
+        return () => unsub?.();
+    }, [scaleModalOpen]);
+
+    useEffect(() => {
         const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
         setCanUseScale(!isScaleIntegrationEnabled || !restrictScaleAccess || hasManagePermission(user, 'electron_panel', restaurantId));
         setCanUseCardTerminal(
@@ -1477,10 +1545,7 @@ export default function OrderPage() {
                                                 key={product.id}
                                                 type="button"
                                                 className="flex flex-col rounded-lg border border-default-200 bg-content1 text-start overflow-hidden outline-none transition hover:border-primary hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-content1 p-0 cursor-pointer"
-                                                onClick={() => {
-                                                    setSuccessMessage('');
-                                                    addToCart(product);
-                                                }}
+                                                onClick={() => handleProductClick(product)}
                                             >
                                                 {product.multiMedia?.url ? (
                                                     <img
@@ -2387,6 +2452,59 @@ export default function OrderPage() {
                         <Button variant="light" onPress={() => setShowCreateProductModal(false)}>انصراف</Button>
                         <Button color="primary" isLoading={creatingProduct} isDisabled={isCheckingMasterProduct} onPress={submitCreateProductFromBarcode}>
                             ثبت و افزودن به سبد
+                        </Button>
+                    </ModalFooter>
+                </ModalShell>
+            </Modal>
+
+            {/* ─── Modal خواندن وزن از ترازو ─────────────────────────────── */}
+            <Modal isOpen={scaleModalOpen} onOpenChange={(open) => { if (!open) { setScaleModalOpen(false); setScaleModalProduct(null); setScaleWeight(null); } }}>
+                <ModalShell size="sm">
+                    <ModalHeader>خواندن وزن از ترازو</ModalHeader>
+                    <ModalBody className="text-center space-y-4 py-4">
+                        {scaleModalProduct && (
+                            <p className="font-semibold text-foreground">{scaleModalProduct.name_fa || scaleModalProduct.name}</p>
+                        )}
+                        {scaleReading ? (
+                            <div className="flex flex-col items-center gap-2 text-default-500">
+                                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                <span className="text-sm">در حال خواندن وزن...</span>
+                            </div>
+                        ) : scaleError ? (
+                            <div className="text-danger-600 text-sm space-y-2">
+                                <p>{scaleError}</p>
+                                <Button size="sm" variant="flat" onPress={async () => {
+                                    setScaleError('');
+                                    setScaleReading(true);
+                                    try {
+                                        await window.electronAPI?.scaleClearWeight?.();
+                                        await window.electronAPI?.scaleRequestWeight?.();
+                                        const r = await window.electronAPI?.scaleReadWeight?.();
+                                        if (r?.success && r.weight != null) { setScaleWeight(r.weight); }
+                                        else { setScaleError(r?.error || 'وزنی دریافت نشد'); }
+                                    } catch (e: any) { setScaleError(String(e?.message || 'خطا')); }
+                                    finally { setScaleReading(false); }
+                                }}>تلاش مجدد</Button>
+                            </div>
+                        ) : scaleWeight != null ? (
+                            <div className="space-y-1">
+                                <p className="text-4xl font-bold text-primary tabular-nums">
+                                    {scaleModalProduct?.unit === 'گرم'
+                                        ? `${Math.round(scaleWeight * 1000).toLocaleString('fa-IR')} گرم`
+                                        : `${scaleWeight.toFixed(3)} کیلوگرم`}
+                                </p>
+                                <p className="text-sm text-default-500">
+                                    مبلغ: {formatPrice(staffCartUnitPrice(scaleModalProduct) * (scaleModalProduct?.unit === 'گرم' ? Math.round(scaleWeight * 1000) : scaleWeight))} تومان
+                                </p>
+                            </div>
+                        ) : null}
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="light" onPress={() => { setScaleModalOpen(false); setScaleModalProduct(null); setScaleWeight(null); }}>
+                            انصراف
+                        </Button>
+                        <Button color="primary" isDisabled={scaleWeight == null || scaleReading} onPress={handleScaleConfirm}>
+                            تأیید و افزودن به فاکتور
                         </Button>
                     </ModalFooter>
                 </ModalShell>

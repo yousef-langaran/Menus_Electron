@@ -26,6 +26,8 @@ const PRODUCT_UNITS = [
   'متر', 'سانتی‌متر', 'بسته', 'جعبه', 'پرس', 'وعده', 'پیمانه', 'قوطی', 'بطری',
 ];
 
+const SCALE_UNITS = ['کیلوگرم', 'گرم'];
+
 type ProductForm = {
   id?: number;
   barcode: string;
@@ -34,6 +36,7 @@ type ProductForm = {
   price: string;
   category_id: string;
   unit: string;
+  useScaleForWeight: boolean;
 };
 
 const emptyForm: ProductForm = {
@@ -43,6 +46,7 @@ const emptyForm: ProductForm = {
   price: '',
   category_id: '',
   unit: 'عدد',
+  useScaleForWeight: false,
 };
 
 const normalizeBarcode = (value: string) =>
@@ -186,6 +190,7 @@ export default function ProductsPage() {
       price: String(product.price),
       category_id: String(product.category_id || categories[0]?.id || ''),
       unit: product.unit || 'عدد',
+      useScaleForWeight: product.useScaleForWeight ?? false,
     });
     setModalOpen(true);
   };
@@ -331,6 +336,7 @@ export default function ProductsPage() {
           category_id: Number(form.category_id),
           barcode: form.barcode.trim() || null,
           unit: form.unit || 'عدد',
+          useScaleForWeight: form.useScaleForWeight,
         });
         isOnline ? toast.success('محصول ویرایش شد') : toast.info('محصول ذخیره شد — در انتظار سینک');
       } else {
@@ -342,6 +348,7 @@ export default function ProductsPage() {
           category_id: Number(form.category_id),
           barcode: form.barcode.trim() || undefined,
           unit: form.unit || 'عدد',
+          useScaleForWeight: form.useScaleForWeight,
           isAvailable: true,
         });
         isOnline ? toast.success('محصول جدید ثبت شد') : toast.info('محصول ذخیره شد — در انتظار سینک');
@@ -431,9 +438,14 @@ export default function ProductsPage() {
                         {p.name_fa || p.name}
                         <SyncBadge status={p._syncStatus} error={p._syncError} />
                       </div>
-                      <div className="text-xs text-default-500">
-                        بارکد: {p.barcode || '—'} | قیمت: {p.price.toLocaleString('fa-IR')}
-                        {(() => { const cat = categories.find((c) => c.id === p.category_id); return cat ? ` | ${cat.name_fa || cat.name}` : ''; })()}
+                      <div className="text-xs text-default-500 flex items-center flex-wrap gap-x-2">
+                        <span>بارکد: {p.barcode || '—'} | قیمت: {p.price.toLocaleString('fa-IR')} | {p.unit || 'عدد'}</span>
+                        {(() => { const cat = categories.find((c) => c.id === p.category_id); return cat ? <span>{cat.name_fa || cat.name}</span> : null; })()}
+                        {p.useScaleForWeight && (
+                          <span className="inline-flex items-center gap-1 text-xs bg-primary-50 text-primary-700 border border-primary-200 px-1.5 py-0.5 rounded-full">
+                            ترازو
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 mr-2">
@@ -538,12 +550,33 @@ export default function ProductsPage() {
             <Select
               label="واحد شمارش"
               selectedKeys={[form.unit || 'عدد']}
-              onSelectionChange={(keys) => setForm((f) => ({ ...f, unit: String(Array.from(keys)[0] || 'عدد') }))}
+              onSelectionChange={(keys) => {
+                const unit = String(Array.from(keys)[0] || 'عدد');
+                setForm((f) => ({
+                  ...f,
+                  unit,
+                  useScaleForWeight: SCALE_UNITS.includes(unit) ? f.useScaleForWeight : false,
+                }));
+              }}
             >
               {PRODUCT_UNITS.map((u) => (
                 <SelectItem key={u}>{u}</SelectItem>
               ))}
             </Select>
+            {SCALE_UNITS.includes(form.unit) && (
+              <div className="md:col-span-2 flex items-center gap-2 rounded-lg border border-default-200 bg-default-50 px-3 py-2">
+                <input
+                  type="checkbox"
+                  id="useScaleForWeight"
+                  checked={form.useScaleForWeight}
+                  onChange={(e) => setForm((f) => ({ ...f, useScaleForWeight: e.target.checked }))}
+                  className="w-4 h-4 accent-primary cursor-pointer"
+                />
+                <label htmlFor="useScaleForWeight" className="text-sm cursor-pointer select-none">
+                  وزن از ترازو خوانده شود (هنگام انتخاب این محصول در فاکتور)
+                </label>
+              </div>
+            )}
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onPress={() => setModalOpen(false)}>انصراف</Button>

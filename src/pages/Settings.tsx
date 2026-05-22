@@ -44,6 +44,16 @@ export default function SettingsPage() {
     lastError: accountingLastError,
   } = useSyncStore();
 
+  const [scaleConnectionType, setScaleConnectionType] = useState<'serial' | 'tcp'>('serial');
+  const [scalePortName, setScalePortName] = useState('');
+  const [scaleBaudRate, setScaleBaudRate] = useState('9600');
+  const [scaleHost, setScaleHost] = useState('');
+  const [scaleTcpPort, setScaleTcpPort] = useState('8000');
+  const [scalePorts, setScalePorts] = useState<Array<{ path: string; manufacturer?: string; friendlyName?: string }>>([]);
+  const [scaleConnected, setScaleConnected] = useState(false);
+  const [scaleConnecting, setScaleConnecting] = useState(false);
+  const [scaleSaving, setScaleSaving] = useState(false);
+
   useEffect(() => {
     window.electronAPI?.getDataDir?.().then(setDataDir).catch(() => {});
   }, []);
@@ -57,7 +67,105 @@ export default function SettingsPage() {
   useEffect(() => {
     loadFromStorage();
     loadPrinters();
+    loadScaleData();
   }, []);
+
+  const loadScaleData = async () => {
+    const api = window.electronAPI;
+    if (!api?.scaleLoadSettings) return;
+    try {
+      const [settings, status, ports] = await Promise.all([
+        api.scaleLoadSettings(),
+        api.scaleStatus?.() ?? Promise.resolve({ connected: false, latestWeight: null }),
+        api.scaleListPorts?.() ?? Promise.resolve([]),
+      ]);
+      if (settings) {
+        setScaleConnectionType(settings.connectionType === 'tcp' ? 'tcp' : 'serial');
+        setScalePortName(settings.portName || '');
+        setScaleBaudRate(String(settings.baudRate || 9600));
+        setScaleHost(settings.host || '');
+        setScaleTcpPort(String(settings.tcpPort || 8000));
+      }
+      setScaleConnected(status?.connected ?? false);
+      setScalePorts(ports ?? []);
+    } catch {}
+  };
+
+  const handleScaleSave = async () => {
+    const api = window.electronAPI;
+    if (!api?.scaleSaveSettings) return;
+    setScaleSaving(true);
+    try {
+      await api.scaleSaveSettings({
+        connectionType: scaleConnectionType,
+        portName: scalePortName,
+        baudRate: Number(scaleBaudRate) || 9600,
+        host: scaleHost,
+        tcpPort: Number(scaleTcpPort) || 8000,
+      });
+      toast.success('تنظیمات ترازو ذخیره شد');
+    } catch {
+      toast.error('خطا در ذخیره تنظیمات ترازو');
+    } finally {
+      setScaleSaving(false);
+    }
+  };
+
+  const handleScaleConnect = async () => {
+    const api = window.electronAPI;
+    if (!api?.scaleConnect) return;
+    setScaleConnecting(true);
+    try {
+      await api.scaleSaveSettings?.({
+        connectionType: scaleConnectionType,
+        portName: scalePortName,
+        baudRate: Number(scaleBaudRate) || 9600,
+        host: scaleHost,
+        tcpPort: Number(scaleTcpPort) || 8000,
+      });
+      const result = await api.scaleConnect({
+        connectionType: scaleConnectionType,
+        portName: scalePortName,
+        baudRate: Number(scaleBaudRate) || 9600,
+        host: scaleHost,
+        tcpPort: Number(scaleTcpPort) || 8000,
+      });
+      if (result.success) {
+        setScaleConnected(true);
+        toast.success('ترازو با موفقیت متصل شد');
+      } else {
+        toast.error(`خطا: ${result.error || 'اتصال ناموفق'}`);
+      }
+    } catch (err: any) {
+      toast.error(String(err?.message || 'خطا در اتصال ترازو'));
+    } finally {
+      setScaleConnecting(false);
+    }
+  };
+
+  const handleScaleDisconnect = async () => {
+    const api = window.electronAPI;
+    if (!api?.scaleDisconnect) return;
+    try {
+      await api.scaleDisconnect();
+      setScaleConnected(false);
+      toast.info('ترازو قطع شد');
+    } catch {
+      toast.error('خطا در قطع ترازو');
+    }
+  };
+
+  const handleRefreshPorts = async () => {
+    const api = window.electronAPI;
+    if (!api?.scaleListPorts) return;
+    try {
+      const ports = await api.scaleListPorts();
+      setScalePorts(ports ?? []);
+      if (ports.length === 0) toast.info('پورت سریال یافت نشد');
+    } catch {
+      toast.error('خطا در دریافت پورت‌ها');
+    }
+  };
 
   useEffect(() => {
     const api = window.electronAPI;
@@ -540,6 +648,106 @@ export default function SettingsPage() {
             )}
           </CardContent>
         </Card>
+
+        {window.electronAPI?.scaleLoadSettings && (
+          <Card>
+            <CardContent className="gap-3">
+              <div className="flex items-center justify-between border-b-2 border-primary pb-2">
+                <h2 className="text-lg font-semibold text-foreground">اتصال ترازو</h2>
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${scaleConnected ? 'bg-success-100 text-success-700' : 'bg-default-100 text-default-500'}`}>
+                  {scaleConnected ? 'متصل' : 'قطع'}
+                </span>
+              </div>
+
+              <Select
+                label="نوع اتصال"
+                selectedKeys={[scaleConnectionType]}
+                onSelectionChange={(keys) => setScaleConnectionType(String(Array.from(keys)[0] || 'serial') as 'serial' | 'tcp')}
+                variant="bordered"
+                size="sm"
+                className="max-w-xs"
+              >
+                <SelectItem key="serial">سریال / USB (COM Port)</SelectItem>
+                <SelectItem key="tcp">شبکه (TCP/IP)</SelectItem>
+              </Select>
+
+              {scaleConnectionType === 'serial' ? (
+                <div className="flex gap-2 flex-wrap items-end">
+                  <Select
+                    label="پورت COM"
+                    selectedKeys={scalePortName ? [scalePortName] : []}
+                    onSelectionChange={(keys) => setScalePortName(String(Array.from(keys)[0] || ''))}
+                    variant="bordered"
+                    size="sm"
+                    className="flex-1 min-w-[140px]"
+                    placeholder={scalePorts.length === 0 ? 'پورتی یافت نشد' : 'انتخاب پورت'}
+                  >
+                    {scalePorts.map((p) => (
+                      <SelectItem key={p.path} textValue={p.path}>
+                        {p.path}{p.friendlyName ? ` — ${p.friendlyName}` : p.manufacturer ? ` (${p.manufacturer})` : ''}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                  <Button size="sm" variant="flat" onPress={handleRefreshPorts}>
+                    بازخوانی پورت‌ها
+                  </Button>
+                  <Select
+                    label="Baud Rate"
+                    selectedKeys={[scaleBaudRate]}
+                    onSelectionChange={(keys) => setScaleBaudRate(String(Array.from(keys)[0] || '9600'))}
+                    variant="bordered"
+                    size="sm"
+                    className="w-32"
+                  >
+                    {['1200', '2400', '4800', '9600', '19200', '38400', '57600', '115200'].map((b) => (
+                      <SelectItem key={b}>{b}</SelectItem>
+                    ))}
+                  </Select>
+                </div>
+              ) : (
+                <div className="flex gap-2 flex-wrap">
+                  <Input
+                    label="آدرس IP ترازو"
+                    value={scaleHost}
+                    onValueChange={setScaleHost}
+                    placeholder="192.168.1.100"
+                    variant="bordered"
+                    size="sm"
+                    className="flex-1 min-w-[180px]"
+                  />
+                  <Input
+                    label="پورت TCP"
+                    value={scaleTcpPort}
+                    onValueChange={setScaleTcpPort}
+                    placeholder="8000"
+                    variant="bordered"
+                    size="sm"
+                    className="w-28"
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-2 flex-wrap">
+                <Button size="sm" variant="flat" isLoading={scaleSaving} onPress={handleScaleSave}>
+                  ذخیره تنظیمات
+                </Button>
+                {scaleConnected ? (
+                  <Button size="sm" color="danger" variant="flat" onPress={handleScaleDisconnect}>
+                    قطع اتصال
+                  </Button>
+                ) : (
+                  <Button size="sm" color="primary" variant="flat" isLoading={scaleConnecting} onPress={handleScaleConnect}>
+                    اتصال و تست
+                  </Button>
+                )}
+              </div>
+
+              <p className="text-xs text-default-400">
+                پس از تنظیم، دکمه «اتصال و تست» را بزنید. اگر موفق شد ترازو آماده استفاده در فاکتور است.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardContent>
