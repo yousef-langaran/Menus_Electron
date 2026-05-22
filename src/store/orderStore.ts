@@ -265,6 +265,10 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         : {}),
       items: state.cart.map(item => ({
         productId: item.productId,
+        productName: item.product?.name_fa || item.product?.name || undefined,
+        product: item.product
+          ? { name_fa: item.product.name_fa, unit: item.product.unit }
+          : undefined,
         quantity: item.quantity,
         price: item.price,
         itemNote: item.itemOption?.trim() || undefined,

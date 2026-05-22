@@ -3,6 +3,7 @@ import { BrowserWindow } from 'electron';
 import type { PrinterInfo } from 'electron';
 import {
   getNextReceiptNumber,
+  getReceiptNumbersMap,
   setReceiptNumbersForOrder,
   loadReceiptPriceDisplayUnit,
   type ReceiptPriceDisplayUnit,
@@ -411,10 +412,19 @@ export async function printReceipt(
     keys = [String(orderData.id), orderData.orderNumber].filter(Boolean);
   }
   // اگر بک‌اند شماره فراخوانی داده (سفارش آنلاین)، همان را برای چاپ و ذخیره استفاده کن
+  // در چاپ مجدد: اگر کلید سفارش قبلاً شماره داشت همان را استفاده کن (شماره جدید تولید نشود)
+  const storedMap = keys.length > 0 ? getReceiptNumbersMap() : {};
+  const existingReceiptNumber = keys.reduce<number | null>((found, k) => {
+    if (found != null) return found;
+    const v = storedMap[k];
+    return typeof v === 'number' && v >= 1 ? v : null;
+  }, null);
   const receiptNumber =
     orderData?.receiptCallNumber != null && Number.isInteger(orderData.receiptCallNumber)
       ? Number(orderData.receiptCallNumber)
-      : await getNextReceiptNumber();
+      : existingReceiptNumber != null
+        ? existingReceiptNumber
+        : await getNextReceiptNumber();
   if (keys.length) {
     setReceiptNumbersForOrder(keys.map((k) => String(k)), receiptNumber);
   }

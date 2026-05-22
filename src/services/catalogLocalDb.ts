@@ -256,6 +256,10 @@ export async function markProductFailed(id: number, error: string): Promise<void
   await catalogDb.products.update(id, { _syncStatus: 'failed', _syncError: error });
 }
 
+export async function deleteProductLocal(id: number): Promise<void> {
+  await catalogDb.products.delete(id);
+}
+
 /** بعد از sync موفق ایجاد آفلاین: temp ID → server ID */
 export async function resolveProductTempId(tempId: number, serverId: number): Promise<void> {
   const existing = await catalogDb.products.get(tempId);

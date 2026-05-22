@@ -42,6 +42,10 @@ export class MenusAccountingDb extends Dexie {
   operationalExpenses!: Table<any, number>;
   purchaseInvoices!: Table<any, number>;
   purchaseInvoiceItems!: Table<any, number>;
+  cheques!: Table<any, number>;
+  customerReceivables!: Table<any, number>;
+  purchaseReturns!: Table<any, number>;
+  purchaseReturnItems!: Table<any, number>;
   syncOperations!: Table<LocalSyncOperation, number>;
   syncMeta!: Table<SyncMeta, string>;
 
@@ -110,6 +114,26 @@ export class MenusAccountingDb extends Dexie {
       purchaseInvoices:
         'id, restaurantId, updatedAt, supplierId, status, purchaseDate, localSyncStatus, syncError, [restaurantId+localSyncStatus]',
       purchaseInvoiceItems: 'id, purchaseInvoiceId, rawMaterialId, finalProductId',
+      syncOperations:
+        '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
+      syncMeta: 'key',
+    });
+    // v6: adds cheques, customerReceivables, purchaseReturns, purchaseReturnItems
+    this.version(6).stores({
+      rawMaterials: 'id, restaurantId, updatedAt, name, barcode',
+      suppliers: 'id, restaurantId, updatedAt, name',
+      finalProducts: 'id, restaurantId, updatedAt, name, productId',
+      recipeItems: 'id, restaurantId, updatedAt, finalProductId, rawMaterialId',
+      cashBankAccounts: 'id, restaurantId, updatedAt, accountType, name',
+      operationalExpenses: 'id, restaurantId, updatedAt, expenseDate, expenseCategoryId',
+      purchaseInvoices:
+        'id, restaurantId, updatedAt, supplierId, status, purchaseDate, localSyncStatus, syncError, [restaurantId+localSyncStatus]',
+      purchaseInvoiceItems: 'id, purchaseInvoiceId, rawMaterialId, finalProductId',
+      cheques: 'id, restaurantId, updatedAt, chequeType, status, dueDate, [restaurantId+status]',
+      customerReceivables:
+        'id, restaurantId, updatedAt, status, dueDate, salesInvoiceId, [restaurantId+status]',
+      purchaseReturns: 'id, restaurantId, updatedAt, purchaseInvoiceId, status',
+      purchaseReturnItems: 'id, purchaseReturnId, rawMaterialId',
       syncOperations:
         '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
       syncMeta: 'key',
@@ -240,6 +264,26 @@ export async function upsertPulledInvoices(restaurantId: number, serverInvoices:
 export async function upsertPulledInvoiceItems(items: any[]) {
   if (!items?.length) return;
   await accountingDb.purchaseInvoiceItems.bulkPut(items);
+}
+
+export async function upsertPulledCheques(cheques: any[]) {
+  if (!cheques?.length) return;
+  await accountingDb.cheques.bulkPut(cheques);
+}
+
+export async function upsertPulledReceivables(receivables: any[]) {
+  if (!receivables?.length) return;
+  await accountingDb.customerReceivables.bulkPut(receivables);
+}
+
+export async function upsertPulledPurchaseReturns(returns: any[]) {
+  if (!returns?.length) return;
+  await accountingDb.purchaseReturns.bulkPut(returns);
+}
+
+export async function upsertPulledPurchaseReturnItems(items: any[]) {
+  if (!items?.length) return;
+  await accountingDb.purchaseReturnItems.bulkPut(items);
 }
 
 export async function getSyncMeta(key: string): Promise<string | null> {

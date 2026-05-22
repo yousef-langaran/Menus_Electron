@@ -10,6 +10,8 @@ import {
   upsertPulledEntities,
   upsertPulledInvoices,
   upsertPulledInvoiceItems,
+  upsertPulledCheques,
+  upsertPulledReceivables,
 } from './accountingLocalDb';
 import {
   createPurchaseInvoiceAccounting,
@@ -180,6 +182,8 @@ export async function runAccountingSync(args: {
     upsertPulledEntities('operational_expense', pullResult.data.operationalExpenses || []),
     upsertPulledInvoices(restaurantId, pullResult.data.purchaseInvoices || []),
     upsertPulledInvoiceItems(pullResult.data.purchaseInvoiceItems || []),
+    upsertPulledCheques(pullResult.data.cheques || []),
+    upsertPulledReceivables(pullResult.data.customerReceivables || []),
   ]);
 
   const syncedAt = pullResult.syncedAt || new Date().toISOString();
@@ -191,7 +195,9 @@ export async function runAccountingSync(args: {
     (pullResult.data.finalProducts?.length || 0) +
     (pullResult.data.recipes?.length || 0) +
     (pullResult.data.cashBankAccounts?.length || 0) +
-    (pullResult.data.operationalExpenses?.length || 0);
+    (pullResult.data.operationalExpenses?.length || 0) +
+    (pullResult.data.cheques?.length || 0) +
+    (pullResult.data.customerReceivables?.length || 0);
 
   return {
     isOnline: true,

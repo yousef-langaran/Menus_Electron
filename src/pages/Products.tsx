@@ -9,6 +9,7 @@ import { NameAutocomplete } from '../ui/NameAutocomplete';
 import { getMasterProductByBarcode, searchMasterProducts } from '../services/api';
 import {
   createProductLocal,
+  deleteProductLocal,
   getLocalCategories,
   getLocalProducts,
   updateProductLocal,
@@ -103,6 +104,7 @@ export default function ProductsPage() {
   const nameSuggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // فیلتر و صفحه‌بندی در حافظه
   const filteredProducts = (() => {
@@ -146,6 +148,13 @@ export default function ProductsPage() {
       window.removeEventListener('offline', onOffline);
     };
   }, [restaurantId]);
+
+  const handleDeleteFailed = async (id: number) => {
+    await deleteProductLocal(id);
+    setDeletingId(null);
+    await loadFromDb();
+    toast.success('محصول از لیست آفلاین حذف شد');
+  };
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -291,6 +300,27 @@ export default function ProductsPage() {
       toast.error('دسته‌بندی را انتخاب کنید');
       return;
     }
+
+    const normalizedNameFa = form.name_fa.trim();
+    const dupName = allProducts.find(
+      (p) => (form.id === undefined || p.id !== form.id) && p.name_fa.trim() === normalizedNameFa,
+    );
+    if (dupName) {
+      toast.error(`نام فارسی «${normalizedNameFa}» قبلاً ثبت شده است`);
+      return;
+    }
+
+    const normalizedBarcode = normalizeBarcode(form.barcode);
+    if (normalizedBarcode) {
+      const dupBarcode = allProducts.find(
+        (p) => (form.id === undefined || p.id !== form.id) && normalizeBarcode(p.barcode || '') === normalizedBarcode,
+      );
+      if (dupBarcode) {
+        toast.error(`بارکد تکراری است — قبلاً برای «${dupBarcode.name_fa}» ثبت شده`);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       if (form.id !== undefined) {
@@ -391,18 +421,40 @@ export default function ProductsPage() {
               <p className="text-default-500">محصولی یافت نشد.</p>
             ) : (
               products.map((p) => (
-                <div key={p.id} className="flex items-center justify-between rounded-lg border border-default-200 p-3">
-                  <div className="space-y-1">
-                    <div className="font-semibold flex items-center gap-2">
-                      {p.name_fa || p.name}
-                      <SyncBadge status={p._syncStatus} error={p._syncError} />
+                <div
+                  key={p.id}
+                  className={`rounded-lg border p-3 space-y-2 ${p._syncStatus === 'failed' ? 'border-danger-300 bg-danger-50/40' : 'border-default-200'}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <div className="font-semibold flex items-center gap-2 flex-wrap">
+                        {p.name_fa || p.name}
+                        <SyncBadge status={p._syncStatus} error={p._syncError} />
+                      </div>
+                      <div className="text-xs text-default-500">
+                        بارکد: {p.barcode || '—'} | قیمت: {p.price.toLocaleString('fa-IR')}
+                        {(() => { const cat = categories.find((c) => c.id === p.category_id); return cat ? ` | ${cat.name_fa || cat.name}` : ''; })()}
+                      </div>
                     </div>
-                    <div className="text-xs text-default-500">
-                      بارکد: {p.barcode || '—'} | قیمت: {p.price.toLocaleString('fa-IR')}
-                      {(() => { const cat = categories.find((c) => c.id === p.category_id); return cat ? ` | ${cat.name_fa || cat.name}` : ''; })()}
+                    <div className="flex items-center gap-2 shrink-0 mr-2">
+                      <Button size="sm" variant="flat" color="primary" onPress={() => openEdit(p)}>ویرایش</Button>
+                      {p._syncStatus === 'failed' && (
+                        deletingId === p.id ? (
+                          <>
+                            <Button size="sm" variant="flat" color="danger" onPress={() => void handleDeleteFailed(p.id)}>تایید حذف</Button>
+                            <Button size="sm" variant="flat" onPress={() => setDeletingId(null)}>انصراف</Button>
+                          </>
+                        ) : (
+                          <Button size="sm" variant="flat" color="danger" onPress={() => setDeletingId(p.id)}>حذف</Button>
+                        )
+                      )}
                     </div>
                   </div>
-                  <Button size="sm" variant="flat" color="primary" onPress={() => openEdit(p)}>ویرایش</Button>
+                  {p._syncStatus === 'failed' && p._syncError && (
+                    <p className="text-xs text-danger-700 bg-danger-100 border border-danger-200 rounded px-2 py-1">
+                      دلیل خطا: {p._syncError}
+                    </p>
+                  )}
                 </div>
               ))
             )}

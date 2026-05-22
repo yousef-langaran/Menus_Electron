@@ -628,6 +628,8 @@ export async function syncAccountingPull(
       operationalExpenses: any[];
       purchaseInvoices: any[];
       purchaseInvoiceItems: any[];
+      cheques: any[];
+      customerReceivables: any[];
     };
   };
 }
