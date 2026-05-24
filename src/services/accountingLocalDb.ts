@@ -46,6 +46,8 @@ export class MenusAccountingDb extends Dexie {
   customerReceivables!: Table<any, number>;
   purchaseReturns!: Table<any, number>;
   purchaseReturnItems!: Table<any, number>;
+  warehouses!: Table<any, number>;
+  warehouseStocks!: Table<any, number>;
   syncOperations!: Table<LocalSyncOperation, number>;
   syncMeta!: Table<SyncMeta, string>;
 
@@ -134,6 +136,72 @@ export class MenusAccountingDb extends Dexie {
         'id, restaurantId, updatedAt, status, dueDate, salesInvoiceId, [restaurantId+status]',
       purchaseReturns: 'id, restaurantId, updatedAt, purchaseInvoiceId, status',
       purchaseReturnItems: 'id, purchaseReturnId, rawMaterialId',
+      syncOperations:
+        '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
+      syncMeta: 'key',
+    });
+    // v7: adds warehouses (read-only pull from server)
+    this.version(7).stores({
+      rawMaterials: 'id, restaurantId, updatedAt, name, barcode',
+      suppliers: 'id, restaurantId, updatedAt, name',
+      finalProducts: 'id, restaurantId, updatedAt, name, productId',
+      recipeItems: 'id, restaurantId, updatedAt, finalProductId, rawMaterialId',
+      cashBankAccounts: 'id, restaurantId, updatedAt, accountType, name',
+      operationalExpenses: 'id, restaurantId, updatedAt, expenseDate, expenseCategoryId',
+      purchaseInvoices:
+        'id, restaurantId, updatedAt, supplierId, status, purchaseDate, localSyncStatus, syncError, [restaurantId+localSyncStatus]',
+      purchaseInvoiceItems: 'id, purchaseInvoiceId, rawMaterialId, finalProductId',
+      cheques: 'id, restaurantId, updatedAt, chequeType, status, dueDate, [restaurantId+status]',
+      customerReceivables:
+        'id, restaurantId, updatedAt, status, dueDate, salesInvoiceId, [restaurantId+status]',
+      purchaseReturns: 'id, restaurantId, updatedAt, purchaseInvoiceId, status',
+      purchaseReturnItems: 'id, purchaseReturnId, rawMaterialId',
+      warehouses: 'id, restaurantId, updatedAt, isDefault, isActive',
+      syncOperations:
+        '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
+      syncMeta: 'key',
+    });
+    // v8: adds warehouseTransfers (read-only pull from server)
+    this.version(8).stores({
+      rawMaterials: 'id, restaurantId, updatedAt, name, barcode',
+      suppliers: 'id, restaurantId, updatedAt, name',
+      finalProducts: 'id, restaurantId, updatedAt, name, productId',
+      recipeItems: 'id, restaurantId, updatedAt, finalProductId, rawMaterialId',
+      cashBankAccounts: 'id, restaurantId, updatedAt, accountType, name',
+      operationalExpenses: 'id, restaurantId, updatedAt, expenseDate, expenseCategoryId',
+      purchaseInvoices:
+        'id, restaurantId, updatedAt, supplierId, status, purchaseDate, localSyncStatus, syncError, [restaurantId+localSyncStatus]',
+      purchaseInvoiceItems: 'id, purchaseInvoiceId, rawMaterialId, finalProductId',
+      cheques: 'id, restaurantId, updatedAt, chequeType, status, dueDate, [restaurantId+status]',
+      customerReceivables:
+        'id, restaurantId, updatedAt, status, dueDate, salesInvoiceId, [restaurantId+status]',
+      purchaseReturns: 'id, restaurantId, updatedAt, purchaseInvoiceId, status',
+      purchaseReturnItems: 'id, purchaseReturnId, rawMaterialId',
+      warehouses: 'id, restaurantId, updatedAt, isDefault, isActive',
+      warehouseTransfers: 'id, restaurantId, updatedAt, status, fromWarehouseId, toWarehouseId',
+      syncOperations:
+        '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
+      syncMeta: 'key',
+    });
+    // v9: adds warehouseStocks (per-warehouse quantity, read-only pull from server)
+    this.version(9).stores({
+      rawMaterials: 'id, restaurantId, updatedAt, name, barcode',
+      suppliers: 'id, restaurantId, updatedAt, name',
+      finalProducts: 'id, restaurantId, updatedAt, name, productId',
+      recipeItems: 'id, restaurantId, updatedAt, finalProductId, rawMaterialId',
+      cashBankAccounts: 'id, restaurantId, updatedAt, accountType, name',
+      operationalExpenses: 'id, restaurantId, updatedAt, expenseDate, expenseCategoryId',
+      purchaseInvoices:
+        'id, restaurantId, updatedAt, supplierId, status, purchaseDate, localSyncStatus, syncError, [restaurantId+localSyncStatus]',
+      purchaseInvoiceItems: 'id, purchaseInvoiceId, rawMaterialId, finalProductId',
+      cheques: 'id, restaurantId, updatedAt, chequeType, status, dueDate, [restaurantId+status]',
+      customerReceivables:
+        'id, restaurantId, updatedAt, status, dueDate, salesInvoiceId, [restaurantId+status]',
+      purchaseReturns: 'id, restaurantId, updatedAt, purchaseInvoiceId, status',
+      purchaseReturnItems: 'id, purchaseReturnId, rawMaterialId',
+      warehouses: 'id, restaurantId, updatedAt, isDefault, isActive',
+      warehouseTransfers: 'id, restaurantId, updatedAt, status, fromWarehouseId, toWarehouseId',
+      warehouseStocks: 'id, warehouseId, restaurantId, rawMaterialId, finalProductId, updatedAt',
       syncOperations:
         '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
       syncMeta: 'key',
@@ -279,6 +347,40 @@ export async function upsertPulledReceivables(receivables: any[]) {
 export async function upsertPulledPurchaseReturns(returns: any[]) {
   if (!returns?.length) return;
   await accountingDb.purchaseReturns.bulkPut(returns);
+}
+
+export async function upsertPulledWarehouses(warehouses: any[]) {
+  if (!warehouses?.length) return;
+  await accountingDb.warehouses.bulkPut(warehouses);
+}
+
+export async function upsertPulledWarehouseTransfers(transfers: any[]) {
+  if (!transfers?.length) return;
+  await (accountingDb as any).warehouseTransfers.bulkPut(transfers);
+}
+
+export async function upsertPulledWarehouseStocks(stocks: any[]) {
+  if (!stocks?.length) return;
+  await accountingDb.warehouseStocks.bulkPut(stocks);
+}
+
+export async function getWarehouseStocksLocal(restaurantId: number, warehouseId?: number): Promise<any[]> {
+  const query = warehouseId != null
+    ? accountingDb.warehouseStocks.where('warehouseId').equals(warehouseId)
+    : accountingDb.warehouseStocks.where('restaurantId').equals(restaurantId);
+  return query.toArray();
+}
+
+export async function getDefaultWarehouseLocal(restaurantId: number): Promise<any | undefined> {
+  return accountingDb.warehouses
+    .where('restaurantId')
+    .equals(restaurantId)
+    .filter((w) => w.isDefault === true)
+    .first();
+}
+
+export async function listWarehousesLocal(restaurantId: number): Promise<any[]> {
+  return accountingDb.warehouses.where('restaurantId').equals(restaurantId).toArray();
 }
 
 export async function upsertPulledPurchaseReturnItems(items: any[]) {
@@ -525,7 +627,7 @@ export async function createPurchaseInvoiceLocal(input: {
   supplierId: number;
   invoiceNumber: string;
   purchaseDate: string;
-  items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number }>;
+  items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number; warehouseId?: number }>;
   extraCosts?: number;
 }) {
   const id = nextLocalEntityId();
@@ -538,6 +640,7 @@ export async function createPurchaseInvoiceLocal(input: {
     quantity: Number(x.quantity),
     unitPrice: Number(x.unitPrice),
     salePrice: x.salePrice != null ? Number(x.salePrice) : null,
+    warehouseId: x.warehouseId ?? null,
     lineTotal: Number((Number(x.quantity) * Number(x.unitPrice)).toFixed(2)),
   }));
   const totalAmount = Number(
@@ -600,7 +703,7 @@ export async function updatePurchaseInvoiceDraftLocal(input: {
   supplierId: number;
   invoiceNumber: string;
   purchaseDate: string;
-  items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number }>;
+  items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number; warehouseId?: number }>;
   extraCosts?: number;
 }) {
   const existing = await accountingDb.purchaseInvoices.get(input.invoiceId);
@@ -614,6 +717,7 @@ export async function updatePurchaseInvoiceDraftLocal(input: {
     quantity: Number(x.quantity),
     unitPrice: Number(x.unitPrice),
     salePrice: x.salePrice != null ? Number(x.salePrice) : null,
+    warehouseId: x.warehouseId ?? null,
     lineTotal: Number((Number(x.quantity) * Number(x.unitPrice)).toFixed(2)),
   }));
   const totalAmount = Number(

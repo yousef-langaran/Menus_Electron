@@ -67,9 +67,19 @@ interface OrderState {
   setSplitCard: (amount: number) => void;
   setSplitOnline: (amount: number) => void;
   getSplitCreditAmount: () => number;
+  restoreDraft: (draft: {
+    cart: CartItem[];
+    customerPhone?: string;
+    serviceType?: 'dine_in' | 'takeaway';
+    tableNumber?: string;
+    customerAddress?: string;
+    paymentMethod?: 'cash' | 'card' | 'online' | 'mixed' | 'credit';
+    notes?: string;
+  }) => void;
   submitOrder: (options?: {
     editingOrderId?: number;
     onOrderCreated?: (result: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean; order?: any }) => void;
+    onOrderFailed?: (error: string) => void;
   }) => Promise<{
     success: boolean;
     orderId?: number;
@@ -189,10 +199,14 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         const token = authState.token;
         const user = authState.user;
         const onOrderCreated = options?.onOrderCreated;
+        const onOrderFailed = options?.onOrderFailed;
         const restaurantName = user?.restaurants?.[0]?.name;
         const restaurantId = user?.restaurants?.[0]?.id;
         const cached = await getCachedMenu(restaurantId, restaurantName);
-        const isMobileRequiredInElectronPanel = cached.isMobileRequiredInElectronPanel ?? true
+        const isMobileRequiredInElectronPanel = cached.isMobileRequiredInElectronPanel ?? true;
+        const posWarehouseId: number | null = window.electronAPI?.getPosWarehouseId
+          ? await window.electronAPI.getPosWarehouseId()
+          : null;
 
         if (!token) {
             return {success: false, error: 'لطفاً ابتدا وارد شوید'};
@@ -260,6 +274,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           }),
       notes: state.notes.trim() || undefined,
       restaurantName: user?.restaurants?.[0]?.name || '',
+      ...(posWarehouseId ? { warehouseId: posWarehouseId } : {}),
       ...(state.paymentMethod === 'credit' || mixedHasCredit
         ? { creditPaidAmount: state.splitCash + state.splitCard + state.splitOnline }
         : {}),
@@ -290,22 +305,36 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         // ارسال در پس‌زمینه — بلافاصله موفق برگرد و چاپ وقتی جواب آمد
         createOrder(orderData, latestToken)
           .then((response) => {
+            const order = (response as any)?.data ?? response;
+            const acctWarn =
+              typeof order?.accountingWarning === 'string'
+                ? order.accountingWarning.trim()
+                : '';
+            if (acctWarn) {
+              onOrderFailed?.(acctWarn);
+              return;
+            }
             onOrderCreated?.({
-              orderId: response.id,
-              orderNumber: response.orderNumber,
-              receiptCallNumber: response.receiptCallNumber,
+              orderId: order.id,
+              orderNumber: order.orderNumber,
+              receiptCallNumber: order.receiptCallNumber,
               offline: false,
-              order: response,
+              order,
             });
           })
           .catch(async (error: any) => {
             const status = Number(error?.response?.status || 0);
+            const errorMessage = extractApiErrorMessage(error) || 'خطا در ثبت سفارش';
             if (status === 401) {
               // Let global 401 handler logout the session; do not store online-auth failures as offline orders.
-              console.warn('Online submission failed with 401:', extractApiErrorMessage(error));
+              console.warn('Online submission failed with 401:', errorMessage);
               return;
             }
-            console.warn('Online submission failed, saving offline:', extractApiErrorMessage(error));
+            if (status === 400) {
+              onOrderFailed?.(errorMessage);
+              return;
+            }
+            console.warn('Online submission failed, saving offline:', errorMessage);
             const baseURL = API_BASE_URL;
             try {
               if (window.electronAPI) {
@@ -349,6 +378,18 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             set({isSubmitting: false});
             return {success: false, error: extractApiErrorMessage(error)};
         }
+    },
+
+    restoreDraft: (draft) => {
+        set({
+            cart: draft.cart,
+            customerPhone: draft.customerPhone ?? '',
+            serviceType: draft.serviceType ?? 'dine_in',
+            tableNumber: draft.tableNumber ?? '',
+            customerAddress: draft.customerAddress ?? '',
+            paymentMethod: draft.paymentMethod ?? 'cash',
+            notes: draft.notes ?? '',
+        });
     },
 
     clearCart: () => {

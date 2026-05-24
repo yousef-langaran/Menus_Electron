@@ -69,6 +69,8 @@ import {
   type CardTerminalSettings,
   loadCallerIdSettings,
   saveCallerIdSettings,
+  loadPosWarehouseId,
+  savePosWarehouseId,
 } from './database/preferences';
 import { startCallerIdWebhook, stopCallerIdWebhook, getWebhookStatus } from './services/callerIdWebhook';
 import { callerIdSerialService, setupCallerIdSerial } from './services/callerIdSerial';
@@ -779,6 +781,23 @@ ipcMain.handle('scale:save-settings', async (_event, settings) => {
   try {
     const saved = await saveScaleSettings(settings || {});
     return { success: true, settings: saved };
+  } catch (err: any) {
+    return { success: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle('pos:get-warehouse-id', async () => {
+  try {
+    return await loadPosWarehouseId();
+  } catch {
+    return null;
+  }
+});
+
+ipcMain.handle('pos:save-warehouse-id', async (_event, id: number | null) => {
+  try {
+    await savePosWarehouseId(id);
+    return { success: true };
   } catch (err: any) {
     return { success: false, error: String(err?.message || err) };
   }

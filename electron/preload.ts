@@ -95,6 +95,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getCallerIdSettings: () => ipcRenderer.invoke('caller-id:get-settings'),
   saveCallerIdSettings: (settings: any) => ipcRenderer.invoke('caller-id:save-settings', settings),
   getCallerIdWebhookStatus: () => ipcRenderer.invoke('caller-id:webhook-status'),
+  getPosWarehouseId: () => ipcRenderer.invoke('pos:get-warehouse-id'),
+  savePosWarehouseId: (id: number | null) => ipcRenderer.invoke('pos:save-warehouse-id', id),
   callerIdSerialListPorts: () => ipcRenderer.invoke('caller-id:serial-list-ports'),
   callerIdSerialConnect: (settings: any) => ipcRenderer.invoke('caller-id:serial-connect', settings),
   callerIdSerialDisconnect: () => ipcRenderer.invoke('caller-id:serial-disconnect'),
@@ -198,6 +200,8 @@ declare global {
       callerIdSerialDisconnect: () => Promise<{ success: boolean; error?: string }>;
       callerIdSerialStatus: () => Promise<{ connected: boolean }>;
       onIncomingCall: (callback: (payload: { phone: string; timestamp: string }) => void) => () => void;
+      getPosWarehouseId: () => Promise<number | null>;
+      savePosWarehouseId: (id: number | null) => Promise<{ success: boolean; error?: string }>;
     };
   }
 }

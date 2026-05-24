@@ -12,6 +12,9 @@ import {
   upsertPulledInvoiceItems,
   upsertPulledCheques,
   upsertPulledReceivables,
+  upsertPulledWarehouses,
+  upsertPulledWarehouseTransfers,
+  upsertPulledWarehouseStocks,
 } from './accountingLocalDb';
 import {
   createPurchaseInvoiceAccounting,
@@ -149,6 +152,7 @@ export async function runAccountingSync(args: {
             quantity: Number(x.quantity),
             unitPrice: Number(x.unitPrice),
             ...(x.salePrice != null ? { salePrice: Number(x.salePrice) } : {}),
+            ...(x.warehouseId ? { warehouseId: Number(x.warehouseId) } : {}),
           })),
           extraCosts: Number(draft.extraCosts || 0),
           status: 'pending_approval',
@@ -184,6 +188,9 @@ export async function runAccountingSync(args: {
     upsertPulledInvoiceItems(pullResult.data.purchaseInvoiceItems || []),
     upsertPulledCheques(pullResult.data.cheques || []),
     upsertPulledReceivables(pullResult.data.customerReceivables || []),
+    upsertPulledWarehouses(pullResult.data.warehouses || []),
+    upsertPulledWarehouseTransfers(pullResult.data.warehouseTransfers || []),
+    upsertPulledWarehouseStocks(pullResult.data.warehouseStocks || []),
   ]);
 
   const syncedAt = pullResult.syncedAt || new Date().toISOString();
@@ -197,7 +204,9 @@ export async function runAccountingSync(args: {
     (pullResult.data.cashBankAccounts?.length || 0) +
     (pullResult.data.operationalExpenses?.length || 0) +
     (pullResult.data.cheques?.length || 0) +
-    (pullResult.data.customerReceivables?.length || 0);
+    (pullResult.data.customerReceivables?.length || 0) +
+    (pullResult.data.warehouses?.length || 0) +
+    (pullResult.data.warehouseStocks?.length || 0);
 
   return {
     isOnline: true,

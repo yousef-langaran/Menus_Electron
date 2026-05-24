@@ -54,6 +54,10 @@ export default function SettingsPage() {
   const [scaleConnecting, setScaleConnecting] = useState(false);
   const [scaleSaving, setScaleSaving] = useState(false);
 
+  const [posWarehouseId, setPosWarehouseId] = useState<number | null>(null);
+  const [posWarehouseList, setPosWarehouseList] = useState<Array<{ id: number; name: string; isDefault: boolean }>>([]);
+  const [posWarehouseSaving, setPosWarehouseSaving] = useState(false);
+
   const [callerIdEnabled, setCallerIdEnabled] = useState(false);
   const [callerIdMode, setCallerIdMode] = useState<'webhook' | 'serial'>('webhook');
   // webhook
@@ -88,7 +92,41 @@ export default function SettingsPage() {
     loadPrinters();
     loadScaleData();
     loadCallerIdData();
+    loadPosWarehouseData();
   }, []);
+
+  const loadPosWarehouseData = async () => {
+    const api = window.electronAPI;
+    if (!api?.getPosWarehouseId) return;
+    try {
+      const { listWarehousesLocal } = await import('../services/accountingLocalDb');
+      const restaurantId = useAuthStore.getState().user?.restaurants?.[0]?.id;
+      const [savedId, warehouses] = await Promise.all([
+        api.getPosWarehouseId(),
+        restaurantId ? listWarehousesLocal(restaurantId) : Promise.resolve([]),
+      ]);
+      setPosWarehouseId(savedId ?? null);
+      setPosWarehouseList(
+        (warehouses as any[]).map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault })),
+      );
+    } catch {
+      // ignore
+    }
+  };
+
+  const handlePosWarehouseSave = async () => {
+    const api = window.electronAPI;
+    if (!api?.savePosWarehouseId) return;
+    setPosWarehouseSaving(true);
+    try {
+      await api.savePosWarehouseId(posWarehouseId);
+      toast.success('انبار پایانه ذخیره شد');
+    } catch {
+      toast.error('خطا در ذخیره انبار پایانه');
+    } finally {
+      setPosWarehouseSaving(false);
+    }
+  };
 
   const loadCallerIdData = async () => {
     const api = window.electronAPI;
@@ -1033,6 +1071,41 @@ export default function SettingsPage() {
                   ذخیره تنظیمات Caller ID
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {window.electronAPI?.getPosWarehouseId && posWarehouseList.length > 1 && (
+          <Card>
+            <CardContent>
+              <h3 className="font-semibold mb-3">انبار پایانه POS</h3>
+              <p className="text-sm text-default-500 mb-3">
+                موجودی فروش از این انبار کسر می‌شود. اگر تنظیم نشود، انبار پیش‌فرض استفاده می‌شود.
+              </p>
+              <Select
+                label="انبار"
+                selectedKeys={posWarehouseId ? [String(posWarehouseId)] : ['0']}
+                onSelectionChange={(keys) => {
+                  const val = Number([...keys][0]);
+                  setPosWarehouseId(val > 0 ? val : null);
+                }}
+              >
+                <SelectItem key="0">انبار پیش‌فرض (خودکار)</SelectItem>
+                {posWarehouseList.map((w) => (
+                  <SelectItem key={String(w.id)}>
+                    {w.name}{w.isDefault ? ' (پیش‌فرض)' : ''}
+                  </SelectItem>
+                ))}
+              </Select>
+              <Button
+                size="sm"
+                variant="flat"
+                className="mt-3"
+                isLoading={posWarehouseSaving}
+                onPress={handlePosWarehouseSave}
+              >
+                ذخیره انبار پایانه
+              </Button>
             </CardContent>
           </Card>
         )}

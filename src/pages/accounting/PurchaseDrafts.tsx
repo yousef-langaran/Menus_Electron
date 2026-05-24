@@ -12,6 +12,7 @@ import {
   createPurchaseInvoiceLocal,
   createRawMaterialLocal,
   deletePurchaseInvoiceDraftLocal,
+  getDefaultWarehouseLocal,
   getOrCreateFinalProductByProductId,
   getPurchaseInvoiceItemsByInvoiceId,
   resetAccountingPullTimestamp,
@@ -261,6 +262,10 @@ export default function AccountingPurchaseDraftsPage() {
 
     setIsSaving(true);
     try {
+      const defaultWarehouse = await getDefaultWarehouseLocal(restaurantId);
+      const defaultWarehouseId = defaultWarehouse?.id as number | undefined;
+      const linesWithWarehouse = lines.map((x) => ({ ...x, warehouseId: defaultWarehouseId }));
+
       if (editingId) {
         await updatePurchaseInvoiceDraftLocal({
           invoiceId: editingId,
@@ -268,7 +273,7 @@ export default function AccountingPurchaseDraftsPage() {
           supplierId: Number(supplierId),
           invoiceNumber: invoiceNumber.trim(),
           purchaseDate: new Date().toISOString().slice(0, 10),
-          items: lines,
+          items: linesWithWarehouse,
           extraCosts: Number(normalizePriceInput(extraCosts) || 0),
         });
         toast.success('پیش‌نویس ویرایش شد');
@@ -278,7 +283,7 @@ export default function AccountingPurchaseDraftsPage() {
           supplierId: Number(supplierId),
           invoiceNumber: invoiceNumber.trim(),
           purchaseDate: new Date().toISOString().slice(0, 10),
-          items: lines,
+          items: linesWithWarehouse,
           extraCosts: Number(normalizePriceInput(extraCosts) || 0),
         });
         toast.success('پیش‌نویس ذخیره شد');

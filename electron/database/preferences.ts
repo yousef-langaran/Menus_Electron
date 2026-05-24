@@ -166,6 +166,8 @@ interface PreferencesFile {
   defaultCardTerminalProfileId?: string | null;
   scaleSettings?: ScaleSettings;
   callerIdSettings?: CallerIdSettings;
+  /** شناسه انبار مرتبط با این پایانه POS */
+  posWarehouseId?: number | null;
 }
 
 const FILE_NAME = 'menus-preferences.json';
@@ -711,6 +713,18 @@ export async function loadCallerIdSettings(): Promise<CallerIdSettings> {
       : DEFAULT_CALLER_ID_SETTINGS.notifyDurationSec,
     playSoundEnabled: raw.playSoundEnabled !== false,
   };
+}
+
+export async function loadPosWarehouseId(): Promise<number | null> {
+  const prefs = await readPreferences();
+  const val = prefs.posWarehouseId;
+  return typeof val === 'number' && val > 0 ? val : null;
+}
+
+export async function savePosWarehouseId(id: number | null): Promise<void> {
+  const prefs = await readPreferences();
+  prefs.posWarehouseId = typeof id === 'number' && id > 0 ? id : null;
+  await writePreferences(prefs);
 }
 
 export async function saveCallerIdSettings(settings: Partial<CallerIdSettings>): Promise<CallerIdSettings> {

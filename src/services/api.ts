@@ -671,6 +671,7 @@ export async function syncAccountingPull(
       purchaseInvoiceItems: any[];
       cheques: any[];
       customerReceivables: any[];
+      warehouses: any[];
     };
   };
 }
@@ -681,7 +682,7 @@ export async function createPurchaseInvoiceAccounting(
     supplierId: number;
     invoiceNumber: string;
     purchaseDate: string;
-    items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number }>;
+    items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number; warehouseId?: number }>;
     extraCosts?: number;
     status?: 'draft' | 'pending_approval' | 'approved' | 'rejected';
     notes?: string;

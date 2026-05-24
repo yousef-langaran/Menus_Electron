@@ -128,6 +128,7 @@ export default function OrderPage() {
         setSplitOnline,
         getSplitCreditAmount,
         submitOrder,
+        restoreDraft,
         clearCart,
         getTotalAmount,
         getFinalAmount,
@@ -1076,9 +1077,33 @@ export default function OrderPage() {
             runPrint(orderData, orderKeys, {printOption, selectedPrinterNames});
         };
 
+        const onOrderFailed = (errorMessage: string) => {
+            if (isEditingInvoice) return;
+            setSuccessMessage('');
+            setError(errorMessage);
+            setShowOrderModal(true);
+            restoreDraft({
+                cart: snapshot.items.map((item) => ({
+                    productId: item.product.id,
+                    product: item.product,
+                    quantity: item.quantity,
+                    price: item.price,
+                    totalPrice: item.quantity * item.price,
+                    itemOption: item.itemOption || '',
+                })),
+                customerPhone: snapshot.customerPhone,
+                serviceType: snapshot.serviceType,
+                tableNumber: snapshot.tableNumber,
+                customerAddress: snapshot.customerAddress,
+                paymentMethod: snapshot.paymentMethod,
+                notes: snapshot.notes,
+            });
+        };
+
         const result = await submitOrder({
             editingOrderId: editingOrderId ?? undefined,
             onOrderCreated,
+            onOrderFailed,
         });
 
         if (result.success) {
