@@ -11,6 +11,8 @@ import AccountingRawMaterialsPage from './pages/accounting/RawMaterials';
 import AccountingSuppliersPage from './pages/accounting/Suppliers';
 import AccountingPurchaseDraftsPage from './pages/accounting/PurchaseDrafts';
 import AccountingServerPurchasesPage from './pages/accounting/ServerPurchases';
+import AccountingExpensesPage from './pages/accounting/Expenses';
+import AccountingRawMaterialCategoriesPage from './pages/accounting/RawMaterialCategories';
 import ProductsPage from './pages/Products';
 import CategoriesPage from './pages/Categories';
 import CardTerminalsPage from './pages/CardTerminals';
@@ -137,6 +139,8 @@ function AppRoutes() {
               <Route path="/accounting/suppliers" element={<AccountingSuppliersPage />} />
               <Route path="/accounting/purchase-drafts" element={<AccountingPurchaseDraftsPage />} />
               <Route path="/accounting/server-purchases" element={<AccountingServerPurchasesPage />} />
+              <Route path="/accounting/expenses" element={<AccountingExpensesPage />} />
+              <Route path="/accounting/raw-material-categories" element={<AccountingRawMaterialCategoriesPage />} />
               <Route path="/card-terminals" element={<CardTerminalsPage />} />
             </Route>
           </Route>

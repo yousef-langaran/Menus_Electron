@@ -85,12 +85,19 @@ export default function AccountingPage() {
             ) : null}
           </CardContent>
         </Card>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           <Card>
             <CardContent className="gap-2">
               <h3 className="font-semibold">مواد اولیه</h3>
               <p className="text-sm text-default-500">ثبت، جستجو و ویرایش مواد اولیه</p>
               <Button color="primary" onPress={() => navigate('/accounting/raw-materials')}>ورود</Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="gap-2">
+              <h3 className="font-semibold">دسته‌بندی مواد اولیه</h3>
+              <p className="text-sm text-default-500">تعریف و ویرایش دسته‌بندی مواد اولیه</p>
+              <Button color="secondary" onPress={() => navigate('/accounting/raw-material-categories')}>ورود</Button>
             </CardContent>
           </Card>
           <Card>
@@ -105,6 +112,13 @@ export default function AccountingPage() {
               <h3 className="font-semibold">فاکتورهای خرید</h3>
               <p className="text-sm text-default-500">ثبت پیش‌نویس، مشاهده و تایید فاکتورهای خرید</p>
               <Button color="primary" onPress={() => navigate('/accounting/purchase-drafts')}>ورود</Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="gap-2">
+              <h3 className="font-semibold">ثبت هزینه</h3>
+              <p className="text-sm text-default-500">ثبت هزینه‌های عملیاتی با دسته‌بندی — آفلاین</p>
+              <Button color="primary" onPress={() => navigate('/accounting/expenses')}>ورود</Button>
             </CardContent>
           </Card>
         </div>

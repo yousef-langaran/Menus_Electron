@@ -829,6 +829,150 @@ export async function updateAccountingPurchaseInvoiceStatus(
   return response.data as { invoiceId: number; status: string };
 }
 
+// ─── دسته‌بندی هزینه ─────────────────────────────────────────────────────
+
+export type ExpenseCategoryRow = {
+  id: number;
+  name: string;
+  isActive: boolean;
+};
+
+export async function listExpenseCategories(
+  restaurantId: number,
+  token: string,
+): Promise<ExpenseCategoryRow[]> {
+  await apiConfigReady;
+  const response = await api.get('/accounting/financial/expense-categories', {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+// ─── هزینه‌های عملیاتی آنلاین ────────────────────────────────────────────────
+
+export async function listOperationalExpensesOnline(
+  restaurantId: number,
+  token: string,
+  fiscalYearId?: number,
+): Promise<any[]> {
+  await apiConfigReady;
+  const response = await api.get('/accounting/financial/operational-expenses', {
+    params: { restaurantId, ...(fiscalYearId ? { fiscalYearId } : {}) },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const payload = response.data;
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+}
+
+export async function createOperationalExpenseOnline(
+  payload: {
+    restaurantId: number;
+    expenseCategoryId: number;
+    expenseDate: string;
+    amount: number;
+    description?: string;
+  },
+  token: string,
+): Promise<any> {
+  await apiConfigReady;
+  const response = await api.post('/accounting/financial/operational-expenses', payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function updateOperationalExpenseOnline(
+  id: number,
+  payload: {
+    restaurantId: number;
+    expenseCategoryId?: number;
+    expenseDate?: string;
+    amount?: number;
+    description?: string;
+  },
+  token: string,
+): Promise<any> {
+  await apiConfigReady;
+  const response = await api.patch(
+    `/accounting/financial/operational-expenses/${id}`,
+    payload,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
+export async function deleteOperationalExpenseOnline(
+  id: number,
+  restaurantId: number,
+  token: string,
+): Promise<void> {
+  await apiConfigReady;
+  await api.delete(`/accounting/financial/operational-expenses/${id}`, {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// ─── دسته‌بندی مواد اولیه ────────────────────────────────────────────────────
+
+export type RawMaterialCategoryRow = {
+  id: number;
+  name: string;
+  isActive: boolean;
+};
+
+export async function listRawMaterialCategories(
+  restaurantId: number,
+  token: string,
+): Promise<RawMaterialCategoryRow[]> {
+  await apiConfigReady;
+  const response = await api.get('/accounting/inventory/raw-material-categories', {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function createRawMaterialCategory(
+  payload: { restaurantId: number; name: string },
+  token: string,
+): Promise<RawMaterialCategoryRow> {
+  await apiConfigReady;
+  const response = await api.post('/accounting/inventory/raw-material-categories', payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function updateRawMaterialCategory(
+  id: number,
+  payload: { name?: string; isActive?: boolean },
+  token: string,
+): Promise<RawMaterialCategoryRow> {
+  await apiConfigReady;
+  const response = await api.patch(
+    `/accounting/inventory/raw-material-categories/${id}`,
+    payload,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
+export async function deleteRawMaterialCategory(
+  id: number,
+  restaurantId: number,
+  token: string,
+): Promise<void> {
+  await apiConfigReady;
+  await api.delete(`/accounting/inventory/raw-material-categories/${id}`, {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 // Order Returns API
 export async function createOrderReturn(returnData: any, token: string) {
   await apiConfigReady;

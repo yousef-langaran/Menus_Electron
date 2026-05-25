@@ -447,6 +447,7 @@ export async function createRawMaterialLocal(input: {
   barcode?: string;
   minStock?: number;
   currentStock?: number;
+  rawMaterialCategoryId?: number | null;
 }) {
   const id = nextLocalEntityId();
   const now = new Date().toISOString();
@@ -458,6 +459,7 @@ export async function createRawMaterialLocal(input: {
     barcode: input.barcode?.trim() || null,
     minStock: Number(input.minStock || 0),
     currentStock: Number(input.currentStock || 0),
+    rawMaterialCategoryId: input.rawMaterialCategoryId ?? null,
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -519,6 +521,7 @@ export async function updateRawMaterialLocal(input: {
     minStock: number;
     currentStock: number;
     isActive: boolean;
+    rawMaterialCategoryId: number | null;
   }>;
 }) {
   const existing = await accountingDb.rawMaterials.get(input.id);
@@ -620,6 +623,39 @@ export async function resetFailedPurchaseDraftsToPending(restaurantId: number) {
     ),
   );
   return failed.length;
+}
+
+export async function createOperationalExpenseLocal(input: {
+  restaurantId: number;
+  expenseCategoryId: number;
+  expenseDate: string; // YYYY-MM-DD
+  amount: number;
+  description?: string;
+}) {
+  const id = nextLocalEntityId();
+  const now = new Date().toISOString();
+  const row = {
+    id,
+    restaurantId: input.restaurantId,
+    expenseCategoryId: input.expenseCategoryId,
+    expenseDate: input.expenseDate,
+    amount: Number(input.amount),
+    description: input.description?.trim() || null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await accountingDb.operationalExpenses.put(row);
+  await enqueueAccountingOperation({
+    localOpId: nextOpId(),
+    restaurantId: input.restaurantId,
+    entityType: 'operational_expense',
+    entityId: String(id),
+    operationType: 'create',
+    payload: row,
+    version: 1,
+    clientUpdatedAt: now,
+  });
+  return row;
 }
 
 export async function createPurchaseInvoiceLocal(input: {
