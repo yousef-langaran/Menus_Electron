@@ -33,6 +33,34 @@ export interface SyncMeta {
   value: string;
 }
 
+// ─── Cash / Bank Account Transactions ────────────────────────────────────────
+
+export type CashTransactionType =
+  | 'sale_income'        // فروش (فاکتور فروش)
+  | 'credit_payment'     // دریافت وجه بابت نسیه
+  | 'expense_payment'    // پرداخت هزینه
+  | 'purchase_payment'   // پرداخت به تامین‌کننده
+  | 'manual_in'          // ورودی دستی
+  | 'manual_out';        // خروجی دستی
+
+export type CashAccountType = 'cash' | 'card' | 'online' | 'bank';
+
+export interface CashAccountTransaction {
+  id?: number;
+  restaurantId: number;
+  accountType: CashAccountType;
+  accountName: string;    // 'صندوق' | 'کارتخوان' | 'آنلاین' | نام بانک
+  transactionType: CashTransactionType;
+  amount: number;         // positive = ورودی, negative = خروجی
+  orderId?: number;
+  orderNumber?: string;
+  customerPhone?: string;
+  referenceCode?: string; // RRN / tracking code from card terminal
+  description?: string;
+  date: string;           // YYYY-MM-DD
+  createdAt: string;
+}
+
 export class MenusAccountingDb extends Dexie {
   rawMaterials!: Table<any, number>;
   suppliers!: Table<any, number>;
@@ -47,7 +75,9 @@ export class MenusAccountingDb extends Dexie {
   purchaseReturns!: Table<any, number>;
   purchaseReturnItems!: Table<any, number>;
   warehouses!: Table<any, number>;
+  warehouseTransfers!: Table<any, number>;
   warehouseStocks!: Table<any, number>;
+  cashAccountTransactions!: Table<CashAccountTransaction, number>;
   syncOperations!: Table<LocalSyncOperation, number>;
   syncMeta!: Table<SyncMeta, string>;
 
@@ -202,6 +232,31 @@ export class MenusAccountingDb extends Dexie {
       warehouses: 'id, restaurantId, updatedAt, isDefault, isActive',
       warehouseTransfers: 'id, restaurantId, updatedAt, status, fromWarehouseId, toWarehouseId',
       warehouseStocks: 'id, warehouseId, restaurantId, rawMaterialId, finalProductId, updatedAt',
+      syncOperations:
+        '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
+      syncMeta: 'key',
+    });
+    // v10: adds cashAccountTransactions for local payment/cash ledger
+    this.version(10).stores({
+      rawMaterials: 'id, restaurantId, updatedAt, name, barcode',
+      suppliers: 'id, restaurantId, updatedAt, name',
+      finalProducts: 'id, restaurantId, updatedAt, name, productId',
+      recipeItems: 'id, restaurantId, updatedAt, finalProductId, rawMaterialId',
+      cashBankAccounts: 'id, restaurantId, updatedAt, accountType, name',
+      operationalExpenses: 'id, restaurantId, updatedAt, expenseDate, expenseCategoryId',
+      purchaseInvoices:
+        'id, restaurantId, updatedAt, supplierId, status, purchaseDate, localSyncStatus, syncError, [restaurantId+localSyncStatus]',
+      purchaseInvoiceItems: 'id, purchaseInvoiceId, rawMaterialId, finalProductId',
+      cheques: 'id, restaurantId, updatedAt, chequeType, status, dueDate, [restaurantId+status]',
+      customerReceivables:
+        'id, restaurantId, updatedAt, status, dueDate, salesInvoiceId, [restaurantId+status]',
+      purchaseReturns: 'id, restaurantId, updatedAt, purchaseInvoiceId, status',
+      purchaseReturnItems: 'id, purchaseReturnId, rawMaterialId',
+      warehouses: 'id, restaurantId, updatedAt, isDefault, isActive',
+      warehouseTransfers: 'id, restaurantId, updatedAt, status, fromWarehouseId, toWarehouseId',
+      warehouseStocks: 'id, warehouseId, restaurantId, rawMaterialId, finalProductId, updatedAt',
+      cashAccountTransactions:
+        '++id, restaurantId, accountType, transactionType, date, orderId, [restaurantId+accountType], [restaurantId+date]',
       syncOperations:
         '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
       syncMeta: 'key',
@@ -837,4 +892,154 @@ export async function deletePurchaseInvoiceDraftLocal(invoiceId: number) {
   await accountingDb.purchaseInvoiceItems.where('purchaseInvoiceId').equals(invoiceId).delete();
   await accountingDb.purchaseInvoices.delete(invoiceId);
   return true;
+}
+
+// ─── Cash Account Transaction Helpers ────────────────────────────────────────
+
+export function accountTypeLabel(type: CashAccountType): string {
+  switch (type) {
+    case 'cash': return 'صندوق';
+    case 'card': return 'کارتخوان';
+    case 'online': return 'آنلاین';
+    case 'bank': return 'بانک';
+    default: return type;
+  }
+}
+
+export async function recordCashTransaction(
+  input: Omit<CashAccountTransaction, 'id' | 'createdAt'>,
+): Promise<number> {
+  const now = new Date().toISOString();
+  const date = input.date || now.slice(0, 10);
+  return accountingDb.cashAccountTransactions.add({
+    ...input,
+    date,
+    createdAt: now,
+  });
+}
+
+export async function recordOrderPaymentTransactions(params: {
+  restaurantId: number;
+  orderId?: number;
+  orderNumber?: string;
+  customerPhone?: string;
+  paymentMethod: 'cash' | 'card' | 'online' | 'mixed' | 'credit';
+  finalAmount: number;
+  splitCash: number;
+  splitCard: number;
+  splitOnline: number;
+  mixedHasCredit: boolean;
+  referenceCode?: string;
+}): Promise<void> {
+  const {
+    restaurantId, orderId, orderNumber, customerPhone,
+    paymentMethod, finalAmount, splitCash, splitCard, splitOnline, mixedHasCredit,
+    referenceCode,
+  } = params;
+  const today = new Date().toISOString().slice(0, 10);
+  const base = {
+    restaurantId, orderId, orderNumber,
+    customerPhone: customerPhone || undefined,
+    transactionType: 'sale_income' as CashTransactionType,
+    date: today,
+    referenceCode: referenceCode || undefined,
+  };
+
+  if (paymentMethod === 'cash') {
+    await recordCashTransaction({ ...base, accountType: 'cash', accountName: 'صندوق', amount: finalAmount });
+  } else if (paymentMethod === 'card') {
+    await recordCashTransaction({ ...base, accountType: 'card', accountName: 'کارتخوان', amount: finalAmount });
+  } else if (paymentMethod === 'online') {
+    await recordCashTransaction({ ...base, accountType: 'online', accountName: 'آنلاین', amount: finalAmount });
+  } else if (paymentMethod === 'mixed' || paymentMethod === 'credit') {
+    // Record each portion to its respective account
+    if (splitCash > 0) {
+      await recordCashTransaction({ ...base, accountType: 'cash', accountName: 'صندوق', amount: splitCash });
+    }
+    if (splitCard > 0) {
+      await recordCashTransaction({ ...base, accountType: 'card', accountName: 'کارتخوان', amount: splitCard, referenceCode });
+    }
+    if (splitOnline > 0) {
+      await recordCashTransaction({ ...base, accountType: 'online', accountName: 'آنلاین', amount: splitOnline });
+    }
+    // Note: the credit portion is NOT a cash transaction — it's a receivable
+  }
+}
+
+export async function recordCreditPaymentTransaction(params: {
+  restaurantId: number;
+  orderId?: number;
+  orderNumber?: string;
+  customerPhone?: string;
+  accountType: CashAccountType;
+  amount: number;
+  referenceCode?: string;
+  description?: string;
+}): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+  return recordCashTransaction({
+    restaurantId: params.restaurantId,
+    accountType: params.accountType,
+    accountName: accountTypeLabel(params.accountType),
+    transactionType: 'credit_payment',
+    amount: params.amount,
+    orderId: params.orderId,
+    orderNumber: params.orderNumber,
+    customerPhone: params.customerPhone,
+    referenceCode: params.referenceCode,
+    description: params.description,
+    date: today,
+  });
+}
+
+export async function getCashAccountBalance(
+  restaurantId: number,
+  accountType?: CashAccountType,
+): Promise<number> {
+  let rows: CashAccountTransaction[];
+  if (accountType) {
+    rows = await accountingDb.cashAccountTransactions
+      .where('[restaurantId+accountType]')
+      .equals([restaurantId, accountType])
+      .toArray();
+  } else {
+    rows = await accountingDb.cashAccountTransactions
+      .where('restaurantId').equals(restaurantId)
+      .toArray();
+  }
+  return rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+}
+
+export async function getCashAccountTransactions(
+  restaurantId: number,
+  opts?: {
+    accountType?: CashAccountType;
+    fromDate?: string;
+    toDate?: string;
+    limit?: number;
+  },
+): Promise<CashAccountTransaction[]> {
+  let rows = await accountingDb.cashAccountTransactions
+    .where('restaurantId').equals(restaurantId)
+    .reverse().sortBy('createdAt') as CashAccountTransaction[];
+
+  if (opts?.accountType) rows = rows.filter((r) => r.accountType === opts.accountType);
+  if (opts?.fromDate) rows = rows.filter((r) => r.date >= opts.fromDate!);
+  if (opts?.toDate) rows = rows.filter((r) => r.date <= opts.toDate!);
+  if (opts?.limit) rows = rows.slice(0, opts.limit);
+  return rows;
+}
+
+export async function getAllCashAccountsSummary(restaurantId: number): Promise<
+  Array<{ accountType: CashAccountType; accountName: string; balance: number; txCount: number }>
+> {
+  const all = await accountingDb.cashAccountTransactions
+    .where('restaurantId').equals(restaurantId).toArray() as CashAccountTransaction[];
+
+  const types: CashAccountType[] = ['cash', 'card', 'online', 'bank'];
+  return types.map((type) => {
+    const txs = all.filter((r) => r.accountType === type);
+    const balance = txs.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+    return { accountType: type, accountName: accountTypeLabel(type), balance, txCount: txs.length };
+  }).filter((s) => s.txCount > 0 || s.accountType === 'cash' || s.accountType === 'card');
 }

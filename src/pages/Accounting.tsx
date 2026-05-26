@@ -121,6 +121,13 @@ export default function AccountingPage() {
               <Button color="primary" onPress={() => navigate('/accounting/expenses')}>ورود</Button>
             </CardContent>
           </Card>
+          <Card>
+            <CardContent className="gap-2">
+              <h3 className="font-semibold">صندوق و حساب‌ها</h3>
+              <p className="text-sm text-default-500">موجودی صندوق، کارتخوان و آنلاین — دریافت وجه نقدی و کارتی</p>
+              <Button color="primary" onPress={() => navigate('/accounting/cash-accounts')}>ورود</Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

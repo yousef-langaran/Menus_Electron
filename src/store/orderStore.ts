@@ -251,6 +251,16 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             }
         }
 
+        const capturedPaymentData = {
+          paymentMethod: (mixedHasCredit ? 'credit' : state.paymentMethod) as 'cash' | 'card' | 'online' | 'mixed' | 'credit',
+          finalAmount: state.getFinalAmount(),
+          splitCash: state.splitCash,
+          splitCard: state.splitCard,
+          splitOnline: state.splitOnline,
+          mixedHasCredit,
+          customerPhone: state.customerPhone,
+        };
+
         set({isSubmitting: true});
 
     const discountAmount = state.getDiscountAmount();
@@ -303,8 +313,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           return { success: false, error: 'نشست کاربری معتبر نیست. دوباره وارد شوید.' };
         }
         // ارسال در پس‌زمینه — بلافاصله موفق برگرد و چاپ وقتی جواب آمد
-        createOrder(orderData, latestToken)
-          .then((response) => {
+        // برای ویرایش فاکتور از updateOrder استفاده می‌شود؛ برای سفارش جدید از createOrder
+        const apiCall = editingOrderId != null
+          ? updateOrder(editingOrderId, orderData, latestToken)
+          : createOrder(orderData, latestToken);
+
+        apiCall
+          .then(async (response) => {
             const order = (response as any)?.data ?? response;
             const acctWarn =
               typeof order?.accountingWarning === 'string'
@@ -315,12 +330,33 @@ export const useOrderStore = create<OrderState>((set, get) => ({
               return;
             }
             onOrderCreated?.({
-              orderId: order.id,
+              orderId: order.id ?? editingOrderId,
               orderNumber: order.orderNumber,
               receiptCallNumber: order.receiptCallNumber,
               offline: false,
               order,
             });
+            // Record payment transactions to local cash accounts ledger
+            try {
+              const { recordOrderPaymentTransactions } = await import('../services/accountingLocalDb');
+              const rid = Number(useAuthStore.getState().user?.restaurants?.[0]?.id || 0);
+              if (rid) {
+                await recordOrderPaymentTransactions({
+                  restaurantId: rid,
+                  orderId: order.id,
+                  orderNumber: order.orderNumber,
+                  customerPhone: capturedPaymentData.customerPhone || undefined,
+                  paymentMethod: capturedPaymentData.paymentMethod,
+                  finalAmount: capturedPaymentData.finalAmount,
+                  splitCash: capturedPaymentData.splitCash,
+                  splitCard: capturedPaymentData.splitCard,
+                  splitOnline: capturedPaymentData.splitOnline,
+                  mixedHasCredit: capturedPaymentData.mixedHasCredit,
+                });
+              }
+            } catch (txErr) {
+              console.warn('[CashAccounts] Failed to record transaction:', txErr);
+            }
           })
           .catch(async (error: any) => {
             const status = Number(error?.response?.status || 0);
@@ -330,7 +366,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
               console.warn('Online submission failed with 401:', errorMessage);
               return;
             }
-            if (status === 400) {
+            // ویرایش فاکتور آفلاین ممکن نیست — خطا را نمایش بده
+            if (status === 400 || editingOrderId != null) {
               onOrderFailed?.(errorMessage);
               return;
             }
