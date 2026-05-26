@@ -13,6 +13,7 @@ import {
     updateCustomerProfile,
     createCustomerAddress,
     validateDiscountCode,
+    getApplicableDiscountCodes,
     fetchOrderById,
     getMasterProductByBarcode,
     searchMasterProducts,
@@ -242,6 +243,9 @@ export default function OrderPage() {
     const [discountCodeValidating, setDiscountCodeValidating] = useState(false);
     /** خطای اعتبارسنجی کد تخفیف */
     const [discountCodeError, setDiscountCodeError] = useState('');
+    /** کدهای تخفیف قابل استفاده برای مشتری (عمومی + اختصاصی) */
+    const [availableDiscountCodes, setAvailableDiscountCodes] = useState<import('../services/api').DiscountCodeSummary[]>([]);
+    const [loadingAvailableDiscountCodes, setLoadingAvailableDiscountCodes] = useState(false);
     const [, setImageCache] = useState<Record<string, string>>({});
     /** بارگذاری سفارش برای ویرایش فاکتور (?edit=id) */
     const [orderEditLoading, setOrderEditLoading] = useState(false);
@@ -393,8 +397,30 @@ export default function OrderPage() {
         }
     }, [discountType, canUseDiscountCode, setDiscountType, setDiscountCode, setAppliedDiscountCode]);
 
-    const handleApplyDiscountCode = async () => {
-        const code = discountCode.trim();
+    // دریافت کدهای تخفیف قابل اعمال برای مشتری (بعد از وارد کردن موبایل معتبر)
+    useEffect(() => {
+        if (!showOrderModal || !canUseDiscountCode) {
+            setAvailableDiscountCodes([]);
+            return;
+        }
+        const restaurantName = user?.restaurants?.[0]?.name;
+        if (!restaurantName) return;
+        const normalized = normalizeIranMobile(customerPhone.trim());
+        if (!isValidIranMobile(normalized)) {
+            setAvailableDiscountCodes([]);
+            return;
+        }
+        let cancelled = false;
+        setLoadingAvailableDiscountCodes(true);
+        getApplicableDiscountCodes({ restaurantName, phone: normalized }, token || undefined)
+            .then((codes) => { if (!cancelled) setAvailableDiscountCodes(codes); })
+            .catch(() => { if (!cancelled) setAvailableDiscountCodes([]); })
+            .finally(() => { if (!cancelled) setLoadingAvailableDiscountCodes(false); });
+        return () => { cancelled = true; };
+    }, [showOrderModal, canUseDiscountCode, customerPhone, token]);
+
+    const handleApplyDiscountCode = async (codeOverride?: string) => {
+        const code = (codeOverride ?? discountCode).trim();
         if (!code || !token || !user?.restaurants?.[0]?.name) return;
         setDiscountCodeError('');
         setDiscountCodeValidating(true);
@@ -1445,6 +1471,7 @@ export default function OrderPage() {
         setSelectedPrinterNames([]);
         setExpandedNoteProductId(null);
         setDiscountCodeError('');
+        setAvailableDiscountCodes([]);
         setSearchTerm('');
         setBarcodeInput('');
         setSelectedAddressId(null);
@@ -2376,6 +2403,54 @@ export default function OrderPage() {
                                     اتصال آنلاین فعال است.</small>}
                             {discountType === 'code' ? (
                                 <div className="flex flex-col gap-2">
+                                    {/* ─── کدهای پیشنهادی مشتری ─── */}
+                                    {!appliedDiscountCode && (
+                                        <>
+                                            {loadingAvailableDiscountCodes && (
+                                                <p className="text-xs text-default-400">در حال بارگذاری کدهای تخفیف...</p>
+                                            )}
+                                            {!loadingAvailableDiscountCodes && availableDiscountCodes.length > 0 && (
+                                                <div className="flex flex-col gap-1.5">
+                                                    <span className="text-xs text-default-500 font-medium">کدهای تخفیف این مشتری — کلیک کنید</span>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {availableDiscountCodes.map((dc) => {
+                                                            const isSelected = discountCode.toUpperCase() === dc.code.toUpperCase();
+                                                            const valueLabel = dc.type === 'percentage'
+                                                                ? `${dc.value}٪`
+                                                                : formatPrice(dc.value);
+                                                            return (
+                                                                <button
+                                                                    key={dc.id}
+                                                                    type="button"
+                                                                    className={`flex flex-col items-start rounded-lg border px-2.5 py-1.5 text-right transition cursor-pointer
+                                                                        ${isSelected
+                                                                            ? 'border-primary bg-primary/10 text-primary'
+                                                                            : 'border-default-200 bg-default-50 hover:border-primary hover:bg-primary/5 text-foreground'
+                                                                        }`}
+                                                                    onClick={async () => {
+                                                                        setDiscountCode(dc.code);
+                                                                        setDiscountCodeError('');
+                                                                        setAppliedDiscountCode(null);
+                                                                        await handleApplyDiscountCode(dc.code);
+                                                                    }}
+                                                                >
+                                                                    <span className="font-mono font-bold text-xs tracking-wider">{dc.code}</span>
+                                                                    <span className={`text-xs mt-0.5 ${isSelected ? 'text-primary/80' : 'text-default-500'}`}>
+                                                                        {valueLabel} تخفیف
+                                                                        {dc.minimumOrderAmount ? ` · حداقل ${formatPrice(dc.minimumOrderAmount)}` : ''}
+                                                                        {dc.firstPurchaseOnly ? ' · اولین خرید' : ''}
+                                                                    </span>
+                                                                    {dc.description ? (
+                                                                        <span className="text-xs text-default-400 mt-0.5 leading-snug">{dc.description}</span>
+                                                                    ) : null}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
                                     <div className="flex gap-2 flex-wrap items-end">
                                         <Input type="text" placeholder="کد تخفیف" value={discountCode}
                                                onValueChange={(v) => {
@@ -2384,7 +2459,7 @@ export default function OrderPage() {
                                                }} isDisabled={!!appliedDiscountCode} variant="bordered"
                                                classNames={{input: 'text-right uppercase'}}/>
                                         {!appliedDiscountCode ? (
-                                            <Button size="sm" color="primary" onPress={handleApplyDiscountCode}
+                                            <Button size="sm" color="primary" onPress={() => handleApplyDiscountCode()}
                                                     isLoading={discountCodeValidating}
                                                     isDisabled={!discountCode.trim()}>{discountCodeValidating ? 'در حال بررسی...' : 'ثبت'}</Button>
                                         ) : (

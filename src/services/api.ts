@@ -363,6 +363,37 @@ export async function createOrder(orderData: any, token: string) {
   return response.data;
 }
 
+export interface DiscountCodeSummary {
+  id: number;
+  code: string;
+  type: 'percentage' | 'fixed';
+  value: number;
+  description?: string | null;
+  expiresAt?: string | null;
+  minimumOrderAmount?: number | null;
+  firstPurchaseOnly?: boolean;
+}
+
+/** کدهای تخفیف قابل استفاده برای مشتری (عمومی + اختصاصی) */
+export async function getApplicableDiscountCodes(
+  params: { restaurantName: string; phone?: string },
+  token?: string,
+): Promise<DiscountCodeSummary[]> {
+  await apiConfigReady;
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  try {
+    const response = await api.get('/discount-codes/applicable-for-customer', {
+      params: { restaurantName: params.restaurantName, phone: params.phone },
+      headers,
+      skipGlobalErrorToast: true,
+    } as any);
+    return Array.isArray(response.data) ? response.data : [];
+  } catch {
+    return [];
+  }
+}
+
 /** اعتبارسنجی کد تخفیف و دریافت مبلغ تخفیف */
 export async function validateDiscountCode(
   params: { code: string; restaurantName: string; totalAmount: number; userPhone?: string },
