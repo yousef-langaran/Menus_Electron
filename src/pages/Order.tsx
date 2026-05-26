@@ -413,7 +413,20 @@ export default function OrderPage() {
         let cancelled = false;
         setLoadingAvailableDiscountCodes(true);
         getApplicableDiscountCodes({ restaurantName, phone: normalized }, token || undefined)
-            .then((codes) => { if (!cancelled) setAvailableDiscountCodes(codes); })
+            .then((codes) => {
+                if (cancelled) return;
+                setAvailableDiscountCodes(codes);
+                // اگر کد موجود بود و هنوز تخفیف دستی/کد وارد نشده، خودکار تب کد تخفیف را باز کن
+                if (
+                    codes.length > 0 &&
+                    useOrderStore.getState().discountType !== 'code' &&
+                    !useOrderStore.getState().appliedDiscountCode &&
+                    useOrderStore.getState().discountAmount === 0 &&
+                    editingOrderId == null
+                ) {
+                    setDiscountType('code');
+                }
+            })
             .catch(() => { if (!cancelled) setAvailableDiscountCodes([]); })
             .finally(() => { if (!cancelled) setLoadingAvailableDiscountCodes(false); });
         return () => { cancelled = true; };
