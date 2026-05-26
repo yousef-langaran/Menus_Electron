@@ -1130,3 +1130,32 @@ export async function getProductsAdmin(
   });
   return response.data;
 }
+
+export async function createCreditPayment(
+  orderId: number,
+  payload: {
+    amount: number;
+    restaurantName: string;
+    notes?: string;
+    cashBankAccountId?: number;
+    paymentMethod?: string;
+  },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.post(
+    `/orders/${orderId}/credit-payment`,
+    payload,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
+export async function getCreditPaymentHistory(orderId: number, token: string) {
+  await apiConfigReady;
+  const response = await api.get(
+    `/orders/${orderId}/credit-payments`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}

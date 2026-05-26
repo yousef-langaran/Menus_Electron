@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { fetchOrders, updateOrderStatus } from '../services/api';
+import { fetchOrders, updateOrderStatus, createCreditPayment } from '../services/api';
 import CreateOrderReturnModal from '../components/CreateOrderReturnModal';
 import { getAllOrders } from '../services/offlineStorage';
 import { hasModuleAccess } from '../lib/electronPermissions';
@@ -12,7 +12,7 @@ import {
   getReceiptNumbersMapFromStorage,
   saveReceiptNumbersToStorage,
 } from '../utils/receiptNumbersStorage';
-import { Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter, Chip } from '@heroui/react';
+import { Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter, Chip, Input } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { Select, SelectItem } from '../ui/compat-select';
 import { ModalShell } from '../ui/modal-shell';
@@ -93,6 +93,15 @@ export default function OrdersPage() {
   const [onlineMeta, setOnlineMeta] = useState(DEFAULT_ONLINE_META);
   /** ایندکس سفارش جاری برای میانبر ← / → (ویرایش فاکتور) */
   const [listNavIndex, setListNavIndex] = useState(0);
+  const [creditPayModalOpen, setCreditPayModalOpen] = useState(false);
+  const [creditPayOrder, setCreditPayOrder] = useState<any>(null);
+  const [creditPayAmount, setCreditPayAmount] = useState('');
+  const [creditPayMethod, setCreditPayMethod] = useState<'cash' | 'card' | 'online'>('cash');
+  const [creditPayAccountId, setCreditPayAccountId] = useState('');
+  const [creditPayNotes, setCreditPayNotes] = useState('');
+  const [creditPaySaving, setCreditPaySaving] = useState(false);
+  const [cashBankAccounts, setCashBankAccounts] = useState<Array<{id: number; name: string; accountType: string}>>([]);
+  const [creditPayHistory, setCreditPayHistory] = useState<any[]>([]);
 
   const restaurantName = useMemo(() => {
     const name = user?.restaurants?.[0]?.name;
@@ -385,6 +394,73 @@ export default function OrdersPage() {
       if (window.electronAPI?.getReceiptNumbersMap) {
         loadReceiptNumbersMap();
       }
+    }
+  };
+
+  useEffect(() => {
+    const loadAccounts = async () => {
+      try {
+        const { accountingDb } = await import('../services/accountingLocalDb');
+        const restaurantId = user?.restaurants?.[0]?.id;
+        if (!restaurantId) return;
+        const accounts = await accountingDb.cashBankAccounts
+          .where('restaurantId').equals(Number(restaurantId))
+          .toArray();
+        setCashBankAccounts(accounts || []);
+        if (accounts?.length) setCreditPayAccountId(String(accounts[0].id));
+      } catch {
+        setCashBankAccounts([]);
+      }
+    };
+    void loadAccounts();
+  }, [user?.restaurants]);
+
+  const handleCreditPay = async () => {
+    if (!creditPayOrder || !token || !creditPayAmount) return;
+    const amt = Number(String(creditPayAmount).replace(/,/g, ''));
+    if (!amt || amt <= 0) return;
+    setCreditPaySaving(true);
+    try {
+      const restaurantName = user?.restaurants?.[0]?.name || '';
+      const result = await createCreditPayment(
+        Number(creditPayOrder.id),
+        {
+          amount: amt,
+          restaurantName,
+          notes: creditPayNotes.trim() || undefined,
+          cashBankAccountId: creditPayAccountId ? Number(creditPayAccountId) : undefined,
+          paymentMethod: creditPayMethod,
+        },
+        token,
+      );
+      // Record to local cash transactions
+      try {
+        const { recordCreditPaymentTransaction } = await import('../services/accountingLocalDb');
+        const restaurantId = user?.restaurants?.[0]?.id;
+        if (restaurantId) {
+          await recordCreditPaymentTransaction({
+            restaurantId: Number(restaurantId),
+            accountType: creditPayMethod === 'cash' ? 'cash' : creditPayMethod === 'card' ? 'card' : 'online',
+            amount: amt,
+            orderId: creditPayOrder.id,
+            orderNumber: creditPayOrder.orderNumber,
+            customerPhone: creditPayOrder.customerPhone,
+            description: creditPayNotes.trim() || undefined,
+          });
+        }
+      } catch (localErr) {
+        console.warn('[CreditPay] local tx record failed:', localErr);
+      }
+      toast.success(`پرداخت ${Number(amt).toLocaleString('fa-IR')} تومان ثبت شد`);
+      if (result.isFullyPaid) toast.success('فاکتور کاملاً تسویه شد ✓');
+      setCreditPayModalOpen(false);
+      setCreditPayAmount('');
+      setCreditPayNotes('');
+      await loadOnlineOrders();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'خطا در ثبت پرداخت');
+    } finally {
+      setCreditPaySaving(false);
     }
   };
 
@@ -690,6 +766,30 @@ export default function OrdersPage() {
                 <div>مبلغ نهایی: {formatPrice(order.finalAmount)}</div>
                 <div>تاریخ: {formatDate(order.createdAt)}</div>
               </div>
+              {order.paymentMethod === 'credit' && (
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-warning-600 font-medium">
+                    نسیه: مانده {Number(Math.max(0, (order.finalAmount ?? order.totalAmount ?? 0) - (order.creditPaidAmount ?? 0))).toLocaleString('fa-IR')} تومان
+                  </span>
+                  {((order.finalAmount ?? order.totalAmount ?? 0) - (order.creditPaidAmount ?? 0)) > 0 && (
+                    <Button
+                      size="sm"
+                      color="success"
+                      variant="flat"
+                      onPress={() => {
+                        setCreditPayOrder(order);
+                        const remaining = (order.finalAmount ?? order.totalAmount ?? 0) - (order.creditPaidAmount ?? 0);
+                        setCreditPayAmount(String(remaining));
+                        setCreditPayNotes('');
+                        setCreditPayHistory([]);
+                        setCreditPayModalOpen(true);
+                      }}
+                    >
+                      دریافت پرداخت
+                    </Button>
+                  )}
+                </div>
+              )}
               {order.notes && (
                 <p className="text-default-500 text-sm"><strong>یادداشت:</strong> {order.notes}</p>
               )}
@@ -1021,6 +1121,76 @@ export default function OrdersPage() {
           onSuccess={handleReturnSuccess}
         />
       )}
+
+      {/* مودال دریافت پرداخت نسیه */}
+      <Modal isOpen={creditPayModalOpen} onOpenChange={setCreditPayModalOpen}>
+        <ModalShell size="md">
+          <ModalHeader>دریافت پرداخت نسیه</ModalHeader>
+          <ModalBody className="gap-4">
+            {creditPayOrder && (
+              <div className="bg-default-50 border border-default-200 rounded-lg p-3 text-sm space-y-1">
+                <div className="font-semibold">فاکتور: {creditPayOrder.orderNumber || `#${creditPayOrder.id}`}</div>
+                <div className="text-default-500">مشتری: {creditPayOrder.customerPhone || '—'}</div>
+                <div className="text-default-500">
+                  مبلغ کل: {Number(creditPayOrder.finalAmount ?? creditPayOrder.totalAmount ?? 0).toLocaleString('fa-IR')} تومان
+                </div>
+                <div className="text-warning-600 font-medium">
+                  مانده: {Number(Math.max(0,(creditPayOrder.finalAmount ?? creditPayOrder.totalAmount ?? 0) - (creditPayOrder.creditPaidAmount ?? 0))).toLocaleString('fa-IR')} تومان
+                </div>
+              </div>
+            )}
+            <Input
+              type="number"
+              label="مبلغ دریافتی (تومان)"
+              value={creditPayAmount}
+              onValueChange={setCreditPayAmount}
+              min={1}
+              isRequired
+            />
+            <Select
+              label="روش پرداخت"
+              selectedKeys={[creditPayMethod]}
+              onSelectionChange={(k) => setCreditPayMethod(String(Array.from(k)[0] || 'cash') as any)}
+              variant="bordered"
+            >
+              <SelectItem key="cash">نقد (صندوق)</SelectItem>
+              <SelectItem key="card">کارت</SelectItem>
+              <SelectItem key="online">آنلاین</SelectItem>
+            </Select>
+            {cashBankAccounts.length > 0 && (
+              <Select
+                label="حساب"
+                selectedKeys={creditPayAccountId ? [creditPayAccountId] : []}
+                onSelectionChange={(k) => setCreditPayAccountId(String(Array.from(k)[0] || ''))}
+                variant="bordered"
+              >
+                {cashBankAccounts.map((a) => (
+                  <SelectItem key={String(a.id)}>
+                    {a.name} ({a.accountType === 'cashbox' ? 'صندوق' : 'بانک'})
+                  </SelectItem>
+                ))}
+              </Select>
+            )}
+            <Input
+              label="یادداشت (اختیاری)"
+              value={creditPayNotes}
+              onValueChange={setCreditPayNotes}
+              placeholder="مثلاً: پرداخت نقدی در محل"
+            />
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="flat" onPress={() => setCreditPayModalOpen(false)}>انصراف</Button>
+            <Button
+              color="success"
+              isLoading={creditPaySaving}
+              isDisabled={!creditPayAmount || Number(creditPayAmount) <= 0}
+              onPress={() => void handleCreditPay()}
+            >
+              ثبت پرداخت
+            </Button>
+          </ModalFooter>
+        </ModalShell>
+      </Modal>
     </div>
   );
 }
