@@ -15,6 +15,8 @@ import {
   upsertPulledWarehouses,
   upsertPulledWarehouseTransfers,
   upsertPulledWarehouseStocks,
+  getPendingCashTransactions,
+  markCashTransactionsSynced,
 } from './accountingLocalDb';
 import {
   createPurchaseInvoiceAccounting,
@@ -208,6 +210,11 @@ export async function runAccountingSync(args: {
     (pullResult.data.warehouses?.length || 0) +
     (pullResult.data.warehouseStocks?.length || 0);
 
+  // Push pending cash transactions to server
+  await pushPendingCashTransactions(restaurantId, token).catch((err) =>
+    console.warn('[CashSync] pushPendingCashTransactions failed:', err),
+  );
+
   return {
     isOnline: true,
     pushed,
@@ -216,4 +223,43 @@ export async function runAccountingSync(args: {
     syncedAt,
     draftPurchaseSynced,
   };
+}
+
+export async function pushPendingCashTransactions(restaurantId: number, token: string): Promise<void> {
+  const pending = await getPendingCashTransactions(restaurantId, 100);
+  if (!pending.length) return;
+
+  const { API_BASE_URL } = await import('./api');
+  const axios = (await import('axios')).default;
+
+  try {
+    const payload = {
+      restaurantId,
+      transactions: pending.map((tx) => ({
+        localId: tx.localId || String(tx.id),
+        accountType: tx.accountType,
+        accountName: tx.accountName,
+        transactionType: tx.transactionType,
+        amount: tx.amount,
+        orderId: tx.orderId,
+        orderNumber: tx.orderNumber,
+        customerPhone: tx.customerPhone,
+        referenceCode: tx.referenceCode,
+        description: tx.description,
+        date: tx.date,
+        createdAt: tx.createdAt,
+      })),
+    };
+    const res = await axios.post(`${API_BASE_URL}/accounting/cash-transactions/batch`, payload, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 15000,
+    });
+    if (res.data?.processed >= 0 || res.data?.skipped >= 0) {
+      // Mark all as synced (even skipped ones are already on server)
+      const ids = pending.map((tx) => tx.id!).filter(Boolean);
+      await markCashTransactionsSynced(ids);
+    }
+  } catch (err) {
+    console.warn('[CashSync] Failed to push cash transactions:', err);
+  }
 }

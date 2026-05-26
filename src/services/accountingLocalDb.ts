@@ -59,6 +59,8 @@ export interface CashAccountTransaction {
   description?: string;
   date: string;           // YYYY-MM-DD
   createdAt: string;
+  localId?: string;       // unique local ID for server dedup
+  syncStatus?: 'pending' | 'synced' | 'failed';
 }
 
 export class MenusAccountingDb extends Dexie {
@@ -257,6 +259,31 @@ export class MenusAccountingDb extends Dexie {
       warehouseStocks: 'id, warehouseId, restaurantId, rawMaterialId, finalProductId, updatedAt',
       cashAccountTransactions:
         '++id, restaurantId, accountType, transactionType, date, orderId, [restaurantId+accountType], [restaurantId+date]',
+      syncOperations:
+        '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
+      syncMeta: 'key',
+    });
+    // v11: adds localId + syncStatus to cashAccountTransactions for server sync
+    this.version(11).stores({
+      rawMaterials: 'id, restaurantId, updatedAt, name, barcode',
+      suppliers: 'id, restaurantId, updatedAt, name',
+      finalProducts: 'id, restaurantId, updatedAt, name, productId',
+      recipeItems: 'id, restaurantId, updatedAt, finalProductId, rawMaterialId',
+      cashBankAccounts: 'id, restaurantId, updatedAt, accountType, name',
+      operationalExpenses: 'id, restaurantId, updatedAt, expenseDate, expenseCategoryId',
+      purchaseInvoices:
+        'id, restaurantId, updatedAt, supplierId, status, purchaseDate, localSyncStatus, syncError, [restaurantId+localSyncStatus]',
+      purchaseInvoiceItems: 'id, purchaseInvoiceId, rawMaterialId, finalProductId',
+      cheques: 'id, restaurantId, updatedAt, chequeType, status, dueDate, [restaurantId+status]',
+      customerReceivables:
+        'id, restaurantId, updatedAt, status, dueDate, salesInvoiceId, [restaurantId+status]',
+      purchaseReturns: 'id, restaurantId, updatedAt, purchaseInvoiceId, status',
+      purchaseReturnItems: 'id, purchaseReturnId, rawMaterialId',
+      warehouses: 'id, restaurantId, updatedAt, isDefault, isActive',
+      warehouseTransfers: 'id, restaurantId, updatedAt, status, fromWarehouseId, toWarehouseId',
+      warehouseStocks: 'id, warehouseId, restaurantId, rawMaterialId, finalProductId, updatedAt',
+      cashAccountTransactions:
+        '++id, restaurantId, accountType, transactionType, date, orderId, localId, syncStatus, [restaurantId+accountType], [restaurantId+date], [restaurantId+syncStatus]',
       syncOperations:
         '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
       syncMeta: 'key',
@@ -907,13 +934,15 @@ export function accountTypeLabel(type: CashAccountType): string {
 }
 
 export async function recordCashTransaction(
-  input: Omit<CashAccountTransaction, 'id' | 'createdAt'>,
+  input: Omit<CashAccountTransaction, 'id' | 'createdAt' | 'localId' | 'syncStatus'>,
 ): Promise<number> {
   const now = new Date().toISOString();
-  const date = input.date || now.slice(0, 10);
+  const localId = `tx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   return accountingDb.cashAccountTransactions.add({
     ...input,
-    date,
+    localId,
+    syncStatus: 'pending',
+    date: input.date || now.slice(0, 10),
     createdAt: now,
   });
 }
@@ -930,12 +959,16 @@ export async function recordOrderPaymentTransactions(params: {
   splitOnline: number;
   mixedHasCredit: boolean;
   referenceCode?: string;
+  cashAccountName?: string;   // e.g., "صندوق جلو" (defaults to 'صندوق')
+  cardAccountName?: string;   // e.g., "کارتخوان ۱" (defaults to 'کارتخوان')
 }): Promise<void> {
   const {
     restaurantId, orderId, orderNumber, customerPhone,
     paymentMethod, finalAmount, splitCash, splitCard, splitOnline, mixedHasCredit,
     referenceCode,
   } = params;
+  const cashName = params.cashAccountName || 'صندوق';
+  const cardName = params.cardAccountName || 'کارتخوان';
   const today = new Date().toISOString().slice(0, 10);
   const base = {
     restaurantId, orderId, orderNumber,
@@ -946,18 +979,18 @@ export async function recordOrderPaymentTransactions(params: {
   };
 
   if (paymentMethod === 'cash') {
-    await recordCashTransaction({ ...base, accountType: 'cash', accountName: 'صندوق', amount: finalAmount });
+    await recordCashTransaction({ ...base, accountType: 'cash', accountName: cashName, amount: finalAmount });
   } else if (paymentMethod === 'card') {
-    await recordCashTransaction({ ...base, accountType: 'card', accountName: 'کارتخوان', amount: finalAmount });
+    await recordCashTransaction({ ...base, accountType: 'card', accountName: cardName, amount: finalAmount });
   } else if (paymentMethod === 'online') {
     await recordCashTransaction({ ...base, accountType: 'online', accountName: 'آنلاین', amount: finalAmount });
   } else if (paymentMethod === 'mixed' || paymentMethod === 'credit') {
     // Record each portion to its respective account
     if (splitCash > 0) {
-      await recordCashTransaction({ ...base, accountType: 'cash', accountName: 'صندوق', amount: splitCash });
+      await recordCashTransaction({ ...base, accountType: 'cash', accountName: cashName, amount: splitCash });
     }
     if (splitCard > 0) {
-      await recordCashTransaction({ ...base, accountType: 'card', accountName: 'کارتخوان', amount: splitCard, referenceCode });
+      await recordCashTransaction({ ...base, accountType: 'card', accountName: cardName, amount: splitCard, referenceCode });
     }
     if (splitOnline > 0) {
       await recordCashTransaction({ ...base, accountType: 'online', accountName: 'آنلاین', amount: splitOnline });
@@ -1042,4 +1075,21 @@ export async function getAllCashAccountsSummary(restaurantId: number): Promise<
     const balance = txs.reduce((sum, r) => sum + Number(r.amount || 0), 0);
     return { accountType: type, accountName: accountTypeLabel(type), balance, txCount: txs.length };
   }).filter((s) => s.txCount > 0 || s.accountType === 'cash' || s.accountType === 'card');
+}
+
+export async function getPendingCashTransactions(restaurantId: number, limit = 100): Promise<CashAccountTransaction[]> {
+  try {
+    return await accountingDb.cashAccountTransactions
+      .where('[restaurantId+syncStatus]')
+      .equals([restaurantId, 'pending'])
+      .limit(limit)
+      .toArray() as CashAccountTransaction[];
+  } catch {
+    const all = await accountingDb.cashAccountTransactions.where('restaurantId').equals(restaurantId).toArray() as CashAccountTransaction[];
+    return all.filter((tx) => tx.syncStatus === 'pending').slice(0, limit);
+  }
+}
+
+export async function markCashTransactionsSynced(ids: number[]): Promise<void> {
+  await Promise.all(ids.map((id) => accountingDb.cashAccountTransactions.update(id, { syncStatus: 'synced' })));
 }

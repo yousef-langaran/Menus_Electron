@@ -288,6 +288,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       ...(state.paymentMethod === 'credit' || mixedHasCredit
         ? { creditPaidAmount: state.splitCash + state.splitCard + state.splitOnline }
         : {}),
+      splitCash: state.splitCash > 0 ? state.splitCash : undefined,
+      splitCard: state.splitCard > 0 ? state.splitCard : undefined,
+      splitOnline: state.splitOnline > 0 ? state.splitOnline : undefined,
       items: state.cart.map(item => ({
         productId: item.productId,
         productName: item.product?.name_fa || item.product?.name || undefined,
@@ -336,27 +339,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
               offline: false,
               order,
             });
-            // Record payment transactions to local cash accounts ledger
-            try {
-              const { recordOrderPaymentTransactions } = await import('../services/accountingLocalDb');
-              const rid = Number(useAuthStore.getState().user?.restaurants?.[0]?.id || 0);
-              if (rid) {
-                await recordOrderPaymentTransactions({
-                  restaurantId: rid,
-                  orderId: order.id,
-                  orderNumber: order.orderNumber,
-                  customerPhone: capturedPaymentData.customerPhone || undefined,
-                  paymentMethod: capturedPaymentData.paymentMethod,
-                  finalAmount: capturedPaymentData.finalAmount,
-                  splitCash: capturedPaymentData.splitCash,
-                  splitCard: capturedPaymentData.splitCard,
-                  splitOnline: capturedPaymentData.splitOnline,
-                  mixedHasCredit: capturedPaymentData.mixedHasCredit,
-                });
-              }
-            } catch (txErr) {
-              console.warn('[CashAccounts] Failed to record transaction:', txErr);
-            }
           })
           .catch(async (error: any) => {
             const status = Number(error?.response?.status || 0);

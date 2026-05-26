@@ -166,6 +166,9 @@ export default function OrderPage() {
     const [cardTerminalStatus, setCardTerminalStatus] = useState<'idle' | 'sending' | 'approved' | 'failed'>('idle');
     const [cardTerminalError, setCardTerminalError] = useState('');
     const [cardTerminalRefId, setCardTerminalRefId] = useState('');
+    const [cashBoxAccounts, setCashBoxAccounts] = useState<Array<{id: number; name: string; accountType: string}>>([]);
+    const [selectedCashBoxId, setSelectedCashBoxId] = useState<number | null>(null);
+    const [selectedCashBoxName, setSelectedCashBoxName] = useState('صندوق');
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
@@ -893,6 +896,28 @@ export default function OrderPage() {
         }
     }, [showOrderModal]);
 
+    useEffect(() => {
+        const loadCashBoxes = async () => {
+            try {
+                const { accountingDb } = await import('../services/accountingLocalDb');
+                const restaurantId = user?.restaurants?.[0]?.id;
+                if (!restaurantId) return;
+                const accounts = await accountingDb.cashBankAccounts
+                    .where('restaurantId').equals(Number(restaurantId))
+                    .filter((a: any) => a.accountType === 'cashbox' || a.accountType === 'cash')
+                    .toArray();
+                setCashBoxAccounts(accounts || []);
+                if (accounts && accounts.length > 0) {
+                    setSelectedCashBoxId(accounts[0].id);
+                    setSelectedCashBoxName(accounts[0].name || 'صندوق');
+                }
+            } catch {
+                setCashBoxAccounts([]);
+            }
+        };
+        loadCashBoxes();
+    }, [user?.restaurants]);
+
     const handleSubmit = async () => {
         const normalizedPhone = normalizeIranMobile(customerPhone.trim());
         if (isMobileRequired && !customerPhone.trim()) {
@@ -1036,7 +1061,7 @@ export default function OrderPage() {
 
         const isEditingInvoice = editingOrderId != null;
 
-        const onOrderCreated = (res: {
+        const onOrderCreated = async (res: {
             orderId: number;
             orderNumber?: string;
             receiptCallNumber?: number;
@@ -1075,10 +1100,36 @@ export default function OrderPage() {
                 ? [`offline-${res.orderId}`]
                 : [String(res.orderId), res.orderNumber, orderData.orderNumber].filter(Boolean);
             runPrint(orderData, orderKeys, {printOption, selectedPrinterNames});
+            // Record payment transactions to local cash accounts ledger
+            try {
+                const { recordOrderPaymentTransactions } = await import('../services/accountingLocalDb');
+                const rid = user?.restaurants?.[0]?.id;
+                const mixedHasCreditLocal = paymentMethod === 'mixed' &&
+                    (splitCash + splitCard + splitOnline) < getFinalAmount() &&
+                    (splitCash + splitCard + splitOnline) > 0;
+                if (rid) {
+                    await recordOrderPaymentTransactions({
+                        restaurantId: Number(rid),
+                        orderId: res.orderId,
+                        orderNumber: res.orderNumber,
+                        customerPhone: snapshot.customerPhone || undefined,
+                        paymentMethod: paymentMethod as any,
+                        finalAmount: snapshot.finalAmount,
+                        splitCash,
+                        splitCard,
+                        splitOnline,
+                        mixedHasCredit: mixedHasCreditLocal,
+                        referenceCode: cardTerminalRefId || undefined,
+                        cashAccountName: selectedCashBoxName,
+                        cardAccountName: cardTerminalProfiles.find((p) => p.id === selectedCardTerminalId)?.name || 'کارتخوان',
+                    });
+                }
+            } catch (txErr) {
+                console.warn('[CashAccounts] Failed to record transaction:', txErr);
+            }
         };
 
         const onOrderFailed = (errorMessage: string) => {
-            if (isEditingInvoice) return;
             setSuccessMessage('');
             setError(errorMessage);
             setShowOrderModal(true);
@@ -1111,6 +1162,30 @@ export default function OrderPage() {
                 setError('');
                 setSuccessMessage('فاکتور به‌روز شد');
                 setShowOrderModal(false);
+                // چاپ فاکتور ویرایش‌شده (با داده‌های snapshot که از فرم گرفته‌ایم)
+                const restaurantNameForPrint = user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || '';
+                const fullNameForPrint = [trimmedFirstName || loadedCustomerFirstName, trimmedLastName || loadedCustomerLastName]
+                    .filter(Boolean)
+                    .join(' ')
+                    .trim();
+                const editedOrderData = {
+                    id: editingOrderId,
+                    orderNumber: `ORD-${editingOrderId}`,
+                    restaurantName: restaurantNameForPrint,
+                    customerPhone: snapshot.customerPhone,
+                    customerName: fullNameForPrint || snapshot.customerPhone,
+                    serviceType: snapshot.serviceType,
+                    tableNumber: snapshot.tableNumber,
+                    customerAddress: snapshot.customerAddress,
+                    paymentMethod: snapshot.paymentMethod,
+                    notes: snapshot.notes,
+                    items: snapshot.items,
+                    totalAmount: snapshot.totalAmount,
+                    discountAmount: snapshot.discountAmount,
+                    finalAmount: snapshot.finalAmount,
+                };
+                const editOrderKeys = [String(editingOrderId)];
+                runPrint(editedOrderData, editOrderKeys, {printOption, selectedPrinterNames});
                 clearCart();
                 setUserExists(null);
                 setLoadedCustomerFirstName('');
@@ -2045,6 +2120,26 @@ export default function OrderPage() {
                             <SelectItem key="mixed" textValue="ترکیبی">ترکیبی</SelectItem>
                             <SelectItem key="credit" textValue="اعتباری (نسیه)">اعتباری (نسیه)</SelectItem>
                         </Select>
+                        {cashBoxAccounts.length > 1 && (paymentMethod === 'cash' || paymentMethod === 'mixed' || paymentMethod === 'credit') && (
+                            <Select
+                                label="صندوق"
+                                selectedKeys={selectedCashBoxId ? [String(selectedCashBoxId)] : []}
+                                onSelectionChange={(keys) => {
+                                    const id = Number(Array.from(keys)[0]);
+                                    const acc = cashBoxAccounts.find((a) => a.id === id);
+                                    if (acc) {
+                                        setSelectedCashBoxId(acc.id);
+                                        setSelectedCashBoxName(acc.name || 'صندوق');
+                                    }
+                                }}
+                                variant="bordered"
+                                size="sm"
+                            >
+                                {cashBoxAccounts.map((acc) => (
+                                    <SelectItem key={String(acc.id)}>{acc.name}</SelectItem>
+                                ))}
+                            </Select>
+                        )}
                         {paymentMethod === 'mixed' && (() => {
                             const finalAmt = getFinalAmount();
                             const paidNow = splitCash + splitCard + splitOnline;

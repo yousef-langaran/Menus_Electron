@@ -216,7 +216,7 @@ export default function OrdersPage() {
       const cleanup = window.electronAPI.onOnlineStatusChange((status) => {
         setIsOnline(status);
         if (!status) {
-          setOnlineOrders([]);
+          // سفارشات قبلاً بارگذاری‌شده را پاک نکن — کاربر همان‌ها را می‌بیند تا اتصال برقرار شود
           toast.info('شما آفلاین هستید. سفارشات جدید در حافظه نگهداری می‌شوند.');
           loadOfflineOrders();
         }
@@ -229,7 +229,7 @@ export default function OrdersPage() {
       const handleOnline = () => setIsOnline(true);
       const handleOffline = () => {
         setIsOnline(false);
-        setOnlineOrders([]);
+        // سفارشات قبلاً بارگذاری‌شده را پاک نکن — کاربر همان‌ها را می‌بیند تا اتصال برقرار شود
         toast.info('شما آفلاین هستید. سفارشات جدید در حافظه نگهداری می‌شوند.');
         loadOfflineOrders();
       };
@@ -357,8 +357,12 @@ export default function OrdersPage() {
     } catch (error: any) {
       console.error('Failed to fetch orders:', error);
       toast.error(error?.response?.data?.message || 'خطا در دریافت سفارشات آنلاین');
-      setOnlineOrders([]);
-      setOnlineMeta(DEFAULT_ONLINE_META);
+      // اگر خطای شبکه‌ای است (آفلاین شدیم در حین درخواست)، داده‌های قبلی را نگه‌دار
+      // فقط در صورت خطای سرور (مثل 400/401/500) لیست پاک می‌شود
+      if (error?.response) {
+        setOnlineOrders([]);
+        setOnlineMeta(DEFAULT_ONLINE_META);
+      }
     } finally {
       setOnlineLoading(false);
       if (window.electronAPI?.getReceiptNumbersMap) {
@@ -885,11 +889,35 @@ export default function OrdersPage() {
               </div>
             )}
 
-            <h2 className="text-lg font-semibold text-foreground">
-              {isOnline ? 'سفارشات آنلاین' : 'سفارشات آفلاین (در انتظار اتصال)'}
-            </h2>
-
-            {isOnline ? renderOnlineOrders() : renderOfflineOrders()}
+            {isOnline ? (
+              <>
+                <h2 className="text-lg font-semibold text-foreground">سفارشات آنلاین</h2>
+                {renderOnlineOrders()}
+              </>
+            ) : (
+              <>
+                {offlineOrders.length > 0 && (
+                  <>
+                    <h2 className="text-lg font-semibold text-foreground">سفارشات آفلاین (در انتظار ارسال)</h2>
+                    {renderOfflineOrders()}
+                  </>
+                )}
+                {onlineOrders.length > 0 && (
+                  <>
+                    <h2 className="text-lg font-semibold text-foreground mt-4">
+                      آخرین سفارشات بارگذاری‌شده
+                      <span className="text-sm font-normal text-default-500 mr-2">(نمایش کش — ممکن است به‌روز نباشند)</span>
+                    </h2>
+                    {renderOnlineOrders()}
+                  </>
+                )}
+                {offlineOrders.length === 0 && onlineOrders.length === 0 && (
+                  <div className="py-12 text-center text-default-500">
+                    سفارشی برای نمایش وجود ندارد.
+                  </div>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
