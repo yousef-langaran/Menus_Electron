@@ -406,6 +406,64 @@ export async function validateDiscountCode(
   return response.data as { valid: boolean; discountAmount?: number; message?: string };
 }
 
+// ─── گردونه شانس — ووچرهای جایزه ────────────────────────────────────────────
+
+export interface WheelPrizeVoucher {
+  id: number;
+  restaurant_id: number;
+  wheel_id: number;
+  spin_id: number;
+  phone: string;
+  prizeType: 'discount_percent' | 'discount_amount' | 'points' | 'free_product' | 'custom';
+  prizeData: Record<string, any> | null;
+  expiresAt: string | null;
+  isRedeemed: boolean;
+  redeemedAt: string | null;
+  redeemedOrderId: number | null;
+  createdAt: string;
+}
+
+/**
+ * بررسی ووچرهای فعال گردونه شانس برای یک شماره موبایل
+ * در پنل الکترون، هنگام ورود شماره مشتری فراخوانی می‌شود
+ */
+export async function getWheelPrizeVouchers(
+  params: { restaurantId: number; phone: string },
+  token?: string,
+): Promise<WheelPrizeVoucher[]> {
+  await apiConfigReady;
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  try {
+    const response = await api.get(`/lucky-wheel/restaurants/${params.restaurantId}/vouchers`, {
+      params: { phone: params.phone },
+      headers,
+      skipGlobalErrorToast: true,
+    } as any);
+    return Array.isArray(response.data) ? response.data : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * اعمال ووچر گردونه شانس روی سفارش
+ */
+export async function redeemWheelPrizeVoucher(
+  params: { restaurantId: number; voucherId: number; orderId?: number },
+  token?: string,
+): Promise<WheelPrizeVoucher> {
+  await apiConfigReady;
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await api.post(
+    `/lucky-wheel/restaurants/${params.restaurantId}/vouchers/${params.voucherId}/redeem`,
+    { orderId: params.orderId },
+    { headers },
+  );
+  return response.data as WheelPrizeVoucher;
+}
+
 const DEFAULT_ORDERS_PAGE_SIZE = 50;
 
 export async function fetchOrders(

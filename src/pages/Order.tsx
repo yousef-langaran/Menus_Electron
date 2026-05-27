@@ -19,6 +19,9 @@ import {
     searchMasterProducts,
     getProductsLastUpdatedAt,
     getProductsPublicPaginated,
+    getWheelPrizeVouchers,
+    redeemWheelPrizeVoucher,
+    type WheelPrizeVoucher,
 } from '../services/api';
 import {getCachedMenu, cacheMenu} from '../services/cache';
 import { getLocalProducts, getLocalCategories } from '../services/catalogLocalDb';
@@ -187,6 +190,10 @@ export default function OrderPage() {
         enabledPrinters: Object.values(state.configs).filter((config) => config.enabled),
         getPrinterReceipts: state.getPrinterReceipts,
     }));
+    /** ووچرهای فعال گردونه شانس برای شماره موبایل وارد‌شده */
+    const [wheelVouchers, setWheelVouchers] = useState<WheelPrizeVoucher[]>([]);
+    const [applyingVoucher, setApplyingVoucher] = useState<number | null>(null);
+
     const phoneInputRef = useRef<HTMLInputElement>(null);
     /** ref پنل توضیحات باز — برای تشخیص کلیک داخل پنل در onBlur */
     const notePanelRef = useRef<HTMLDivElement | null>(null);
@@ -801,6 +808,7 @@ export default function OrderPage() {
 
         setLoadedCustomerFirstName('');
         setLoadedCustomerLastName('');
+        setWheelVouchers([]);
         setIsCheckingUser(true);
         try {
             const isOnline = window.electronAPI
@@ -808,7 +816,16 @@ export default function OrderPage() {
                 : navigator.onLine;
 
             if (isOnline) {
-                const response = await checkUser(normalizedPhone);
+                const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
+
+                // چک کاربر + ووچرهای گردونه به‌صورت موازی
+                const [response, vouchers] = await Promise.all([
+                    checkUser(normalizedPhone),
+                    restaurantId
+                        ? getWheelPrizeVouchers({ restaurantId, phone: normalizedPhone }, token ?? undefined)
+                        : Promise.resolve([]),
+                ]);
+
                 setUserExists(response.userExists || false);
                 if (response.userExists && (response.firstName != null || response.lastName != null)) {
                     setLoadedCustomerFirstName(response.firstName ?? '');
@@ -818,6 +835,10 @@ export default function OrderPage() {
                 } else {
                     setCustomerFirstNameInput('');
                     setCustomerLastNameInput('');
+                }
+
+                if (vouchers.length > 0) {
+                    setWheelVouchers(vouchers);
                 }
             } else {
                 setUserExists(null);
@@ -829,6 +850,58 @@ export default function OrderPage() {
             setLoadedCustomerLastName('');
         } finally {
             setIsCheckingUser(false);
+        }
+    };
+
+    /** اعمال ووچر گردونه شانس روی سفارش جاری */
+    const handleApplyWheelVoucher = async (voucher: WheelPrizeVoucher) => {
+        const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
+        if (!restaurantId) return;
+
+        setApplyingVoucher(voucher.id);
+        try {
+            await redeemWheelPrizeVoucher({ restaurantId, voucherId: voucher.id }, token ?? undefined);
+
+            if (voucher.prizeType === 'discount_percent') {
+                const percent = Number(voucher.prizeData?.percent || 0);
+                const total = getTotalAmount();
+                const disc = Math.round((total * percent) / 100);
+                setDiscountType('fixed');
+                setDiscountAmount(disc);
+                setAppliedDiscountCode(null);
+                toast.success(`🎡 تخفیف ${percent}٪ گردونه اعمال شد (${disc.toLocaleString('fa-IR')} ت)`);
+            } else if (voucher.prizeType === 'discount_amount') {
+                const disc = Number(voucher.prizeData?.amount || 0);
+                setDiscountType('fixed');
+                setDiscountAmount(disc);
+                setAppliedDiscountCode(null);
+                toast.success(`🎡 تخفیف ${disc.toLocaleString('fa-IR')} تومان اعمال شد`);
+            } else if (voucher.prizeType === 'free_product') {
+                const productName = voucher.prizeData?.productName ?? 'کالای رایگان';
+                const productPrice = Number(voucher.prizeData?.productPrice || 0);
+                // اضافه کردن آیتم رایگان با قیمت ۰ به سبد
+                const freeItem = {
+                    id: `wheel-free-${voucher.id}`,
+                    name: `🎁 ${productName} (رایگان — گردونه شانس)`,
+                    price: 0,
+                    originalPrice: productPrice,
+                    quantity: 1,
+                    isWheelPrize: true,
+                };
+                addToCart(freeItem as any);
+                toast.success(`🎡 ${productName} به سبد اضافه شد (رایگان)`);
+            } else if (voucher.prizeType === 'points') {
+                toast.success(`🎡 ${voucher.prizeData?.points ?? 0} امتیاز برای مشتری ثبت شد`);
+            } else {
+                toast.success(`🎡 جایزه گردونه اعمال شد`);
+            }
+
+            // حذف ووچر اعمال‌شده از لیست
+            setWheelVouchers((prev) => prev.filter((v) => v.id !== voucher.id));
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message ?? 'خطا در اعمال ووچر');
+        } finally {
+            setApplyingVoucher(null);
         }
     };
 
@@ -2023,6 +2096,7 @@ export default function OrderPage() {
                                     setShowCustomerNameFields(false);
                                     setSuccessMessage('');
                                     setError('');
+                                    setWheelVouchers([]);
                                 }}
                                 autoComplete="tel"
                                 variant="bordered"
@@ -2074,14 +2148,65 @@ export default function OrderPage() {
                                             color="primary"
                                             isDisabled={showCustomerNameFields}
                                             onPress={async () => {
-                                                // فقط باکس نام/نام خانوادگی را نشان می‌دهیم.
-                                                // ساخت/آپدیت مشتری در submit سفارش انجام می‌شود.
                                                 setShowCustomerNameFields(true);
                                             }}
                                         >
                                             {showCustomerNameFields ? 'نام مشتری را وارد کنید' : 'افزودن به مشتریان'}
                                         </Button>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* ── ووچرهای گردونه شانس ─────────────────────────────── */}
+                            {wheelVouchers.length > 0 && (
+                                <div className="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3"
+                                     style={{ direction: 'rtl' }}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span style={{ fontSize: 18 }}>🎡</span>
+                                        <span className="text-sm font-bold text-amber-800">
+                                            جوایز گردونه شانس ({wheelVouchers.length})
+                                        </span>
+                                    </div>
+                                    {wheelVouchers.map((v) => {
+                                        const prizeLabel = (() => {
+                                            if (v.prizeType === 'discount_percent')
+                                                return `${v.prizeData?.percent ?? 0}٪ تخفیف`;
+                                            if (v.prizeType === 'discount_amount')
+                                                return `${Number(v.prizeData?.amount ?? 0).toLocaleString('fa-IR')} تومان تخفیف`;
+                                            if (v.prizeType === 'free_product')
+                                                return `کالای رایگان: ${v.prizeData?.productName ?? ''}`;
+                                            if (v.prizeType === 'points')
+                                                return `${v.prizeData?.points ?? 0} امتیاز`;
+                                            return v.prizeData?.text ?? 'جایزه سفارشی';
+                                        })();
+                                        const expiry = v.expiresAt
+                                            ? new Date(v.expiresAt).toLocaleDateString('fa-IR')
+                                            : null;
+                                        return (
+                                            <div key={v.id}
+                                                 className="flex items-center justify-between gap-2 rounded-lg bg-white border border-amber-200 px-3 py-2">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="text-sm font-semibold text-amber-900">
+                                                        {prizeLabel}
+                                                    </span>
+                                                    {expiry && (
+                                                        <span className="text-xs text-amber-600">
+                                                            انقضا: {expiry}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <Button
+                                                    size="sm"
+                                                    color="warning"
+                                                    isLoading={applyingVoucher === v.id}
+                                                    onPress={() => handleApplyWheelVoucher(v)}
+                                                    className="shrink-0 font-bold text-white bg-amber-500 hover:bg-amber-600"
+                                                >
+                                                    اعمال
+                                                </Button>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
