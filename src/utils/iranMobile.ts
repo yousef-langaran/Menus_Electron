@@ -28,3 +28,7 @@ export function isValidIranMobile(input: string): boolean {
   const normalized = normalizeIranMobile(input);
   return /^09\d{9}$/.test(normalized);
 }
+
+export function sanitizeMobileInput(input: string): string {
+  return toEnglishDigits(input).replace(/\D/g, '').slice(0, 11);
+}

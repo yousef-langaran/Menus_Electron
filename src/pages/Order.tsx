@@ -31,7 +31,7 @@ import {
     saveReceiptNumbersToStorage,
     getNextReceiptNumberBrowser,
 } from '../utils/receiptNumbersStorage';
-import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
+import { isValidIranMobile, normalizeIranMobile, sanitizeMobileInput } from '../utils/iranMobile';
 import { Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { Input } from '../ui/compat-input';
@@ -2102,7 +2102,8 @@ export default function OrderPage() {
                                 placeholder="09123456789"
                                 value={customerPhone}
                                 onValueChange={(v) => {
-                                    setCustomerPhone(v);
+                                    const sanitized = sanitizeMobileInput(v);
+                                    setCustomerPhone(sanitized);
                                     setUserExists(null);
                                     setLoadedCustomerFirstName('');
                                     setLoadedCustomerLastName('');
@@ -2114,7 +2115,10 @@ export default function OrderPage() {
                                     setWheelVouchers([]);
                                 }}
                                 autoComplete="tel"
+                                inputMode="numeric"
                                 variant="bordered"
+                                isInvalid={customerPhone.length > 0 && !isValidIranMobile(customerPhone)}
+                                errorMessage={customerPhone.length > 0 && !isValidIranMobile(customerPhone) ? 'شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود' : undefined}
                                 endContent={
                                     <Button size="sm" isDisabled={isCheckingUser || !customerPhone.trim()}
                                             onPress={handleCheckUser}>

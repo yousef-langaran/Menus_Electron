@@ -11,7 +11,7 @@ import {
 import { Input } from '../ui/compat-input';
 import { Button } from '../ui/compat-button';
 import { useAuthStore } from '../store/authStore';
-import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
+import { isValidIranMobile, normalizeIranMobile, sanitizeMobileInput } from '../utils/iranMobile';
 import { toast } from '../utils/toast';
 
 const EyeIcon = ({ className }: { className?: string }) => (
@@ -90,13 +90,14 @@ export default function LoginPage() {
               placeholder="09123456789"
               value={mobile}
               onValueChange={(v) => {
-                setMobile(v);
+                setMobile(sanitizeMobileInput(v));
                 setMobileError('');
               }}
               isRequired
-              isInvalid={!!mobileError}
-              errorMessage={mobileError}
+              isInvalid={!!mobileError || (mobile.length > 0 && !isValidIranMobile(mobile))}
+              errorMessage={mobileError || (mobile.length > 0 && !isValidIranMobile(mobile) ? 'شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود' : undefined)}
               size="lg"
+              inputMode="numeric"
               classNames={{ input: 'text-right' }}
             />
             <Input
