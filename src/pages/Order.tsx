@@ -327,7 +327,7 @@ export default function OrderPage() {
                             quantity: qty,
                             price,
                             totalPrice: price * qty,
-                            itemOption: (row.itemNote || row.itemOption || '') as string,
+                            itemOption: row.itemNote?.trim() ?? '',
                         };
                     });
                 const {
@@ -1267,7 +1267,7 @@ export default function OrderPage() {
                     quantity: item.quantity,
                     price: item.price,
                     totalPrice: item.quantity * item.price,
-                    itemOption: item.itemOption || '',
+                    itemOption: String(item.itemOption ?? ''),
                 })),
                 customerPhone: snapshot.customerPhone,
                 serviceType: snapshot.serviceType,
@@ -1858,10 +1858,10 @@ export default function OrderPage() {
                                 ) : (
                                     <div className="flex flex-col gap-1.5">
                                         {cart.map(item => {
-                                            const noteValue = item.itemOption || '';
+                                            const noteValue = String(item.itemOption ?? '');
                                             const isNoteOpen = expandedNoteProductId === item.productId;
                                             const appendOption = (opt: string) => {
-                                                const current = (item.itemOption || '').trim();
+                                                const current = String(item.itemOption ?? '').trim();
                                                 const sep = current ? '، ' : '';
                                                 updateCartItemOption(item.productId, current + sep + opt);
                                             };

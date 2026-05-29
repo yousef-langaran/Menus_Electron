@@ -9,17 +9,17 @@ export type CompatTextareaProps = TAProps & {
 };
 
 export function Textarea({ label, onValueChange, value, defaultValue, className, ...rest }: CompatTextareaProps) {
-  const tf = {
+  const tfProps = {
     value,
     defaultValue,
     onChange: onValueChange,
   };
-  const area = <TextArea className={className} variant="secondary" {...tf} {...rest} />;
+  const area = <TextArea className={className} variant="secondary" {...rest} />;
   if (!label) {
-    return <TextField {...tf}>{area}</TextField>;
+    return <TextField {...tfProps}>{area}</TextField>;
   }
   return (
-    <TextField {...tf}>
+    <TextField {...tfProps}>
       <Label>{label}</Label>
       {area}
     </TextField>
