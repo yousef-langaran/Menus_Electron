@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button, Chip, Dropdown, Separator } from '@heroui/react';
 import { useAuthStore } from '../store/authStore';
+import { useCallerIdStore } from '../store/callerIdStore';
 import {
   canAccessRoute,
   hasOrderRegisterAccess,
@@ -64,6 +65,8 @@ export function ElectronMenubar() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const online = useOnlineFlag();
+  const callHistoryCount = useCallerIdStore((s) => s.callHistory.length);
+  const callerIdEnabled = useCallerIdStore((s) => s.settings?.enabled ?? false);
 
   const salesItems: NavLeaf[] = useMemo(
     () => [
@@ -116,8 +119,9 @@ export function ElectronMenubar() {
     () => [
       { path: '/settings', label: 'تنظیمات و سخت‌افزار', visible: (u) => canAccessRoute(u, '/settings') },
       { path: '/card-terminals', label: 'مدیریت کارتخوان‌ها', visible: (u) => canAccessRoute(u, '/card-terminals') },
+      { path: '/call-history', label: 'تاریخچه تماس‌ها', visible: () => callerIdEnabled },
     ],
-    [],
+    [callerIdEnabled],
   );
 
   const filterVisible = (items: NavLeaf[]) => items.filter((i) => i.visible(user));
@@ -126,6 +130,8 @@ export function ElectronMenubar() {
   const catalogVis = filterVisible(catalogItems);
   const accountingVis = filterVisible(accountingItems);
   const systemVis = filterVisible(systemItems);
+  const systemHwVis = systemVis.filter((i) => i.path !== '/call-history');
+  const systemCallVis = systemVis.filter((i) => i.path === '/call-history');
 
   const userLabel =
     [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
@@ -279,16 +285,44 @@ export function ElectronMenubar() {
           >
             <span className="inline-flex items-center gap-1">
               سیستم
+              {callHistoryCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1 leading-none">
+                  {callHistoryCount}
+                </span>
+              )}
               <span className="text-[10px] opacity-60">▾</span>
             </span>
           </Dropdown.Trigger>
           <Dropdown.Popover>
             <Dropdown.Menu aria-label="سیستم" onAction={onMenuAction}>
-              {systemVis.map((item) => (
-                <Dropdown.Item key={item.path} id={item.path} textValue={item.label}>
-                  {item.label}
-                </Dropdown.Item>
-              ))}
+              {systemHwVis.length > 0 ? (
+                <Dropdown.Section title="سخت‌افزار">
+                  {systemHwVis.map((item) => (
+                    <Dropdown.Item
+                      key={item.path}
+                      id={item.path}
+                      textValue={item.label}
+                      className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
+                    >
+                      {item.label}
+                    </Dropdown.Item>
+                  ))}
+                </Dropdown.Section>
+              ) : null}
+              {systemCallVis.length > 0 ? (
+                <Dropdown.Section title="تماس">
+                  {systemCallVis.map((item) => (
+                    <Dropdown.Item
+                      key={item.path}
+                      id={item.path}
+                      textValue={item.label}
+                      className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
+                    >
+                      {item.label}
+                    </Dropdown.Item>
+                  ))}
+                </Dropdown.Section>
+              ) : null}
             </Dropdown.Menu>
           </Dropdown.Popover>
         </Dropdown.Root>

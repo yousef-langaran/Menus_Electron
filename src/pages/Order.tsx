@@ -139,13 +139,28 @@ export default function OrderPage() {
         getDiscountAmount,
     } = useOrderStore();
 
+    // Dependency is location.key so this re-runs on every navigation to /order,
+    // even when the component is already mounted (e.g. clicking "ثبت سفارش"
+    // from the caller-ID overlay while already on the order page).
     useEffect(() => {
         const prefill = (location.state as any)?.prefill;
         if (!prefill) return;
         if (prefill.customerPhone) setCustomerPhone(String(prefill.customerPhone));
         if (prefill.customerAddress) setCustomerAddress(String(prefill.customerAddress));
+        // Pre-fill customer name when navigating from caller-ID overlay
+        if (prefill.customerName) {
+            const parts = String(prefill.customerName).trim().split(/\s+/);
+            const first = parts[0] || '';
+            const last = parts.slice(1).join(' ') || '';
+            setLoadedCustomerFirstName(first);
+            setLoadedCustomerLastName(last);
+            setCustomerFirstNameInput(first);
+            setCustomerLastNameInput(last);
+            setUserExists(true);
+        }
         window.history.replaceState({}, '');
-    }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.key]);
 
     const [products, setProducts] = useState<any[]>([]);
     const [categories, setCategories] = useState<string[]>([]);

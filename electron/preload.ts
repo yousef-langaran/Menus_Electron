@@ -101,12 +101,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   callerIdSerialConnect: (settings: any) => ipcRenderer.invoke('caller-id:serial-connect', settings),
   callerIdSerialDisconnect: () => ipcRenderer.invoke('caller-id:serial-disconnect'),
   callerIdSerialStatus: () => ipcRenderer.invoke('caller-id:serial-status'),
+  callerIdHidListDevices: () => ipcRenderer.invoke('caller-id:hid-list-devices'),
+  callerIdHidConnect: () => ipcRenderer.invoke('caller-id:hid-connect'),
+  callerIdHidDisconnect: () => ipcRenderer.invoke('caller-id:hid-disconnect'),
+  callerIdHidStatus: () => ipcRenderer.invoke('caller-id:hid-status'),
   onIncomingCall: (callback: (payload: { phone: string; timestamp: string }) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, payload: { phone: string; timestamp: string }) =>
       callback(payload);
     ipcRenderer.on('caller-id:incoming-call', handler);
     return () => ipcRenderer.removeListener('caller-id:incoming-call', handler);
   },
+  onCallEnded: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('caller-id:call-ended', handler);
+    return () => ipcRenderer.removeListener('caller-id:call-ended', handler);
+  },
+  callerIdLoadHistory: () => ipcRenderer.invoke('caller-id:load-history'),
+  callerIdSaveHistory: (history: any[]) => ipcRenderer.invoke('caller-id:save-history', history),
 });
 
 declare global {
@@ -199,7 +210,14 @@ declare global {
       callerIdSerialConnect: (settings: any) => Promise<{ success: boolean; error?: string }>;
       callerIdSerialDisconnect: () => Promise<{ success: boolean; error?: string }>;
       callerIdSerialStatus: () => Promise<{ connected: boolean }>;
+      callerIdHidListDevices: () => Promise<Array<{ vendorId: number; productId: number; manufacturer?: string; product?: string }>>;
+      callerIdHidConnect: () => Promise<{ success: boolean; error?: string }>;
+      callerIdHidDisconnect: () => Promise<{ success: boolean; error?: string }>;
+      callerIdHidStatus: () => Promise<{ connected: boolean }>;
       onIncomingCall: (callback: (payload: { phone: string; timestamp: string }) => void) => () => void;
+      onCallEnded: (callback: () => void) => () => void;
+      callerIdLoadHistory: () => Promise<any[]>;
+      callerIdSaveHistory: (history: any[]) => Promise<{ success: boolean; error?: string }>;
       getPosWarehouseId: () => Promise<number | null>;
       savePosWarehouseId: (id: number | null) => Promise<{ success: boolean; error?: string }>;
     };

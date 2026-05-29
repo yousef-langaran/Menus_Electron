@@ -102,5 +102,13 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
     );
   }
 
+  if (p === '/call-history') {
+    return (
+      hasModuleAccess(user, 'electron_panel', ['read', 'manage'], rid) ||
+      hasOrderRegisterAccess(user) ||
+      isOwnerOrAdmin(user)
+    );
+  }
+
   return false;
 }

@@ -11,6 +11,28 @@ export interface IncomingCall {
   error: string | null;
 }
 
+const HISTORY_LIMIT = 100;
+const HISTORY_KEY = 'menus:caller-history-v1';
+
+function readHistory(): IncomingCall[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.slice(0, HISTORY_LIMIT) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeHistory(history: IncomingCall[]): void {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  } catch (err) {
+    console.warn('[CallerID] writeHistory error:', err);
+  }
+}
+
 interface CallerIdState {
   activeCall: IncomingCall | null;
   callHistory: IncomingCall[];
@@ -40,11 +62,13 @@ interface CallerIdState {
   ) => Promise<{ success: boolean; error?: string }>;
   loadSettings: () => Promise<void>;
   saveSettings: (partial: Partial<CallerIdState['settings']>) => Promise<void>;
+  /** نگه‌داشته شده برای سازگاری — localStorage در init بارگذاری می‌شود */
+  loadHistory: () => Promise<void>;
 }
 
 export const useCallerIdStore = create<CallerIdState>((set, get) => ({
   activeCall: null,
-  callHistory: [],
+  callHistory: readHistory(),   // ← بارگذاری فوری از localStorage هنگام ساخت store
   settings: null,
   settingsLoaded: false,
 
@@ -71,7 +95,12 @@ export const useCallerIdStore = create<CallerIdState>((set, get) => ({
   dismissCall: () => {
     const { activeCall, callHistory } = get();
     if (!activeCall) return;
-    set({ activeCall: null, callHistory: [activeCall, ...callHistory].slice(0, 20) });
+    const newHistory = [
+      { ...activeCall, isLoading: false },
+      ...callHistory,
+    ].slice(0, HISTORY_LIMIT);
+    set({ activeCall: null, callHistory: newHistory });
+    writeHistory(newHistory);   // ← ذخیره synchronous
   },
 
   createNewOrder: (navigate) => {
@@ -81,11 +110,14 @@ export const useCallerIdStore = create<CallerIdState>((set, get) => ({
     const name = activeCall.lookupResult?.customer
       ? `${activeCall.lookupResult.customer.firstName} ${activeCall.lookupResult.customer.lastName}`.trim()
       : '';
-    const defaultAddress = activeCall.lookupResult?.addresses?.find((a) => a.isDefault)?.address
+    const defaultAddress =
+      activeCall.lookupResult?.addresses?.find((a) => a.isDefault)?.address
       ?? activeCall.lookupResult?.addresses?.[0]?.address
       ?? '';
     get().dismissCall();
-    navigate('/order', { state: { prefill: { customerPhone: phone, customerName: name, customerAddress: defaultAddress } } });
+    navigate('/order', {
+      state: { prefill: { customerPhone: phone, customerName: name, customerAddress: defaultAddress } },
+    });
   },
 
   addCallerAsCustomer: async (restaurantId, token, firstName = '', lastName = '') => {
@@ -127,5 +159,9 @@ export const useCallerIdStore = create<CallerIdState>((set, get) => ({
     } catch (err) {
       console.error('[CallerID] saveSettings error:', err);
     }
+  },
+
+  loadHistory: async () => {
+    // localStorage در زمان ساخت store بارگذاری شده — این تابع فقط برای سازگاری نگه‌داشته شده
   },
 }));

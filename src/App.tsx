@@ -17,6 +17,7 @@ import CashAccountsPage from './pages/accounting/CashAccounts';
 import ProductsPage from './pages/Products';
 import CategoriesPage from './pages/Categories';
 import CardTerminalsPage from './pages/CardTerminals';
+import CallHistoryPage from './pages/CallHistoryPage';
 import { useAuthStore } from './store/authStore';
 import { AppShellLayout } from './layouts/AppShellLayout';
 import { RoutePermissionGuard } from './components/RoutePermissionGuard';
@@ -144,6 +145,7 @@ function AppRoutes() {
               <Route path="/accounting/raw-material-categories" element={<AccountingRawMaterialCategoriesPage />} />
               <Route path="/accounting/cash-accounts" element={<CashAccountsPage />} />
               <Route path="/card-terminals" element={<CardTerminalsPage />} />
+              <Route path="/call-history" element={<CallHistoryPage />} />
             </Route>
           </Route>
         </Route>

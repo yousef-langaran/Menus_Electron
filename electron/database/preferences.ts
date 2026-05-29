@@ -10,7 +10,7 @@ export type CardTerminalSendAmountUnit = 'toman' | 'rial';
 
 export type ScaleConnectionType = 'serial' | 'tcp';
 
-export type CallerIdInputMode = 'webhook' | 'serial';
+export type CallerIdInputMode = 'webhook' | 'serial' | 'hid';
 export type CallerIdSerialFormat = 'auto' | 'at-clip' | 'cid-nmbr' | 'caller-field' | 'raw-number';
 
 export interface CallerIdSettings {
@@ -173,6 +173,7 @@ interface PreferencesFile {
 const FILE_NAME = 'menus-preferences.json';
 const COUNTER_FILE_NAME = 'receipt-counter.json';
 const RECEIPT_NUMBERS_MAP_FILE = 'receipt-numbers.json';
+const CALL_HISTORY_FILE = 'call-history.json';
 
 const getPreferencesPath = () => {
   try {
@@ -695,7 +696,7 @@ export async function loadCallerIdSettings(): Promise<CallerIdSettings> {
   const validFormats: CallerIdSerialFormat[] = ['auto', 'at-clip', 'cid-nmbr', 'caller-field', 'raw-number'];
   return {
     enabled: Boolean(raw.enabled),
-    inputMode: raw.inputMode === 'serial' ? 'serial' : 'webhook',
+    inputMode: raw.inputMode === 'serial' ? 'serial' : raw.inputMode === 'hid' ? 'hid' : 'webhook',
     webhookPort: Number.isFinite(Number(raw.webhookPort)) && Number(raw.webhookPort) > 0
       ? Number(raw.webhookPort)
       : DEFAULT_CALLER_ID_SETTINGS.webhookPort,
@@ -725,6 +726,34 @@ export async function savePosWarehouseId(id: number | null): Promise<void> {
   const prefs = await readPreferences();
   prefs.posWarehouseId = typeof id === 'number' && id > 0 ? id : null;
   await writePreferences(prefs);
+}
+
+const getCallHistoryPath = () => {
+  try {
+    return path.join(app.getPath('userData'), CALL_HISTORY_FILE);
+  } catch {
+    return path.join(process.cwd(), CALL_HISTORY_FILE);
+  }
+};
+
+export async function loadCallHistory(): Promise<any[]> {
+  const filePath = getCallHistoryPath();
+  try {
+    const raw = await fs.promises.readFile(filePath, 'utf-8');
+    const data = JSON.parse(raw);
+    return Array.isArray(data) ? data : [];
+  } catch (error: any) {
+    if (error?.code === 'ENOENT') return [];
+    console.warn('[CallHistory] load error:', error);
+    return [];
+  }
+}
+
+export async function saveCallHistory(history: any[]): Promise<void> {
+  const filePath = getCallHistoryPath();
+  const dir = path.dirname(filePath);
+  await fs.promises.mkdir(dir, { recursive: true });
+  await fs.promises.writeFile(filePath, JSON.stringify(history, null, 2), 'utf-8');
 }
 
 export async function saveCallerIdSettings(settings: Partial<CallerIdSettings>): Promise<CallerIdSettings> {

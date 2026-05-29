@@ -52,6 +52,16 @@ export function CallerIdOverlay() {
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Auto-dismiss when device signals call ended (phone hung up / missed call)
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onCallEnded) return;
+    const unsub = api.onCallEnded(() => {
+      dismissCall();
+    });
+    return () => unsub?.();
+  }, []);
+
   useEffect(() => {
     if (!activeCall) {
       setShowAddForm(false);
@@ -262,58 +272,59 @@ export function CallerIdOverlay() {
                 </div>
               </div>
             )}
+          </>
+        )}
 
-            {/* Add to customers form (new callers) */}
-            {!isKnown && (
-              <div className="rounded-xl bg-yellow-900/20 border border-yellow-700/30">
-                {!showAddForm ? (
+        {/* Add to customers — shown whenever caller is not a known customer.
+            Visible even if lookup failed (offline), so staff can always register. */}
+        {!isLoading && !isKnown && (
+          <div className="rounded-xl bg-yellow-900/20 border border-yellow-700/30">
+            {!showAddForm ? (
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-yellow-300 hover:bg-yellow-800/20 rounded-xl transition-colors text-sm"
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
+                </svg>
+                افزودن به لیست مشتریان
+              </button>
+            ) : (
+              <div className="p-3 flex flex-col gap-2">
+                <p className="text-xs font-semibold text-yellow-300">افزودن مشتری جدید</p>
+                <div className="flex gap-2">
+                  <input
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="نام"
+                    className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
+                  />
+                  <input
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="نام خانوادگی"
+                    className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
+                  />
+                </div>
+                {addError && <p className="text-xs text-red-400">{addError}</p>}
+                <div className="flex gap-2">
                   <button
-                    onClick={() => setShowAddForm(true)}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-yellow-300 hover:bg-yellow-800/20 rounded-xl transition-colors text-sm"
+                    onClick={handleAddCustomer}
+                    disabled={addingCustomer}
+                    className="flex-1 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-white rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
                   >
-                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
-                    </svg>
-                    افزودن به لیست مشتریان
+                    {addingCustomer ? 'در حال ذخیره…' : 'ذخیره'}
                   </button>
-                ) : (
-                  <div className="p-3 flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-yellow-300">افزودن مشتری جدید</p>
-                    <div className="flex gap-2">
-                      <input
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        placeholder="نام"
-                        className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
-                      />
-                      <input
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        placeholder="نام خانوادگی"
-                        className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
-                      />
-                    </div>
-                    {addError && <p className="text-xs text-red-400">{addError}</p>}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleAddCustomer}
-                        disabled={addingCustomer}
-                        className="flex-1 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-white rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
-                      >
-                        {addingCustomer ? 'در حال ذخیره…' : 'ذخیره'}
-                      </button>
-                      <button
-                        onClick={() => setShowAddForm(false)}
-                        className="px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
-                      >
-                        انصراف
-                      </button>
-                    </div>
-                  </div>
-                )}
+                  <button
+                    onClick={() => setShowAddForm(false)}
+                    className="px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    انصراف
+                  </button>
+                </div>
               </div>
             )}
-          </>
+          </div>
         )}
 
         {/* Action buttons */}

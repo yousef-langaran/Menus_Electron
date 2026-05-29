@@ -34,12 +34,14 @@
     "dotenv": "^17.2.4",
     "electron-updater": "^6.3.9",
     "framer-motion": "^11.16.4",
+    "node-hid": "^3.3.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-resizable-panels": "^4.10.0",
     "react-router-dom": "^6.26.0",
     "serialport": "^12.0.0",
     "socket.io-client": "^4.8.1",
+    "usb": "^2.17.0",
     "zustand": "^4.5.5"
   },
   "devDependencies": {

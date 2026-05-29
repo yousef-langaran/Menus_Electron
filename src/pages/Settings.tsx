@@ -59,7 +59,7 @@ export default function SettingsPage() {
   const [posWarehouseSaving, setPosWarehouseSaving] = useState(false);
 
   const [callerIdEnabled, setCallerIdEnabled] = useState(false);
-  const [callerIdMode, setCallerIdMode] = useState<'webhook' | 'serial'>('webhook');
+  const [callerIdMode, setCallerIdMode] = useState<'webhook' | 'serial' | 'hid'>('webhook');
   // webhook
   const [callerIdPort, setCallerIdPort] = useState('5055');
   const [callerIdSecret, setCallerIdSecret] = useState('');
@@ -71,6 +71,10 @@ export default function SettingsPage() {
   const [callerIdSerialPorts, setCallerIdSerialPorts] = useState<Array<{ path: string; manufacturer?: string; friendlyName?: string }>>([]);
   const [callerIdSerialConnected, setCallerIdSerialConnected] = useState(false);
   const [callerIdSerialConnecting, setCallerIdSerialConnecting] = useState(false);
+  // HID (T-Line TK-202UH)
+  const [callerIdHidConnected, setCallerIdHidConnected] = useState(false);
+  const [callerIdHidConnecting, setCallerIdHidConnecting] = useState(false);
+  const [callerIdHidDeviceFound, setCallerIdHidDeviceFound] = useState(false);
   // common
   const [callerIdDuration, setCallerIdDuration] = useState('30');
   const [callerIdSound, setCallerIdSound] = useState(true);
@@ -132,14 +136,18 @@ export default function SettingsPage() {
     const api = window.electronAPI;
     if (!api?.getCallerIdSettings) return;
     try {
-      const [s, status, serialStatus, ports] = await Promise.all([
+      const [s, status, serialStatus, ports, hidStatus, hidDevices] = await Promise.all([
         api.getCallerIdSettings(),
         api.getCallerIdWebhookStatus?.() ?? Promise.resolve({ running: false, port: null }),
         api.callerIdSerialStatus?.() ?? Promise.resolve({ connected: false }),
         api.callerIdSerialListPorts?.() ?? Promise.resolve([]),
+        api.callerIdHidStatus?.() ?? Promise.resolve({ connected: false }),
+        api.callerIdHidListDevices?.() ?? Promise.resolve([]),
       ]);
       setCallerIdEnabled(Boolean(s.enabled));
-      setCallerIdMode(s.inputMode === 'serial' ? 'serial' : 'webhook');
+      setCallerIdMode(s.inputMode === 'serial' ? 'serial' : s.inputMode === 'hid' ? 'hid' : 'webhook');
+      setCallerIdHidConnected(Boolean(hidStatus?.connected));
+      setCallerIdHidDeviceFound(Array.isArray(hidDevices) && hidDevices.length > 0);
       setCallerIdPort(String(s.webhookPort || 5055));
       setCallerIdSecret(String(s.webhookSecret || ''));
       setCallerIdPhoneField(String(s.phoneField || 'caller'));
@@ -192,6 +200,45 @@ export default function SettingsPage() {
       await api.callerIdSerialDisconnect();
       setCallerIdSerialConnected(false);
       toast.info('دستگاه Caller ID قطع شد');
+    } catch { toast.error('خطا در قطع اتصال'); }
+  };
+
+  // ── HID handlers ────────────────────────────────────────────────────────────
+  const handleCallerIdHidCheckDevice = async () => {
+    const api = window.electronAPI;
+    if (!api?.callerIdHidListDevices) return;
+    try {
+      const devices = await api.callerIdHidListDevices();
+      const found = Array.isArray(devices) && devices.length > 0;
+      setCallerIdHidDeviceFound(found);
+      if (found) toast.success('دستگاه T-Line TK-202UH پیدا شد!');
+      else toast.info('دستگاه T-Line یافت نشد — USB را چک کنید');
+    } catch { toast.error('خطا در جستجوی دستگاه'); }
+  };
+
+  const handleCallerIdHidConnect = async () => {
+    const api = window.electronAPI;
+    if (!api?.callerIdHidConnect) return;
+    setCallerIdHidConnecting(true);
+    try {
+      const result = await api.callerIdHidConnect();
+      if (result.success) {
+        setCallerIdHidConnected(true);
+        toast.success('دستگاه T-Line TK-202UH متصل شد — در انتظار تماس...');
+      } else {
+        toast.error(`خطا: ${result.error || 'اتصال ناموفق'}`);
+      }
+    } catch { toast.error('خطا در اتصال به دستگاه HID'); }
+    finally { setCallerIdHidConnecting(false); }
+  };
+
+  const handleCallerIdHidDisconnect = async () => {
+    const api = window.electronAPI;
+    if (!api?.callerIdHidDisconnect) return;
+    try {
+      await api.callerIdHidDisconnect();
+      setCallerIdHidConnected(false);
+      toast.info('دستگاه T-Line قطع شد');
     } catch { toast.error('خطا در قطع اتصال'); }
   };
 
@@ -925,13 +972,14 @@ export default function SettingsPage() {
                     {/* mode selector */}
                     <Tabs
                       selectedKey={callerIdMode}
-                      onSelectionChange={(k) => setCallerIdMode(k as 'webhook' | 'serial')}
+                      onSelectionChange={(k) => setCallerIdMode(k as 'webhook' | 'serial' | 'hid')}
                       aria-label="نوع ورودی Caller ID"
                     >
                       <TabListContainer>
                         <TabList>
                           <Tab id="webhook">🌐 VOIP / Webhook</Tab>
-                          <Tab id="serial">🔌 دستگاه USB</Tab>
+                          <Tab id="serial">🔌 دستگاه USB (COM)</Tab>
+                          <Tab id="hid">📞 T-Line TK-202UH</Tab>
                         </TabList>
                       </TabListContainer>
                     </Tabs>
@@ -1051,6 +1099,64 @@ export default function SettingsPage() {
                           <p>اکثر جعبه‌های Caller ID موجود در بازار ایران با فرمت «خودکار» کار می‌کنند.</p>
                           <p>اگر دستگاه شما از نوع مودم USB است (AT commands)، گزینه «مودم AT» را انتخاب کنید.</p>
                           <p>در صورت اتصال، هر تماس ورودی را با تست واقعی بررسی کنید.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ─── T-Line TK-202UH HID mode ─── */}
+                    {callerIdMode === 'hid' && (
+                      <div className="flex flex-col gap-3">
+                        <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-xs flex flex-col gap-1.5">
+                          <p className="font-semibold text-blue-700 dark:text-blue-300">📞 T-Line TK-202UH</p>
+                          <p className="text-default-600">دستگاه USB Caller ID مدل TK-202UH تیلداکیش</p>
+                          <p className="text-default-500">
+                            قبل از اتصال، مطمئن شوید درایور <strong>WinUSB</strong> از طریق <strong>Zadig</strong> روی این دستگاه نصب شده باشد.
+                            (منوی Options → List All Devices → T-Line TK-202UH → WinUSB → Replace Driver)
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full ${callerIdHidDeviceFound ? 'bg-green-500' : 'bg-gray-400'}`} />
+                            <span className="text-xs text-default-500">
+                              {callerIdHidDeviceFound ? 'دستگاه پیدا شد' : 'دستگاه یافت نشد'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full ${callerIdHidConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                            <span className="text-xs text-default-500">
+                              {callerIdHidConnected ? 'در حال پایش تماس‌ها' : 'قطع'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 flex-wrap">
+                          <Button size="sm" variant="flat" onPress={handleCallerIdHidCheckDevice}>
+                            🔍 شناسایی دستگاه
+                          </Button>
+                          {callerIdHidConnected ? (
+                            <Button size="sm" color="danger" variant="flat" onPress={handleCallerIdHidDisconnect}>
+                              قطع اتصال
+                            </Button>
+                          ) : (
+                            <Button size="sm" color="primary" variant="flat"
+                              isLoading={callerIdHidConnecting} onPress={handleCallerIdHidConnect}
+                              isDisabled={!callerIdHidDeviceFound}>
+                              اتصال و شروع پایش
+                            </Button>
+                          )}
+                        </div>
+
+                        <div className="rounded-xl bg-default-100 p-3 text-xs text-default-500 flex flex-col gap-1.5">
+                          <p className="font-semibold text-default-600">راهنمای نصب Zadig</p>
+                          <ol className="list-decimal list-inside flex flex-col gap-0.5 pr-1">
+                            <li>دستگاه TK-202UH را به USB وصل کنید</li>
+                            <li>Zadig را از <strong>zadig.akeo.ie</strong> دانلود و اجرا کنید</li>
+                            <li>از منوی Options گزینه <strong>List All Devices</strong> را فعال کنید</li>
+                            <li>دستگاه <strong>T-LINE</strong> یا <strong>TK-202UH</strong> را انتخاب کنید</li>
+                            <li>درایور را روی <strong>WinUSB</strong> تنظیم کنید و <strong>Replace Driver</strong> را بزنید</li>
+                            <li>پس از نصب، «شناسایی دستگاه» را بزنید</li>
+                          </ol>
                         </div>
                       </div>
                     )}
