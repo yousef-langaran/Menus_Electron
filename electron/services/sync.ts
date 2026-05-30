@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getOfflineOrders, markOrderAsSynced } from '../database/orders';
+import { getOfflineReturns, markReturnAsSynced } from '../database/returns';
 import { getApiConfig } from '../config/api';
 import { loadUserSession } from '../database/preferences';
 
@@ -93,6 +94,73 @@ export async function syncOfflineOrders(tokenOverride?: string) {
         results.errors.push(`Order ${order.id}: ${errorMsg}`);
       }
       console.error(`Failed to sync order ${order.id}:`, error);
+    }
+  }
+
+  return results;
+}
+
+export async function syncOfflineReturns(tokenOverride?: string) {
+  const offlineReturns = await getOfflineReturns();
+  const results = {
+    success: 0,
+    failed: 0,
+    errors: [] as string[],
+  };
+
+  if (offlineReturns.length === 0) {
+    return results;
+  }
+
+  const apiConfig = getApiConfig();
+  const defaultBaseURL = apiConfig.baseURL;
+
+  for (const ret of offlineReturns) {
+    if (!ret.id) continue;
+
+    const items = ret.returnData?.items;
+    if (!Array.isArray(items) || items.length === 0) {
+      await markReturnAsSynced(ret.id);
+      results.failed++;
+      results.errors.push(`مرجوعی ${ret.id}: رد شد (بدون آیتم)`);
+      continue;
+    }
+
+    try {
+      const hasTokenOverride = typeof tokenOverride === 'string' && tokenOverride.trim().length > 0;
+      const targetBaseURL = hasTokenOverride ? defaultBaseURL : (ret.baseURL || defaultBaseURL);
+      const currentSession = await loadUserSession();
+      const latestSessionToken =
+        typeof currentSession?.token === 'string' ? currentSession.token.trim() : '';
+
+      const override = typeof tokenOverride === 'string' ? tokenOverride.trim() : '';
+      const retTok = typeof ret.token === 'string' ? ret.token.trim() : '';
+
+      const authToken = override
+        ? override
+        : resolveAuthTokenWithoutOverride(latestSessionToken, retTok);
+
+      const response = await axios.post(`${targetBaseURL}/order-returns`, ret.returnData, {
+        headers: {
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.data) {
+        await markReturnAsSynced(ret.id);
+        results.success++;
+      }
+    } catch (error: any) {
+      results.failed++;
+      const status = error?.response?.status;
+      if (status === 401) {
+        results.errors.push(`مرجوعی ${ret.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`);
+      } else {
+        const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
+        results.errors.push(`مرجوعی ${ret.id}: ${errorMsg}`);
+      }
+      console.error(`Failed to sync return ${ret.id}:`, error);
     }
   }
 

@@ -15,6 +15,8 @@ import {
   upsertPulledWarehouses,
   upsertPulledWarehouseTransfers,
   upsertPulledWarehouseStocks,
+  upsertPulledPurchaseReturns,
+  upsertPulledPurchaseReturnItems,
   getPendingCashTransactions,
   markCashTransactionsSynced,
 } from './accountingLocalDb';
@@ -193,6 +195,8 @@ export async function runAccountingSync(args: {
     upsertPulledWarehouses(pullResult.data.warehouses || []),
     upsertPulledWarehouseTransfers(pullResult.data.warehouseTransfers || []),
     upsertPulledWarehouseStocks(pullResult.data.warehouseStocks || []),
+    upsertPulledPurchaseReturns(pullResult.data.purchaseReturns || []),
+    upsertPulledPurchaseReturnItems(pullResult.data.purchaseReturnItems || []),
   ]);
 
   const syncedAt = pullResult.syncedAt || new Date().toISOString();

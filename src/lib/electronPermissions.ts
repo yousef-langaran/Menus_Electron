@@ -81,6 +81,14 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
     );
   }
 
+  if (p === '/order-returns') {
+    return (
+      hasOrderRegisterAccess(user) ||
+      hasModuleAccess(user, 'orders_list', ['read', 'manage'], rid) ||
+      hasModuleAccess(user, 'orders_management', ['read', 'manage'], rid)
+    );
+  }
+
   if (p === '/products') {
     return hasModuleAccess(user, 'products', ['read', 'create', 'update', 'manage'], rid);
   }
@@ -118,7 +126,7 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
     );
   }
 
-  if (p === '/accounting/suppliers' || p === '/accounting/purchase-drafts') {
+  if (p === '/accounting/suppliers' || p === '/accounting/purchase-drafts' || p === '/accounting/purchase-returns') {
     return (
       hasModuleAccess(user, 'purchases', ['read', 'manage'], rid) ||
       hasModuleAccess(user, 'accounting', ['read', 'manage'], rid)

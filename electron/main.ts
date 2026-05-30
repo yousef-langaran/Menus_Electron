@@ -32,7 +32,7 @@ function loadEnv() {
 }
 loadEnv();
 import { isOnline } from './utils/network';
-import { syncOfflineOrders } from './services/sync';
+import { syncOfflineOrders, syncOfflineReturns } from './services/sync';
 import {
   printReceipt,
   renderReceiptPreview,
@@ -42,6 +42,7 @@ import {
 } from './services/printer';
 import { cacheImage, getCachedImagePath, cacheImages, getImageUrl } from './services/imageCache';
 import { saveOfflineOrder as dbSaveOfflineOrder, getAllOrders } from './database/orders';
+import { saveOfflineReturn as dbSaveOfflineReturn, getAllReturns } from './database/returns';
 import {
   loadUserSession as loadUserSessionPrefs,
   saveUserSession as saveUserSessionPrefs,
@@ -558,6 +559,34 @@ ipcMain.handle('get-offline-orders', async () => {
   } catch (error) {
     console.error('Get offline orders error:', error);
     return [];
+  }
+});
+
+ipcMain.handle('save-offline-return', async (_event, returnData, token, baseURL) => {
+  try {
+    const returnId = await dbSaveOfflineReturn(returnData, token, baseURL);
+    return { success: true, returnId };
+  } catch (error) {
+    console.error('Save offline return error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('get-offline-returns', async () => {
+  try {
+    return await getAllReturns();
+  } catch (error) {
+    console.error('Get offline returns error:', error);
+    return [];
+  }
+});
+
+ipcMain.handle('sync-returns', async (_event, token?: string) => {
+  try {
+    return await syncOfflineReturns(token);
+  } catch (error) {
+    console.error('Sync returns error:', error);
+    throw error;
   }
 });
 

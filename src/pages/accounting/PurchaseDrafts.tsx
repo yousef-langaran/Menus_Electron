@@ -478,6 +478,20 @@ export default function AccountingPurchaseDraftsPage() {
                       )}
                     </div>
                     <div className="flex gap-1 shrink-0 flex-wrap">
+                      {isServerSynced && d.status === 'approved' && (
+                        <Button
+                          size="sm"
+                          color="warning"
+                          variant="flat"
+                          onPress={() =>
+                            navigate('/accounting/purchase-returns', {
+                              state: { invoiceId: serverInvoiceId ?? d.id },
+                            })
+                          }
+                        >
+                          برگشت از خرید
+                        </Button>
+                      )}
                       {canApproveReject && serverInvoiceId && (
                         <>
                           <Button

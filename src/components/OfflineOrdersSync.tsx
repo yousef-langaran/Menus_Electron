@@ -2,14 +2,15 @@ import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 
 /**
- * پس از آنلاین شدن (رویداد مرورگر، فوکوس پنجره، یا بازهٔ زمانی) سفارش‌های آفلاین ذخیره‌شده را به سرور می‌فرستد.
+ * پس از آنلاین شدن (رویداد مرورگر، فوکوس پنجره، یا بازهٔ زمانی)
+ * سفارش‌ها و مرجوعی‌های آفلاین ذخیره‌شده را به سرور می‌فرستد.
  */
 export function OfflineOrdersSync() {
   const token = useAuthStore((s) => s.token);
   const syncingRef = useRef(false);
 
   useEffect(() => {
-    if (!window.electronAPI?.syncOrders || !window.electronAPI?.checkOnline) {
+    if (!window.electronAPI?.checkOnline) {
       return;
     }
 
@@ -28,12 +29,21 @@ export function OfflineOrdersSync() {
 
       syncingRef.current = true;
       try {
-        const result = await window.electronAPI.syncOrders(liveToken);
-        if (result && (result.success > 0 || result.failed > 0)) {
-          console.log(`[Offline orders sync:${reason}]`, result);
+        if (window.electronAPI.syncOrders) {
+          const ordersResult = await window.electronAPI.syncOrders(liveToken);
+          if (ordersResult && (ordersResult.success > 0 || ordersResult.failed > 0)) {
+            console.log(`[Offline orders sync:${reason}]`, ordersResult);
+          }
+        }
+
+        if (window.electronAPI.syncReturns) {
+          const returnsResult = await window.electronAPI.syncReturns(liveToken);
+          if (returnsResult && (returnsResult.success > 0 || returnsResult.failed > 0)) {
+            console.log(`[Offline returns sync:${reason}]`, returnsResult);
+          }
         }
       } catch (e) {
-        console.warn(`[Offline orders sync:${reason}]`, e);
+        console.warn(`[Offline sync:${reason}]`, e);
       } finally {
         syncingRef.current = false;
       }

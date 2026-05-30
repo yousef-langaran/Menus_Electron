@@ -45,6 +45,7 @@ export default function CreateOrderReturnModal({
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(false);
   const [error, setError] = useState('');
+  const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !order?.items || !token || !restaurantName) {
@@ -56,6 +57,33 @@ export default function CreateOrderReturnModal({
     const loadReturnableItems = async () => {
       setInitializing(true);
       setError('');
+
+      let online = true;
+      if (window.electronAPI?.checkOnline) {
+        try {
+          online = await window.electronAPI.checkOnline();
+        } catch {
+          online = false;
+        }
+      }
+
+      if (!cancelled) setIsOffline(!online);
+
+      if (!online) {
+        const nextItems = order.items.map((item: any) => ({
+          productId: item?.product?.id,
+          quantity: 0,
+          unitPrice: Number(item?.price || 0),
+          orderedQuantity: Number(item?.quantity || 0),
+          returnedQuantity: 0,
+          remainingQuantity: Number(item?.quantity || 0),
+        }));
+        if (!cancelled) {
+          setSelectedItems(nextItems);
+          setInitializing(false);
+        }
+        return;
+      }
 
       try {
         const response = await fetchOrderReturns(
@@ -142,23 +170,40 @@ export default function CreateOrderReturnModal({
     setLoading(true);
     setError('');
 
-    try {
-      const returnData = {
-        orderId: order.id,
-        restaurantName,
-        reason,
-        notes: notes.trim() || undefined,
-        items: itemsToReturn.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-        })),
-      };
+    const returnData = {
+      orderId: order.id,
+      restaurantName,
+      reason,
+      notes: notes.trim() || undefined,
+      items: itemsToReturn.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      })),
+    };
 
-      await createOrderReturn(returnData, token);
-      onSuccess();
-      onClose();
-      resetForm();
+    let online = !isOffline;
+    if (window.electronAPI?.checkOnline) {
+      try {
+        online = await window.electronAPI.checkOnline();
+      } catch {
+        online = false;
+      }
+    }
+
+    try {
+      if (!online && window.electronAPI?.saveOfflineReturn) {
+        const apiConfig = await window.electronAPI.getApiConfig();
+        await window.electronAPI.saveOfflineReturn(returnData, token, apiConfig?.baseURL);
+        onSuccess();
+        onClose();
+        resetForm();
+      } else {
+        await createOrderReturn(returnData, token);
+        onSuccess();
+        onClose();
+        resetForm();
+      }
     } catch (err: any) {
       console.error('Error creating return:', err);
       setError(err.response?.data?.message || 'خطا در ایجاد مرجوعی');
@@ -172,6 +217,7 @@ export default function CreateOrderReturnModal({
     setNotes('');
     setSelectedItems([]);
     setError('');
+    setIsOffline(false);
   };
 
   const handleClose = () => {
@@ -202,6 +248,12 @@ export default function CreateOrderReturnModal({
       </ModalHeader>
       <ModalBody className="py-4">
         <div className="space-y-4" dir="rtl">
+          {isOffline && (
+            <div className="rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3 text-warning-700">
+              حالت آفلاین — مرجوعی ذخیره می‌شود و پس از اتصال به اینترنت به‌صورت خودکار ارسال می‌شود. تعداد قابل مرجوع ممکن است دقیق نباشد.
+            </div>
+          )}
+
           {error && (
             <div className="rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-danger-700">
               {error}

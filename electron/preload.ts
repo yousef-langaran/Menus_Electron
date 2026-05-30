@@ -4,6 +4,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getApiConfig: () => ipcRenderer.invoke('get-api-config'),
   checkOnline: () => ipcRenderer.invoke('check-online'),
   syncOrders: (token?: string) => ipcRenderer.invoke('sync-orders', token),
+  syncReturns: (token?: string) => ipcRenderer.invoke('sync-returns', token),
+  saveOfflineReturn: (returnData: any, token: string, baseURL?: string) =>
+    ipcRenderer.invoke('save-offline-return', returnData, token, baseURL),
+  getOfflineReturns: () => ipcRenderer.invoke('get-offline-returns'),
   printReceipt: (orderData: any, printerJobs: any[], orderKeys?: string | string[]) =>
     ipcRenderer.invoke('print-receipt', orderData, printerJobs, orderKeys),
   getPrinters: () => ipcRenderer.invoke('get-printers'),
@@ -145,6 +149,13 @@ declare global {
       getApiConfig: () => Promise<{ baseURL: string; token?: string; restaurantName?: string; restaurantId?: number }>;
       checkOnline: () => Promise<boolean>;
       syncOrders: (token?: string) => Promise<any>;
+      syncReturns: (token?: string) => Promise<{ success: number; failed: number; errors: string[] }>;
+      saveOfflineReturn: (
+        returnData: any,
+        token: string,
+        baseURL?: string
+      ) => Promise<{ success: boolean; returnId?: number; error?: string }>;
+      getOfflineReturns: () => Promise<any[]>;
       printReceipt: (orderData: any, printerJobs: any[], orderKeys?: string | string[]) => Promise<ElectronPrintResult>;
       getPrinters: () => Promise<Array<{ name: string; displayName: string; description: string; statusCode: ElectronPrinterStatusCode }>>;
       showMessageBox: (options: any) => Promise<any>;

@@ -761,6 +761,8 @@ export async function syncAccountingPull(
       cheques: any[];
       customerReceivables: any[];
       warehouses: any[];
+      purchaseReturns?: any[];
+      purchaseReturnItems?: any[];
     };
   };
 }
@@ -1246,5 +1248,59 @@ export async function getCreditPaymentHistory(orderId: number, token: string) {
     `/orders/${orderId}/credit-payments`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
+  return response.data;
+}
+
+// ─── برگشت از خرید ───────────────────────────────────────────────────────────
+
+export async function createPurchaseReturn(
+  payload: {
+    restaurantId: number;
+    purchaseInvoiceId: number;
+    returnDate: string;
+    items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number }>;
+    notes?: string;
+  },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.post('/accounting/purchases/returns', payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data as { id: number; returnNumber: string; status: string; totalAmount: number };
+}
+
+export async function listPurchaseReturns(
+  params: { restaurantId: number; fiscalYearId?: number; purchaseInvoiceId?: number },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.get('/accounting/purchases/returns', {
+    params,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function approvePurchaseReturn(
+  returnId: number,
+  restaurantId: number,
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.post(
+    `/accounting/purchases/returns/${returnId}/approve`,
+    { restaurantId },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
+export async function cancelPurchaseReturn(returnId: number, restaurantId: number, token: string) {
+  await apiConfigReady;
+  const response = await api.delete(`/accounting/purchases/returns/${returnId}`, {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return response.data;
 }

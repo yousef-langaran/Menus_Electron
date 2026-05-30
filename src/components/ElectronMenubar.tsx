@@ -48,7 +48,7 @@ function pathIsActive(pathname: string, target: string): boolean {
 }
 
 function salesGroupActive(pathname: string): boolean {
-  return pathname === '/order' || pathname === '/orders';
+  return pathname === '/order' || pathname === '/orders' || pathname === '/order-returns';
 }
 
 function catalogGroupActive(pathname: string): boolean {
@@ -100,6 +100,7 @@ export function ElectronMenubar() {
       { path: '/accounting/raw-material-categories', label: 'دسته‌بندی مواد اولیه', visible: (u) => canAccessRoute(u, '/accounting/raw-material-categories') },
       { path: '/accounting/suppliers', label: 'تأمین‌کنندگان', visible: (u) => canAccessRoute(u, '/accounting/suppliers') },
       { path: '/accounting/purchase-drafts', label: 'فاکتورهای خرید', visible: (u) => canAccessRoute(u, '/accounting/purchase-drafts') },
+      { path: '/accounting/purchase-returns', label: 'برگشت از خرید', visible: (u) => canAccessRoute(u, '/accounting/purchase-returns') },
       { path: '/accounting/expenses', label: 'ثبت هزینه', visible: (u) => canAccessRoute(u, '/accounting/expenses') },
       { path: '/accounting/cash-accounts', label: 'صندوق و حساب‌ها', visible: (u) => canAccessRoute(u, '/accounting/cash-accounts') },
     ],
