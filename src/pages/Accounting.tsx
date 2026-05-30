@@ -7,12 +7,17 @@ import { useAuthStore } from '../store/authStore';
 import { closeFiscalYear, listFiscalYears, setActiveFiscalYear } from '../services/api';
 import { useEffect, useState } from 'react';
 import { useFiscalYearStore } from '../store/fiscalYearStore';
+import { toShamsiDateTime } from '../utils/date';
+import { hasModuleAccess, isOwnerOrAdmin } from '../lib/electronPermissions';
 
 export default function AccountingPage() {
   const navigate = useNavigate();
   const { pendingOps, failedOps, isSyncing, lastSyncedAt } = useSyncStore();
   const { user, token } = useAuthStore();
   const restaurantId = user?.restaurants?.[0]?.id;
+  const hasInventory = isOwnerOrAdmin(user) || hasModuleAccess(user, 'inventory', ['read', 'manage'], restaurantId);
+  const hasPurchases = isOwnerOrAdmin(user) || hasModuleAccess(user, 'purchases', ['read', 'manage'], restaurantId);
+  const hasAccounting = isOwnerOrAdmin(user) || hasModuleAccess(user, 'accounting', ['read', 'manage'], restaurantId);
   const [fiscalYears, setFiscalYears] = useState<any[]>([]);
   const { selectedByRestaurant, setSelectedFiscalYear } = useFiscalYearStore();
   const selectedFiscalYearId = restaurantId ? selectedByRestaurant[restaurantId] : undefined;
@@ -45,7 +50,7 @@ export default function AccountingPage() {
             <div className="bg-default-100 rounded-lg p-2">ناموفق: {failedOps}</div>
             <div className="bg-default-100 rounded-lg p-2">در حال سینک: {isSyncing ? 'بله' : 'خیر'}</div>
             <div className="bg-default-100 rounded-lg p-2">
-              آخرین سینک: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString('fa-IR') : '—'}
+              آخرین سینک: {lastSyncedAt ? toShamsiDateTime(lastSyncedAt) : '—'}
             </div>
           </CardContent>
         </Card>
@@ -86,48 +91,60 @@ export default function AccountingPage() {
           </CardContent>
         </Card>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          <Card>
-            <CardContent className="gap-2">
-              <h3 className="font-semibold">مواد اولیه</h3>
-              <p className="text-sm text-default-500">ثبت، جستجو و ویرایش مواد اولیه</p>
-              <Button color="primary" onPress={() => navigate('/accounting/raw-materials')}>ورود</Button>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="gap-2">
-              <h3 className="font-semibold">دسته‌بندی مواد اولیه</h3>
-              <p className="text-sm text-default-500">تعریف و ویرایش دسته‌بندی مواد اولیه</p>
-              <Button color="secondary" onPress={() => navigate('/accounting/raw-material-categories')}>ورود</Button>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="gap-2">
-              <h3 className="font-semibold">تامین‌کنندگان</h3>
-              <p className="text-sm text-default-500">ثبت، جستجو و ویرایش تامین‌کننده</p>
-              <Button color="primary" onPress={() => navigate('/accounting/suppliers')}>ورود</Button>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="gap-2">
-              <h3 className="font-semibold">فاکتورهای خرید</h3>
-              <p className="text-sm text-default-500">ثبت پیش‌نویس، مشاهده و تایید فاکتورهای خرید</p>
-              <Button color="primary" onPress={() => navigate('/accounting/purchase-drafts')}>ورود</Button>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="gap-2">
-              <h3 className="font-semibold">ثبت هزینه</h3>
-              <p className="text-sm text-default-500">ثبت هزینه‌های عملیاتی با دسته‌بندی — آفلاین</p>
-              <Button color="primary" onPress={() => navigate('/accounting/expenses')}>ورود</Button>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="gap-2">
-              <h3 className="font-semibold">صندوق و حساب‌ها</h3>
-              <p className="text-sm text-default-500">موجودی صندوق، کارتخوان و آنلاین — دریافت وجه نقدی و کارتی</p>
-              <Button color="primary" onPress={() => navigate('/accounting/cash-accounts')}>ورود</Button>
-            </CardContent>
-          </Card>
+          {hasInventory && (
+            <Card>
+              <CardContent className="gap-2">
+                <h3 className="font-semibold">مواد اولیه</h3>
+                <p className="text-sm text-default-500">ثبت، جستجو و ویرایش مواد اولیه</p>
+                <Button color="primary" onPress={() => navigate('/accounting/raw-materials')}>ورود</Button>
+              </CardContent>
+            </Card>
+          )}
+          {hasInventory && (
+            <Card>
+              <CardContent className="gap-2">
+                <h3 className="font-semibold">دسته‌بندی مواد اولیه</h3>
+                <p className="text-sm text-default-500">تعریف و ویرایش دسته‌بندی مواد اولیه</p>
+                <Button color="secondary" onPress={() => navigate('/accounting/raw-material-categories')}>ورود</Button>
+              </CardContent>
+            </Card>
+          )}
+          {hasPurchases && (
+            <Card>
+              <CardContent className="gap-2">
+                <h3 className="font-semibold">تامین‌کنندگان</h3>
+                <p className="text-sm text-default-500">ثبت، جستجو و ویرایش تامین‌کننده</p>
+                <Button color="primary" onPress={() => navigate('/accounting/suppliers')}>ورود</Button>
+              </CardContent>
+            </Card>
+          )}
+          {hasPurchases && (
+            <Card>
+              <CardContent className="gap-2">
+                <h3 className="font-semibold">فاکتورهای خرید</h3>
+                <p className="text-sm text-default-500">ثبت پیش‌نویس، مشاهده و تایید فاکتورهای خرید</p>
+                <Button color="primary" onPress={() => navigate('/accounting/purchase-drafts')}>ورود</Button>
+              </CardContent>
+            </Card>
+          )}
+          {hasAccounting && (
+            <Card>
+              <CardContent className="gap-2">
+                <h3 className="font-semibold">ثبت هزینه</h3>
+                <p className="text-sm text-default-500">ثبت هزینه‌های عملیاتی با دسته‌بندی — آفلاین</p>
+                <Button color="primary" onPress={() => navigate('/accounting/expenses')}>ورود</Button>
+              </CardContent>
+            </Card>
+          )}
+          {hasAccounting && (
+            <Card>
+              <CardContent className="gap-2">
+                <h3 className="font-semibold">صندوق و حساب‌ها</h3>
+                <p className="text-sm text-default-500">موجودی صندوق، کارتخوان و آنلاین — دریافت وجه نقدی و کارتی</p>
+                <Button color="primary" onPress={() => navigate('/accounting/cash-accounts')}>ورود</Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

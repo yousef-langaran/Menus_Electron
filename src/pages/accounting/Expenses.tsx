@@ -17,6 +17,7 @@ import {
   ExpenseCategoryRow,
 } from '../../services/api';
 import { toast } from '../../utils/toast';
+import { ShamsiDatePicker } from '../../ui/ShamsiDatePicker';
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -349,11 +350,10 @@ export default function AccountingExpensesPage() {
               isRequired
               min={1}
             />
-            <Input
-              type="date"
+            <ShamsiDatePicker
               label="تاریخ هزینه"
               value={expenseDate}
-              onValueChange={setExpenseDate}
+              onChange={setExpenseDate}
               isRequired
             />
             <Input
@@ -400,11 +400,10 @@ export default function AccountingExpensesPage() {
               isRequired
               min={1}
             />
-            <Input
-              type="date"
+            <ShamsiDatePicker
               label="تاریخ هزینه"
               value={editExpenseDate}
-              onValueChange={setEditExpenseDate}
+              onChange={setEditExpenseDate}
               isRequired
             />
             <Input

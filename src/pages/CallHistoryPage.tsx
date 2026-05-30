@@ -4,6 +4,7 @@ import { Card, CardContent, Chip } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { Input } from '../ui/compat-input';
 import { useCallerIdStore } from '../store/callerIdStore';
+import { toShamsiShort, toShamsiTime } from '../utils/date';
 
 function formatPhone(phone: string): string {
   if (phone.length === 11 && phone.startsWith('0')) {
@@ -13,12 +14,9 @@ function formatPhone(phone: string): string {
 }
 
 function formatDateTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    const date = d.toLocaleDateString('fa-IR', { month: 'short', day: 'numeric' });
-    const time = d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
-    return `${date} — ${time}`;
-  } catch { return iso; }
+  const date = toShamsiShort(iso);
+  const time = toShamsiTime(iso);
+  return `${date} — ${time}`;
 }
 
 function formatCurrency(amount: number): string {

@@ -6,6 +6,8 @@ import { Input } from '../../ui/compat-input';
 import { Select, SelectItem } from '../../ui/compat-select';
 import { ModalShell } from '../../ui/modal-shell';
 import { useAuthStore } from '../../store/authStore';
+import { toShamsiDate, toShamsiTime } from '../../utils/date';
+import { ShamsiDatePicker } from '../../ui/ShamsiDatePicker';
 import {
   accountingDb,
   accountTypeLabel,
@@ -169,19 +171,17 @@ export default function CashAccountsPage() {
               <SelectItem key={a.value}>{a.label}</SelectItem>
             ))}
           </Select>
-          <Input
-            type="date"
+          <ShamsiDatePicker
             label="از تاریخ"
             value={filterFrom}
-            onValueChange={setFilterFrom}
+            onChange={setFilterFrom}
             size="sm"
             className="w-36"
           />
-          <Input
-            type="date"
+          <ShamsiDatePicker
             label="تا تاریخ"
             value={filterTo}
-            onValueChange={setFilterTo}
+            onChange={setFilterTo}
             size="sm"
             className="w-36"
           />
@@ -241,10 +241,8 @@ export default function CashAccountsPage() {
                   <div className={`font-bold text-base ${tx.amount >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
                     {formatAmount(tx.amount)} تومان
                   </div>
-                  <div className="text-xs text-default-400">{tx.date}</div>
-                  <div className="text-xs text-default-300">
-                    {new Date(tx.createdAt).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
+                  <div className="text-xs text-default-400">{toShamsiDate(tx.date)}</div>
+                  <div className="text-xs text-default-300">{toShamsiTime(tx.createdAt)}</div>
                 </div>
               </div>
             </div>

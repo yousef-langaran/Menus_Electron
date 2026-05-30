@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCallerIdStore } from '../store/callerIdStore';
 import { useAuthStore } from '../store/authStore';
+import { toShamsiDate } from '../utils/date';
 
 function formatPhone(phone: string): string {
   if (phone.length === 11 && phone.startsWith('0')) {
@@ -15,11 +16,7 @@ function formatCurrency(amount: number): string {
 }
 
 function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('fa-IR', { year: 'numeric', month: 'short', day: 'numeric' });
-  } catch {
-    return iso;
-  }
+  return toShamsiDate(iso);
 }
 
 function CallTimer({ startIso }: { startIso: string }) {

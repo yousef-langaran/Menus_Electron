@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, Chip, Modal, ModalBody, ModalFooter, ModalHeader, Spinner, Tab, TabList, TabListContainer, Tabs } from '@heroui/react';
+import { toShamsiDate } from '../../utils/date';
+import { Autocomplete, Card, CardContent, Chip, EmptyState, Label, ListBox, Modal, ModalBody, ModalFooter, ModalHeader, SearchField, Spinner, Tabs, useFilter } from '@heroui/react';
 import { Button } from '../../ui/compat-button';
 import { Input } from '../../ui/compat-input';
 import { ModalShell } from '../../ui/modal-shell';
 import { Select, SelectItem } from '../../ui/compat-select';
+import { ShamsiDatePicker } from '../../ui/ShamsiDatePicker';
 import { useAuthStore } from '../../store/authStore';
 import { useSyncStore } from '../../store/syncStore';
 import {
@@ -63,18 +65,7 @@ const formatPriceInput = (value: string) => {
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('fa-IR').format(Math.round(n)) + ' تومان';
 
-const toJalali = (isoDate?: string) => {
-  if (!isoDate) return '';
-  try {
-    return new Intl.DateTimeFormat('fa-IR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date(isoDate));
-  } catch {
-    return isoDate;
-  }
-};
+const toJalali = (isoDate?: string) => toShamsiDate(isoDate);
 
 type ItemType = 'raw_material' | 'final_product';
 
@@ -126,9 +117,9 @@ export default function AccountingPurchaseDraftsPage() {
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [supplierId, setSupplierId] = useState('');
   const [extraCosts, setExtraCosts] = useState('0');
+  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
   const [items, setItems] = useState<DraftItem[]>([]);
-  const [itemSearch, setItemSearch] = useState('');
-  const [barcode, setBarcode] = useState('');
+  const { contains } = useFilter({ sensitivity: 'base' });
 
   // Add raw material modal
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
@@ -179,17 +170,6 @@ export default function AccountingPurchaseDraftsPage() {
     [menuProducts],
   );
 
-  const filteredMaterialOptions = useMemo(() => {
-    const q = itemSearch.trim().toLowerCase();
-    if (!q) return materialOptions;
-    return materialOptions.filter((m) => m.label.toLowerCase().includes(q));
-  }, [materialOptions, itemSearch]);
-
-  const filteredMenuProductOptions = useMemo(() => {
-    const q = itemSearch.trim().toLowerCase();
-    if (!q) return menuProductOptions;
-    return menuProductOptions.filter((p) => p.label.toLowerCase().includes(q));
-  }, [menuProductOptions, itemSearch]);
 
   const runningTotal = useMemo(() => {
     const itemsSum = items.reduce((acc, item) => {
@@ -208,9 +188,8 @@ export default function AccountingPurchaseDraftsPage() {
     setInvoiceNumber('');
     setSupplierId('');
     setExtraCosts('0');
+    setPurchaseDate(new Date().toISOString().slice(0, 10));
     setItems([emptyItem()]);
-    setItemSearch('');
-    setBarcode('');
     setOpen(true);
   };
 
@@ -272,7 +251,7 @@ export default function AccountingPurchaseDraftsPage() {
           restaurantId,
           supplierId: Number(supplierId),
           invoiceNumber: invoiceNumber.trim(),
-          purchaseDate: new Date().toISOString().slice(0, 10),
+          purchaseDate,
           items: linesWithWarehouse,
           extraCosts: Number(normalizePriceInput(extraCosts) || 0),
         });
@@ -282,7 +261,7 @@ export default function AccountingPurchaseDraftsPage() {
           restaurantId,
           supplierId: Number(supplierId),
           invoiceNumber: invoiceNumber.trim(),
-          purchaseDate: new Date().toISOString().slice(0, 10),
+          purchaseDate,
           items: linesWithWarehouse,
           extraCosts: Number(normalizePriceInput(extraCosts) || 0),
         });
@@ -299,36 +278,65 @@ export default function AccountingPurchaseDraftsPage() {
 
   // ── barcode ───────────────────────────────────────────────────────────────
 
-  const handleBarcodeApply = async () => {
-    const code = barcode.trim();
-    if (!code) return;
-    const matched = materials.find((m) => String(m.barcode || '').trim() === code);
+  const handleBarcodeApply = useCallback(async (code: string) => {
+    if (!code.trim()) return;
+    const c = code.trim();
+    const matched = materials.find((m) => String(m.barcode || '').trim() === c);
     if (matched) {
-      setItems((prev) =>
-        prev.length === 0
-          ? [{ ...emptyItem(), type: 'raw_material', rawMaterialId: String(matched.id) }]
-          : prev.map((x, i) =>
-              i === prev.length - 1
-                ? { ...x, type: 'raw_material' as ItemType, rawMaterialId: String(matched.id) }
-                : x,
-            ),
-      );
-      setBarcode('');
+      setItems((prev) => {
+        const existingIdx = prev.findIndex(
+          (x) => x.type === 'raw_material' && x.rawMaterialId === String(matched.id),
+        );
+        if (existingIdx !== -1) {
+          return prev.map((x, i) =>
+            i === existingIdx
+              ? { ...x, quantity: String(Number(x.quantity || 1) + 1) }
+              : x,
+          );
+        }
+        return [...prev, { ...emptyItem(), type: 'raw_material', rawMaterialId: String(matched.id) }];
+      });
       return;
     }
-    setAddMaterialBarcode(code);
+    setAddMaterialBarcode(c);
     setAddMaterialName('');
     setAddMaterialUnit('piece');
     setAddMaterialPrice('');
     setIsCheckingMasterProduct(true);
     setAddMaterialOpen(true);
     try {
-      const master = await getMasterProductByBarcode(code, token || undefined);
+      const master = await getMasterProductByBarcode(c, token || undefined);
       if (master) setAddMaterialName(master.name);
     } finally {
       setIsCheckingMasterProduct(false);
     }
-  };
+  }, [materials, token]);
+
+  // اسکنر بارکد: کاراکترها رو سریع تایپ می‌کنه و با Enter ختم می‌شه
+  useEffect(() => {
+    if (!open) return;
+    let buffer = '';
+    let lastTime = 0;
+
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      const now = Date.now();
+      if (e.key === 'Enter') {
+        if (buffer.length >= 3) void handleBarcodeApply(buffer);
+        buffer = '';
+        return;
+      }
+      if (e.key.length === 1) {
+        if (now - lastTime > 80) buffer = '';
+        buffer += e.key;
+        lastTime = now;
+      }
+    };
+
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, handleBarcodeApply]);
 
   const handleSubmitAddMaterial = async () => {
     if (!restaurantId || !addMaterialName.trim()) {
@@ -354,7 +362,6 @@ export default function AccountingPurchaseDraftsPage() {
                 : x,
             ),
       );
-      setBarcode('');
       setAddMaterialOpen(false);
     } catch {
       toast.error('خطا در ثبت ماده اولیه. لطفاً دوباره تلاش کنید.');
@@ -365,7 +372,6 @@ export default function AccountingPurchaseDraftsPage() {
 
   // ── derived ───────────────────────────────────────────────────────────────
 
-  const totalOptions = materialOptions.length + menuProductOptions.length;
   const hasNoProducts = materials.length === 0 && menuProducts.length === 0;
 
   // ── render ────────────────────────────────────────────────────────────────
@@ -522,6 +528,7 @@ export default function AccountingPurchaseDraftsPage() {
                             setInvoiceNumber(d.invoiceNumber);
                             setSupplierId(String(d.supplierId || ''));
                             setExtraCosts(String(d.extraCosts || '0'));
+                            setPurchaseDate(d.purchaseDate || new Date().toISOString().slice(0, 10));
                             setItems(
                               lines.map((x: any) => {
                                 const hasFinal = x.finalProductId && Number(x.finalProductId) > 0;
@@ -577,7 +584,7 @@ export default function AccountingPurchaseDraftsPage() {
           <ModalBody className="gap-4">
 
             {/* Basic info */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <Input
                 label="شماره فاکتور"
                 value={invoiceNumber}
@@ -591,18 +598,12 @@ export default function AccountingPurchaseDraftsPage() {
               >
                 {suppliers.map((s) => <SelectItem key={String(s.id)}>{s.name}</SelectItem>)}
               </Select>
-            </div>
-
-            {/* Barcode */}
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
-              <Input
-                label="بارکد"
-                value={barcode}
-                onValueChange={setBarcode}
-                placeholder="اسکن یا تایپ بارکد"
-                onKeyDown={(e) => { if (e.key === 'Enter') void handleBarcodeApply(); }}
+              <ShamsiDatePicker
+                label="تاریخ فاکتور"
+                value={purchaseDate}
+                onChange={setPurchaseDate}
+                isRequired
               />
-              <Button variant="flat" onPress={handleBarcodeApply}>اعمال بارکد</Button>
             </div>
 
             {/* Items */}
@@ -611,25 +612,6 @@ export default function AccountingPurchaseDraftsPage() {
                 <span className="text-sm font-semibold text-foreground">آیتم‌های خرید</span>
                 <span className="text-xs text-default-400">{items.length} آیتم</span>
               </div>
-
-              {totalOptions > 5 && (
-                <Input
-                  placeholder="جستجوی ماده اولیه یا محصول..."
-                  value={itemSearch}
-                  onValueChange={setItemSearch}
-                  size="sm"
-                  startContent={
-                    <svg className="w-4 h-4 text-default-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  }
-                />
-              )}
-
-              {itemSearch && filteredMaterialOptions.length === 0 && filteredMenuProductOptions.length === 0 && (
-                <p className="text-xs text-warning text-center py-2">موردی با این نام یافت نشد</p>
-              )}
 
               {hasNoProducts && (
                 <div className="rounded-xl border border-warning-200 bg-warning-50 p-3 text-center space-y-1">
@@ -644,7 +626,7 @@ export default function AccountingPurchaseDraftsPage() {
                 const isFinalProduct = line.type === 'final_product';
                 const lineTotal =
                   Number(line.quantity || 0) * Number(normalizePriceInput(line.unitPrice) || 0);
-                const activeOptions = isFinalProduct ? filteredMenuProductOptions : filteredMaterialOptions;
+                const activeOptions = isFinalProduct ? menuProductOptions : materialOptions;
                 const selectedKey = isFinalProduct ? line.menuProductId : line.rawMaterialId;
 
                 return (
@@ -661,6 +643,7 @@ export default function AccountingPurchaseDraftsPage() {
 
                     {/* Type toggle */}
                     <Tabs
+                      className="w-full"
                       selectedKey={isFinalProduct ? 'final_product' : 'raw_material'}
                       onSelectionChange={(k) =>
                         k === 'final_product'
@@ -669,12 +652,21 @@ export default function AccountingPurchaseDraftsPage() {
                       }
                       aria-label="نوع آیتم فاکتور"
                     >
-                      <TabListContainer>
-                        <TabList>
-                          <Tab id="raw_material">ماده اولیه</Tab>
-                          <Tab id="final_product">محصول رستوران</Tab>
-                        </TabList>
-                      </TabListContainer>
+                      <Tabs.ListContainer className="w-full">
+                        <Tabs.List
+                          aria-label="نوع آیتم فاکتور"
+                          className="w-full *:flex-1 *:justify-center"
+                        >
+                          <Tabs.Tab id="raw_material">
+                            ماده اولیه
+                            <Tabs.Indicator />
+                          </Tabs.Tab>
+                          <Tabs.Tab id="final_product">
+                            محصول رستوران
+                            <Tabs.Indicator />
+                          </Tabs.Tab>
+                        </Tabs.List>
+                      </Tabs.ListContainer>
                     </Tabs>
 
                     {/* Product/material selector */}
@@ -685,11 +677,11 @@ export default function AccountingPurchaseDraftsPage() {
                           : 'هیچ ماده اولیه‌ای ثبت نشده'}
                       </p>
                     ) : (
-                      <Select
-                        label={isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}
-                        selectedKeys={selectedKey ? [selectedKey] : []}
-                        onSelectionChange={(k) => {
-                          const val = String(Array.from(k)[0] || '');
+                      <Autocomplete
+                        className="w-full"
+                        value={selectedKey || null}
+                        onChange={(k) => {
+                          const val = String(k || '');
                           updateItem(
                             idx,
                             isFinalProduct
@@ -698,10 +690,32 @@ export default function AccountingPurchaseDraftsPage() {
                           );
                         }}
                       >
-                        {activeOptions.map((opt) => (
-                          <SelectItem key={opt.id}>{opt.label}</SelectItem>
-                        ))}
-                      </Select>
+                        <Label>{isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}</Label>
+                        <Autocomplete.Trigger>
+                          <Autocomplete.Value placeholder={`انتخاب ${isFinalProduct ? 'محصول' : 'ماده اولیه'}...`} />
+                          <Autocomplete.ClearButton />
+                          <Autocomplete.Indicator />
+                        </Autocomplete.Trigger>
+                        <Autocomplete.Popover>
+                          <Autocomplete.Filter filter={contains}>
+                            <SearchField name={`search-item-${idx}`} variant="secondary">
+                              <SearchField.Group>
+                                <SearchField.SearchIcon />
+                                <SearchField.Input placeholder="جستجو..." />
+                                <SearchField.ClearButton />
+                              </SearchField.Group>
+                            </SearchField>
+                            <ListBox renderEmptyState={() => <EmptyState>موردی یافت نشد</EmptyState>}>
+                              {activeOptions.map((opt) => (
+                                <ListBox.Item key={opt.id} id={opt.id} textValue={opt.label}>
+                                  {opt.label}
+                                  <ListBox.ItemIndicator />
+                                </ListBox.Item>
+                              ))}
+                            </ListBox>
+                          </Autocomplete.Filter>
+                        </Autocomplete.Popover>
+                      </Autocomplete>
                     )}
 
                     <div className="grid grid-cols-3 gap-2">

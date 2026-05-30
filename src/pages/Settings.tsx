@@ -12,10 +12,12 @@ import { getReceiptNumberSettingsFromServer, getPrintTemplates, type PrintTempla
 import { useSyncStore } from '../store/syncStore';
 import { toast } from '../utils/toast';
 import { useNavigate } from 'react-router-dom';
+import { canManageHardwareSettings, getPrimaryRestaurantId } from '../lib/electronPermissions';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { user, token, logout } = useAuthStore();
+  const canManageHw = canManageHardwareSettings(user);
   const [isOnline, setIsOnline] = useState(true);
   const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<Array<{ name: string; displayName?: string; description?: string }>>([]);
@@ -850,7 +852,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {window.electronAPI?.scaleLoadSettings && (
+        {window.electronAPI?.scaleLoadSettings && canManageHw && (
           <Card>
             <CardContent className="gap-3">
               <div className="flex items-center justify-between border-b-2 border-primary pb-2">
@@ -951,7 +953,7 @@ export default function SettingsPage() {
         )}
 
         {/* Caller ID Settings */}
-        {window.electronAPI?.getCallerIdSettings && (
+        {window.electronAPI?.getCallerIdSettings && canManageHw && (
           <Card>
             <CardContent>
               <div className="flex flex-col gap-4">

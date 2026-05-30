@@ -42,6 +42,7 @@ import { NameAutocomplete } from '../ui/NameAutocomplete';
 import { CheckboxCompat as Checkbox } from '../ui/compat-checkbox';
 import {Panel, Group, Separator} from 'react-resizable-panels'
 import { toast } from '../utils/toast';
+import { toShamsiDate } from '../utils/date';
 
 const RESET_ORDER_SHORTCUT_LABEL = 'Ctrl + Shift + Backspace';
 
@@ -2199,7 +2200,7 @@ export default function OrderPage() {
                                             return v.prizeData?.text ?? 'جایزه سفارشی';
                                         })();
                                         const expiry = v.expiresAt
-                                            ? new Date(v.expiresAt).toLocaleDateString('fa-IR')
+                                            ? toShamsiDate(v.expiresAt)
                                             : null;
                                         return (
                                             <div key={v.id}

@@ -12,6 +12,7 @@ import {
   getReceiptNumbersMapFromStorage,
   saveReceiptNumbersToStorage,
 } from '../utils/receiptNumbersStorage';
+import { toShamsiDateTime } from '../utils/date';
 import { Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter, Chip, Input } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { Select, SelectItem } from '../ui/compat-select';
@@ -44,7 +45,7 @@ const STATUS_LABELS: Record<string, string> = {
 const formatPrice = (price?: number) =>
   typeof price === 'number' ? `${new Intl.NumberFormat('fa-IR').format(price)} تومان` : '-';
 
-const formatDate = (value?: string) => (value ? new Date(value).toLocaleString('fa-IR') : '-');
+const formatDate = (value?: string) => toShamsiDateTime(value);
 
 const DEFAULT_ONLINE_META = {
   page: 1,

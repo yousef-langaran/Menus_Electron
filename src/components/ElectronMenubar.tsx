@@ -96,21 +96,12 @@ export function ElectronMenubar() {
   const accountingItems: NavLeaf[] = useMemo(
     () => [
       { path: '/accounting', label: 'داشبورد حسابداری', visible: (u) => canAccessRoute(u, '/accounting') },
-      {
-        path: '/accounting/raw-materials',
-        label: 'مواد اولیه',
-        visible: (u) => canAccessRoute(u, '/accounting/raw-materials'),
-      },
-      {
-        path: '/accounting/suppliers',
-        label: 'تأمین‌کنندگان',
-        visible: (u) => canAccessRoute(u, '/accounting/suppliers'),
-      },
-      {
-        path: '/accounting/purchase-drafts',
-        label: 'فاکتورهای خرید',
-        visible: (u) => canAccessRoute(u, '/accounting/purchase-drafts'),
-      },
+      { path: '/accounting/raw-materials', label: 'مواد اولیه', visible: (u) => canAccessRoute(u, '/accounting/raw-materials') },
+      { path: '/accounting/raw-material-categories', label: 'دسته‌بندی مواد اولیه', visible: (u) => canAccessRoute(u, '/accounting/raw-material-categories') },
+      { path: '/accounting/suppliers', label: 'تأمین‌کنندگان', visible: (u) => canAccessRoute(u, '/accounting/suppliers') },
+      { path: '/accounting/purchase-drafts', label: 'فاکتورهای خرید', visible: (u) => canAccessRoute(u, '/accounting/purchase-drafts') },
+      { path: '/accounting/expenses', label: 'ثبت هزینه', visible: (u) => canAccessRoute(u, '/accounting/expenses') },
+      { path: '/accounting/cash-accounts', label: 'صندوق و حساب‌ها', visible: (u) => canAccessRoute(u, '/accounting/cash-accounts') },
     ],
     [],
   );
@@ -119,7 +110,7 @@ export function ElectronMenubar() {
     () => [
       { path: '/settings', label: 'تنظیمات و سخت‌افزار', visible: (u) => canAccessRoute(u, '/settings') },
       { path: '/card-terminals', label: 'مدیریت کارتخوان‌ها', visible: (u) => canAccessRoute(u, '/card-terminals') },
-      { path: '/call-history', label: 'تاریخچه تماس‌ها', visible: () => callerIdEnabled },
+      { path: '/call-history', label: 'تاریخچه تماس‌ها', visible: (u) => callerIdEnabled && canAccessRoute(u, '/call-history') },
     ],
     [callerIdEnabled],
   );
@@ -258,7 +249,7 @@ export function ElectronMenubar() {
                 </Dropdown.Section>
               ) : null}
               {accountingRest.length > 0 ? (
-                <Dropdown.Section title="انبار و خرید">
+                <Dropdown.Section title="ماژول‌ها">
                   {accountingRest.map((item) => (
                     <Dropdown.Item
                       key={item.path}

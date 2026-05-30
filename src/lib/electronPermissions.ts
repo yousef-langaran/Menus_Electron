@@ -49,6 +49,15 @@ export function hasModuleAccess(
   });
 }
 
+/** ترازو و کالر ای دی در تنظیمات — فقط owner/admin یا دارنده electron_panel:manage */
+export function canManageHardwareSettings(user: ElectronUser): boolean {
+  const rid = getPrimaryRestaurantId(user);
+  return (
+    isOwnerOrAdmin(user) ||
+    hasModuleAccess(user, 'electron_panel', ['manage'], rid)
+  );
+}
+
 /** همان شرط ورود به اپ (ثبت سفارش) */
 export function hasOrderRegisterAccess(user: ElectronUser): boolean {
   const rid = getPrimaryRestaurantId(user);
@@ -94,12 +103,30 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
     );
   }
 
-  if (p === '/accounting' || p.startsWith('/accounting/')) {
+  if (p === '/accounting') {
     return (
       hasModuleAccess(user, 'accounting', ['read', 'manage'], rid) ||
       hasModuleAccess(user, 'purchases', ['read', 'manage'], rid) ||
       hasModuleAccess(user, 'inventory', ['read', 'manage'], rid)
     );
+  }
+
+  if (p === '/accounting/raw-materials' || p === '/accounting/raw-material-categories') {
+    return (
+      hasModuleAccess(user, 'inventory', ['read', 'manage'], rid) ||
+      hasModuleAccess(user, 'accounting', ['read', 'manage'], rid)
+    );
+  }
+
+  if (p === '/accounting/suppliers' || p === '/accounting/purchase-drafts') {
+    return (
+      hasModuleAccess(user, 'purchases', ['read', 'manage'], rid) ||
+      hasModuleAccess(user, 'accounting', ['read', 'manage'], rid)
+    );
+  }
+
+  if (p === '/accounting/expenses' || p === '/accounting/cash-accounts') {
+    return hasModuleAccess(user, 'accounting', ['read', 'manage'], rid);
   }
 
   if (p === '/call-history') {
