@@ -77,8 +77,8 @@ type DraftItem = {
   /** accounting FinalProduct ID — resolved on save / loaded on edit */
   finalProductId: string;
   quantity: string;
-  /** قیمت خرید */
-  unitPrice: string;
+  /** قیمت کل خرید این ردیف (کاربر کل را وارد می‌کند؛ قیمت تکی = کل ÷ مقدار) */
+  totalPrice: string;
   /** قیمت فروش (اختیاری) */
   salePrice: string;
 };
@@ -89,7 +89,7 @@ const emptyItem = (): DraftItem => ({
   menuProductId: '',
   finalProductId: '',
   quantity: '1',
-  unitPrice: '0',
+  totalPrice: '0',
   salePrice: '',
 });
 
@@ -381,7 +381,7 @@ export default function AccountingPurchaseDraftsPage() {
 
   const runningTotal = useMemo(() => {
     const itemsSum = items.reduce((acc, item) => {
-      return acc + Number(item.quantity || 0) * Number(normalizePriceInput(item.unitPrice) || 0);
+      return acc + Number(normalizePriceInput(item.totalPrice) || 0);
     }, 0);
     return itemsSum + Number(normalizePriceInput(extraCosts) || 0);
   }, [items, extraCosts]);
@@ -414,7 +414,9 @@ export default function AccountingPurchaseDraftsPage() {
     const resolved = await Promise.all(
       items.map(async (x) => {
         const qty = Number(x.quantity || 0);
-        const price = Number(normalizePriceInput(x.unitPrice) || 0);
+        // کاربر قیمت کل ردیف را وارد می‌کند؛ قیمت تکی خودکار محاسبه می‌شود.
+        const totalPrice = Number(normalizePriceInput(x.totalPrice) || 0);
+        const unitPrice = qty > 0 ? totalPrice / qty : 0;
 
         const salePriceVal = normalizePriceInput(x.salePrice);
         const salePrice = salePriceVal ? Number(salePriceVal) : undefined;
@@ -428,10 +430,10 @@ export default function AccountingPurchaseDraftsPage() {
             Number(x.menuProductId),
             menuProd.name_fa || menuProd.name,
           );
-          return { finalProductId: fpId, quantity: qty, unitPrice: price, salePrice };
+          return { finalProductId: fpId, quantity: qty, unitPrice, salePrice };
         } else {
           if (!x.rawMaterialId || qty <= 0) return null;
-          return { rawMaterialId: Number(x.rawMaterialId), quantity: qty, unitPrice: price, salePrice };
+          return { rawMaterialId: Number(x.rawMaterialId), quantity: qty, unitPrice, salePrice };
         }
       }),
     );
@@ -646,7 +648,7 @@ export default function AccountingPurchaseDraftsPage() {
           ...emptyItem(),
           type: 'final_product',
           menuProductId: String(newProduct.id),
-          unitPrice: purchasePrice,
+          totalPrice: purchasePrice,
           salePrice,
         };
         // ردیف خالی انتهایی را پر کن، در غیر این صورت یک ردیف جدید اضافه کن (آیتم‌های قبلی حفظ شوند)
@@ -848,7 +850,8 @@ export default function AccountingPurchaseDraftsPage() {
                                   menuProductId: String(acctFp?.productId || ''),
                                   finalProductId: String(x.finalProductId || ''),
                                   quantity: String(x.quantity),
-                                  unitPrice: String(x.unitPrice),
+                                  // درایو با قیمت تکی ذخیره شده؛ برای نمایش، قیمت کل بازسازی می‌شود.
+                                  totalPrice: String(Number(x.unitPrice || 0) * Number(x.quantity || 0)),
                                   salePrice: x.salePrice != null ? String(x.salePrice) : '',
                                 };
                               }),
@@ -966,8 +969,9 @@ export default function AccountingPurchaseDraftsPage() {
 
               {items.map((line, idx) => {
                 const isFinalProduct = line.type === 'final_product';
-                const lineTotal =
-                  Number(line.quantity || 0) * Number(normalizePriceInput(line.unitPrice) || 0);
+                const lineTotal = Number(normalizePriceInput(line.totalPrice) || 0);
+                const lineQty = Number(line.quantity || 0);
+                const unitPriceForLine = lineQty > 0 ? lineTotal / lineQty : 0;
                 const activeOptions = isFinalProduct ? menuProductOptions : materialOptions;
                 const selectedKey = isFinalProduct ? line.menuProductId : line.rawMaterialId;
 
@@ -1051,9 +1055,9 @@ export default function AccountingPurchaseDraftsPage() {
                       <Input
                         type="text"
                         inputMode="numeric"
-                        label="قیمت خرید"
-                        value={formatPriceInput(line.unitPrice)}
-                        onValueChange={(v) => updateItem(idx, { unitPrice: normalizePriceInput(v) })}
+                        label="قیمت کل خرید"
+                        value={formatPriceInput(line.totalPrice)}
+                        onValueChange={(v) => updateItem(idx, { totalPrice: normalizePriceInput(v) })}
                         endContent={
                           <span className="text-default-400 text-xs whitespace-nowrap">تومان</span>
                         }
@@ -1070,6 +1074,12 @@ export default function AccountingPurchaseDraftsPage() {
                         }
                       />
                     </div>
+
+                    {unitPriceForLine > 0 && lineQty > 0 && (
+                      <p className="text-xs text-default-400">
+                        قیمت تکی (محاسبه‌شده): {formatCurrency(unitPriceForLine)}
+                      </p>
+                    )}
 
                     <Button
                       size="sm"
