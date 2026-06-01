@@ -1405,8 +1405,9 @@ export default function OrderPage() {
     const productRowVirtualizer = useVirtualizer({
         count: productRows.length,
         getScrollElement: () => productGridRef.current,
-        estimateSize: () => 112,
+        estimateSize: () => 76,
         overscan: 5,
+        measureElement: (el) => el.getBoundingClientRect().height,
     });
 
     const staffCartUnitPrice = (product: { staffOrderUnitPrice?: number; price?: number }) => {
@@ -1816,17 +1817,18 @@ export default function OrderPage() {
                                         {productRowVirtualizer.getVirtualItems().map(virtualRow => (
                                             <div
                                                 key={virtualRow.index}
+                                                ref={productRowVirtualizer.measureElement}
+                                                data-index={virtualRow.index}
                                                 style={{
                                                     position: 'absolute',
                                                     top: 0,
                                                     left: 0,
                                                     right: 0,
-                                                    height: `${virtualRow.size}px`,
                                                     transform: `translateY(${virtualRow.start}px)`,
                                                     display: 'grid',
                                                     gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
                                                     gap: '0.5rem',
-                                                    alignContent: 'start',
+                                                    paddingBottom: '0.5rem',
                                                 }}
                                             >
                                                 {productRows[virtualRow.index].map((product) => (
