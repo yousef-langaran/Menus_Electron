@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { toShamsiDate } from '../../utils/date';
-import { Autocomplete, Card, CardContent, Chip, EmptyState, Label, ListBox, Modal, ModalBody, ModalFooter, ModalHeader, SearchField, Spinner, Tabs, useFilter } from '@heroui/react';
+import { Card, CardContent, Chip, Modal, ModalBody, ModalFooter, ModalHeader, Spinner, Tabs, useFilter } from '@heroui/react';
 import { Button } from '../../ui/compat-button';
 import { Input } from '../../ui/compat-input';
 import { ModalShell } from '../../ui/modal-shell';
@@ -103,9 +104,15 @@ type PickerOption = { id: string; label: string };
 const PICKER_RENDER_CAP = 50;
 
 /**
- * انتخابگر محصول/ماده اولیه با جستجوی کنترل‌شده. به‌جای رندر کردن کل لیست
- * (که React Aria برای هر ردیف یک کالکشن چندهزارتایی می‌ساخت) فقط نتایج
- * تطبیق‌یافته و حداکثر PICKER_RENDER_CAP موردِ اول را رندر می‌کند.
+ * انتخابگر محصول/ماده اولیه با جستجو.
+ *
+ * چرا دستی پیاده شده و از HeroUI Autocomplete استفاده نمی‌کند؟
+ * این انتخابگر داخل یک Modal (دیالوگ React Aria) رندر می‌شود. مودال فوکوس را با
+ * FocusScope محصور می‌کند و فیلدِ تایپِ داخلِ هر overlay/portal کیبورد نمی‌گیرد.
+ * راه‌حلِ اثبات‌شده در این پروژه (مثل NameAutocomplete): فیلدِ تایپ را به‌صورت
+ * inline داخل خود مودال نگه می‌داریم و فقط لیستِ گزینه‌ها (که صرفاً کلیک می‌شود)
+ * را به نزدیک‌ترین dialog منتقل می‌کنیم. ضمناً فقط PICKER_RENDER_CAP موردِ
+ * تطبیق‌یافته رندر می‌شود تا با کاتالوگ‌های بزرگ (۲۰۰۰+ محصول) لگ/کرش رخ ندهد.
  */
 function ItemPicker({
   options,
@@ -113,83 +120,142 @@ function ItemPicker({
   onChange,
   label,
   placeholder,
-  searchName,
 }: {
   options: PickerOption[];
   value: string | null;
   onChange: (key: string) => void;
   label: string;
   placeholder: string;
-  searchName: string;
 }) {
   const { contains } = useFilter({ sensitivity: 'base' });
-  const [search, setSearch] = useState('');
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
+
+  const selectedLabel = useMemo(
+    () => options.find((o) => o.id === value)?.label ?? '',
+    [options, value],
+  );
 
   const { visible, totalMatches } = useMemo(() => {
-    const q = search.trim();
+    const q = query.trim();
     const matched = q ? options.filter((o) => contains(o.label, q)) : options;
-    let sliced = matched.slice(0, PICKER_RENDER_CAP);
-    // گزینهٔ انتخاب‌شده همیشه باید در کالکشن باشد تا مقدارِ نمایشیِ تریگر درست بماند.
-    if (value && !sliced.some((o) => o.id === value)) {
-      const selected = options.find((o) => o.id === value);
-      if (selected) sliced = [selected, ...sliced];
+    return { visible: matched.slice(0, PICKER_RENDER_CAP), totalMatches: matched.length };
+  }, [options, query, contains]);
+
+  // نزدیک‌ترین dialog را پیدا می‌کنیم تا لیست داخل همان FocusScope منتقل شود.
+  useEffect(() => {
+    let el: HTMLElement | null = wrapperRef.current;
+    while (el) {
+      if (el.getAttribute('role') === 'dialog') { setPortalEl(el); return; }
+      el = el.parentElement;
     }
-    return { visible: sliced, totalMatches: matched.length };
-  }, [options, search, value, contains]);
+    setPortalEl(document.body);
+  }, []);
+
+  // موقعیت لیست را هنگام باز بودن به‌روز نگه می‌داریم.
+  useEffect(() => {
+    if (!open) return;
+    setRect(wrapperRef.current?.getBoundingClientRect() ?? null);
+  }, [open, query]);
+
+  // بستن با کلیک بیرون.
+  useEffect(() => {
+    if (!open) return;
+    const handle = (e: PointerEvent) => {
+      if (
+        wrapperRef.current?.contains(e.target as Node) ||
+        dropdownRef.current?.contains(e.target as Node)
+      ) return;
+      setOpen(false);
+      setQuery('');
+    };
+    document.addEventListener('pointerdown', handle);
+    return () => document.removeEventListener('pointerdown', handle);
+  }, [open]);
+
+  const handleSelect = (id: string) => {
+    onChange(id);
+    setOpen(false);
+    setQuery('');
+  };
+
+  const dropdownOpen = open && rect && portalEl && options.length > 0;
 
   return (
-    <Autocomplete
-      allowsEmptyCollection
-      className="w-full"
-      value={value || null}
-      onChange={(k) => {
-        onChange(String(k || ''));
-        setSearch('');
-      }}
-      onOpenChange={(isOpen) => {
-        // با بسته‌شدن، فیلتر آن‌مانت می‌شود و SearchFieldِ غیرکنترل‌شده خالی می‌شود؛
-        // پس state جستجو را هم خالی می‌کنیم تا با دفعهٔ بعد هماهنگ بماند.
-        if (!isOpen) setSearch('');
-      }}
-    >
-      <Label>{label}</Label>
-      <Autocomplete.Trigger>
-        <Autocomplete.Value placeholder={placeholder} />
-        <Autocomplete.ClearButton />
-        <Autocomplete.Indicator />
-      </Autocomplete.Trigger>
-      <Autocomplete.Popover>
-        {/* filter لازم است تا ورودی جستجو فعال شود؛ onInputChange فقط متن را
-            می‌خواند تا لیست را به PICKER_RENDER_CAP موردِ تطبیق‌یافته برش بزنیم.
-            چون items={visible} ازقبل فیلترشده است، filter صرفاً همان‌ها را تأیید می‌کند. */}
-        <Autocomplete.Filter filter={contains} onInputChange={setSearch}>
-          <SearchField name={searchName} variant="secondary">
-            <SearchField.Group>
-              <SearchField.SearchIcon />
-              <SearchField.Input placeholder="جستجو..." />
-              <SearchField.ClearButton />
-            </SearchField.Group>
-          </SearchField>
-          <ListBox
-            className="max-h-[280px] overflow-y-auto"
-            items={visible}
-            renderEmptyState={() => <EmptyState>موردی یافت نشد</EmptyState>}
+    <div ref={wrapperRef} className="w-full">
+      {/* فیلدِ تایپ به‌صورت inline داخل مودال است (همان الگوی NameAutocomplete) → کیبورد می‌گیرد.
+          وقتی باز است متنِ جستجو، وقتی بسته است نامِ گزینهٔ انتخاب‌شده را نشان می‌دهد. */}
+      <Input
+        label={label}
+        value={open ? query : selectedLabel}
+        placeholder={placeholder}
+        onFocus={() => { setOpen(true); setQuery(''); }}
+        onClick={() => setOpen(true)}
+        onValueChange={(v) => { setQuery(v); if (!open) setOpen(true); }}
+        onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
+          if (e.key === 'Escape') { setOpen(false); setQuery(''); (e.target as HTMLInputElement).blur(); }
+        }}
+      />
+
+      {dropdownOpen &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            dir="rtl"
+            style={{
+              position: 'fixed',
+              top: rect!.bottom + 4,
+              right: window.innerWidth - rect!.right,
+              width: rect!.width,
+              zIndex: 99999,
+              background: 'var(--color-overlay)',
+              color: 'var(--color-overlay-foreground)',
+              border: '1px solid var(--color-border)',
+              borderRadius: '12px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+              overflow: 'hidden',
+            }}
           >
-            {(opt: PickerOption) => (
-              <ListBox.Item key={opt.id} id={opt.id} textValue={opt.label}>
-                {opt.label}
-                <ListBox.ItemIndicator />
-              </ListBox.Item>
+            <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+              {visible.length === 0 ? (
+                <div className="px-3 py-4 text-center text-sm text-default-400">موردی یافت نشد</div>
+              ) : (
+                visible.map((opt) => {
+                  const isSelected = opt.id === value;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      // mousedown به‌جای click تا انتخاب قبل از blur ثبت شود.
+                      onMouseDown={(e) => { e.preventDefault(); handleSelect(opt.id); }}
+                      className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-right text-sm transition-colors hover:bg-default-100 ${
+                        isSelected ? 'bg-primary-50 text-primary-700' : 'text-foreground'
+                      }`}
+                    >
+                      <span className="truncate">{opt.label}</span>
+                      {isSelected && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                          <path d="m5 12 5 5 9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {totalMatches > visible.length && (
+              <p className="border-t border-default-200 px-3 py-1.5 text-xs text-default-400">
+                نمایش {visible.length} از {totalMatches} مورد — برای یافتن دقیق‌تر جستجو کنید
+              </p>
             )}
-          </ListBox>
-          {totalMatches > visible.length && (
-            <p className="px-2 py-1 text-xs text-default-400">
-              نمایش {visible.length} از {totalMatches} مورد — برای یافتن دقیق‌تر جستجو کنید
-            </p>
-          )}
-        </Autocomplete.Filter>
-      </Autocomplete.Popover>
-    </Autocomplete>
+          </div>,
+          portalEl,
+        )}
+    </div>
   );
 }
 
@@ -496,6 +562,10 @@ export default function AccountingPurchaseDraftsPage() {
     const onKey = (e: KeyboardEvent) => {
       // فیلد بارکد اختصاصی خودش این رویداد را مدیریت می‌کند
       if (e.target === barcodeRef.current) return;
+      // در فیلدهای متنی (مثل جستجوی محصول) باید عادی تایپ شود؛ این شبکهٔ ایمنی فقط
+      // برای زمانی است که فوکوس در فیلدهای عددی (تعداد/قیمت) است تا اسکن از دست نرود.
+      const tgt = e.target as HTMLElement | null;
+      if (tgt instanceof HTMLInputElement && tgt.type !== 'number') return;
       const now = Date.now();
       const fast = now - lastTime <= 50;
 
@@ -954,7 +1024,6 @@ export default function AccountingPurchaseDraftsPage() {
                       </p>
                     ) : (
                       <ItemPicker
-                        searchName={`search-item-${idx}`}
                         options={activeOptions}
                         value={selectedKey || null}
                         label={isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}
