@@ -1,4 +1,5 @@
-import {useState, useEffect, useRef} from 'react';
+import {useState, useEffect, useRef, useMemo} from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {useAuthStore} from '../store/authStore';
 import {useOrderStore} from '../store/orderStore';
 import {
@@ -277,6 +278,8 @@ export default function OrderPage() {
     const scanBufferRef = useRef('');
     const scanLastKeyAtRef = useRef(0);
     const audioCtxRef = useRef<AudioContext | null>(null);
+    const productGridRef = useRef<HTMLDivElement>(null);
+    const [colCount, setColCount] = useState(4);
 
     const [isCheckingMasterProduct, setIsCheckingMasterProduct] = useState(false);
     const [nameSuggestions, setNameSuggestions] = useState<import('../services/api').MasterProduct[]>([]);
@@ -1365,7 +1368,7 @@ export default function OrderPage() {
         }
     };
 
-    const filteredProducts = products.filter((p) => {
+    const filteredProducts = useMemo(() => products.filter((p) => {
         const categoryMatch =
             !selectedCategory || p.category?.name_fa === selectedCategory;
 
@@ -1377,6 +1380,33 @@ export default function OrderPage() {
             : true;
 
         return categoryMatch && searchMatch;
+    }), [products, selectedCategory, searchTerm]);
+
+    useEffect(() => {
+        const el = productGridRef.current;
+        if (!el) return;
+        const calc = (w: number) => w < 640 ? 2 : w < 768 ? 3 : 4;
+        setColCount(calc(el.clientWidth));
+        const obs = new ResizeObserver(entries => {
+            setColCount(calc(entries[0].contentRect.width));
+        });
+        obs.observe(el);
+        return () => obs.disconnect();
+    }, []);
+
+    const productRows = useMemo(() => {
+        const rows: (typeof filteredProducts[number])[][] = [];
+        for (let i = 0; i < filteredProducts.length; i += colCount) {
+            rows.push(filteredProducts.slice(i, i + colCount));
+        }
+        return rows;
+    }, [filteredProducts, colCount]);
+
+    const productRowVirtualizer = useVirtualizer({
+        count: productRows.length,
+        getScrollElement: () => productGridRef.current,
+        estimateSize: () => 112,
+        overscan: 5,
     });
 
     const staffCartUnitPrice = (product: { staffOrderUnitPrice?: number; price?: number }) => {
@@ -1766,7 +1796,7 @@ export default function OrderPage() {
                 <Panel>
                     <Card className="overflow-hidden flex flex-col min-h-0 h-[calc(100vh_-120px)]">
                         <CardContent className="flex-1 overflow-hidden flex flex-row gap-0 p-0">
-                            <div className="flex-1 overflow-y-auto p-2 sm:p-3 min-w-0 relative">
+                            <div ref={productGridRef} className="flex-1 overflow-y-auto p-2 sm:p-3 min-w-0 relative">
                                 {orderEditLoading && (
                                     <div
                                         className="absolute inset-0 z-10 flex items-center justify-center bg-content1/80 text-default-600 text-sm">
@@ -1777,36 +1807,59 @@ export default function OrderPage() {
                                     <div className="flex items-center justify-center py-12 text-default-500">در حال
                                         بارگذاری...</div>
                                 ) : (
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                                        {filteredProducts.map((product) => (
-                                            <button
-                                                key={product.id}
-                                                type="button"
-                                                className="flex flex-col rounded-lg border border-default-200 bg-content1 text-start overflow-hidden outline-none transition hover:border-primary hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-content1 p-0 cursor-pointer"
-                                                onClick={() => handleProductClick(product)}
+                                    <div
+                                        style={{
+                                            height: `${productRowVirtualizer.getTotalSize()}px`,
+                                            position: 'relative',
+                                        }}
+                                    >
+                                        {productRowVirtualizer.getVirtualItems().map(virtualRow => (
+                                            <div
+                                                key={virtualRow.index}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    left: 0,
+                                                    right: 0,
+                                                    height: `${virtualRow.size}px`,
+                                                    transform: `translateY(${virtualRow.start}px)`,
+                                                    display: 'grid',
+                                                    gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
+                                                    gap: '0.5rem',
+                                                    alignContent: 'start',
+                                                }}
                                             >
-                                                {product.multiMedia?.url ? (
-                                                    <img
-                                                        src={`${getAssetBaseUrl()}${product.multiMedia.url}`}
-                                                        alt={product.name_fa || product.name}
-                                                        className="w-full h-[4.5rem] sm:h-20 object-cover shrink-0"
-                                                    />
-                                                ) : null}
-                                                <div
-                                                    className={
-                                                        product.multiMedia?.url
-                                                            ? 'px-2 py-1.5 text-right min-h-0'
-                                                            : 'px-2 py-2 text-right min-h-0'
-                                                    }
-                                                >
-                                                    <span className="font-semibold text-foreground text-xs leading-snug line-clamp-2 block">
-                                                        {product.name_fa || product.name}
-                                                    </span>
-                                                    <span className="text-primary text-xs mt-0.5 block tabular-nums">
-                                                        {formatPrice(staffCartUnitPrice(product))}
-                                                    </span>
-                                                </div>
-                                            </button>
+                                                {productRows[virtualRow.index].map((product) => (
+                                                    <button
+                                                        key={product.id}
+                                                        type="button"
+                                                        className="flex flex-col rounded-lg border border-default-200 bg-content1 text-start overflow-hidden outline-none transition hover:border-primary hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-content1 p-0 cursor-pointer"
+                                                        onClick={() => handleProductClick(product)}
+                                                    >
+                                                        {product.multiMedia?.url ? (
+                                                            <img
+                                                                src={`${getAssetBaseUrl()}${product.multiMedia.url}`}
+                                                                alt={product.name_fa || product.name}
+                                                                className="w-full h-[4.5rem] sm:h-20 object-cover shrink-0"
+                                                            />
+                                                        ) : null}
+                                                        <div
+                                                            className={
+                                                                product.multiMedia?.url
+                                                                    ? 'px-2 py-1.5 text-right min-h-0'
+                                                                    : 'px-2 py-2 text-right min-h-0'
+                                                            }
+                                                        >
+                                                            <span className="font-semibold text-foreground text-xs leading-snug line-clamp-2 block">
+                                                                {product.name_fa || product.name}
+                                                            </span>
+                                                            <span className="text-primary text-xs mt-0.5 block tabular-nums">
+                                                                {formatPrice(staffCartUnitPrice(product))}
+                                                            </span>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
                                         ))}
                                     </div>
                                 )}
