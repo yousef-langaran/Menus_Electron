@@ -12,7 +12,6 @@ import { useSyncStore } from '../../store/syncStore';
 import {
   accountingDb,
   createPurchaseInvoiceLocal,
-  createRawMaterialLocal,
   deletePurchaseInvoiceDraftLocal,
   getDefaultWarehouseLocal,
   getOrCreateFinalProductByProductId,
@@ -22,19 +21,9 @@ import {
   resetFailedPurchaseDraftsToPending,
   updatePurchaseInvoiceDraftLocal,
 } from '../../services/accountingLocalDb';
-import { getLocalProducts } from '../../services/catalogLocalDb';
+import { createProductLocal, getLocalCategories, getLocalProducts } from '../../services/catalogLocalDb';
 import { getMasterProductByBarcode, updateAccountingPurchaseInvoiceStatus } from '../../services/api';
 import { toast } from '../../utils/toast';
-
-const RAW_MATERIAL_UNITS = ['gram', 'kilogram', 'liter', 'milliliter', 'piece', 'pack'];
-const UNIT_LABELS: Record<string, string> = {
-  gram: 'گرم',
-  kilogram: 'کیلوگرم',
-  liter: 'لیتر',
-  milliliter: 'میلی‌لیتر',
-  piece: 'عدد',
-  pack: 'بسته',
-};
 
 const SYNC_STATUS_CONFIG: Record<string, { label: string; color: 'warning' | 'success' | 'danger' | 'default' }> = {
   pending: { label: 'در صف ارسال', color: 'warning' },
@@ -55,6 +44,15 @@ const normalizePriceInput = (value: string) =>
     .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
     .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
     .replace(/[^\d]/g, '');
+
+const normalizeBarcode = (value: string) =>
+  String(value || '')
+    .replace(/[‌‏‪-‮]/g, '')
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+    .replace(/\s+/g, '')
+    .replace(/^\/+|\/+$/g, '')
+    .trim();
 
 const formatPriceInput = (value: string) => {
   const digits = normalizePriceInput(value);
@@ -94,6 +92,98 @@ const emptyItem = (): DraftItem => ({
   salePrice: '',
 });
 
+type PickerOption = { id: string; label: string };
+
+/**
+ * حداکثر تعداد گزینه‌هایی که هم‌زمان رندر می‌شوند.
+ * با کاتالوگ‌های بزرگ (۲۰۰۰+ محصول) رندر کردن همهٔ آیتم‌ها داخل ListBox
+ * باعث لگ و کرش می‌شد؛ این‌جا فیلتر/برش را خودمان در JS انجام می‌دهیم و فقط
+ * یک برش کوچک به DOM می‌رسد.
+ */
+const PICKER_RENDER_CAP = 50;
+
+/**
+ * انتخابگر محصول/ماده اولیه با جستجوی کنترل‌شده. به‌جای رندر کردن کل لیست
+ * (که React Aria برای هر ردیف یک کالکشن چندهزارتایی می‌ساخت) فقط نتایج
+ * تطبیق‌یافته و حداکثر PICKER_RENDER_CAP موردِ اول را رندر می‌کند.
+ */
+function ItemPicker({
+  options,
+  value,
+  onChange,
+  label,
+  placeholder,
+  searchName,
+}: {
+  options: PickerOption[];
+  value: string | null;
+  onChange: (key: string) => void;
+  label: string;
+  placeholder: string;
+  searchName: string;
+}) {
+  const { contains } = useFilter({ sensitivity: 'base' });
+  const [search, setSearch] = useState('');
+
+  const { visible, totalMatches } = useMemo(() => {
+    const q = search.trim();
+    const matched = q ? options.filter((o) => contains(o.label, q)) : options;
+    let sliced = matched.slice(0, PICKER_RENDER_CAP);
+    // گزینهٔ انتخاب‌شده همیشه باید در کالکشن باشد تا مقدارِ نمایشیِ تریگر درست بماند.
+    if (value && !sliced.some((o) => o.id === value)) {
+      const selected = options.find((o) => o.id === value);
+      if (selected) sliced = [selected, ...sliced];
+    }
+    return { visible: sliced, totalMatches: matched.length };
+  }, [options, search, value, contains]);
+
+  return (
+    <Autocomplete
+      className="w-full"
+      value={value || null}
+      onChange={(k) => {
+        onChange(String(k || ''));
+        setSearch('');
+      }}
+    >
+      <Label>{label}</Label>
+      <Autocomplete.Trigger>
+        <Autocomplete.Value placeholder={placeholder} />
+        <Autocomplete.ClearButton />
+        <Autocomplete.Indicator />
+      </Autocomplete.Trigger>
+      <Autocomplete.Popover>
+        <Autocomplete.Filter inputValue={search} onInputChange={setSearch}>
+          <SearchField name={searchName} variant="secondary">
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input placeholder="جستجو..." />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
+          <ListBox
+            className="max-h-[280px] overflow-y-auto"
+            items={visible}
+            renderEmptyState={() => <EmptyState>موردی یافت نشد</EmptyState>}
+          >
+            {(opt: PickerOption) => (
+              <ListBox.Item key={opt.id} id={opt.id} textValue={opt.label}>
+                {opt.label}
+                <ListBox.ItemIndicator />
+              </ListBox.Item>
+            )}
+          </ListBox>
+          {totalMatches > visible.length && (
+            <p className="px-2 py-1 text-xs text-default-400">
+              نمایش {visible.length} از {totalMatches} مورد — برای یافتن دقیق‌تر جستجو کنید
+            </p>
+          )}
+        </Autocomplete.Filter>
+      </Autocomplete.Popover>
+    </Autocomplete>
+  );
+}
+
 export default function AccountingPurchaseDraftsPage() {
   const navigate = useNavigate();
   const { user, token } = useAuthStore((s) => ({ user: s.user, token: s.token }));
@@ -105,6 +195,7 @@ export default function AccountingPurchaseDraftsPage() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
   const [menuProducts, setMenuProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   /** accounting finalProducts — used only to resolve IDs when loading saved items */
   const [accountingFinalProducts, setAccountingFinalProducts] = useState<any[]>([]);
   const [drafts, setDrafts] = useState<any[]>([]);
@@ -119,7 +210,6 @@ export default function AccountingPurchaseDraftsPage() {
   const [extraCosts, setExtraCosts] = useState('0');
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
   const [items, setItems] = useState<DraftItem[]>([]);
-  const { contains } = useFilter({ sensitivity: 'base' });
 
   // Barcode scan UX
   const [scanValue, setScanValue] = useState('');
@@ -160,31 +250,35 @@ export default function AccountingPurchaseDraftsPage() {
     return () => clearTimeout(t);
   }, [open]);
 
-  // Add raw material modal
-  const [addMaterialOpen, setAddMaterialOpen] = useState(false);
-  const [addMaterialBarcode, setAddMaterialBarcode] = useState('');
-  const [addMaterialName, setAddMaterialName] = useState('');
-  const [addMaterialUnit, setAddMaterialUnit] = useState('piece');
-  const [addMaterialPrice, setAddMaterialPrice] = useState('');
+  // Add product modal — opened when a scanned barcode is not found
+  const [addProductOpen, setAddProductOpen] = useState(false);
+  const [addProductBarcode, setAddProductBarcode] = useState('');
+  const [addProductName, setAddProductName] = useState('');
+  const [addProductCategoryId, setAddProductCategoryId] = useState('');
+  const [addProductSalePrice, setAddProductSalePrice] = useState('');
+  const [addProductPurchasePrice, setAddProductPurchasePrice] = useState('');
   const [isCheckingMasterProduct, setIsCheckingMasterProduct] = useState(false);
-  const [addMaterialSubmitting, setAddMaterialSubmitting] = useState(false);
+  const [addProductSubmitting, setAddProductSubmitting] = useState(false);
 
   const reload = useCallback(async () => {
     if (!restaurantId) return;
-    const [s, m, afp, d, mp] = await Promise.all([
+    const [s, m, afp, d, mp, cats] = await Promise.all([
       accountingDb.suppliers.where('restaurantId').equals(restaurantId).reverse().sortBy('id'),
       accountingDb.rawMaterials.where('restaurantId').equals(restaurantId).reverse().sortBy('id'),
       accountingDb.finalProducts.where('restaurantId').equals(restaurantId).toArray(),
       accountingDb.purchaseInvoices.where('restaurantId').equals(restaurantId).reverse().sortBy('id'),
       getLocalProducts(restaurantId).then((r) =>
-        r.data.filter((p) => p._syncStatus === 'synced'),
+        // محصولات تازه‌ساخته‌شدهٔ آفلاین (pending_create) هم باید قابل انتخاب/ذخیره باشند
+        r.data.filter((p) => p._syncStatus === 'synced' || p._syncStatus === 'pending_create'),
       ),
+      getLocalCategories(restaurantId),
     ]);
     setSuppliers(s);
     setMaterials(m);
     setAccountingFinalProducts(afp);
     setDrafts(d);
     setMenuProducts(mp);
+    setCategories(cats);
     setIsLoading(false);
   }, [restaurantId]);
 
@@ -318,16 +412,11 @@ export default function AccountingPurchaseDraftsPage() {
 
   // ── barcode ───────────────────────────────────────────────────────────────
 
-  const handleBarcodeApply = useCallback(async (code: string) => {
-    if (!code.trim()) return;
-    const c = code.trim();
-    const matched = materials.find((m) => String(m.barcode || '').trim() === c);
-    if (matched) {
-      const existingIdx = items.findIndex(
-        (x) => x.type === 'raw_material' && x.rawMaterialId === String(matched.id),
-      );
+  /** یک ردیف موجود را افزایش یا ردیف جدید می‌سازد و فوکوس را روی تعدادش می‌برد */
+  const addOrIncrementRow = useCallback(
+    (match: (x: DraftItem) => boolean, build: () => DraftItem) => {
+      const existingIdx = items.findIndex(match);
       if (existingIdx !== -1) {
-        // قبلاً اضافه شده → تعداد را یکی زیاد کن و فوکوس را روی تعدادش ببر
         setItems((prev) =>
           prev.map((x, i) =>
             i === existingIdx
@@ -337,29 +426,55 @@ export default function AccountingPurchaseDraftsPage() {
         );
         requestQtyFocus(existingIdx);
       } else {
-        // کالای جدید → ردیف جدید بساز و فوکوس را روی تعدادش ببر
         const newIdx = items.length;
-        setItems((prev) => [
-          ...prev,
-          { ...emptyItem(), type: 'raw_material', rawMaterialId: String(matched.id) },
-        ]);
+        setItems((prev) => [...prev, build()]);
         requestQtyFocus(newIdx);
       }
+    },
+    [items, requestQtyFocus],
+  );
+
+  const handleBarcodeApply = useCallback(async (code: string) => {
+    const c = normalizeBarcode(code);
+    if (!c) return;
+
+    // ۱) تطبیق با مواد اولیهٔ ثبت‌شده
+    const matched = materials.find((m) => normalizeBarcode(m.barcode || '') === c);
+    if (matched) {
+      addOrIncrementRow(
+        (x) => x.type === 'raw_material' && x.rawMaterialId === String(matched.id),
+        () => ({ ...emptyItem(), type: 'raw_material', rawMaterialId: String(matched.id) }),
+      );
       return;
     }
-    setAddMaterialBarcode(c);
-    setAddMaterialName('');
-    setAddMaterialUnit('piece');
-    setAddMaterialPrice('');
+
+    // ۲) تطبیق با محصولات منو
+    const matchedProduct = menuProducts.find((p) => normalizeBarcode(p.barcode || '') === c);
+    if (matchedProduct) {
+      addOrIncrementRow(
+        (x) => x.type === 'final_product' && x.menuProductId === String(matchedProduct.id),
+        () => ({ ...emptyItem(), type: 'final_product', menuProductId: String(matchedProduct.id) }),
+      );
+      return;
+    }
+
+    // ۳) یافت نشد → مودال افزودن «محصول» جدید
+    setAddProductBarcode(c);
+    setAddProductName('');
+    setAddProductCategoryId(
+      String(categories.find((cat) => cat._syncStatus === 'synced')?.id || categories[0]?.id || ''),
+    );
+    setAddProductSalePrice('');
+    setAddProductPurchasePrice('');
     setIsCheckingMasterProduct(true);
-    setAddMaterialOpen(true);
+    setAddProductOpen(true);
     try {
       const master = await getMasterProductByBarcode(c, token || undefined);
-      if (master) setAddMaterialName(master.name);
+      if (master) setAddProductName(master.name);
     } finally {
       setIsCheckingMasterProduct(false);
     }
-  }, [materials, items, token, requestQtyFocus]);
+  }, [materials, menuProducts, categories, token, addOrIncrementRow]);
 
   // اسکنر بارکد: کاراکترها را خیلی سریع (با فاصله < ~50ms) تایپ می‌کند و با Enter تمام می‌شود.
   // این listener به‌عنوان شبکهٔ ایمنی کار می‌کند تا حتی وقتی فوکوس داخل فیلد تعداد/قیمت است،
@@ -421,21 +536,27 @@ export default function AccountingPurchaseDraftsPage() {
     }
   }, []);
 
-  const handleSubmitAddMaterial = async () => {
-    if (!restaurantId || !addMaterialName.trim()) {
-      toast.error('نام ماده اولیه الزامی است');
+  const handleSubmitAddProduct = async () => {
+    if (!restaurantId || !addProductName.trim()) {
+      toast.error('نام محصول الزامی است');
       return;
     }
-    setAddMaterialSubmitting(true);
+    if (!addProductCategoryId) {
+      toast.error('انتخاب دسته‌بندی الزامی است');
+      return;
+    }
+    setAddProductSubmitting(true);
     try {
-      const newMaterial = await createRawMaterialLocal({
+      const newProduct = await createProductLocal({
         restaurantId,
-        name: addMaterialName.trim(),
-        unit: addMaterialUnit,
-        barcode: addMaterialBarcode || undefined,
+        name_fa: addProductName.trim(),
+        price: Number(normalizePriceInput(addProductSalePrice) || 0),
+        category_id: Number(addProductCategoryId),
+        barcode: addProductBarcode || undefined,
       });
       await reload();
-      const price = addMaterialPrice.trim() || '0';
+      const purchasePrice = normalizePriceInput(addProductPurchasePrice) || '0';
+      const salePrice = normalizePriceInput(addProductSalePrice);
       const lastIsEmpty =
         items.length > 0 &&
         !items[items.length - 1].rawMaterialId &&
@@ -444,21 +565,22 @@ export default function AccountingPurchaseDraftsPage() {
       setItems((prev) => {
         const filled: DraftItem = {
           ...emptyItem(),
-          type: 'raw_material',
-          rawMaterialId: String(newMaterial.id),
-          unitPrice: price,
+          type: 'final_product',
+          menuProductId: String(newProduct.id),
+          unitPrice: purchasePrice,
+          salePrice,
         };
         // ردیف خالی انتهایی را پر کن، در غیر این صورت یک ردیف جدید اضافه کن (آیتم‌های قبلی حفظ شوند)
         return lastIsEmpty
           ? prev.map((x, i) => (i === prev.length - 1 ? filled : x))
           : [...prev, filled];
       });
-      setAddMaterialOpen(false);
+      setAddProductOpen(false);
       requestQtyFocus(targetIdx);
     } catch {
-      toast.error('خطا در ثبت ماده اولیه. لطفاً دوباره تلاش کنید.');
+      toast.error('خطا در ثبت محصول. لطفاً دوباره تلاش کنید.');
     } finally {
-      setAddMaterialSubmitting(false);
+      setAddProductSubmitting(false);
     }
   };
 
@@ -822,45 +944,21 @@ export default function AccountingPurchaseDraftsPage() {
                           : 'هیچ ماده اولیه‌ای ثبت نشده'}
                       </p>
                     ) : (
-                      <Autocomplete
-                        className="w-full"
+                      <ItemPicker
+                        searchName={`search-item-${idx}`}
+                        options={activeOptions}
                         value={selectedKey || null}
-                        onChange={(k) => {
-                          const val = String(k || '');
+                        label={isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}
+                        placeholder={`انتخاب ${isFinalProduct ? 'محصول' : 'ماده اولیه'}...`}
+                        onChange={(val) =>
                           updateItem(
                             idx,
                             isFinalProduct
                               ? { menuProductId: val, finalProductId: '' }
                               : { rawMaterialId: val },
-                          );
-                        }}
-                      >
-                        <Label>{isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}</Label>
-                        <Autocomplete.Trigger>
-                          <Autocomplete.Value placeholder={`انتخاب ${isFinalProduct ? 'محصول' : 'ماده اولیه'}...`} />
-                          <Autocomplete.ClearButton />
-                          <Autocomplete.Indicator />
-                        </Autocomplete.Trigger>
-                        <Autocomplete.Popover>
-                          <Autocomplete.Filter filter={contains}>
-                            <SearchField name={`search-item-${idx}`} variant="secondary">
-                              <SearchField.Group>
-                                <SearchField.SearchIcon />
-                                <SearchField.Input placeholder="جستجو..." />
-                                <SearchField.ClearButton />
-                              </SearchField.Group>
-                            </SearchField>
-                            <ListBox renderEmptyState={() => <EmptyState>موردی یافت نشد</EmptyState>}>
-                              {activeOptions.map((opt) => (
-                                <ListBox.Item key={opt.id} id={opt.id} textValue={opt.label}>
-                                  {opt.label}
-                                  <ListBox.ItemIndicator />
-                                </ListBox.Item>
-                              ))}
-                            </ListBox>
-                          </Autocomplete.Filter>
-                        </Autocomplete.Popover>
-                      </Autocomplete>
+                          )
+                        }
+                      />
                     )}
 
                     <div className="grid grid-cols-3 gap-2">
@@ -944,10 +1042,10 @@ export default function AccountingPurchaseDraftsPage() {
         </ModalShell>
       </Modal>
 
-      {/* Add raw material modal */}
-      <Modal isOpen={addMaterialOpen} onOpenChange={setAddMaterialOpen} size="lg">
+      {/* Add product modal — وقتی بارکد یافت نشود باز می‌شود */}
+      <Modal isOpen={addProductOpen} onOpenChange={setAddProductOpen} size="lg">
         <ModalShell>
-          <ModalHeader>افزودن ماده اولیه جدید</ModalHeader>
+          <ModalHeader>افزودن محصول جدید</ModalHeader>
           <ModalBody className="gap-3">
             {isCheckingMasterProduct && (
               <div className="flex items-center justify-center gap-2 text-default-500 text-sm py-2">
@@ -955,45 +1053,64 @@ export default function AccountingPurchaseDraftsPage() {
                 <span>در حال جستجو در محصولات پایه...</span>
               </div>
             )}
-            <Input label="بارکد" value={addMaterialBarcode} isReadOnly />
+            <Input label="بارکد" value={addProductBarcode} isReadOnly />
             <Input
-              label="نام ماده اولیه"
-              value={addMaterialName}
-              onValueChange={setAddMaterialName}
+              label="نام محصول"
+              value={addProductName}
+              onValueChange={setAddProductName}
               isDisabled={isCheckingMasterProduct}
               isRequired
             />
-            <Select
-              label="واحد"
-              selectedKeys={[addMaterialUnit]}
-              onSelectionChange={(k) => setAddMaterialUnit(String(Array.from(k)[0] || 'piece'))}
-              isDisabled={isCheckingMasterProduct}
-            >
-              {RAW_MATERIAL_UNITS.map((u) => (
-                <SelectItem key={u}>{UNIT_LABELS[u] ?? u}</SelectItem>
-              ))}
-            </Select>
-            <Input
-              type="text"
-              inputMode="numeric"
-              label="قیمت واحد (برای این فاکتور)"
-              value={formatPriceInput(addMaterialPrice)}
-              onValueChange={(v) => setAddMaterialPrice(normalizePriceInput(v))}
-              isDisabled={isCheckingMasterProduct}
-              endContent={
-                <span className="text-default-400 text-sm whitespace-nowrap">تومان</span>
-              }
-            />
+            {categories.length === 0 ? (
+              <p className="text-warning-600 text-xs">
+                هیچ دسته‌بندی‌ای یافت نشد — ابتدا از بخش محصولات یک دسته‌بندی بسازید یا با سرور همگام‌سازی کنید.
+              </p>
+            ) : (
+              <Select
+                label="دسته‌بندی"
+                selectedKeys={addProductCategoryId ? [addProductCategoryId] : []}
+                onSelectionChange={(k) => setAddProductCategoryId(String(Array.from(k)[0] || ''))}
+                isDisabled={isCheckingMasterProduct}
+              >
+                {categories.map((c) => (
+                  <SelectItem key={String(c.id)}>{c.name_fa || c.name}</SelectItem>
+                ))}
+              </Select>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                type="text"
+                inputMode="numeric"
+                label="قیمت خرید (برای این فاکتور)"
+                value={formatPriceInput(addProductPurchasePrice)}
+                onValueChange={(v) => setAddProductPurchasePrice(normalizePriceInput(v))}
+                isDisabled={isCheckingMasterProduct}
+                endContent={
+                  <span className="text-default-400 text-sm whitespace-nowrap">تومان</span>
+                }
+              />
+              <Input
+                type="text"
+                inputMode="numeric"
+                label="قیمت فروش"
+                value={formatPriceInput(addProductSalePrice)}
+                onValueChange={(v) => setAddProductSalePrice(normalizePriceInput(v))}
+                isDisabled={isCheckingMasterProduct}
+                endContent={
+                  <span className="text-default-400 text-sm whitespace-nowrap">تومان</span>
+                }
+              />
+            </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setAddMaterialOpen(false)}>انصراف</Button>
+            <Button variant="flat" onPress={() => setAddProductOpen(false)}>انصراف</Button>
             <Button
               color="primary"
-              isLoading={addMaterialSubmitting}
-              isDisabled={isCheckingMasterProduct}
-              onPress={handleSubmitAddMaterial}
+              isLoading={addProductSubmitting}
+              isDisabled={isCheckingMasterProduct || categories.length === 0}
+              onPress={handleSubmitAddProduct}
             >
-              ثبت ماده اولیه
+              ثبت محصول
             </Button>
           </ModalFooter>
         </ModalShell>
