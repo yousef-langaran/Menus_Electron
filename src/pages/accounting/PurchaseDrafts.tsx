@@ -139,11 +139,17 @@ function ItemPicker({
 
   return (
     <Autocomplete
+      allowsEmptyCollection
       className="w-full"
       value={value || null}
       onChange={(k) => {
         onChange(String(k || ''));
         setSearch('');
+      }}
+      onOpenChange={(isOpen) => {
+        // با بسته‌شدن، فیلتر آن‌مانت می‌شود و SearchFieldِ غیرکنترل‌شده خالی می‌شود؛
+        // پس state جستجو را هم خالی می‌کنیم تا با دفعهٔ بعد هماهنگ بماند.
+        if (!isOpen) setSearch('');
       }}
     >
       <Label>{label}</Label>
@@ -153,7 +159,10 @@ function ItemPicker({
         <Autocomplete.Indicator />
       </Autocomplete.Trigger>
       <Autocomplete.Popover>
-        <Autocomplete.Filter inputValue={search} onInputChange={setSearch}>
+        {/* filter لازم است تا ورودی جستجو فعال شود؛ onInputChange فقط متن را
+            می‌خواند تا لیست را به PICKER_RENDER_CAP موردِ تطبیق‌یافته برش بزنیم.
+            چون items={visible} ازقبل فیلترشده است، filter صرفاً همان‌ها را تأیید می‌کند. */}
+        <Autocomplete.Filter filter={contains} onInputChange={setSearch}>
           <SearchField name={searchName} variant="secondary">
             <SearchField.Group>
               <SearchField.SearchIcon />
