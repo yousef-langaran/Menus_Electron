@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toShamsiDate } from '../../utils/date';
 import { Autocomplete, Card, CardContent, Chip, EmptyState, Label, ListBox, Modal, ModalBody, ModalFooter, ModalHeader, SearchField, Spinner, Tabs, useFilter } from '@heroui/react';
@@ -121,6 +121,45 @@ export default function AccountingPurchaseDraftsPage() {
   const [items, setItems] = useState<DraftItem[]>([]);
   const { contains } = useFilter({ sensitivity: 'base' });
 
+  // Barcode scan UX
+  const [scanValue, setScanValue] = useState('');
+  const [flashIdx, setFlashIdx] = useState<number | null>(null);
+  const barcodeRef = useRef<HTMLInputElement>(null);
+  const qtyRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const pendingFocusIdx = useRef<number | null>(null);
+
+  /** پس از افزودن/افزایش از طریق بارکد، فوکوس را به فیلد تعداد همان ردیف می‌برد */
+  const requestQtyFocus = useCallback((idx: number) => {
+    pendingFocusIdx.current = idx;
+    setFlashIdx(idx);
+  }, []);
+
+  // وقتی آیتم‌ها رندر شدند، فوکوس را روی فیلد تعداد ردیف هدف می‌گذارد و متنش را انتخاب می‌کند
+  useEffect(() => {
+    const idx = pendingFocusIdx.current;
+    if (idx == null) return;
+    const el = qtyRefs.current[idx];
+    if (el) {
+      el.focus();
+      el.select?.();
+      pendingFocusIdx.current = null;
+    }
+  }, [items]);
+
+  // هایلایت ردیف تازه‌اضافه‌شده را بعد از کمی زمان پاک می‌کند
+  useEffect(() => {
+    if (flashIdx == null) return;
+    const t = setTimeout(() => setFlashIdx(null), 900);
+    return () => clearTimeout(t);
+  }, [flashIdx]);
+
+  // با باز شدن مودال، فوکوس را روی فیلد بارکد بگذار (بر focus-trap پیش‌فرض مودال غلبه می‌کند)
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => barcodeRef.current?.focus(), 120);
+    return () => clearTimeout(t);
+  }, [open]);
+
   // Add raw material modal
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
   const [addMaterialBarcode, setAddMaterialBarcode] = useState('');
@@ -189,7 +228,8 @@ export default function AccountingPurchaseDraftsPage() {
     setSupplierId('');
     setExtraCosts('0');
     setPurchaseDate(new Date().toISOString().slice(0, 10));
-    setItems([emptyItem()]);
+    setItems([]);
+    setScanValue('');
     setOpen(true);
   };
 
@@ -283,19 +323,28 @@ export default function AccountingPurchaseDraftsPage() {
     const c = code.trim();
     const matched = materials.find((m) => String(m.barcode || '').trim() === c);
     if (matched) {
-      setItems((prev) => {
-        const existingIdx = prev.findIndex(
-          (x) => x.type === 'raw_material' && x.rawMaterialId === String(matched.id),
-        );
-        if (existingIdx !== -1) {
-          return prev.map((x, i) =>
+      const existingIdx = items.findIndex(
+        (x) => x.type === 'raw_material' && x.rawMaterialId === String(matched.id),
+      );
+      if (existingIdx !== -1) {
+        // قبلاً اضافه شده → تعداد را یکی زیاد کن و فوکوس را روی تعدادش ببر
+        setItems((prev) =>
+          prev.map((x, i) =>
             i === existingIdx
               ? { ...x, quantity: String(Number(x.quantity || 1) + 1) }
               : x,
-          );
-        }
-        return [...prev, { ...emptyItem(), type: 'raw_material', rawMaterialId: String(matched.id) }];
-      });
+          ),
+        );
+        requestQtyFocus(existingIdx);
+      } else {
+        // کالای جدید → ردیف جدید بساز و فوکوس را روی تعدادش ببر
+        const newIdx = items.length;
+        setItems((prev) => [
+          ...prev,
+          { ...emptyItem(), type: 'raw_material', rawMaterialId: String(matched.id) },
+        ]);
+        requestQtyFocus(newIdx);
+      }
       return;
     }
     setAddMaterialBarcode(c);
@@ -310,33 +359,67 @@ export default function AccountingPurchaseDraftsPage() {
     } finally {
       setIsCheckingMasterProduct(false);
     }
-  }, [materials, token]);
+  }, [materials, items, token, requestQtyFocus]);
 
-  // اسکنر بارکد: کاراکترها رو سریع تایپ می‌کنه و با Enter ختم می‌شه
+  // اسکنر بارکد: کاراکترها را خیلی سریع (با فاصله < ~50ms) تایپ می‌کند و با Enter تمام می‌شود.
+  // این listener به‌عنوان شبکهٔ ایمنی کار می‌کند تا حتی وقتی فوکوس داخل فیلد تعداد/قیمت است،
+  // اسکن کالا باز هم اضافه شود. فیلد بارکد اختصاصی خودش onKeyDown دارد و اینجا نادیده گرفته می‌شود.
   useEffect(() => {
     if (!open) return;
     let buffer = '';
     let lastTime = 0;
 
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      // فیلد بارکد اختصاصی خودش این رویداد را مدیریت می‌کند
+      if (e.target === barcodeRef.current) return;
       const now = Date.now();
+      const fast = now - lastTime <= 50;
+
       if (e.key === 'Enter') {
-        if (buffer.length >= 3) void handleBarcodeApply(buffer);
-        buffer = '';
+        if (buffer.length >= 3) {
+          e.preventDefault();
+          const code = buffer;
+          buffer = '';
+          void handleBarcodeApply(code);
+        } else {
+          buffer = '';
+        }
         return;
       }
       if (e.key.length === 1) {
-        if (now - lastTime > 80) buffer = '';
-        buffer += e.key;
+        buffer = fast ? buffer + e.key : e.key;
+        // وقتی برخورد سریع کاراکترها مشخص شد، نگذار وارد فیلد فوکوس‌شده (تعداد/قیمت) شوند
+        if (buffer.length >= 2 && fast) e.preventDefault();
         lastTime = now;
       }
     };
 
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    // فاز capture تا بتوانیم قبل از رسیدن به input جلوی پیش‌فرض را بگیریم
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   }, [open, handleBarcodeApply]);
+
+  // هندلر فیلد بارکد اختصاصی
+  const handleScanKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const code = scanValue.trim();
+        setScanValue('');
+        if (code) void handleBarcodeApply(code);
+      }
+    },
+    [scanValue, handleBarcodeApply],
+  );
+
+  // زدن Enter روی فیلد تعداد → برگشت فوکوس به فیلد بارکد برای اسکن کالای بعدی
+  const handleQtyKeyDown = useCallback((e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      barcodeRef.current?.focus();
+      barcodeRef.current?.select?.();
+    }
+  }, []);
 
   const handleSubmitAddMaterial = async () => {
     if (!restaurantId || !addMaterialName.trim()) {
@@ -353,16 +436,25 @@ export default function AccountingPurchaseDraftsPage() {
       });
       await reload();
       const price = addMaterialPrice.trim() || '0';
-      setItems((prev) =>
-        prev.length === 0
-          ? [{ ...emptyItem(), type: 'raw_material', rawMaterialId: String(newMaterial.id), unitPrice: price }]
-          : prev.map((x, i) =>
-              i === prev.length - 1
-                ? { ...x, type: 'raw_material' as ItemType, rawMaterialId: String(newMaterial.id), unitPrice: price }
-                : x,
-            ),
-      );
+      const lastIsEmpty =
+        items.length > 0 &&
+        !items[items.length - 1].rawMaterialId &&
+        !items[items.length - 1].menuProductId;
+      const targetIdx = lastIsEmpty ? items.length - 1 : items.length;
+      setItems((prev) => {
+        const filled: DraftItem = {
+          ...emptyItem(),
+          type: 'raw_material',
+          rawMaterialId: String(newMaterial.id),
+          unitPrice: price,
+        };
+        // ردیف خالی انتهایی را پر کن، در غیر این صورت یک ردیف جدید اضافه کن (آیتم‌های قبلی حفظ شوند)
+        return lastIsEmpty
+          ? prev.map((x, i) => (i === prev.length - 1 ? filled : x))
+          : [...prev, filled];
+      });
       setAddMaterialOpen(false);
+      requestQtyFocus(targetIdx);
     } catch {
       toast.error('خطا در ثبت ماده اولیه. لطفاً دوباره تلاش کنید.');
     } finally {
@@ -560,8 +652,7 @@ export default function AccountingPurchaseDraftsPage() {
                                 };
                               }),
                             );
-                            setItemSearch('');
-                            setBarcode('');
+                            setScanValue('');
                             setOpen(true);
                           }}
                         >
@@ -620,12 +711,48 @@ export default function AccountingPurchaseDraftsPage() {
               />
             </div>
 
+            {/* Barcode scan bar — همیشه فوکوس، قلب جریان کار */}
+            <div className="rounded-2xl border-2 border-primary-200 bg-primary-50/60 p-3 sm:p-4">
+              <Input
+                ref={barcodeRef}
+                autoFocus
+                value={scanValue}
+                onValueChange={setScanValue}
+                onKeyDown={handleScanKeyDown}
+                placeholder="بارکد کالا را اسکن کنید یا تایپ و Enter بزنید…"
+                className="[&]:text-lg [&]:font-semibold [&]:tracking-wider"
+                startContent={
+                  <svg className="w-6 h-6 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M4 5v14M8 5v14M12 5v14M16 5v10M20 5v14M16 17h0M16 19h0" />
+                  </svg>
+                }
+                endContent={
+                  <span className="hidden sm:inline text-primary-400 text-xs whitespace-nowrap">اسکن → افزودن خودکار</span>
+                }
+              />
+              <p className="mt-2 text-xs text-primary-600/80">
+                با اسکن، کالا خودکار اضافه می‌شود و فوکوس روی «تعداد» می‌رود؛ بعد از وارد کردن تعداد، Enter بزنید تا به اسکن بعدی برگردید.
+              </p>
+            </div>
+
             {/* Items */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-foreground">آیتم‌های خرید</span>
                 <span className="text-xs text-default-400">{items.length} آیتم</span>
               </div>
+
+              {items.length === 0 && !hasNoProducts && (
+                <div className="rounded-xl border border-dashed border-default-300 bg-default-50 py-10 px-4 text-center space-y-1">
+                  <svg className="w-10 h-10 mx-auto text-default-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                      d="M4 5v14M8 5v14M12 5v14M16 5v10M20 5v14" />
+                  </svg>
+                  <p className="text-default-500 text-sm font-medium">برای شروع، اولین کالا را اسکن کنید</p>
+                  <p className="text-default-400 text-xs">یا با دکمهٔ پایین به‌صورت دستی آیتم اضافه کنید</p>
+                </div>
+              )}
 
               {hasNoProducts && (
                 <div className="rounded-xl border border-warning-200 bg-warning-50 p-3 text-center space-y-1">
@@ -646,7 +773,11 @@ export default function AccountingPurchaseDraftsPage() {
                 return (
                   <div
                     key={idx}
-                    className="rounded-xl bg-default-100 p-3 space-y-2 border border-default-200"
+                    className={`rounded-xl p-3 space-y-2 border transition-colors duration-500 ${
+                      flashIdx === idx
+                        ? 'bg-primary-50 border-primary-300 ring-2 ring-primary-200'
+                        : 'bg-default-100 border-default-200'
+                    }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-default-400">آیتم {idx + 1}</span>
@@ -734,10 +865,12 @@ export default function AccountingPurchaseDraftsPage() {
 
                     <div className="grid grid-cols-3 gap-2">
                       <Input
+                        ref={(el) => { qtyRefs.current[idx] = el; }}
                         type="number"
                         label="مقدار"
                         value={line.quantity}
                         onValueChange={(v) => updateItem(idx, { quantity: v })}
+                        onKeyDown={handleQtyKeyDown}
                       />
                       <Input
                         type="text"
