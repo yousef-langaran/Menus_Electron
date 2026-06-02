@@ -251,6 +251,11 @@ ipcMain.handle('app:get-version', async () => {
   return app.getVersion();
 });
 
+// نسخه به‌صورت sync — تا هدر x-client-version روی همان اولین درخواست هم حاضر باشد
+ipcMain.on('app:get-version-sync', (event) => {
+  event.returnValue = app.getVersion();
+});
+
 ipcMain.handle('check-online', async () => {
   return await isOnline();
 });

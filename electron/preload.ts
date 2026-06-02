@@ -1,6 +1,16 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+// نسخه‌ی برنامه را به‌صورت sync همان ابتدای بارگذاری می‌گیریم تا هدر نسخه
+// روی نخستین درخواست شبکه هم حاضر باشد (جلوگیری از تشخیص اشتباهِ «قدیمی»).
+let APP_VERSION = '';
+try {
+  APP_VERSION = String(ipcRenderer.sendSync('app:get-version-sync') || '');
+} catch {
+  APP_VERSION = '';
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
+  appVersion: APP_VERSION,
   getApiConfig: () => ipcRenderer.invoke('get-api-config'),
   getAppVersion: () => ipcRenderer.invoke('app:get-version'),
   checkOnline: () => ipcRenderer.invoke('check-online'),
@@ -147,6 +157,7 @@ declare global {
 
   interface Window {
     electronAPI: {
+      appVersion: string;
       getApiConfig: () => Promise<{ baseURL: string; token?: string; restaurantName?: string; restaurantId?: number }>;
       getAppVersion: () => Promise<string>;
       checkOnline: () => Promise<boolean>;

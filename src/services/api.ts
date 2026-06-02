@@ -57,7 +57,8 @@ export const apiConfigReady: Promise<void> =
 
 // نسخه‌ی نصب‌شده‌ی برنامه — به هر درخواست به‌صورت هدر ضمیمه می‌شود تا سرور
 // بتواند کلاینت‌های قدیمی را تشخیص دهد (پاسخ 426).
-let cachedClientVersion = '';
+let cachedClientVersion =
+  (typeof window !== 'undefined' && (window as any).electronAPI?.appVersion) || '';
 export const appVersionReady: Promise<void> =
   typeof window !== 'undefined' && (window as any).electronAPI?.getAppVersion
     ? (window as any).electronAPI
