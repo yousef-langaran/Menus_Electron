@@ -201,7 +201,7 @@ app.whenReady().then(() => {
         ...details.responseHeaders,
         'Access-Control-Allow-Origin': ['*'],
         'Access-Control-Allow-Methods': ['GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS'],
-        'Access-Control-Allow-Headers': ['Content-Type, Authorization, x-restaurant-name, x-selected-restaurant-id, x-domain-type'],
+        'Access-Control-Allow-Headers': ['Content-Type, Authorization, x-client, x-client-version, x-restaurant-name, x-selected-restaurant-id, x-domain-type'],
       },
     });
   });
