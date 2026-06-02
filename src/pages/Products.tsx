@@ -530,7 +530,7 @@ export default function ProductsPage() {
             <Input label="نام انگلیسی" value={form.name} onValueChange={(v) => setForm((f) => ({ ...f, name: v }))} />
             <Input label="بارکد" value={form.barcode} onValueChange={(v) => setForm((f) => ({ ...f, barcode: v }))} />
             <Input
-              label="قیمت (تومان)"
+              label="قیمت (ریال)"
               type="text"
               inputMode="numeric"
               value={formatPriceInput(form.price)}

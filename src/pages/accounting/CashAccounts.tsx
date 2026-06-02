@@ -141,7 +141,7 @@ export default function CashAccountsPage() {
               <div className={`text-lg font-bold ${s.balance >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
                 {Number(Math.abs(s.balance)).toLocaleString('fa-IR')}
               </div>
-              <div className="text-xs text-default-400">تومان · {Number(s.txCount).toLocaleString('fa-IR')} تراکنش</div>
+              <div className="text-xs text-default-400">ریال · {Number(s.txCount).toLocaleString('fa-IR')} تراکنش</div>
             </CardContent>
           </Card>
         ))}
@@ -152,7 +152,7 @@ export default function CashAccountsPage() {
             <div className={`text-lg font-bold ${totalBalance >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
               {Number(Math.abs(totalBalance)).toLocaleString('fa-IR')}
             </div>
-            <div className="text-xs text-default-400">تومان</div>
+            <div className="text-xs text-default-400">ریال</div>
           </CardContent>
         </Card>
       </div>
@@ -201,7 +201,7 @@ export default function CashAccountsPage() {
               <div className="text-sm font-medium">
                 مانده {summary.find((s) => s.accountType === filterAccount)?.accountName}:
                 <span className="font-bold text-primary mr-1">
-                  {Number(summary.find((s) => s.accountType === filterAccount)?.balance ?? 0).toLocaleString('fa-IR')} تومان
+                  {Number(summary.find((s) => s.accountType === filterAccount)?.balance ?? 0).toLocaleString('fa-IR')} ریال
                 </span>
               </div>
             )}
@@ -239,7 +239,7 @@ export default function CashAccountsPage() {
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   <div className={`font-bold text-base ${tx.amount >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
-                    {formatAmount(tx.amount)} تومان
+                    {formatAmount(tx.amount)} ریال
                   </div>
                   <div className="text-xs text-default-400">{toShamsiDate(tx.date)}</div>
                   <div className="text-xs text-default-300">{toShamsiTime(tx.createdAt)}</div>
@@ -277,7 +277,7 @@ export default function CashAccountsPage() {
             </Select>
             <Input
               type="number"
-              label="مبلغ (تومان)"
+              label="مبلغ (ریال)"
               value={manualAmount}
               onValueChange={setManualAmount}
               min={1}

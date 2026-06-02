@@ -557,7 +557,7 @@ export default function SettingsPage() {
             <CardContent className="gap-3">
               <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">رسید چاپی</h2>
               <p className="text-sm text-default-500">
-                مبالغ سفارش در سیستم به <strong>تومان</strong> ذخیره می‌شود. این گزینه فقط نحوهٔ نمایش روی رسید چاپی و پیش‌نمایش را عوض می‌کند.
+                مبالغ سفارش در سیستم به <strong>ریال</strong> ذخیره می‌شود. این گزینه فقط نحوهٔ نمایش روی رسید چاپی و پیش‌نمایش را عوض می‌کند.
               </p>
               <Select
                 label="واحد نمایش مبلغ در رسید"
@@ -572,8 +572,8 @@ export default function SettingsPage() {
                 size="sm"
                 className="max-w-md"
               >
-                <SelectItem key="toman" textValue="تومان">تومان</SelectItem>
-                <SelectItem key="rial" textValue="ریال">ریال (عدد × ۱۰ نسبت به تومان)</SelectItem>
+                <SelectItem key="toman" textValue="ریال">ریال</SelectItem>
+                <SelectItem key="rial" textValue="ریال">ریال (عدد × ۱۰ نسبت به ریال)</SelectItem>
               </Select>
             </CardContent>
           </Card>

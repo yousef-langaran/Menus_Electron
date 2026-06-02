@@ -305,7 +305,7 @@ export default function CreateOrderReturnModal({
                         {orderItem.product.name_fa || orderItem.product.name}
                       </p>
                       <p className="mt-1 text-sm text-gray-600">
-                        قیمت: {new Intl.NumberFormat('fa-IR').format(orderItem.price)} تومان
+                        قیمت: {new Intl.NumberFormat('fa-IR').format(orderItem.price)} ریال
                       </p>
                       <p className="text-sm text-gray-600">
                         تعداد در سفارش: {orderItem.quantity}
@@ -349,7 +349,7 @@ export default function CreateOrderReturnModal({
           <div className="rounded-2xl border border-success-200 bg-success-50 p-4">
             <p className="text-sm text-success-700">جمع مرجوعی انتخاب‌شده</p>
             <p className="mt-1 text-lg font-bold text-success-800">
-              مبلغ کل مرجوعی: {new Intl.NumberFormat('fa-IR').format(totalReturnAmount)} تومان
+              مبلغ کل مرجوعی: {new Intl.NumberFormat('fa-IR').format(totalReturnAmount)} ریال
             </p>
           </div>
         </div>

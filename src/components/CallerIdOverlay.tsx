@@ -12,7 +12,7 @@ function formatPhone(phone: string): string {
 }
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('fa-IR').format(amount) + ' تومان';
+  return new Intl.NumberFormat('fa-IR').format(amount) + ' ریال';
 }
 
 function formatDate(iso: string): string {

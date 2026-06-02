@@ -41,7 +41,7 @@ const REASON_LABELS: Record<string, string> = {
 };
 
 const formatPrice = (price?: number) =>
-  typeof price === 'number' ? `${new Intl.NumberFormat('fa-IR').format(price)} تومان` : '-';
+  typeof price === 'number' ? `${new Intl.NumberFormat('fa-IR').format(price)} ریال` : '-';
 
 const formatDate = (value?: string) => toShamsiDateTime(value);
 

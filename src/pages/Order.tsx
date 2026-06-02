@@ -413,7 +413,7 @@ export default function OrderPage() {
         };
     }, []);
 
-    // اگر کد تخفیف انتخاب شده ولی شرط برقرار نیست، برگرد به تخفیف تومانی
+    // اگر کد تخفیف انتخاب شده ولی شرط برقرار نیست، برگرد به تخفیف ریالی
     useEffect(() => {
         if (discountType === 'code' && !canUseDiscountCode) {
             setDiscountType('fixed');
@@ -894,7 +894,7 @@ export default function OrderPage() {
                 setDiscountType('fixed');
                 setDiscountAmount(disc);
                 setAppliedDiscountCode(null);
-                toast.success(`🎡 تخفیف ${disc.toLocaleString('fa-IR')} تومان اعمال شد`);
+                toast.success(`🎡 تخفیف ${disc.toLocaleString('fa-IR')} ریال اعمال شد`);
             } else if (voucher.prizeType === 'free_product') {
                 const productName = voucher.prizeData?.productName ?? 'کالای رایگان';
                 const productPrice = Number(voucher.prizeData?.productPrice || 0);
@@ -1117,7 +1117,7 @@ export default function OrderPage() {
             customerAddress,
             paymentMethod,
             notes,
-            // مبلغ تخفیف واقعی (شامل درصدی/تومانی/کد تخفیف)
+            // مبلغ تخفیف واقعی (شامل درصدی/ریالی/کد تخفیف)
             discountAmount: getDiscountAmount(),
             totalAmount: getTotalAmount(),
             finalAmount: getFinalAmount(),
@@ -1470,7 +1470,7 @@ export default function OrderPage() {
     };
 
     const formatPrice = (price: number) => {
-        return new Intl.NumberFormat('fa-IR').format(price) + ' تومان';
+        return new Intl.NumberFormat('fa-IR').format(price) + ' ریال';
     };
 
     const handleBarcodeAdd = async (rawCode?: string) => {
@@ -2247,7 +2247,7 @@ export default function OrderPage() {
                                             if (v.prizeType === 'discount_percent')
                                                 return `${v.prizeData?.percent ?? 0}٪ تخفیف`;
                                             if (v.prizeType === 'discount_amount')
-                                                return `${Number(v.prizeData?.amount ?? 0).toLocaleString('fa-IR')} تومان تخفیف`;
+                                                return `${Number(v.prizeData?.amount ?? 0).toLocaleString('fa-IR')} ریال تخفیف`;
                                             if (v.prizeType === 'free_product')
                                                 return `کالای رایگان: ${v.prizeData?.productName ?? ''}`;
                                             if (v.prizeType === 'points')
@@ -2392,7 +2392,7 @@ export default function OrderPage() {
 
                                     <div className="grid grid-cols-3 gap-2">
                                         <Input
-                                            label="نقد (تومان)"
+                                            label="نقد (ریال)"
                                             value={splitCash > 0 ? formatPriceInput(String(splitCash)) : ''}
                                             onChange={(e) => setSplitCash(Number(normalizePriceInput(e.target.value)) || 0)}
                                             placeholder="0"
@@ -2403,7 +2403,7 @@ export default function OrderPage() {
                                             classNames={{ input: 'text-center' }}
                                         />
                                         <Input
-                                            label="کارت (تومان)"
+                                            label="کارت (ریال)"
                                             value={splitCard > 0 ? formatPriceInput(String(splitCard)) : ''}
                                             onChange={(e) => setSplitCard(Number(normalizePriceInput(e.target.value)) || 0)}
                                             placeholder="0"
@@ -2414,7 +2414,7 @@ export default function OrderPage() {
                                             classNames={{ input: 'text-center' }}
                                         />
                                         <Input
-                                            label="آنلاین (تومان)"
+                                            label="آنلاین (ریال)"
                                             value={splitOnline > 0 ? formatPriceInput(String(splitOnline)) : ''}
                                             onChange={(e) => setSplitOnline(Number(normalizePriceInput(e.target.value)) || 0)}
                                             placeholder="0"
@@ -2458,7 +2458,7 @@ export default function OrderPage() {
 
                                     <div className="grid grid-cols-3 gap-2">
                                         <Input
-                                            label="نقد (تومان)"
+                                            label="نقد (ریال)"
                                             value={splitCash > 0 ? formatPriceInput(String(splitCash)) : ''}
                                             onChange={(e) => setSplitCash(Number(normalizePriceInput(e.target.value)) || 0)}
                                             placeholder="0"
@@ -2469,7 +2469,7 @@ export default function OrderPage() {
                                             classNames={{ input: 'text-center' }}
                                         />
                                         <Input
-                                            label="کارت (تومان)"
+                                            label="کارت (ریال)"
                                             value={splitCard > 0 ? formatPriceInput(String(splitCard)) : ''}
                                             onChange={(e) => setSplitCard(Number(normalizePriceInput(e.target.value)) || 0)}
                                             placeholder="0"
@@ -2480,7 +2480,7 @@ export default function OrderPage() {
                                             classNames={{ input: 'text-center' }}
                                         />
                                         <Input
-                                            label="آنلاین (تومان)"
+                                            label="آنلاین (ریال)"
                                             value={splitOnline > 0 ? formatPriceInput(String(splitOnline)) : ''}
                                             onChange={(e) => setSplitOnline(Number(normalizePriceInput(e.target.value)) || 0)}
                                             placeholder="0"
@@ -2604,7 +2604,7 @@ export default function OrderPage() {
                                 <Button size="sm" variant={discountType === 'percentage' ? 'solid' : 'bordered'}
                                         color="primary" onPress={() => setDiscountType('percentage')}>درصدی</Button>
                                 <Button size="sm" variant={discountType === 'fixed' ? 'solid' : 'bordered'}
-                                        color="primary" onPress={() => setDiscountType('fixed')}>تومانی</Button>
+                                        color="primary" onPress={() => setDiscountType('fixed')}>ریالی</Button>
                                 <Button size="sm" variant={discountType === 'code' ? 'solid' : 'bordered'}
                                         color="primary" isDisabled={!canUseDiscountCode}
                                         onPress={() => canUseDiscountCode && setDiscountType('code')}
@@ -2704,7 +2704,7 @@ export default function OrderPage() {
                                                 : (Number(v) || 0)
                                         )}
                                         endContent={discountType === 'fixed'
-                                            ? <span className="text-default-400 text-sm whitespace-nowrap">تومان</span>
+                                            ? <span className="text-default-400 text-sm whitespace-nowrap">ریال</span>
                                             : undefined}
                                         variant="bordered"
                                         classNames={{input: 'text-right'}}
@@ -2832,7 +2832,7 @@ export default function OrderPage() {
                             onValueChange={(v) => setNewProductForm((f) => ({ ...f, name: v }))}
                         />
                         <Input
-                            label="قیمت (تومان)"
+                            label="قیمت (ریال)"
                             type="text"
                             inputMode="numeric"
                             value={formatPriceInput(newProductForm.price)}
@@ -2911,7 +2911,7 @@ export default function OrderPage() {
                                         : `${scaleWeight.toFixed(3)} کیلوگرم`}
                                 </p>
                                 <p className="text-sm text-default-500">
-                                    مبلغ: {formatPrice(staffCartUnitPrice(scaleModalProduct) * (scaleModalProduct?.unit === 'گرم' ? Math.round(scaleWeight * 1000) : scaleWeight))} تومان
+                                    مبلغ: {formatPrice(staffCartUnitPrice(scaleModalProduct) * (scaleModalProduct?.unit === 'گرم' ? Math.round(scaleWeight * 1000) : scaleWeight))} ریال
                                 </p>
                             </div>
                         ) : null}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button as HeroButton,
@@ -13,6 +13,8 @@ import { Button } from '../ui/compat-button';
 import { useAuthStore } from '../store/authStore';
 import { isValidIranMobile, normalizeIranMobile, sanitizeMobileInput } from '../utils/iranMobile';
 import { toast } from '../utils/toast';
+import { appVersionReady, getCachedClientVersion, getClientRequirements } from '../services/api';
+import { isVersionOutdated } from '../utils/version';
 
 const EyeIcon = ({ className }: { className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
@@ -34,11 +36,70 @@ export default function LoginPage() {
   const [mobileError, setMobileError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isOutdated, setIsOutdated] = useState(false);
+  const [minVersion, setMinVersion] = useState('');
+  const [currentVersion, setCurrentVersion] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
   const { login } = useAuthStore();
   const navigate = useNavigate();
 
+  // گیت نسخه: اگر برنامه قدیمی باشد، ورود مسدود و پیام به‌روزرسانی نمایش داده می‌شود.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        await appVersionReady;
+        const current =
+          getCachedClientVersion() ||
+          (await (window as any).electronAPI?.getAppVersion?.()) ||
+          '';
+        const req = await getClientRequirements();
+        const min = req?.minElectronVersion || '';
+        if (!active) return;
+        setCurrentVersion(current);
+        setMinVersion(min);
+        if (isVersionOutdated(current, min)) setIsOutdated(true);
+      } catch {
+        // آفلاین یا خطای شبکه: مانع ورود نمی‌شویم؛ در صورت قدیمی‌بودن،
+        // اولین درخواست آنلاین با پاسخ 426 رویداد outdated را فعال می‌کند.
+      }
+    })();
+
+    const onOutdated = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { minVersion?: string } | undefined;
+      if (detail?.minVersion) setMinVersion(detail.minVersion);
+      setIsOutdated(true);
+    };
+    window.addEventListener('menus-electron:outdated', onOutdated);
+    return () => {
+      active = false;
+      window.removeEventListener('menus-electron:outdated', onOutdated);
+    };
+  }, []);
+
+  const handleUpdate = async () => {
+    setIsUpdating(true);
+    try {
+      const res = await (window as any).electronAPI?.checkForUpdates?.();
+      if (res && res.ok === false) {
+        toast.error('به‌روزرسانی', { description: res.message || 'به‌روزرسانی در دسترس نیست.' });
+        setIsUpdating(false);
+        return;
+      }
+      await (window as any).electronAPI?.startUpdateDownload?.();
+      toast.success('به‌روزرسانی', { description: 'در حال دریافت نسخه جدید... برنامه پس از دریافت، نصب می‌شود.' });
+    } catch {
+      toast.error('به‌روزرسانی', { description: 'دریافت به‌روزرسانی ناموفق بود. لطفاً اتصال اینترنت را بررسی کنید.' });
+      setIsUpdating(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isOutdated) {
+      toast.error('نیاز به به‌روزرسانی', { description: 'برای ورود، ابتدا نرم‌افزار را به‌روزرسانی کنید.' });
+      return;
+    }
     setMobileError('');
     setPasswordError('');
     const mobileTrim = mobile.trim();
@@ -65,6 +126,51 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  if (isOutdated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-default-100 p-4 sm:p-6" dir="rtl">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardHeader className="flex flex-col items-center gap-3 pt-8 pb-0">
+            <img
+              src="./branding/hoshmenu-electron-logo.png"
+              alt="هوش منو"
+              className="h-[72px] w-auto max-w-[220px] object-contain select-none"
+              draggable={false}
+            />
+            <div className="text-center">
+              <CardTitle className="text-xl font-semibold text-danger">نیاز به به‌روزرسانی</CardTitle>
+              <CardDescription className="mt-1.5 text-default-500">
+                نسخه نرم‌افزار شما قدیمی است. برای ادامه، لطفاً برنامه را به‌روزرسانی کنید.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-5 px-6 pb-8 pt-6 sm:px-8">
+            <div className="rounded-lg bg-default-100 p-3 text-center text-sm text-default-600">
+              {currentVersion && (
+                <div>نسخه فعلی: <span className="font-medium">{currentVersion}</span></div>
+              )}
+              {minVersion && (
+                <div>حداقل نسخه لازم: <span className="font-medium">{minVersion}</span></div>
+              )}
+            </div>
+            <Button
+              type="button"
+              color="primary"
+              size="lg"
+              isLoading={isUpdating}
+              onPress={handleUpdate}
+              className="w-full font-semibold">
+              {isUpdating ? 'در حال دریافت به‌روزرسانی...' : 'دریافت و نصب به‌روزرسانی'}
+            </Button>
+            <p className="text-center text-xs text-default-400">
+              تا زمان به‌روزرسانی، امکان ورود به برنامه وجود ندارد.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-default-100 p-4 sm:p-6" dir="rtl">

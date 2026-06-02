@@ -4,7 +4,7 @@ import * as fs from 'fs';
 
 export type ReceiptNumberResetPolicy = 'never' | 'minutely' | 'daily' | 'weekly' | 'monthly';
 
-/** واحد نمایش مبلغ در رسید چاپی (مقادیر سفارش در دیتابیس به تومان هستند؛ در حالت ریال ×۱۰ نمایش داده می‌شود) */
+/** واحد نمایش مبلغ در رسید چاپی (مقادیر سفارش در دیتابیس به ریال هستند؛ در حالت ریال ×۱۰ نمایش داده می‌شود) */
 export type ReceiptPriceDisplayUnit = 'toman' | 'rial';
 export type CardTerminalSendAmountUnit = 'toman' | 'rial';
 

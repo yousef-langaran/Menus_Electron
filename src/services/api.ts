@@ -55,9 +55,34 @@ export const apiConfigReady: Promise<void> =
         .catch(() => {})
     : Promise.resolve();
 
+// نسخه‌ی نصب‌شده‌ی برنامه — به هر درخواست به‌صورت هدر ضمیمه می‌شود تا سرور
+// بتواند کلاینت‌های قدیمی را تشخیص دهد (پاسخ 426).
+let cachedClientVersion = '';
+export const appVersionReady: Promise<void> =
+  typeof window !== 'undefined' && (window as any).electronAPI?.getAppVersion
+    ? (window as any).electronAPI
+        .getAppVersion()
+        .then((v: string) => {
+          if (v) cachedClientVersion = String(v);
+        })
+        .catch(() => {})
+    : Promise.resolve();
+
+export function getCachedClientVersion(): string {
+  return cachedClientVersion;
+}
+
 // Add request interceptor for debugging
 api.interceptors.request.use(
   (config) => {
+    // شناسه و نسخه‌ی کلاینت دسکتاپ برای گیت نسخه در سرور
+    const clientHeaders: any = config.headers || {};
+    clientHeaders['x-client'] = 'electron';
+    if (cachedClientVersion) {
+      clientHeaders['x-client-version'] = cachedClientVersion;
+    }
+    config.headers = clientHeaders;
+
     const requestUrl = String(config.url || '');
     const isAuthRequest = requestUrl.includes('/auth/');
     if (typeof window !== 'undefined' && !isAuthRequest) {
@@ -110,6 +135,14 @@ let isHandlingUnauthorized = false;
 function dispatchUnauthorized(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new Event('menus-electron:unauthorized'));
+}
+
+/** نسخه‌ی کلاینت قدیمی است و سرور درخواست را رد کرده (426). */
+function dispatchOutdated(minVersion?: string): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent('menus-electron:outdated', { detail: { minVersion } }),
+  );
 }
 
 function extractApiErrorMessage(error: unknown): string | null {
@@ -203,10 +236,29 @@ api.interceptors.response.use(
       }
     }
 
+    // نسخه‌ی نرم‌افزار قدیمی است — سرور درخواست را رد کرده است
+    if (status === 426) {
+      const data = error?.response?.data as { message?: string; minVersion?: string } | undefined;
+      toast.error('نیاز به به‌روزرسانی', {
+        description: data?.message || 'نسخه نرم‌افزار شما قدیمی است. لطفاً برنامه را به‌روزرسانی کنید.',
+      });
+      dispatchOutdated(data?.minVersion);
+      return Promise.reject(error);
+    }
+
     showApiErrorToast(error, normalizedPath);
     return Promise.reject(error);
   }
 );
+
+/** حداقل نسخه‌ی مجاز کلاینت دسکتاپ از سرور (برای گیت ورود). */
+export async function getClientRequirements(): Promise<{ minElectronVersion: string }> {
+  await apiConfigReady;
+  const response = await api.get('/app/client-requirements', {
+    skipGlobalErrorToast: true,
+  } as any);
+  return response.data;
+}
 
 export async function login(mobile: string, password: string) {
   await apiConfigReady;

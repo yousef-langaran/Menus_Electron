@@ -39,7 +39,7 @@ interface OrderState {
   customerAddress: string;
   paymentMethod: 'cash' | 'card' | 'online' | 'mixed' | 'credit';
   notes: string;
-  discountAmount: number; // user input value (برای درصدی/تومانی)
+  discountAmount: number; // user input value (برای درصدی/ریالی)
   discountType: DiscountType;
   discountCode: string; // برای نوع «کد تخفیف»
   /** کد تخفیف ثبت‌شده (بعد از زدن «ثبت») — برای نمایش مبلغ و ارسال به سرور */

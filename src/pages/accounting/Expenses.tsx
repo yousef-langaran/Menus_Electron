@@ -281,7 +281,7 @@ export default function AccountingExpensesPage() {
               <div className="flex justify-between items-start gap-2">
                 <div className="space-y-1 min-w-0">
                   <div className="font-semibold text-foreground">
-                    {formatAmount(e.amount)} تومان
+                    {formatAmount(e.amount)} ریال
                   </div>
                   <div className="text-default-500 text-xs">
                     دسته: {categoryName(e)}
@@ -344,7 +344,7 @@ export default function AccountingExpensesPage() {
             </Select>
             <Input
               type="number"
-              label="مبلغ (تومان)"
+              label="مبلغ (ریال)"
               value={amount}
               onValueChange={setAmount}
               isRequired
@@ -394,7 +394,7 @@ export default function AccountingExpensesPage() {
             </Select>
             <Input
               type="number"
-              label="مبلغ (تومان)"
+              label="مبلغ (ریال)"
               value={editAmount}
               onValueChange={setEditAmount}
               isRequired

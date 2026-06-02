@@ -62,7 +62,7 @@ const formatPriceInput = (value: string) => {
 };
 
 const formatCurrency = (n: number) =>
-  new Intl.NumberFormat('fa-IR').format(Math.round(n)) + ' تومان';
+  new Intl.NumberFormat('fa-IR').format(Math.round(n)) + ' ریال';
 
 const toJalali = (isoDate?: string) => toShamsiDate(isoDate);
 
@@ -1059,7 +1059,7 @@ export default function AccountingPurchaseDraftsPage() {
                         value={formatPriceInput(line.totalPrice)}
                         onValueChange={(v) => updateItem(idx, { totalPrice: normalizePriceInput(v) })}
                         endContent={
-                          <span className="text-default-400 text-xs whitespace-nowrap">تومان</span>
+                          <span className="text-default-400 text-xs whitespace-nowrap">ریال</span>
                         }
                       />
                       <Input
@@ -1070,7 +1070,7 @@ export default function AccountingPurchaseDraftsPage() {
                         value={formatPriceInput(line.salePrice)}
                         onValueChange={(v) => updateItem(idx, { salePrice: normalizePriceInput(v) })}
                         endContent={
-                          <span className="text-default-400 text-xs whitespace-nowrap">تومان</span>
+                          <span className="text-default-400 text-xs whitespace-nowrap">ریال</span>
                         }
                       />
                     </div>
@@ -1112,7 +1112,7 @@ export default function AccountingPurchaseDraftsPage() {
                 value={formatPriceInput(extraCosts)}
                 onValueChange={(v) => setExtraCosts(normalizePriceInput(v))}
                 endContent={
-                  <span className="text-default-400 text-sm whitespace-nowrap">تومان</span>
+                  <span className="text-default-400 text-sm whitespace-nowrap">ریال</span>
                 }
               />
               <div className="flex items-center justify-between rounded-xl bg-default-200 px-4 py-3">
@@ -1174,7 +1174,7 @@ export default function AccountingPurchaseDraftsPage() {
                 onValueChange={(v) => setAddProductPurchasePrice(normalizePriceInput(v))}
                 isDisabled={isCheckingMasterProduct}
                 endContent={
-                  <span className="text-default-400 text-sm whitespace-nowrap">تومان</span>
+                  <span className="text-default-400 text-sm whitespace-nowrap">ریال</span>
                 }
               />
               <Input
@@ -1185,7 +1185,7 @@ export default function AccountingPurchaseDraftsPage() {
                 onValueChange={(v) => setAddProductSalePrice(normalizePriceInput(v))}
                 isDisabled={isCheckingMasterProduct}
                 endContent={
-                  <span className="text-default-400 text-sm whitespace-nowrap">تومان</span>
+                  <span className="text-default-400 text-sm whitespace-nowrap">ریال</span>
                 }
               />
             </div>

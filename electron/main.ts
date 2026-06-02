@@ -246,6 +246,11 @@ ipcMain.handle('get-api-config', async () => {
   return getApiConfig();
 });
 
+// نسخه‌ی نصب‌شده‌ی برنامه — برای بررسی اجباری‌بودن به‌روزرسانی هنگام ورود
+ipcMain.handle('app:get-version', async () => {
+  return app.getVersion();
+});
+
 ipcMain.handle('check-online', async () => {
   return await isOnline();
 });

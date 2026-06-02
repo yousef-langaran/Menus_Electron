@@ -25,7 +25,7 @@ import { toast } from '../../utils/toast';
 import { toShamsiDate } from '../../utils/date';
 
 const formatCurrency = (n: number) =>
-  new Intl.NumberFormat('fa-IR').format(Math.round(n)) + ' تومان';
+  new Intl.NumberFormat('fa-IR').format(Math.round(n)) + ' ریال';
 
 const toJalali = (d?: string) => toShamsiDate(d);
 
@@ -462,7 +462,7 @@ export default function AccountingPurchaseReturnsPage() {
                           label="قیمت واحد"
                           value={new Intl.NumberFormat('en-US').format(Number(normalizePriceInput(item.unitPrice) || 0))}
                           onValueChange={(v) => updateReturnItem(idx, { unitPrice: normalizePriceInput(v) })}
-                          endContent={<span className="text-default-400 text-xs whitespace-nowrap">تومان</span>}
+                          endContent={<span className="text-default-400 text-xs whitespace-nowrap">ریال</span>}
                         />
                       </div>
                     </div>

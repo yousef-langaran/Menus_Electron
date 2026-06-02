@@ -224,7 +224,7 @@ function AdvancedFields({
             }}
             variant="bordered"
           >
-            <SelectItem key="toman">تومان</SelectItem>
+            <SelectItem key="toman">ریال</SelectItem>
             <SelectItem key="rial">ریال (×۱۰)</SelectItem>
           </Select>
         </div>
@@ -509,7 +509,7 @@ export default function CardTerminalsPage() {
                   <div className="flex gap-2 text-default-500">
                     <span className="shrink-0">واحد مبلغ:</span>
                     <span className="text-foreground">
-                      {profile.settings.sendAmountUnit === 'toman' ? 'تومان' : 'ریال'}
+                      {profile.settings.sendAmountUnit === 'toman' ? 'ریال' : 'ریال'}
                     </span>
                   </div>
                 </div>

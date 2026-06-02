@@ -8,7 +8,7 @@ const formatPrice = (value?: number) => {
   if (typeof value !== 'number') {
     return '';
   }
-  return new Intl.NumberFormat('fa-IR').format(value) + ' تومان';
+  return new Intl.NumberFormat('fa-IR').format(value) + ' ریال';
 };
 
 const useNotificationPermission = () => {

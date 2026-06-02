@@ -508,7 +508,7 @@ function createFormatPrice(unit: ReceiptPriceDisplayUnit = 'toman'): (price: num
   return (price: number) => {
     const n = Number(price) || 0;
     const value = unit === 'rial' ? Math.round(n * 10) : n;
-    const label = unit === 'rial' ? 'ریال' : 'تومان';
+    const label = unit === 'rial' ? 'ریال' : 'ریال';
     return new Intl.NumberFormat('fa-IR').format(value) + ' ' + label;
   };
 }

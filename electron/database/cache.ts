@@ -27,6 +27,17 @@ class CacheDatabase extends Dexie {
       menus: '++id, restaurantId, restaurantName, expiresAt',
       users: '++id, cachedAt',
     });
+    // v2 — Rial migration: prices switched from Toman to integer Rial. Drop any
+    // menu cached under the old (Toman) unit so the catalog is refetched from the
+    // API in Rial. The users table is preserved.
+    this.version(2)
+      .stores({
+        menus: '++id, restaurantId, restaurantName, expiresAt',
+        users: '++id, cachedAt',
+      })
+      .upgrade(async (tx) => {
+        await tx.table('menus').clear();
+      });
   }
 }
 

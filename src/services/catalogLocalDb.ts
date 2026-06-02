@@ -48,6 +48,21 @@ export class MenusCatalogDb extends Dexie {
       products: 'id, restaurantId, category_id, _syncStatus, updatedAt',
       syncMeta: 'key',
     });
+    // v2 — Rial migration: cached prices were in Toman. Clear the catalog and the
+    // sync watermarks so the next sync performs a FULL re-pull from the (now Rial)
+    // API. NOTE: any catalog edits made offline and not yet synced are dropped, so
+    // the POS must be synced/online when this upgrade runs (coordinated release).
+    this.version(2)
+      .stores({
+        categories: 'id, restaurantId, _syncStatus, updatedAt',
+        products: 'id, restaurantId, category_id, _syncStatus, updatedAt',
+        syncMeta: 'key',
+      })
+      .upgrade(async (tx) => {
+        await tx.table('products').clear();
+        await tx.table('categories').clear();
+        await tx.table('syncMeta').clear();
+      });
   }
 }
 

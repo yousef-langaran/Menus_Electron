@@ -43,7 +43,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const formatPrice = (price?: number) =>
-  typeof price === 'number' ? `${new Intl.NumberFormat('fa-IR').format(price)} تومان` : '-';
+  typeof price === 'number' ? `${new Intl.NumberFormat('fa-IR').format(price)} ریال` : '-';
 
 const formatDate = (value?: string) => toShamsiDateTime(value);
 
@@ -452,7 +452,7 @@ export default function OrdersPage() {
       } catch (localErr) {
         console.warn('[CreditPay] local tx record failed:', localErr);
       }
-      toast.success(`پرداخت ${Number(amt).toLocaleString('fa-IR')} تومان ثبت شد`);
+      toast.success(`پرداخت ${Number(amt).toLocaleString('fa-IR')} ریال ثبت شد`);
       if (result.isFullyPaid) toast.success('فاکتور کاملاً تسویه شد ✓');
       setCreditPayModalOpen(false);
       setCreditPayAmount('');
@@ -770,7 +770,7 @@ export default function OrdersPage() {
               {order.paymentMethod === 'credit' && (
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs text-warning-600 font-medium">
-                    نسیه: مانده {Number(Math.max(0, (order.finalAmount ?? order.totalAmount ?? 0) - (order.creditPaidAmount ?? 0))).toLocaleString('fa-IR')} تومان
+                    نسیه: مانده {Number(Math.max(0, (order.finalAmount ?? order.totalAmount ?? 0) - (order.creditPaidAmount ?? 0))).toLocaleString('fa-IR')} ریال
                   </span>
                   {((order.finalAmount ?? order.totalAmount ?? 0) - (order.creditPaidAmount ?? 0)) > 0 && (
                     <Button
@@ -1133,16 +1133,16 @@ export default function OrdersPage() {
                 <div className="font-semibold">فاکتور: {creditPayOrder.orderNumber || `#${creditPayOrder.id}`}</div>
                 <div className="text-default-500">مشتری: {creditPayOrder.customerPhone || '—'}</div>
                 <div className="text-default-500">
-                  مبلغ کل: {Number(creditPayOrder.finalAmount ?? creditPayOrder.totalAmount ?? 0).toLocaleString('fa-IR')} تومان
+                  مبلغ کل: {Number(creditPayOrder.finalAmount ?? creditPayOrder.totalAmount ?? 0).toLocaleString('fa-IR')} ریال
                 </div>
                 <div className="text-warning-600 font-medium">
-                  مانده: {Number(Math.max(0,(creditPayOrder.finalAmount ?? creditPayOrder.totalAmount ?? 0) - (creditPayOrder.creditPaidAmount ?? 0))).toLocaleString('fa-IR')} تومان
+                  مانده: {Number(Math.max(0,(creditPayOrder.finalAmount ?? creditPayOrder.totalAmount ?? 0) - (creditPayOrder.creditPaidAmount ?? 0))).toLocaleString('fa-IR')} ریال
                 </div>
               </div>
             )}
             <Input
               type="number"
-              label="مبلغ دریافتی (تومان)"
+              label="مبلغ دریافتی (ریال)"
               value={creditPayAmount}
               onValueChange={setCreditPayAmount}
               min={1}
