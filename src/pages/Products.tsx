@@ -110,17 +110,42 @@ export default function ProductsPage() {
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
+  // فیلترهای اضافه
+  const [filterSyncStatus, setFilterSyncStatus] = useState('');
+  const [filterMinPrice, setFilterMinPrice] = useState('');
+  const [filterMaxPrice, setFilterMaxPrice] = useState('');
+  const [filterUnit, setFilterUnit] = useState('');
+  const [filterHasError, setFilterHasError] = useState(false);
+
+  const hasActiveFilters = !!(filterSyncStatus || filterMinPrice || filterMaxPrice || filterUnit || filterHasError);
+
+  const clearExtraFilters = () => {
+    setFilterSyncStatus('');
+    setFilterMinPrice('');
+    setFilterMaxPrice('');
+    setFilterUnit('');
+    setFilterHasError(false);
+    setPage(1);
+  };
+
   // فیلتر و صفحه‌بندی در حافظه
   const filteredProducts = (() => {
     const q = search.trim().toLowerCase();
+    const minPrice = Number(normalizePriceInput(filterMinPrice) || 0);
+    const maxPrice = Number(normalizePriceInput(filterMaxPrice) || 0);
     return allProducts.filter((p) => {
       const catMatch = selectedCategoryId === null || p.category_id === selectedCategoryId;
       const searchMatch = !q || p.name_fa.toLowerCase().includes(q) || (p.name || '').toLowerCase().includes(q) || (p.barcode || '').includes(q);
-      return catMatch && searchMatch;
+      const syncMatch = !filterSyncStatus || p._syncStatus === filterSyncStatus;
+      const minPriceMatch = minPrice === 0 || p.price >= minPrice;
+      const maxPriceMatch = maxPrice === 0 || p.price <= maxPrice;
+      const unitMatch = !filterUnit || (p.unit || 'عدد') === filterUnit;
+      const errorMatch = !filterHasError || p._syncStatus === 'failed';
+      return catMatch && searchMatch && syncMatch && minPriceMatch && maxPriceMatch && unitMatch && errorMatch;
     });
   })();
   const total = filteredProducts.length;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
   const products = filteredProducts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const loadFromDb = async () => {
@@ -170,6 +195,8 @@ export default function ProductsPage() {
     setSelectedCategoryId(catId);
     setPage(1);
   };
+
+  useEffect(() => { setPage(1); }, [filterSyncStatus, filterMinPrice, filterMaxPrice, filterUnit, filterHasError]);
 
   const openCreate = (barcode: string) => {
     setForm({
@@ -420,6 +447,82 @@ export default function ProductsPage() {
             ))}
           </div>
         )}
+        {/* فیلترهای پیشرفته */}
+        <Card>
+          <CardContent className="py-3 px-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-foreground">فیلترهای پیشرفته</span>
+              <div className="flex items-center gap-2">
+                {hasActiveFilters && (
+                  <Button size="sm" variant="light" color="danger" onPress={clearExtraFilters}>
+                    پاک کردن
+                  </Button>
+                )}
+                {hasActiveFilters && (
+                  <span className="text-xs text-default-400">{total} نتیجه از {allProducts.length} محصول</span>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              <Select
+                size="sm"
+                label="وضعیت سینک"
+                selectedKeys={filterSyncStatus ? [filterSyncStatus] : []}
+                onSelectionChange={(k) => setFilterSyncStatus(String(Array.from(k)[0] || ''))}
+              >
+                <SelectItem key="synced">سینک شده</SelectItem>
+                <SelectItem key="pending_create">در انتظار ثبت</SelectItem>
+                <SelectItem key="pending_update">در انتظار بروزرسانی</SelectItem>
+                <SelectItem key="failed">خطای سینک</SelectItem>
+              </Select>
+              <Select
+                size="sm"
+                label="واحد"
+                selectedKeys={filterUnit ? [filterUnit] : []}
+                onSelectionChange={(k) => setFilterUnit(String(Array.from(k)[0] || ''))}
+              >
+                {PRODUCT_UNITS.map((u) => <SelectItem key={u}>{u}</SelectItem>)}
+              </Select>
+              <Input
+                size="sm"
+                label="حداقل قیمت"
+                placeholder="ریال"
+                inputMode="numeric"
+                value={formatPriceInput(filterMinPrice)}
+                onValueChange={(v) => setFilterMinPrice(normalizePriceInput(v))}
+              />
+              <Input
+                size="sm"
+                label="حداکثر قیمت"
+                placeholder="ریال"
+                inputMode="numeric"
+                value={formatPriceInput(filterMaxPrice)}
+                onValueChange={(v) => setFilterMaxPrice(normalizePriceInput(v))}
+              />
+              <button
+                type="button"
+                onClick={() => setFilterHasError((v) => !v)}
+                className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors cursor-pointer
+                  ${filterHasError
+                    ? 'bg-[var(--danger-soft)] border-[var(--danger)] text-[var(--danger-soft-foreground)] font-medium'
+                    : 'border-[var(--border)] text-default-500 hover:bg-[var(--accent-soft-hover)]'
+                  }`}
+              >
+                <span className={`w-3 h-3 rounded-sm border flex-shrink-0 flex items-center justify-center
+                  ${filterHasError ? 'bg-[var(--danger)] border-[var(--danger)]' : 'border-default-400'}`}
+                >
+                  {filterHasError && (
+                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                      <path d="m2 5 2.5 2.5 3.5-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </span>
+                فقط خطادار
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardContent className="space-y-2">
             {loading ? (
@@ -473,31 +576,38 @@ export default function ProductsPage() {
           </CardContent>
         </Card>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-3">
-            <Button
-              size="sm"
-              variant="flat"
-              isDisabled={page <= 1 || loading}
-              onPress={() => setPage((p) => p - 1)}
-            >
-              قبلی
-            </Button>
-            <span className="text-sm text-default-600">
-              صفحه {page} از {totalPages} ({total} محصول)
+        {total > 0 && !loading && (
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-default-400">
+              {totalPages > 1 ? `صفحه ${page} از ${totalPages} — ` : ''}{total} محصول
             </span>
-            <Button
-              size="sm"
-              variant="flat"
-              isDisabled={page >= totalPages || loading}
-              onPress={() => setPage((p) => p + 1)}
-            >
-              بعدی
-            </Button>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="flat" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>قبلی</Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                  .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && typeof arr[idx - 1] === 'number' && (p as number) - (arr[idx - 1] as number) > 1) acc.push('…');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === '…' ? (
+                      <span key={`e-${i}`} className="px-1 text-default-400 text-sm">…</span>
+                    ) : (
+                      <Button
+                        key={p}
+                        size="sm"
+                        variant={p === page ? 'solid' : 'flat'}
+                        color={p === page ? 'primary' : 'default'}
+                        onPress={() => setPage(p as number)}
+                      >{p}</Button>
+                    ),
+                  )}
+                <Button size="sm" variant="flat" isDisabled={page >= totalPages} onPress={() => setPage((p) => p + 1)}>بعدی</Button>
+              </div>
+            )}
           </div>
-        )}
-        {totalPages <= 1 && total > 0 && !loading && (
-          <p className="text-center text-xs text-default-400">{total} محصول</p>
         )}
       </div>
 

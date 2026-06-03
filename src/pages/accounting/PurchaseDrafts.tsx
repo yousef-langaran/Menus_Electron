@@ -146,7 +146,6 @@ function ItemPicker({
     return { visible: matched.slice(0, PICKER_RENDER_CAP), totalMatches: matched.length };
   }, [options, query, contains]);
 
-  // نزدیک‌ترین dialog را پیدا می‌کنیم تا لیست داخل همان FocusScope منتقل شود.
   useEffect(() => {
     let el: HTMLElement | null = wrapperRef.current;
     while (el) {
@@ -156,13 +155,11 @@ function ItemPicker({
     setPortalEl(document.body);
   }, []);
 
-  // موقعیت لیست را هنگام باز بودن به‌روز نگه می‌داریم.
   useEffect(() => {
     if (!open) return;
     setRect(wrapperRef.current?.getBoundingClientRect() ?? null);
   }, [open, query]);
 
-  // بستن با کلیک بیرون.
   useEffect(() => {
     if (!open) return;
     const handle = (e: PointerEvent) => {
@@ -187,8 +184,6 @@ function ItemPicker({
 
   return (
     <div ref={wrapperRef} className="w-full">
-      {/* فیلدِ تایپ به‌صورت inline داخل مودال است (همان الگوی NameAutocomplete) → کیبورد می‌گیرد.
-          وقتی باز است متنِ جستجو، وقتی بسته است نامِ گزینهٔ انتخاب‌شده را نشان می‌دهد. */}
       <Input
         label={label}
         value={open ? query : selectedLabel}
@@ -199,6 +194,14 @@ function ItemPicker({
         onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
           if (e.key === 'Escape') { setOpen(false); setQuery(''); (e.target as HTMLInputElement).blur(); }
         }}
+        endContent={
+          <svg
+            className={`w-4 h-4 shrink-0 text-default-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        }
       />
 
       {dropdownOpen &&
@@ -208,21 +211,16 @@ function ItemPicker({
             dir="rtl"
             style={{
               position: 'fixed',
-              top: rect!.bottom + 4,
+              top: rect!.bottom + 6,
               right: window.innerWidth - rect!.right,
               width: rect!.width,
               zIndex: 99999,
-              background: 'var(--color-overlay)',
-              color: 'var(--color-overlay-foreground)',
-              border: '1px solid var(--color-border)',
-              borderRadius: '12px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-              overflow: 'hidden',
             }}
+            className="rounded-xl border border-[var(--border)] bg-[var(--overlay)] shadow-[var(--overlay-shadow)] overflow-hidden"
           >
-            <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+            <div className="overflow-y-auto" style={{ maxHeight: '260px' }}>
               {visible.length === 0 ? (
-                <div className="px-3 py-4 text-center text-sm text-default-400">موردی یافت نشد</div>
+                <p className="px-4 py-5 text-center text-sm text-default-400">موردی یافت نشد</p>
               ) : (
                 visible.map((opt) => {
                   const isSelected = opt.id === value;
@@ -230,16 +228,17 @@ function ItemPicker({
                     <button
                       key={opt.id}
                       type="button"
-                      // mousedown به‌جای click تا انتخاب قبل از blur ثبت شود.
                       onMouseDown={(e) => { e.preventDefault(); handleSelect(opt.id); }}
-                      className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-right text-sm transition-colors hover:bg-default-100 ${
-                        isSelected ? 'bg-primary-50 text-primary-700' : 'text-foreground'
-                      }`}
+                      className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-right text-sm transition-colors duration-100
+                        ${isSelected
+                          ? 'bg-[var(--accent-soft)] text-[var(--accent-soft-foreground)] font-medium'
+                          : 'text-[var(--overlay-foreground)] hover:bg-[var(--accent-soft-hover)]'
+                        }`}
                     >
                       <span className="truncate">{opt.label}</span>
                       {isSelected && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0">
-                          <path d="m5 12 5 5 9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="shrink-0 text-[var(--accent)]">
+                          <path d="m5 12 5 5 9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       )}
                     </button>
@@ -248,8 +247,8 @@ function ItemPicker({
               )}
             </div>
             {totalMatches > visible.length && (
-              <p className="border-t border-default-200 px-3 py-1.5 text-xs text-default-400">
-                نمایش {visible.length} از {totalMatches} مورد — برای یافتن دقیق‌تر جستجو کنید
+              <p className="border-t border-[var(--separator)] px-4 py-2 text-xs text-default-400">
+                نمایش {visible.length} از {totalMatches} — برای یافتن دقیق‌تر جستجو کنید
               </p>
             )}
           </div>,
@@ -279,6 +278,7 @@ export default function AccountingPurchaseDraftsPage() {
   // Form state
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [isViewMode, setIsViewMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [supplierId, setSupplierId] = useState('');
@@ -393,11 +393,41 @@ export default function AccountingPurchaseDraftsPage() {
 
   const openCreate = () => {
     setEditingId(null);
+    setIsViewMode(false);
     setInvoiceNumber('');
     setSupplierId('');
     setExtraCosts('0');
     setPurchaseDate(new Date().toISOString().slice(0, 10));
     setItems([]);
+    setScanValue('');
+    setOpen(true);
+  };
+
+  const loadInvoiceIntoModal = async (d: any, viewOnly: boolean) => {
+    const lines = await getPurchaseInvoiceItemsByInvoiceId(d.id);
+    setEditingId(viewOnly ? null : d.id);
+    setIsViewMode(viewOnly);
+    setInvoiceNumber(d.invoiceNumber);
+    setSupplierId(String(d.supplierId || ''));
+    setExtraCosts(String(d.extraCosts || '0'));
+    setPurchaseDate(d.purchaseDate || new Date().toISOString().slice(0, 10));
+    setItems(
+      lines.map((x: any) => {
+        const hasFinal = x.finalProductId && Number(x.finalProductId) > 0;
+        const acctFp = hasFinal
+          ? accountingFinalProducts.find((fp) => fp.id === Number(x.finalProductId))
+          : null;
+        return {
+          type: (hasFinal ? 'final_product' : 'raw_material') as ItemType,
+          rawMaterialId: String(x.rawMaterialId || ''),
+          menuProductId: String(acctFp?.productId || ''),
+          finalProductId: String(x.finalProductId || ''),
+          quantity: String(x.quantity),
+          totalPrice: String(Number(x.unitPrice || 0) * Number(x.quantity || 0)),
+          salePrice: x.salePrice != null ? String(x.salePrice) : '',
+        };
+      }),
+    );
     setScanValue('');
     setOpen(true);
   };
@@ -665,6 +695,74 @@ export default function AccountingPurchaseDraftsPage() {
     }
   };
 
+  // ── filter & pagination ───────────────────────────────────────────────────
+
+  const [filterInvoice, setFilterInvoice] = useState('');
+  const [filterSupplier, setFilterSupplier] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterMinAmount, setFilterMinAmount] = useState('');
+  const [filterMaxAmount, setFilterMaxAmount] = useState('');
+  const [filterSyncStatus, setFilterSyncStatus] = useState('');
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+
+  const filteredDrafts = useMemo(() => {
+    let list = drafts;
+    if (filterInvoice.trim()) {
+      const q = filterInvoice.trim().toLowerCase();
+      list = list.filter((d) => String(d.invoiceNumber).toLowerCase().includes(q));
+    }
+    if (filterSupplier) {
+      list = list.filter((d) => String(d.supplierId) === filterSupplier);
+    }
+    if (filterStatus) {
+      list = list.filter((d) => d.status === filterStatus);
+    }
+    if (filterSyncStatus) {
+      list = list.filter((d) => d.localSyncStatus === filterSyncStatus);
+    }
+    if (filterDateFrom) {
+      list = list.filter((d) => d.purchaseDate && d.purchaseDate >= filterDateFrom);
+    }
+    if (filterDateTo) {
+      list = list.filter((d) => d.purchaseDate && d.purchaseDate <= filterDateTo);
+    }
+    const minAmt = Number(normalizePriceInput(filterMinAmount) || 0);
+    if (minAmt > 0) {
+      list = list.filter((d) => (d.totalAmount || 0) >= minAmt);
+    }
+    const maxAmt = Number(normalizePriceInput(filterMaxAmount) || 0);
+    if (maxAmt > 0) {
+      list = list.filter((d) => (d.totalAmount || 0) <= maxAmt);
+    }
+    return list;
+  }, [drafts, filterInvoice, filterSupplier, filterStatus, filterSyncStatus, filterDateFrom, filterDateTo, filterMinAmount, filterMaxAmount]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredDrafts.length / PAGE_SIZE));
+  const pagedDrafts = useMemo(
+    () => filteredDrafts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredDrafts, page],
+  );
+
+  const hasActiveFilters = !!(filterInvoice || filterSupplier || filterStatus || filterSyncStatus || filterDateFrom || filterDateTo || filterMinAmount || filterMaxAmount);
+
+  const clearFilters = () => {
+    setFilterInvoice('');
+    setFilterSupplier('');
+    setFilterStatus('');
+    setFilterSyncStatus('');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setFilterMinAmount('');
+    setFilterMaxAmount('');
+    setPage(1);
+  };
+
+  // reset to page 1 whenever filters change
+  useEffect(() => { setPage(1); }, [filterInvoice, filterSupplier, filterStatus, filterSyncStatus, filterDateFrom, filterDateTo, filterMinAmount, filterMaxAmount]);
+
   // ── derived ───────────────────────────────────────────────────────────────
 
   const hasNoProducts = materials.length === 0 && menuProducts.length === 0;
@@ -714,6 +812,94 @@ export default function AccountingPurchaseDraftsPage() {
         </div>
       </div>
 
+      {/* Filters */}
+      {!isLoading && drafts.length > 0 && (
+        <Card>
+          <CardContent className="py-3 px-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-foreground">فیلتر</span>
+              {hasActiveFilters && (
+                <Button size="sm" variant="light" color="danger" onPress={clearFilters}>
+                  پاک کردن فیلترها
+                </Button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+              <Input
+                size="sm"
+                label="شماره فاکتور"
+                placeholder="جستجو..."
+                value={filterInvoice}
+                onValueChange={setFilterInvoice}
+              />
+              <Select
+                size="sm"
+                label="تامین‌کننده"
+                selectedKeys={filterSupplier ? [filterSupplier] : []}
+                onSelectionChange={(k) => setFilterSupplier(String(Array.from(k)[0] || ''))}
+              >
+                {suppliers.map((s) => <SelectItem key={String(s.id)}>{s.name}</SelectItem>)}
+              </Select>
+              <Select
+                size="sm"
+                label="وضعیت فاکتور"
+                selectedKeys={filterStatus ? [filterStatus] : []}
+                onSelectionChange={(k) => setFilterStatus(String(Array.from(k)[0] || ''))}
+              >
+                <SelectItem key="draft">پیش‌نویس</SelectItem>
+                <SelectItem key="pending_approval">در انتظار تایید</SelectItem>
+                <SelectItem key="approved">تایید شده</SelectItem>
+                <SelectItem key="rejected">رد شده</SelectItem>
+              </Select>
+              <Select
+                size="sm"
+                label="وضعیت سینک"
+                selectedKeys={filterSyncStatus ? [filterSyncStatus] : []}
+                onSelectionChange={(k) => setFilterSyncStatus(String(Array.from(k)[0] || ''))}
+              >
+                <SelectItem key="pending">در صف ارسال</SelectItem>
+                <SelectItem key="syncing">در حال ارسال</SelectItem>
+                <SelectItem key="synced">سینک شده</SelectItem>
+                <SelectItem key="failed">ارسال ناموفق</SelectItem>
+              </Select>
+              <ShamsiDatePicker
+                size="sm"
+                label="از تاریخ"
+                value={filterDateFrom}
+                onChange={setFilterDateFrom}
+              />
+              <ShamsiDatePicker
+                size="sm"
+                label="تا تاریخ"
+                value={filterDateTo}
+                onChange={setFilterDateTo}
+              />
+              <Input
+                size="sm"
+                label="حداقل مبلغ"
+                placeholder="ریال"
+                inputMode="numeric"
+                value={formatPriceInput(filterMinAmount)}
+                onValueChange={(v) => setFilterMinAmount(normalizePriceInput(v))}
+              />
+              <Input
+                size="sm"
+                label="حداکثر مبلغ"
+                placeholder="ریال"
+                inputMode="numeric"
+                value={formatPriceInput(filterMaxAmount)}
+                onValueChange={(v) => setFilterMaxAmount(normalizePriceInput(v))}
+              />
+            </div>
+            {hasActiveFilters && (
+              <p className="text-xs text-default-400">
+                {filteredDrafts.length} نتیجه از {drafts.length} فاکتور
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Draft list */}
       {isLoading ? (
         <div className="flex flex-col gap-3">
@@ -734,9 +920,16 @@ export default function AccountingPurchaseDraftsPage() {
             <Button color="primary" onPress={openCreate}>ثبت اولین پیش‌نویس</Button>
           </CardContent>
         </Card>
+      ) : filteredDrafts.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
+            <p className="text-default-500 text-sm">هیچ فاکتوری با این فیلترها یافت نشد</p>
+            <Button size="sm" variant="flat" onPress={clearFilters}>پاک کردن فیلترها</Button>
+          </CardContent>
+        </Card>
       ) : (
         <div className="flex flex-col gap-3">
-          {drafts.map((d) => {
+          {pagedDrafts.map((d) => {
             const syncCfg = SYNC_STATUS_CONFIG[d.localSyncStatus] ?? SYNC_STATUS_CONFIG.pending;
             const invCfg = INVOICE_STATUS_CONFIG[d.status] ?? INVOICE_STATUS_CONFIG.pending_approval;
             const isServerSynced = d.localSyncStatus === 'synced';
@@ -827,40 +1020,22 @@ export default function AccountingPurchaseDraftsPage() {
                           >رد</Button>
                         </>
                       )}
-                      {!isServerSynced && (
+                      {(d.status === 'pending_approval' || d.status === 'draft') && (
                         <Button
                           size="sm"
                           variant="flat"
-                          onPress={async () => {
-                            const lines = await getPurchaseInvoiceItemsByInvoiceId(d.id);
-                            setEditingId(d.id);
-                            setInvoiceNumber(d.invoiceNumber);
-                            setSupplierId(String(d.supplierId || ''));
-                            setExtraCosts(String(d.extraCosts || '0'));
-                            setPurchaseDate(d.purchaseDate || new Date().toISOString().slice(0, 10));
-                            setItems(
-                              lines.map((x: any) => {
-                                const hasFinal = x.finalProductId && Number(x.finalProductId) > 0;
-                                const acctFp = hasFinal
-                                  ? accountingFinalProducts.find((fp) => fp.id === Number(x.finalProductId))
-                                  : null;
-                                return {
-                                  type: (hasFinal ? 'final_product' : 'raw_material') as ItemType,
-                                  rawMaterialId: String(x.rawMaterialId || ''),
-                                  menuProductId: String(acctFp?.productId || ''),
-                                  finalProductId: String(x.finalProductId || ''),
-                                  quantity: String(x.quantity),
-                                  // درایو با قیمت تکی ذخیره شده؛ برای نمایش، قیمت کل بازسازی می‌شود.
-                                  totalPrice: String(Number(x.unitPrice || 0) * Number(x.quantity || 0)),
-                                  salePrice: x.salePrice != null ? String(x.salePrice) : '',
-                                };
-                              }),
-                            );
-                            setScanValue('');
-                            setOpen(true);
-                          }}
+                          onPress={() => loadInvoiceIntoModal(d, false)}
                         >
                           ویرایش
+                        </Button>
+                      )}
+                      {(d.status === 'approved' || d.status === 'rejected') && (
+                        <Button
+                          size="sm"
+                          variant="flat"
+                          onPress={() => loadInvoiceIntoModal(d, true)}
+                        >
+                          مشاهده
                         </Button>
                       )}
                       {!isServerSynced && (
@@ -883,13 +1058,64 @@ export default function AccountingPurchaseDraftsPage() {
               </Card>
             );
           })}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <span className="text-xs text-default-400">
+                صفحه {page} از {totalPages} — {filteredDrafts.length} فاکتور
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="flat"
+                  isDisabled={page === 1}
+                  onPress={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  قبلی
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                  .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && typeof arr[idx - 1] === 'number' && (p as number) - (arr[idx - 1] as number) > 1) acc.push('…');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === '…' ? (
+                      <span key={`ellipsis-${i}`} className="px-1 text-default-400 text-sm">…</span>
+                    ) : (
+                      <Button
+                        key={p}
+                        size="sm"
+                        variant={p === page ? 'solid' : 'flat'}
+                        color={p === page ? 'primary' : 'default'}
+                        onPress={() => setPage(p as number)}
+                      >
+                        {p}
+                      </Button>
+                    ),
+                  )}
+                <Button
+                  size="sm"
+                  variant="flat"
+                  isDisabled={page === totalPages}
+                  onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  بعدی
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Create / Edit Modal */}
+      {/* Create / Edit / View Modal */}
       <Modal isOpen={open} onOpenChange={setOpen}>
         <ModalShell size="full">
-          <ModalHeader>{editingId ? 'ویرایش پیش‌نویس خرید' : 'ثبت پیش‌نویس خرید'}</ModalHeader>
+          <ModalHeader>
+            {isViewMode ? 'مشاهده فاکتور خرید' : editingId ? 'ویرایش پیش‌نویس خرید' : 'ثبت پیش‌نویس خرید'}
+          </ModalHeader>
           <ModalBody className="gap-4">
 
             {/* Basic info */}
@@ -899,24 +1125,33 @@ export default function AccountingPurchaseDraftsPage() {
                 value={invoiceNumber}
                 onValueChange={setInvoiceNumber}
                 isRequired
+                isReadOnly={isViewMode}
               />
-              <Select
-                label="تامین‌کننده"
-                selectedKeys={supplierId ? [supplierId] : []}
-                onSelectionChange={(k) => setSupplierId(String(Array.from(k)[0] || ''))}
-              >
-                {suppliers.map((s) => <SelectItem key={String(s.id)}>{s.name}</SelectItem>)}
-              </Select>
+              {isViewMode ? (
+                <Input
+                  label="تامین‌کننده"
+                  value={suppliers.find((s) => String(s.id) === supplierId)?.name || supplierId || '—'}
+                  isReadOnly
+                />
+              ) : (
+                <ItemPicker
+                  options={suppliers.map((s) => ({ id: String(s.id), label: s.name }))}
+                  value={supplierId || null}
+                  label="تامین‌کننده"
+                  placeholder="جستجوی تامین‌کننده..."
+                  onChange={setSupplierId}
+                />
+              )}
               <ShamsiDatePicker
                 label="تاریخ فاکتور"
                 value={purchaseDate}
-                onChange={setPurchaseDate}
+                onChange={isViewMode ? () => {} : setPurchaseDate}
                 isRequired
               />
             </div>
 
-            {/* Barcode scan bar — همیشه فوکوس، قلب جریان کار */}
-            <div className="rounded-2xl border-2 border-primary-200 bg-primary-50/60 p-3 sm:p-4">
+            {/* Barcode scan bar — فقط در حالت ویرایش/ثبت */}
+            {!isViewMode && <div className="rounded-2xl border-2 border-primary-200 bg-primary-50/60 p-3 sm:p-4">
               <Input
                 ref={barcodeRef}
                 autoFocus
@@ -938,7 +1173,7 @@ export default function AccountingPurchaseDraftsPage() {
               <p className="mt-2 text-xs text-primary-600/80">
                 با اسکن، کالا خودکار اضافه می‌شود و فوکوس روی «تعداد» می‌رود؛ بعد از وارد کردن تعداد، Enter بزنید تا به اسکن بعدی برگردید.
               </p>
-            </div>
+            </div>}
 
             {/* Items */}
             <div className="space-y-2">
@@ -995,11 +1230,12 @@ export default function AccountingPurchaseDraftsPage() {
                     <Tabs
                       className="w-full"
                       selectedKey={isFinalProduct ? 'final_product' : 'raw_material'}
-                      onSelectionChange={(k) =>
+                      onSelectionChange={(k) => {
+                        if (isViewMode) return;
                         k === 'final_product'
                           ? updateItem(idx, { type: 'final_product', rawMaterialId: '' })
-                          : updateItem(idx, { type: 'raw_material', menuProductId: '', finalProductId: '' })
-                      }
+                          : updateItem(idx, { type: 'raw_material', menuProductId: '', finalProductId: '' });
+                      }}
                       aria-label="نوع آیتم فاکتور"
                     >
                       <Tabs.ListContainer className="w-full">
@@ -1020,7 +1256,19 @@ export default function AccountingPurchaseDraftsPage() {
                     </Tabs>
 
                     {/* Product/material selector */}
-                    {activeOptions.length === 0 ? (
+                    {isViewMode ? (
+                      <Input
+                        label={isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}
+                        value={
+                          isFinalProduct
+                            ? (menuProducts.find((p) => String(p.id) === selectedKey)?.name_fa
+                               || menuProducts.find((p) => String(p.id) === selectedKey)?.name
+                               || selectedKey || '—')
+                            : (materials.find((m) => String(m.id) === selectedKey)?.name || selectedKey || '—')
+                        }
+                        isReadOnly
+                      />
+                    ) : activeOptions.length === 0 ? (
                       <p className="text-xs text-default-400 py-1">
                         {isFinalProduct
                           ? 'هیچ محصولی یافت نشد — مطمئن شوید محصولات منو همگام‌سازی شده‌اند'
@@ -1032,14 +1280,16 @@ export default function AccountingPurchaseDraftsPage() {
                         value={selectedKey || null}
                         label={isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}
                         placeholder={`انتخاب ${isFinalProduct ? 'محصول' : 'ماده اولیه'}...`}
-                        onChange={(val) =>
-                          updateItem(
-                            idx,
-                            isFinalProduct
-                              ? { menuProductId: val, finalProductId: '' }
-                              : { rawMaterialId: val },
-                          )
-                        }
+                        onChange={(val) => {
+                          if (isFinalProduct) {
+                            const prod = menuProducts.find((p) => String(p.id) === val);
+                            const autoSalePrice =
+                              prod?.price != null && prod.price > 0 ? String(prod.price) : '';
+                            updateItem(idx, { menuProductId: val, finalProductId: '', salePrice: autoSalePrice });
+                          } else {
+                            updateItem(idx, { rawMaterialId: val });
+                          }
+                        }}
                       />
                     )}
 
@@ -1051,6 +1301,7 @@ export default function AccountingPurchaseDraftsPage() {
                         value={line.quantity}
                         onValueChange={(v) => updateItem(idx, { quantity: v })}
                         onKeyDown={handleQtyKeyDown}
+                        isReadOnly={isViewMode}
                       />
                       <Input
                         type="text"
@@ -1061,6 +1312,7 @@ export default function AccountingPurchaseDraftsPage() {
                         endContent={
                           <span className="text-default-400 text-xs whitespace-nowrap">ریال</span>
                         }
+                        isReadOnly={isViewMode}
                       />
                       <Input
                         type="text"
@@ -1072,6 +1324,7 @@ export default function AccountingPurchaseDraftsPage() {
                         endContent={
                           <span className="text-default-400 text-xs whitespace-nowrap">ریال</span>
                         }
+                        isReadOnly={isViewMode}
                       />
                     </div>
 
@@ -1081,6 +1334,7 @@ export default function AccountingPurchaseDraftsPage() {
                       </p>
                     )}
 
+                    {!isViewMode && (
                     <Button
                       size="sm"
                       color="danger"
@@ -1089,10 +1343,12 @@ export default function AccountingPurchaseDraftsPage() {
                     >
                       حذف آیتم
                     </Button>
+                    )}
                   </div>
                 );
               })}
 
+              {!isViewMode && (
               <Button
                 variant="flat"
                 size="sm"
@@ -1101,6 +1357,7 @@ export default function AccountingPurchaseDraftsPage() {
               >
                 + افزودن آیتم
               </Button>
+              )}
             </div>
 
             {/* Extra costs + total */}
@@ -1114,6 +1371,7 @@ export default function AccountingPurchaseDraftsPage() {
                 endContent={
                   <span className="text-default-400 text-sm whitespace-nowrap">ریال</span>
                 }
+                isReadOnly={isViewMode}
               />
               <div className="flex items-center justify-between rounded-xl bg-default-200 px-4 py-3">
                 <span className="text-sm text-default-600">جمع کل:</span>
@@ -1122,10 +1380,14 @@ export default function AccountingPurchaseDraftsPage() {
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setOpen(false)}>انصراف</Button>
+            <Button variant="flat" onPress={() => setOpen(false)}>
+              {isViewMode ? 'بستن' : 'انصراف'}
+            </Button>
+            {!isViewMode && (
             <Button color="primary" isLoading={isSaving} onPress={handleSave}>
               {editingId ? 'ذخیره تغییرات' : 'ثبت پیش‌نویس'}
             </Button>
+            )}
           </ModalFooter>
         </ModalShell>
       </Modal>
