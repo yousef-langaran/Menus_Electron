@@ -100,6 +100,11 @@ export default function OrderPage() {
     const parsedEditId = editParam != null ? Number(editParam) : NaN;
     const editingOrderId = !Number.isNaN(parsedEditId) && parsedEditId > 0 ? parsedEditId : null;
     const {
+        sessions,
+        activeSessionId,
+        addSession,
+        removeSession,
+        switchSession,
         cart,
         customerPhone,
         serviceType,
@@ -1908,6 +1913,58 @@ export default function OrderPage() {
                     <div className="flex flex-col gap-2 overflow-hidden min-h-0 h-[calc(100vh_-120px)]">
                         <Card className="flex-1 overflow-hidden min-h-0">
                             <CardContent className="overflow-y-auto p-2 sm:p-3">
+                                {/* ─── تب‌های چند سبد خرید ─── */}
+                                <div className="flex items-center gap-1 mb-2 flex-wrap">
+                                    {sessions.map((session) => {
+                                        const isActive = session.id === activeSessionId;
+                                        const itemCount = session.cart.reduce((n, i) => n + i.quantity, 0);
+                                        return (
+                                            <div key={session.id} className="relative group flex items-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => switchSession(session.id)}
+                                                    className={[
+                                                        'flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                                                        isActive
+                                                            ? 'bg-primary text-primary-foreground shadow-sm'
+                                                            : 'bg-default-100 text-default-600 hover:bg-default-200',
+                                                    ].join(' ')}
+                                                >
+                                                    {session.label}
+                                                    {itemCount > 0 && (
+                                                        <span className={[
+                                                            'inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold',
+                                                            isActive ? 'bg-white/30 text-primary-foreground' : 'bg-primary text-white',
+                                                        ].join(' ')}>
+                                                            {itemCount}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                                {sessions.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeSession(session.id)}
+                                                        className="absolute -top-1.5 -right-1.5 hidden group-hover:flex h-4 w-4 items-center justify-center rounded-full bg-danger text-white text-[10px] leading-none shadow"
+                                                        title="بستن سبد"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    {sessions.length < 3 && (
+                                        <button
+                                            type="button"
+                                            onClick={addSession}
+                                            className="flex items-center gap-0.5 rounded-md px-2 py-1 text-xs text-default-500 hover:bg-default-100 hover:text-default-800 transition-colors"
+                                            title="سبد خرید جدید"
+                                        >
+                                            <span className="text-base leading-none">+</span>
+                                            <span>سبد جدید</span>
+                                        </button>
+                                    )}
+                                </div>
                                 <h2 className="text-sm font-semibold text-foreground mb-2">سبد خرید</h2>
                                 {cart.length === 0 ? (
                                     <p className="text-default-500 text-sm py-4 text-center">سبد خرید خالی است</p>
