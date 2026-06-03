@@ -35,8 +35,7 @@ export default function SettingsPage() {
     loadFromStorage,
   } = usePrinterSettingsStore();
   const { theme, setTheme } = useThemeStore();
-  const [receiptPriceUnit, setReceiptPriceUnit] = useState<'toman' | 'rial'>('toman');
-  const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string, string> } | null>(null);
+const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string, string> } | null>(null);
   const {
     isOnline: accountingOnline,
     isSyncing: accountingSyncing,
@@ -381,18 +380,6 @@ export default function SettingsPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!window.electronAPI?.getReceiptPriceDisplayUnit) return;
-      try {
-        const u = await window.electronAPI.getReceiptPriceDisplayUnit();
-        setReceiptPriceUnit(u === 'rial' ? 'rial' : 'toman');
-      } catch {
-        /* ignore */
-      }
-    };
-    load();
-  }, []);
 
   useEffect(() => {
     const loadTemplatesAndPerPrinter = async () => {
@@ -552,32 +539,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {window.electronAPI?.getReceiptPriceDisplayUnit && (
-          <Card>
-            <CardContent className="gap-3">
-              <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">رسید چاپی</h2>
-              <p className="text-sm text-default-500">
-                مبالغ سفارش در سیستم به <strong>ریال</strong> ذخیره می‌شود. این گزینه فقط نحوهٔ نمایش روی رسید چاپی و پیش‌نمایش را عوض می‌کند.
-              </p>
-              <Select
-                label="واحد نمایش مبلغ در رسید"
-                selectedKeys={[receiptPriceUnit]}
-                onSelectionChange={(keys) => {
-                  const v = Array.from(keys)[0] as string | undefined;
-                  if (v !== 'toman' && v !== 'rial') return;
-                  setReceiptPriceUnit(v);
-                  window.electronAPI?.saveReceiptPriceDisplayUnit?.(v).catch(() => {});
-                }}
-                variant="bordered"
-                size="sm"
-                className="max-w-md"
-              >
-                <SelectItem key="toman" textValue="ریال">ریال</SelectItem>
-                <SelectItem key="rial" textValue="ریال">ریال (عدد × ۱۰ نسبت به ریال)</SelectItem>
-              </Select>
-            </CardContent>
-          </Card>
-        )}
 
         {window.electronAPI?.saveCardTerminalConfig && (
           <Card>
