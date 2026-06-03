@@ -389,6 +389,38 @@ export default function OrderPage() {
         loadProducts();
     }, []);
 
+    // وقتی CatalogSyncManager محصولات رو sync کرد، بلافاصله از Dexie می‌خونیم
+    useEffect(() => {
+        const restaurantId = user?.restaurants?.[0]?.id;
+        if (!restaurantId) return;
+
+        const handleCatalogSynced = async () => {
+            try {
+                const [{ data: localProds }, localCats] = await Promise.all([
+                    getLocalProducts(restaurantId),
+                    getLocalCategories(restaurantId),
+                ]);
+                const syncedProds = localProds.filter((p) => p._syncStatus === 'synced');
+                const syncedCats = localCats.filter((c) => c._syncStatus === 'synced');
+                if (syncedProds.length === 0) return;
+                const catMap = new Map(syncedCats.map((c) => [c.id, c]));
+                const enriched = syncedProds.map((p) => ({
+                    ...p,
+                    category: catMap.get(p.category_id) || { id: p.category_id, name_fa: '' },
+                }));
+                setProducts(enriched);
+                setProductCategories(syncedCats);
+                const uniqueCatNames = Array.from(
+                    new Set(syncedCats.map((c) => c.name_fa).filter(Boolean)),
+                );
+                setCategories(uniqueCatNames);
+            } catch {}
+        };
+
+        window.addEventListener('catalog:synced', handleCatalogSynced);
+        return () => window.removeEventListener('catalog:synced', handleCatalogSynced);
+    }, [user]);
+
     // با باز شدن مودال، فوکوس روی فیلد موبایل و به‌روزرسانی وضعیت آنلاین
     useEffect(() => {
         if (showOrderModal) {
