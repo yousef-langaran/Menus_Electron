@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import { normalizeNameFa } from '../utils/persian';
 
 export type CatalogSyncStatus = 'synced' | 'pending_create' | 'pending_update' | 'failed';
 
@@ -199,11 +200,11 @@ export async function getLocalProducts(
   let all = await catalogDb.products.where('restaurantId').equals(restaurantId).toArray();
 
   if (opts?.search) {
-    const q = opts.search.trim().toLowerCase();
+    const q = normalizeNameFa(opts.search).toLowerCase();
     all = all.filter(
       (p) =>
-        p.name_fa.toLowerCase().includes(q) ||
-        (p.name || '').toLowerCase().includes(q) ||
+        normalizeNameFa(p.name_fa).toLowerCase().includes(q) ||
+        normalizeNameFa(p.name).toLowerCase().includes(q) ||
         (p.barcode || '').includes(q),
     );
   }

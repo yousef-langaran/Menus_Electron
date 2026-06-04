@@ -1,4 +1,5 @@
 import {useState, useEffect, useRef, useMemo} from 'react';
+import { normalizeNameFa } from '../utils/persian';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {useAuthStore} from '../store/authStore';
 import {useOrderStore} from '../store/orderStore';
@@ -1409,12 +1410,11 @@ export default function OrderPage() {
         const categoryMatch =
             !selectedCategory || p.category?.name_fa === selectedCategory;
 
-        const term = searchTerm.trim();
+        const term = normalizeNameFa(searchTerm).toLowerCase();
 
-        const searchMatch = term
-            ? (p.name_fa || "").includes(term) ||
-            (p.name || "").toLowerCase().includes(term.toLowerCase())
-            : true;
+        const searchMatch = !term ||
+            normalizeNameFa(p.name_fa).toLowerCase().includes(term) ||
+            normalizeNameFa(p.name).toLowerCase().includes(term);
 
         return categoryMatch && searchMatch;
     }), [products, selectedCategory, searchTerm]);

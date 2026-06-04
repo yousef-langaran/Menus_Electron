@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { normalizeNameFa } from '../utils/persian';
 import { Card, CardContent, Modal, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { Input } from '../ui/compat-input';
@@ -130,12 +131,12 @@ export default function ProductsPage() {
 
   // فیلتر و صفحه‌بندی در حافظه
   const filteredProducts = (() => {
-    const q = search.trim().toLowerCase();
+    const q = normalizeNameFa(search).toLowerCase();
     const minPrice = Number(normalizePriceInput(filterMinPrice) || 0);
     const maxPrice = Number(normalizePriceInput(filterMaxPrice) || 0);
     return allProducts.filter((p) => {
       const catMatch = selectedCategoryId === null || p.category_id === selectedCategoryId;
-      const searchMatch = !q || p.name_fa.toLowerCase().includes(q) || (p.name || '').toLowerCase().includes(q) || (p.barcode || '').includes(q);
+      const searchMatch = !q || normalizeNameFa(p.name_fa).toLowerCase().includes(q) || normalizeNameFa(p.name).toLowerCase().includes(q) || (p.barcode || '').includes(q);
       const syncMatch = !filterSyncStatus || p._syncStatus === filterSyncStatus;
       const minPriceMatch = minPrice === 0 || p.price >= minPrice;
       const maxPriceMatch = maxPrice === 0 || p.price <= maxPrice;
@@ -333,9 +334,9 @@ export default function ProductsPage() {
       return;
     }
 
-    const normalizedNameFa = form.name_fa.trim();
+    const normalizedNameFa = normalizeNameFa(form.name_fa);
     const dupName = allProducts.find(
-      (p) => (form.id === undefined || p.id !== form.id) && p.name_fa.trim() === normalizedNameFa,
+      (p) => (form.id === undefined || p.id !== form.id) && normalizeNameFa(p.name_fa) === normalizedNameFa,
     );
     if (dupName) {
       toast.error(`نام فارسی «${normalizedNameFa}» قبلاً ثبت شده است`);
@@ -357,7 +358,7 @@ export default function ProductsPage() {
     try {
       if (form.id !== undefined) {
         await updateProductLocal(form.id, {
-          name_fa: form.name_fa.trim(),
+          name_fa: normalizeNameFa(form.name_fa),
           name: form.name.trim() || '',
           price: Number(form.price),
           category_id: Number(form.category_id),
@@ -369,7 +370,7 @@ export default function ProductsPage() {
       } else {
         await createProductLocal({
           restaurantId,
-          name_fa: form.name_fa.trim(),
+          name_fa: normalizeNameFa(form.name_fa),
           name: form.name.trim() || undefined,
           price: Number(form.price),
           category_id: Number(form.category_id),
