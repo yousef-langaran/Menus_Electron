@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent as R
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { toShamsiDate } from '../../utils/date';
+import { smartSearchMatch } from '../../utils/persian';
 import { Card, CardContent, Chip, Modal, ModalBody, ModalFooter, ModalHeader, Spinner, useFilter } from '@heroui/react';
 import { Button } from '../../ui/compat-button';
 import { Input } from '../../ui/compat-input';
@@ -154,7 +155,7 @@ function ItemPicker({
 
   const { visible, totalMatches } = useMemo(() => {
     const q = (query ?? '').trim();
-    const matched = q ? options.filter((o) => contains(o.label, q)) : options;
+    const matched = q ? options.filter((o) => contains(o.label, q) || smartSearchMatch(o.label, q)) : options;
     return { visible: matched.slice(0, PICKER_RENDER_CAP), totalMatches: matched.length };
   }, [options, query, contains]);
 

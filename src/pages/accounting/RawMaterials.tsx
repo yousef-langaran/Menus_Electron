@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { smartSearchMatch } from '../../utils/persian';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, Modal, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
 import { Button } from '../../ui/compat-button';
@@ -70,7 +71,8 @@ export default function AccountingRawMaterialsPage() {
     return rows.filter(
       (x) =>
         String(x.name || '').toLowerCase().includes(q) ||
-        String(x.barcode || '').includes(q),
+        String(x.barcode || '').includes(q) ||
+        smartSearchMatch(x.name, search),
     );
   }, [rows, search]);
 
