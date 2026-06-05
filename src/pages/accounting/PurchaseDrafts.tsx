@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent as R
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { toShamsiDate } from '../../utils/date';
-import { Card, CardContent, Chip, Modal, ModalBody, ModalFooter, ModalHeader, Spinner, Tabs, useFilter } from '@heroui/react';
+import { Card, CardContent, Chip, Modal, ModalBody, ModalFooter, ModalHeader, Spinner, useFilter } from '@heroui/react';
 import { Button } from '../../ui/compat-button';
 import { Input } from '../../ui/compat-input';
 import { ModalShell } from '../../ui/modal-shell';
@@ -469,9 +469,8 @@ export default function AccountingPurchaseDraftsPage() {
       items.map(async (x) => {
         const qty = Number(x.quantity || 0);
         // کاربر قیمت کل ردیف را وارد می‌کند؛ قیمت تکی خودکار محاسبه می‌شود.
-        // باید integer باشد چون BE @IsInt() validate می‌کند.
         const totalPrice = Number(normalizePriceInput(x.totalPrice) || 0);
-        const unitPrice = qty > 0 ? Math.round(totalPrice / qty) : 0;
+        const unitPrice = qty > 0 ? totalPrice / qty : 0;
 
         const salePriceVal = normalizePriceInput(x.salePrice);
         const salePrice = salePriceVal ? Number(salePriceVal) : undefined;
@@ -1140,295 +1139,418 @@ export default function AccountingPurchaseDraftsPage() {
       {/* Create / Edit / View Modal */}
       <Modal isOpen={open} onOpenChange={setOpen}>
         <ModalShell size="full">
+          {/* ── Header ─────────────────────────────────────────────── */}
           <ModalHeader>
-            {isViewMode ? 'مشاهده فاکتور خرید' : editingId ? 'ویرایش پیش‌نویس خرید' : 'ثبت پیش‌نویس خرید'}
-          </ModalHeader>
-          <ModalBody className="gap-4">
-
-            {/* Basic info */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <Input
-                label="شماره فاکتور"
-                value={invoiceNumber}
-                onValueChange={setInvoiceNumber}
-                isRequired
-                isReadOnly={isViewMode}
-              />
-              {isViewMode ? (
-                <Input
-                  label="تامین‌کننده"
-                  value={suppliers.find((s) => String(s.id) === supplierId)?.name || supplierId || '—'}
-                  isReadOnly
-                />
-              ) : (
-                <ItemPicker
-                  options={suppliers.map((s) => ({ id: String(s.id), label: s.name }))}
-                  value={supplierId || null}
-                  label="تامین‌کننده"
-                  placeholder="جستجوی تامین‌کننده..."
-                  onChange={setSupplierId}
-                />
-              )}
-              <ShamsiDatePicker
-                label="تاریخ فاکتور"
-                value={purchaseDate}
-                onChange={isViewMode ? () => {} : setPurchaseDate}
-                isRequired
-                isReadOnly={isViewMode}
-              />
-            </div>
-
-            {/* Barcode scan bar — فقط در حالت ویرایش/ثبت */}
-            {!isViewMode && <div className="rounded-2xl border-2 border-primary-200 bg-primary-50/60 p-3 sm:p-4">
-              <Input
-                ref={barcodeRef}
-                autoFocus
-                value={scanValue}
-                onValueChange={setScanValue}
-                onKeyDown={handleScanKeyDown}
-                placeholder="بارکد کالا را اسکن کنید یا تایپ و Enter بزنید…"
-                className="[&]:text-lg [&]:font-semibold [&]:tracking-wider"
-                startContent={
-                  <svg className="w-6 h-6 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M4 5v14M8 5v14M12 5v14M16 5v10M20 5v14M16 17h0M16 19h0" />
+            <div className="flex items-center gap-3 w-full">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                isViewMode ? 'bg-default-100' : editingId ? 'bg-warning-100' : 'bg-primary-100'
+              }`}>
+                {isViewMode ? (
+                  <svg className="w-5 h-5 text-default-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                }
-                endContent={
-                  <span className="hidden sm:inline text-primary-400 text-xs whitespace-nowrap">اسکن → افزودن خودکار</span>
-                }
-              />
-              <p className="mt-2 text-xs text-primary-600/80">
-                با اسکن، کالا خودکار اضافه می‌شود و فوکوس روی «تعداد» می‌رود؛ بعد از وارد کردن تعداد، Enter بزنید تا به اسکن بعدی برگردید.
-              </p>
-            </div>}
+                ) : editingId ? (
+                  <svg className="w-5 h-5 text-warning-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-foreground leading-tight">
+                  {isViewMode ? 'مشاهده فاکتور خرید' : editingId ? 'ویرایش پیش‌نویس' : 'ثبت پیش‌نویس خرید'}
+                </p>
+                {(items.length > 0 || runningTotal > 0) && (
+                  <p className="text-xs text-default-400 mt-0.5">
+                    {items.length} قلم
+                    {runningTotal > 0 && <> · <span className="text-primary font-medium">{formatCurrency(runningTotal)}</span></>}
+                  </p>
+                )}
+              </div>
+            </div>
+          </ModalHeader>
 
-            {/* Items */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-foreground">آیتم‌های خرید</span>
-                <span className="text-xs text-default-400">{items.length} آیتم</span>
+          <ModalBody className="gap-0 p-0">
+            <div className="flex flex-col gap-4 p-4 sm:p-5">
+
+              {/* ── Barcode scanner ─────────────────────────────────── */}
+              {!isViewMode && (
+                <div className="relative rounded-2xl border-2 border-primary/30 bg-gradient-to-l from-primary-50/80 to-primary-100/40 p-3 sm:p-4">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
+                    </span>
+                    <span className="text-xs font-semibold text-primary-700">اسکنر بارکد آماده است</span>
+                    <span className="mr-auto text-xs text-primary-400 hidden sm:inline">Enter = افزودن</span>
+                  </div>
+                  <Input
+                    ref={barcodeRef}
+                    autoFocus
+                    value={scanValue}
+                    onValueChange={setScanValue}
+                    onKeyDown={handleScanKeyDown}
+                    placeholder="بارکد کالا را اسکن یا تایپ کنید..."
+                    startContent={
+                      <svg className="w-5 h-5 text-primary-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5v14M8 5v14M12 5v14M16 5v10M20 5v14" />
+                      </svg>
+                    }
+                  />
+                </div>
+              )}
+
+              {/* ── Invoice info ─────────────────────────────────────── */}
+              <div className="rounded-2xl border border-default-200 bg-default-50/60 p-4">
+                <p className="text-xs font-semibold text-default-500 uppercase tracking-wide mb-3">اطلاعات فاکتور</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <Input
+                    label="شماره فاکتور"
+                    value={invoiceNumber}
+                    onValueChange={setInvoiceNumber}
+                    isRequired
+                    isReadOnly={isViewMode}
+                    startContent={
+                      <span className="text-default-400 text-sm">#</span>
+                    }
+                  />
+                  {isViewMode ? (
+                    <Input
+                      label="تامین‌کننده"
+                      value={suppliers.find((s) => String(s.id) === supplierId)?.name || supplierId || '—'}
+                      isReadOnly
+                    />
+                  ) : (
+                    <ItemPicker
+                      options={suppliers.map((s) => ({ id: String(s.id), label: s.name }))}
+                      value={supplierId || null}
+                      label="تامین‌کننده"
+                      placeholder="انتخاب تامین‌کننده..."
+                      onChange={setSupplierId}
+                    />
+                  )}
+                  <ShamsiDatePicker
+                    label="تاریخ فاکتور"
+                    value={purchaseDate}
+                    onChange={isViewMode ? () => {} : setPurchaseDate}
+                    isRequired
+                    isReadOnly={isViewMode}
+                  />
+                </div>
               </div>
 
-              {items.length === 0 && !hasNoProducts && (
-                <div className="rounded-xl border border-dashed border-default-300 bg-default-50 py-10 px-4 text-center space-y-1">
-                  <svg className="w-10 h-10 mx-auto text-default-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                      d="M4 5v14M8 5v14M12 5v14M16 5v10M20 5v14" />
-                  </svg>
-                  <p className="text-default-500 text-sm font-medium">برای شروع، اولین کالا را اسکن کنید</p>
-                  <p className="text-default-400 text-xs">یا با دکمهٔ پایین به‌صورت دستی آیتم اضافه کنید</p>
-                </div>
-              )}
-
-              {hasNoProducts && (
-                <div className="rounded-xl border border-warning-200 bg-warning-50 p-3 text-center space-y-1">
-                  <p className="text-warning-700 text-sm font-medium">هیچ ماده اولیه یا محصولی یافت نشد</p>
-                  <p className="text-warning-600 text-xs">
-                    مطمئن شوید که محصولات منو با سرور همگام‌سازی شده‌اند، یا از بارکد برای افزودن ماده اولیه استفاده کنید.
-                  </p>
-                </div>
-              )}
-
-              {items.map((line, idx) => {
-                const isFinalProduct = line.type === 'final_product';
-                const lineTotal = Number(normalizePriceInput(line.totalPrice) || 0);
-                const lineQty = Number(line.quantity || 0);
-                const unitPriceForLine = lineQty > 0 ? lineTotal / lineQty : 0;
-                const activeOptions = isFinalProduct ? menuProductOptions : materialOptions;
-                const selectedKey = isFinalProduct ? line.menuProductId : line.rawMaterialId;
-
-                // نامِ نمایشی در حالت مشاهده. برای محصول نهایی، مطمئن‌ترین منبع
-                // خودِ رکوردِ FinalProduct حسابداری (بر اساس finalProductId) است؛
-                // چون menuProductId ممکن است خالی باشد یا آن محصول در لیستِ
-                // فیلترشدهٔ منو نباشد. سپس به نام محصول منو و در نهایت «—» می‌رسیم.
-                const viewLabel = isFinalProduct
-                  ? (accountingFinalProducts.find((fp) => String(fp.id) === line.finalProductId)?.name
-                     || menuProducts.find((p) => String(p.id) === selectedKey)?.name_fa
-                     || menuProducts.find((p) => String(p.id) === selectedKey)?.name
-                     || '—')
-                  : (materials.find((m) => String(m.id) === selectedKey)?.name || '—');
-
-                return (
-                  <div
-                    key={idx}
-                    className={`rounded-xl p-3 space-y-2 border transition-colors duration-500 ${
-                      flashIdx === idx
-                        ? 'bg-primary-50 border-primary-300 ring-2 ring-primary-200'
-                        : 'bg-default-100 border-default-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-default-400">آیتم {idx + 1}</span>
-                      {lineTotal > 0 && (
-                        <span className="text-xs text-foreground font-medium">{formatCurrency(lineTotal)}</span>
-                      )}
-                    </div>
-
-                    {/* Type toggle */}
-                    <Tabs
-                      className="w-full"
-                      selectedKey={isFinalProduct ? 'final_product' : 'raw_material'}
-                      onSelectionChange={(k) => {
-                        if (isViewMode) return;
-                        const newType = k === 'final_product' ? 'final_product' : 'raw_material';
-                        if (newType === line.type) return;
-                        newType === 'final_product'
-                          ? updateItem(idx, { type: 'final_product', rawMaterialId: '' })
-                          : updateItem(idx, { type: 'raw_material', menuProductId: '', finalProductId: '' });
-                      }}
-                      aria-label="نوع آیتم فاکتور"
-                    >
-                      <Tabs.ListContainer className="w-full">
-                        <Tabs.List
-                          aria-label="نوع آیتم فاکتور"
-                          className="w-full *:flex-1 *:justify-center"
-                        >
-                          <Tabs.Tab id="raw_material">
-                            ماده اولیه
-                            <Tabs.Indicator />
-                          </Tabs.Tab>
-                          <Tabs.Tab id="final_product">
-                            محصول رستوران
-                            <Tabs.Indicator />
-                          </Tabs.Tab>
-                        </Tabs.List>
-                      </Tabs.ListContainer>
-                    </Tabs>
-
-                    {/* Product/material selector */}
-                    {isViewMode ? (
-                      <Input
-                        label={isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}
-                        value={viewLabel}
-                        isReadOnly
-                      />
-                    ) : activeOptions.length === 0 ? (
-                      <p className="text-xs text-default-400 py-1">
-                        {isFinalProduct
-                          ? 'هیچ محصولی یافت نشد — مطمئن شوید محصولات منو همگام‌سازی شده‌اند'
-                          : 'هیچ ماده اولیه‌ای ثبت نشده'}
-                      </p>
-                    ) : (
-                      <ItemPicker
-                        options={activeOptions}
-                        value={selectedKey || null}
-                        label={isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}
-                        placeholder={`انتخاب ${isFinalProduct ? 'محصول' : 'ماده اولیه'}...`}
-                        onChange={(val) => {
-                          if (isFinalProduct) {
-                            const prod = menuProducts.find((p) => String(p.id) === val);
-                            const autoSalePrice =
-                              prod?.price != null && prod.price > 0 ? String(prod.price) : '';
-                            updateItem(idx, { menuProductId: val, finalProductId: '', salePrice: autoSalePrice });
-                          } else {
-                            updateItem(idx, { rawMaterialId: val });
-                          }
-                        }}
-                      />
-                    )}
-
-                    <div className="grid grid-cols-3 gap-2">
-                      <Input
-                        ref={(el) => { qtyRefs.current[idx] = el; }}
-                        type="number"
-                        label="مقدار"
-                        value={line.quantity}
-                        onValueChange={(v) => updateItem(idx, { quantity: v })}
-                        onKeyDown={handleQtyKeyDown}
-                        isReadOnly={isViewMode}
-                      />
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        label="قیمت کل خرید"
-                        value={formatPriceInput(line.totalPrice)}
-                        onValueChange={(v) => updateItem(idx, { totalPrice: normalizePriceInput(v) })}
-                        endContent={
-                          <span className="text-default-400 text-xs whitespace-nowrap">ریال</span>
-                        }
-                        isReadOnly={isViewMode}
-                      />
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        label="قیمت فروش"
-                        placeholder="اختیاری"
-                        value={formatPriceInput(line.salePrice)}
-                        onValueChange={(v) => updateItem(idx, { salePrice: normalizePriceInput(v) })}
-                        endContent={
-                          <span className="text-default-400 text-xs whitespace-nowrap">ریال</span>
-                        }
-                        isReadOnly={isViewMode}
-                      />
-                    </div>
-
-                    {unitPriceForLine > 0 && lineQty > 0 && (
-                      <p className="text-xs text-default-400">
-                        قیمت تکی (محاسبه‌شده): {formatCurrency(unitPriceForLine)}
-                      </p>
-                    )}
-
-                    {!isViewMode && (
-                    <Button
-                      size="sm"
-                      color="danger"
-                      variant="light"
-                      onPress={() => setItems((prev) => prev.filter((_, i) => i !== idx))}
-                    >
-                      حذف آیتم
-                    </Button>
+              {/* ── Items ────────────────────────────────────────────── */}
+              <div>
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">اقلام خرید</span>
+                    {items.length > 0 && (
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+                        {items.length}
+                      </span>
                     )}
                   </div>
-                );
-              })}
+                  {!isViewMode && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); setItems((prev) => [...prev, emptyItem()]); }}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-600 cursor-pointer transition-colors duration-150"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                      </svg>
+                      افزودن قلم
+                    </button>
+                  )}
+                </div>
 
-              {!isViewMode && (
-              <Button
-                variant="flat"
-                size="sm"
-                className="w-full"
-                onPress={() => setItems((prev) => [...prev, emptyItem()])}
-              >
-                + افزودن آیتم
-              </Button>
-              )}
-            </div>
+                {/* Warning: no products synced */}
+                {hasNoProducts && (
+                  <div className="rounded-xl border border-warning-200 bg-warning-50 p-3 flex gap-2.5">
+                    <svg className="w-5 h-5 text-warning-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <p className="text-warning-700 text-sm font-medium">هیچ کالایی یافت نشد</p>
+                      <p className="text-warning-600 text-xs mt-0.5">محصولات را با سرور همگام‌سازی کنید یا از بارکد استفاده کنید</p>
+                    </div>
+                  </div>
+                )}
 
-            {/* Extra costs + total */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                type="text"
-                inputMode="numeric"
-                label="هزینه جانبی"
-                value={formatPriceInput(extraCosts)}
-                onValueChange={(v) => setExtraCosts(normalizePriceInput(v))}
-                endContent={
-                  <span className="text-default-400 text-sm whitespace-nowrap">ریال</span>
-                }
-                isReadOnly={isViewMode}
-              />
-              <div className="flex items-center justify-between rounded-xl bg-default-200 px-4 py-3">
-                <span className="text-sm text-default-600">جمع کل:</span>
-                <span className="font-bold text-foreground text-lg">{formatCurrency(runningTotal)}</span>
+                {/* Empty state */}
+                {items.length === 0 && !hasNoProducts && !isViewMode && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); setItems((prev) => [...prev, emptyItem()]); }}
+                    className="w-full rounded-2xl border-2 border-dashed border-default-200 hover:border-primary/40 hover:bg-primary-50/30 bg-default-50 py-8 px-4 text-center cursor-pointer transition-all duration-200 group"
+                  >
+                    <svg className="w-8 h-8 mx-auto text-default-300 group-hover:text-primary/40 mb-2 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5v14M8 5v14M12 5v14M16 5v10M20 5v14" />
+                    </svg>
+                    <p className="text-default-500 text-sm font-medium">بارکد اسکن کنید یا اینجا کلیک کنید</p>
+                    <p className="text-default-400 text-xs mt-0.5">برای افزودن اولین قلم</p>
+                  </button>
+                )}
+
+                {items.length === 0 && isViewMode && (
+                  <p className="text-default-400 text-sm text-center py-6">این فاکتور قلمی ندارد</p>
+                )}
+
+                {/* Item rows */}
+                <div className="space-y-2.5">
+                  {items.map((line, idx) => {
+                    const isFinalProduct = line.type === 'final_product';
+                    const lineTotal = Number(normalizePriceInput(line.totalPrice) || 0);
+                    const lineQty = Number(line.quantity || 0);
+                    const unitPriceForLine = lineQty > 0 ? lineTotal / lineQty : 0;
+                    const activeOptions = isFinalProduct ? menuProductOptions : materialOptions;
+                    const selectedKey = isFinalProduct ? line.menuProductId : line.rawMaterialId;
+
+                    const viewLabel = isFinalProduct
+                      ? (accountingFinalProducts.find((fp) => String(fp.id) === line.finalProductId)?.name
+                         || menuProducts.find((p) => String(p.id) === selectedKey)?.name_fa
+                         || menuProducts.find((p) => String(p.id) === selectedKey)?.name
+                         || '—')
+                      : (materials.find((m) => String(m.id) === selectedKey)?.name || '—');
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
+                          flashIdx === idx
+                            ? 'border-primary/50 shadow-[0_0_0_3px_theme(colors.primary.DEFAULT/0.12)]'
+                            : 'border-default-200 hover:border-default-300'
+                        }`}
+                      >
+                        {/* Item header row */}
+                        <div className={`flex items-center gap-2 px-3 py-2 ${
+                          flashIdx === idx ? 'bg-primary-50' : 'bg-default-100/80'
+                        }`}>
+                          {/* Index badge */}
+                          <span className="w-5 h-5 rounded-full bg-default-200 text-default-500 text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+
+                          {/* Type toggle — pill-in-track (iOS style) */}
+                          {!isViewMode && (
+                            <div className="flex rounded-full bg-default-200 p-0.5 gap-0.5 shrink-0">
+                              <button
+                                type="button"
+                                className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all duration-200 cursor-pointer ${
+                                  !isFinalProduct
+                                    ? 'bg-white text-orange-600 shadow-sm'
+                                    : 'text-default-500 hover:text-default-700'
+                                }`}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  if (isFinalProduct) updateItem(idx, { type: 'raw_material', menuProductId: '', finalProductId: '' });
+                                }}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${!isFinalProduct ? 'bg-orange-400' : 'bg-default-400'}`} />
+                                ماده اولیه
+                              </button>
+                              <button
+                                type="button"
+                                className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all duration-200 cursor-pointer ${
+                                  isFinalProduct
+                                    ? 'bg-white text-primary shadow-sm'
+                                    : 'text-default-500 hover:text-default-700'
+                                }`}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  if (!isFinalProduct) updateItem(idx, { type: 'final_product', rawMaterialId: '' });
+                                }}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isFinalProduct ? 'bg-primary' : 'bg-default-400'}`} />
+                                محصول
+                              </button>
+                            </div>
+                          )}
+                          {isViewMode && (
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                              isFinalProduct ? 'bg-primary-100 text-primary-700' : 'bg-orange-100 text-orange-700'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${isFinalProduct ? 'bg-primary' : 'bg-orange-400'}`} />
+                              {isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}
+                            </span>
+                          )}
+
+                          {/* Line total — pushed to end */}
+                          <div className="mr-auto flex items-center gap-2">
+                            {lineTotal > 0 && (
+                              <span className="text-xs font-semibold text-foreground tabular-nums">
+                                {formatCurrency(lineTotal)}
+                              </span>
+                            )}
+                            {/* Delete */}
+                            {!isViewMode && (
+                              <button
+                                type="button"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  setItems((prev) => prev.filter((_, i) => i !== idx));
+                                }}
+                                className="w-6 h-6 rounded-lg flex items-center justify-center text-default-400 hover:text-danger hover:bg-danger-50 transition-colors duration-150 cursor-pointer"
+                                aria-label="حذف آیتم"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Item body */}
+                        <div className="p-3 space-y-2.5 bg-background">
+                          {/* Product / material selector */}
+                          {isViewMode ? (
+                            <div className="flex items-center gap-2 py-1">
+                              <span className="text-xs text-default-400">{isFinalProduct ? 'محصول:' : 'ماده اولیه:'}</span>
+                              <span className="text-sm font-medium text-foreground">{viewLabel}</span>
+                            </div>
+                          ) : activeOptions.length === 0 ? (
+                            <p className="text-xs text-default-400 py-1">
+                              {isFinalProduct ? 'هیچ محصولی یافت نشد' : 'هیچ ماده اولیه‌ای ثبت نشده'}
+                            </p>
+                          ) : (
+                            <ItemPicker
+                              options={activeOptions}
+                              value={selectedKey || null}
+                              label={isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}
+                              placeholder={`جستجو در ${isFinalProduct ? 'محصولات' : 'مواد اولیه'}...`}
+                              onChange={(val) => {
+                                if (isFinalProduct) {
+                                  const prod = menuProducts.find((p) => String(p.id) === val);
+                                  const autoSalePrice = prod?.price != null && prod.price > 0 ? String(prod.price) : '';
+                                  updateItem(idx, { menuProductId: val, finalProductId: '', salePrice: autoSalePrice });
+                                } else {
+                                  updateItem(idx, { rawMaterialId: val });
+                                }
+                              }}
+                            />
+                          )}
+
+                          {/* Qty + prices */}
+                          <div className="grid grid-cols-3 gap-2">
+                            <Input
+                              ref={(el) => { qtyRefs.current[idx] = el; }}
+                              type="number"
+                              label="تعداد / مقدار"
+                              value={line.quantity}
+                              onValueChange={(v) => updateItem(idx, { quantity: v })}
+                              onKeyDown={handleQtyKeyDown}
+                              isReadOnly={isViewMode}
+                            />
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              label="قیمت کل"
+                              value={formatPriceInput(line.totalPrice)}
+                              onValueChange={(v) => updateItem(idx, { totalPrice: normalizePriceInput(v) })}
+                              endContent={<span className="text-default-400 text-xs">ریال</span>}
+                              isReadOnly={isViewMode}
+                            />
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              label="قیمت فروش"
+                              placeholder="اختیاری"
+                              value={formatPriceInput(line.salePrice)}
+                              onValueChange={(v) => updateItem(idx, { salePrice: normalizePriceInput(v) })}
+                              endContent={<span className="text-default-400 text-xs">ریال</span>}
+                              isReadOnly={isViewMode}
+                            />
+                          </div>
+
+                          {/* Unit price hint */}
+                          {unitPriceForLine > 0 && lineQty > 1 && (
+                            <p className="text-[11px] text-default-400 flex items-center gap-1">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              قیمت واحد: {formatCurrency(unitPriceForLine)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Add item button — only when items exist */}
+                {!isViewMode && items.length > 0 && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); setItems((prev) => [...prev, emptyItem()]); }}
+                    className="mt-2.5 w-full rounded-xl border border-dashed border-default-200 hover:border-primary/40 hover:bg-primary-50/20 py-2 text-xs font-medium text-default-400 hover:text-primary flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                    </svg>
+                    افزودن قلم جدید
+                  </button>
+                )}
               </div>
+
+              {/* ── Summary ──────────────────────────────────────────── */}
+              <div className="rounded-2xl border border-default-200 bg-default-50/60 p-4">
+                <p className="text-xs font-semibold text-default-500 uppercase tracking-wide mb-3">خلاصه فاکتور</p>
+                <div className="flex items-end gap-3">
+                  <div className="flex-1">
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      label="هزینه جانبی"
+                      value={formatPriceInput(extraCosts)}
+                      onValueChange={(v) => setExtraCosts(normalizePriceInput(v))}
+                      endContent={<span className="text-default-400 text-sm">ریال</span>}
+                      isReadOnly={isViewMode}
+                    />
+                  </div>
+                  <div className="flex-1 rounded-xl bg-gradient-to-l from-primary-100 to-primary-50 border border-primary/20 px-4 py-3 text-left">
+                    <p className="text-xs text-primary-600 font-medium mb-0.5">جمع کل فاکتور</p>
+                    <p className="font-bold text-primary text-xl tabular-nums">{formatCurrency(runningTotal)}</p>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onPress={() => setOpen(false)}>
-              {isViewMode ? 'بستن' : 'انصراف'}
-            </Button>
-            {!isViewMode && (
-            <Button
-              color="primary"
-              isLoading={isSaving}
-              isDisabled={!hasValidItems}
-              onPress={handleSave}
-              title={!hasValidItems ? 'حداقل یک آیتم با محصول و مقدار وارد کنید' : undefined}
-            >
-              {editingId ? 'ذخیره تغییرات' : 'ثبت پیش‌نویس'}
-            </Button>
-            )}
+
+          {/* ── Footer ───────────────────────────────────────────────── */}
+          <ModalFooter className="border-t border-default-100">
+            <div className="flex items-center gap-3 w-full">
+              {!isViewMode && items.length > 0 && (
+                <span className="text-xs text-default-400 mr-auto">
+                  {items.length} قلم · {formatCurrency(runningTotal)}
+                </span>
+              )}
+              <div className="flex gap-2 mr-auto">
+                <Button variant="flat" color="default" onPress={() => setOpen(false)}>
+                  {isViewMode ? 'بستن' : 'انصراف'}
+                </Button>
+                {!isViewMode && (
+                  <Button
+                    color="primary"
+                    isLoading={isSaving}
+                    isDisabled={!hasValidItems}
+                    onPress={handleSave}
+                    title={!hasValidItems ? 'حداقل یک قلم با کالا و مقدار وارد کنید' : undefined}
+                    startContent={!isSaving && (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  >
+                    {editingId ? 'ذخیره تغییرات' : 'ثبت پیش‌نویس'}
+                  </Button>
+                )}
+              </div>
+            </div>
           </ModalFooter>
         </ModalShell>
       </Modal>

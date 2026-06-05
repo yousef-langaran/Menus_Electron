@@ -364,9 +364,27 @@ function mapCollectionName(entityType: SyncEntityType): keyof MenusAccountingDb 
 }
 
 export async function upsertPulledEntities(entityType: SyncEntityType, rows: any[]) {
+  if (!rows?.length) return;
   const tableName = mapCollectionName(entityType);
   const table = accountingDb.table<any, any>(tableName as string);
-  await table.bulkPut(rows || []);
+
+  // برای final_product: اگر سرور productId نداشت (TypeORM relation بدون @Column مستقیم
+  // این فیلد را در getMany() برنمی‌گرداند)، مقدار محلی موجود را حفظ کن.
+  if (entityType === 'final_product') {
+    const ids = rows.map((r) => r.id);
+    const existingArr = await table.bulkGet(ids);
+    const existingMap = new Map<any, any>();
+    existingArr.forEach((e: any) => { if (e) existingMap.set(e.id, e); });
+    const merged = rows.map((r) => {
+      if (r.productId != null) return r;
+      const local = existingMap.get(r.id);
+      return local?.productId != null ? { ...r, productId: local.productId } : r;
+    });
+    await table.bulkPut(merged);
+    return;
+  }
+
+  await table.bulkPut(rows);
 }
 
 /**
