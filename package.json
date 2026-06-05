@@ -1,6 +1,6 @@
 {
   "name": "menus-electron",
-  "version": "2.4.1",
+  "version": "2.4.3",
   "description": "Electron app for restaurant order management with offline support",
   "main": "dist/main.js",
   "scripts": {
