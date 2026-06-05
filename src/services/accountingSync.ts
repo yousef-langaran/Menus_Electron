@@ -170,9 +170,13 @@ export async function runAccountingSync(args: {
         serverInvoiceId: response.invoiceId,
       });
     } catch (error: any) {
+      const rawMsg = error?.response?.data?.message;
+      const syncError = Array.isArray(rawMsg)
+        ? rawMsg.join('؛ ')
+        : rawMsg || error?.message || 'خطا در ارسال پیش‌نویس خرید';
       await markPurchaseInvoiceSyncState(draft.id, {
         localSyncStatus: 'failed',
-        syncError: error?.response?.data?.message || error?.message || 'Draft purchase sync failed',
+        syncError,
       });
     }
   }

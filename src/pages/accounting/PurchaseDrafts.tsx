@@ -402,6 +402,12 @@ export default function AccountingPurchaseDraftsPage() {
     return itemsSum + Number(normalizePriceInput(extraCosts) || 0);
   }, [items, extraCosts]);
 
+  const hasValidItems = useMemo(() => items.some((x) => {
+    const qty = Number(x.quantity || 0);
+    if (qty <= 0) return false;
+    return x.type === 'final_product' ? !!x.menuProductId : !!x.rawMaterialId;
+  }), [items]);
+
   // ── helpers ───────────────────────────────────────────────────────────────
 
   const updateItem = (idx: number, patch: Partial<DraftItem>) =>
@@ -463,8 +469,9 @@ export default function AccountingPurchaseDraftsPage() {
       items.map(async (x) => {
         const qty = Number(x.quantity || 0);
         // کاربر قیمت کل ردیف را وارد می‌کند؛ قیمت تکی خودکار محاسبه می‌شود.
+        // باید integer باشد چون BE @IsInt() validate می‌کند.
         const totalPrice = Number(normalizePriceInput(x.totalPrice) || 0);
-        const unitPrice = qty > 0 ? totalPrice / qty : 0;
+        const unitPrice = qty > 0 ? Math.round(totalPrice / qty) : 0;
 
         const salePriceVal = normalizePriceInput(x.salePrice);
         const salePrice = salePriceVal ? Number(salePriceVal) : undefined;
@@ -980,7 +987,9 @@ export default function AccountingPurchaseDraftsPage() {
                         )}
                       </div>
                       {d.syncError && (
-                        <p className="text-danger text-xs mt-0.5 truncate">{d.syncError}</p>
+                        <p className="text-danger text-xs mt-0.5 break-words whitespace-pre-wrap">
+                          {Array.isArray(d.syncError) ? d.syncError.join('؛ ') : String(d.syncError)}
+                        </p>
                       )}
                     </div>
                     <div className="flex gap-1 shrink-0 flex-wrap">
@@ -1262,7 +1271,9 @@ export default function AccountingPurchaseDraftsPage() {
                       selectedKey={isFinalProduct ? 'final_product' : 'raw_material'}
                       onSelectionChange={(k) => {
                         if (isViewMode) return;
-                        k === 'final_product'
+                        const newType = k === 'final_product' ? 'final_product' : 'raw_material';
+                        if (newType === line.type) return;
+                        newType === 'final_product'
                           ? updateItem(idx, { type: 'final_product', rawMaterialId: '' })
                           : updateItem(idx, { type: 'raw_material', menuProductId: '', finalProductId: '' });
                       }}
@@ -1408,7 +1419,13 @@ export default function AccountingPurchaseDraftsPage() {
               {isViewMode ? 'بستن' : 'انصراف'}
             </Button>
             {!isViewMode && (
-            <Button color="primary" isLoading={isSaving} onPress={handleSave}>
+            <Button
+              color="primary"
+              isLoading={isSaving}
+              isDisabled={!hasValidItems}
+              onPress={handleSave}
+              title={!hasValidItems ? 'حداقل یک آیتم با محصول و مقدار وارد کنید' : undefined}
+            >
               {editingId ? 'ذخیره تغییرات' : 'ثبت پیش‌نویس'}
             </Button>
             )}
