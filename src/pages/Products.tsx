@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { normalizeNameFa } from '../utils/persian';
+import { normalizeNameFa, smartSearchMatch } from '../utils/persian';
 import { Card, CardContent, Modal, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { Input } from '../ui/compat-input';
@@ -136,7 +136,7 @@ export default function ProductsPage() {
     const maxPrice = Number(normalizePriceInput(filterMaxPrice) || 0);
     return allProducts.filter((p) => {
       const catMatch = selectedCategoryId === null || p.category_id === selectedCategoryId;
-      const searchMatch = !q || normalizeNameFa(p.name_fa).toLowerCase().includes(q) || normalizeNameFa(p.name).toLowerCase().includes(q) || (p.barcode || '').includes(q);
+      const searchMatch = !q || normalizeNameFa(p.name_fa).toLowerCase().includes(q) || normalizeNameFa(p.name).toLowerCase().includes(q) || (p.barcode || '').includes(q) || smartSearchMatch(p.name_fa, search) || smartSearchMatch(p.name, search);
       const syncMatch = !filterSyncStatus || p._syncStatus === filterSyncStatus;
       const minPriceMatch = minPrice === 0 || p.price >= minPrice;
       const maxPriceMatch = maxPrice === 0 || p.price <= maxPrice;

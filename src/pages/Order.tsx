@@ -1,5 +1,5 @@
 import {useState, useEffect, useRef, useMemo} from 'react';
-import { normalizeNameFa } from '../utils/persian';
+import { normalizeNameFa, smartSearchMatch } from '../utils/persian';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {useAuthStore} from '../store/authStore';
 import {useOrderStore} from '../store/orderStore';
@@ -1414,7 +1414,9 @@ export default function OrderPage() {
 
         const searchMatch = !term ||
             normalizeNameFa(p.name_fa).toLowerCase().includes(term) ||
-            normalizeNameFa(p.name).toLowerCase().includes(term);
+            normalizeNameFa(p.name).toLowerCase().includes(term) ||
+            smartSearchMatch(p.name_fa, searchTerm) ||
+            smartSearchMatch(p.name, searchTerm);
 
         return categoryMatch && searchMatch;
     }), [products, selectedCategory, searchTerm]);
