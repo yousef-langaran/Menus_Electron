@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { toShamsiDate } from '../../utils/date';
@@ -131,7 +131,16 @@ function ItemPicker({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
+  /**
+   * query === null  → فیلد برچسبِ موردِ انتخاب‌شده را نشان می‌دهد (حالت نمایش).
+   * query === string → کاربر در حال تایپ/جستجوست (حالت ویرایش).
+   *
+   * چرا null به‌جای ''؟ هنگام انتخاب با onMouseDown، بعد از بسته‌شدن لیست، فوکوس
+   * دوباره به اینپوت برمی‌گردد و onFocus اجرا می‌شود. اگر در آن لحظه query را ''
+   * کنیم فیلد خالی می‌شود و انتخاب کاربر دیده نمی‌شود. با null، تا وقتی کاربر
+   * عملاً تایپ نکند، همیشه برچسبِ انتخاب‌شده نمایش داده می‌شود.
+   */
+  const [query, setQuery] = useState<string | null>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
 
@@ -140,8 +149,11 @@ function ItemPicker({
     [options, value],
   );
 
+  // متنِ دیده‌شده در فیلد: حالت ویرایش → query، حالت نمایش → برچسبِ انتخاب‌شده.
+  const inputValue = query !== null ? query : selectedLabel;
+
   const { visible, totalMatches } = useMemo(() => {
-    const q = query.trim();
+    const q = (query ?? '').trim();
     const matched = q ? options.filter((o) => contains(o.label, q)) : options;
     return { visible: matched.slice(0, PICKER_RENDER_CAP), totalMatches: matched.length };
   }, [options, query, contains]);
@@ -168,7 +180,7 @@ function ItemPicker({
         dropdownRef.current?.contains(e.target as Node)
       ) return;
       setOpen(false);
-      setQuery('');
+      setQuery(null);
     };
     document.addEventListener('pointerdown', handle);
     return () => document.removeEventListener('pointerdown', handle);
@@ -177,7 +189,7 @@ function ItemPicker({
   const handleSelect = (id: string) => {
     onChange(id);
     setOpen(false);
-    setQuery('');
+    setQuery(null);
   };
 
   const dropdownOpen = open && rect && portalEl && options.length > 0;
@@ -186,13 +198,17 @@ function ItemPicker({
     <div ref={wrapperRef} className="w-full">
       <Input
         label={label}
-        value={open ? query : selectedLabel}
+        value={inputValue}
         placeholder={placeholder}
-        onFocus={() => { setOpen(true); setQuery(''); }}
+        onFocus={(e: ReactFocusEvent<HTMLInputElement>) => {
+          setOpen(true);
+          // متنِ موجود را انتخاب کن تا با شروعِ تایپ جایگزین شود (نه اضافه‌شدن به انتها).
+          e.target.select?.();
+        }}
         onClick={() => setOpen(true)}
         onValueChange={(v) => { setQuery(v); if (!open) setOpen(true); }}
         onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
-          if (e.key === 'Escape') { setOpen(false); setQuery(''); (e.target as HTMLInputElement).blur(); }
+          if (e.key === 'Escape') { setOpen(false); setQuery(null); (e.target as HTMLInputElement).blur(); }
         }}
         endContent={
           <svg
@@ -422,7 +438,9 @@ export default function AccountingPurchaseDraftsPage() {
           rawMaterialId: String(x.rawMaterialId || ''),
           menuProductId: String(acctFp?.productId || ''),
           finalProductId: String(x.finalProductId || ''),
-          quantity: String(x.quantity),
+          // quantity در دیتابیس decimal است و ممکن است "1.000" بیاید؛
+          // تبدیل به عدد صفرهای اضافی را حذف می‌کند (۱.۰۰۰ → ۱، ۱.۵۰۰ → ۱.۵).
+          quantity: String(Number(x.quantity) || 0),
           totalPrice: String(Number(x.unitPrice || 0) * Number(x.quantity || 0)),
           salePrice: x.salePrice != null ? String(x.salePrice) : '',
         };
@@ -1147,6 +1165,7 @@ export default function AccountingPurchaseDraftsPage() {
                 value={purchaseDate}
                 onChange={isViewMode ? () => {} : setPurchaseDate}
                 isRequired
+                isReadOnly={isViewMode}
               />
             </div>
 
@@ -1210,6 +1229,17 @@ export default function AccountingPurchaseDraftsPage() {
                 const activeOptions = isFinalProduct ? menuProductOptions : materialOptions;
                 const selectedKey = isFinalProduct ? line.menuProductId : line.rawMaterialId;
 
+                // نامِ نمایشی در حالت مشاهده. برای محصول نهایی، مطمئن‌ترین منبع
+                // خودِ رکوردِ FinalProduct حسابداری (بر اساس finalProductId) است؛
+                // چون menuProductId ممکن است خالی باشد یا آن محصول در لیستِ
+                // فیلترشدهٔ منو نباشد. سپس به نام محصول منو و در نهایت «—» می‌رسیم.
+                const viewLabel = isFinalProduct
+                  ? (accountingFinalProducts.find((fp) => String(fp.id) === line.finalProductId)?.name
+                     || menuProducts.find((p) => String(p.id) === selectedKey)?.name_fa
+                     || menuProducts.find((p) => String(p.id) === selectedKey)?.name
+                     || '—')
+                  : (materials.find((m) => String(m.id) === selectedKey)?.name || '—');
+
                 return (
                   <div
                     key={idx}
@@ -1259,13 +1289,7 @@ export default function AccountingPurchaseDraftsPage() {
                     {isViewMode ? (
                       <Input
                         label={isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}
-                        value={
-                          isFinalProduct
-                            ? (menuProducts.find((p) => String(p.id) === selectedKey)?.name_fa
-                               || menuProducts.find((p) => String(p.id) === selectedKey)?.name
-                               || selectedKey || '—')
-                            : (materials.find((m) => String(m.id) === selectedKey)?.name || selectedKey || '—')
-                        }
+                        value={viewLabel}
                         isReadOnly
                       />
                     ) : activeOptions.length === 0 ? (

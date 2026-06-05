@@ -8,6 +8,7 @@ interface ShamsiDatePickerProps {
   value: string;           // ISO YYYY-MM-DD (or empty)
   onChange: (iso: string) => void;
   isRequired?: boolean;
+  isReadOnly?: boolean;
   className?: string;
   size?: 'sm' | 'md' | 'lg';
 }
@@ -24,7 +25,10 @@ const DAY_ABBR: Record<string, string> = {
 
 function toCalendarDate(iso: string): DateValue | null {
   if (!iso) return null;
-  try { return parseDate(iso); } catch { return null; }
+  // مقدار ممکن است از سرور به‌صورت تایم‌استمپ کامل بیاید
+  // (مثل 2026-06-05T00:00:00.000Z)؛ parseDate فقط YYYY-MM-DD می‌پذیرد.
+  const datePart = iso.slice(0, 10);
+  try { return parseDate(datePart); } catch { return null; }
 }
 
 export function ShamsiDatePicker({
@@ -32,6 +36,7 @@ export function ShamsiDatePicker({
   value,
   onChange,
   isRequired,
+  isReadOnly,
   className,
   size = 'md',
 }: ShamsiDatePickerProps) {
@@ -42,6 +47,7 @@ export function ShamsiDatePicker({
         value={toCalendarDate(value)}
         onChange={(d) => onChange(d ? d.toString() : '')}
         isRequired={isRequired}
+        isReadOnly={isReadOnly}
       >
         <Label className="text-sm font-medium text-foreground-700 mb-1 block">
           {label}
