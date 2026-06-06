@@ -993,6 +993,43 @@ export async function listExpenseCategories(
   return Array.isArray(response.data) ? response.data : [];
 }
 
+export async function createExpenseCategory(
+  payload: { restaurantId: number; name: string },
+  token: string,
+): Promise<ExpenseCategoryRow> {
+  await apiConfigReady;
+  const response = await api.post('/accounting/financial/expense-categories', payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function updateExpenseCategory(
+  id: number,
+  payload: { name?: string; isActive?: boolean },
+  token: string,
+): Promise<ExpenseCategoryRow> {
+  await apiConfigReady;
+  const response = await api.patch(
+    `/accounting/financial/expense-categories/${id}`,
+    payload,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
+export async function deleteExpenseCategory(
+  id: number,
+  restaurantId: number,
+  token: string,
+): Promise<void> {
+  await apiConfigReady;
+  await api.delete(`/accounting/financial/expense-categories/${id}`, {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 // ─── هزینه‌های عملیاتی آنلاین ────────────────────────────────────────────────
 
 export async function listOperationalExpensesOnline(

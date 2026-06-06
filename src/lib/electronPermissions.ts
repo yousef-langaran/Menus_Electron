@@ -133,7 +133,7 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
     );
   }
 
-  if (p === '/accounting/expenses' || p === '/accounting/cash-accounts') {
+  if (p === '/accounting/expenses' || p === '/accounting/cash-accounts' || p === '/accounting/expense-categories') {
     return hasModuleAccess(user, 'accounting', ['read', 'manage'], rid);
   }
 

@@ -6,7 +6,10 @@ export type SyncEntityType =
   | 'final_product'
   | 'recipe_item'
   | 'cash_bank_account'
-  | 'operational_expense';
+  | 'operational_expense'
+  | 'expense_category'
+  | 'raw_material_category'
+  | 'purchase_return';
 
 export type LocalSyncOperationStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 export type LocalSyncOperationType = 'create' | 'update' | 'delete';
@@ -70,6 +73,8 @@ export class MenusAccountingDb extends Dexie {
   recipeItems!: Table<any, number>;
   cashBankAccounts!: Table<any, number>;
   operationalExpenses!: Table<any, number>;
+  expenseCategories!: Table<any, number>;
+  rawMaterialCategories!: Table<any, number>;
   purchaseInvoices!: Table<any, number>;
   purchaseInvoiceItems!: Table<any, number>;
   cheques!: Table<any, number>;
@@ -288,6 +293,59 @@ export class MenusAccountingDb extends Dexie {
         '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
       syncMeta: 'key',
     });
+    // v12: adds expenseCategories table for offline support
+    this.version(12).stores({
+      rawMaterials: 'id, restaurantId, updatedAt, name, barcode',
+      suppliers: 'id, restaurantId, updatedAt, name',
+      finalProducts: 'id, restaurantId, updatedAt, name, productId',
+      recipeItems: 'id, restaurantId, updatedAt, finalProductId, rawMaterialId',
+      cashBankAccounts: 'id, restaurantId, updatedAt, accountType, name',
+      operationalExpenses: 'id, restaurantId, updatedAt, expenseDate, expenseCategoryId',
+      expenseCategories: 'id, restaurantId, updatedAt, isActive',
+      purchaseInvoices:
+        'id, restaurantId, updatedAt, supplierId, status, purchaseDate, localSyncStatus, syncError, [restaurantId+localSyncStatus]',
+      purchaseInvoiceItems: 'id, purchaseInvoiceId, rawMaterialId, finalProductId',
+      cheques: 'id, restaurantId, updatedAt, chequeType, status, dueDate, [restaurantId+status]',
+      customerReceivables:
+        'id, restaurantId, updatedAt, status, dueDate, salesInvoiceId, [restaurantId+status]',
+      purchaseReturns: 'id, restaurantId, updatedAt, purchaseInvoiceId, status',
+      purchaseReturnItems: 'id, purchaseReturnId, rawMaterialId',
+      warehouses: 'id, restaurantId, updatedAt, isDefault, isActive',
+      warehouseTransfers: 'id, restaurantId, updatedAt, status, fromWarehouseId, toWarehouseId',
+      warehouseStocks: 'id, warehouseId, restaurantId, rawMaterialId, finalProductId, updatedAt',
+      cashAccountTransactions:
+        '++id, restaurantId, accountType, transactionType, date, orderId, localId, syncStatus, [restaurantId+accountType], [restaurantId+date], [restaurantId+syncStatus]',
+      syncOperations:
+        '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
+      syncMeta: 'key',
+    });
+    // v13: adds rawMaterialCategories table for offline support
+    this.version(13).stores({
+      rawMaterials: 'id, restaurantId, updatedAt, name, barcode',
+      suppliers: 'id, restaurantId, updatedAt, name',
+      finalProducts: 'id, restaurantId, updatedAt, name, productId',
+      recipeItems: 'id, restaurantId, updatedAt, finalProductId, rawMaterialId',
+      cashBankAccounts: 'id, restaurantId, updatedAt, accountType, name',
+      operationalExpenses: 'id, restaurantId, updatedAt, expenseDate, expenseCategoryId',
+      expenseCategories: 'id, restaurantId, updatedAt, isActive',
+      rawMaterialCategories: 'id, restaurantId, updatedAt, isActive',
+      purchaseInvoices:
+        'id, restaurantId, updatedAt, supplierId, status, purchaseDate, localSyncStatus, syncError, [restaurantId+localSyncStatus]',
+      purchaseInvoiceItems: 'id, purchaseInvoiceId, rawMaterialId, finalProductId',
+      cheques: 'id, restaurantId, updatedAt, chequeType, status, dueDate, [restaurantId+status]',
+      customerReceivables:
+        'id, restaurantId, updatedAt, status, dueDate, salesInvoiceId, [restaurantId+status]',
+      purchaseReturns: 'id, restaurantId, updatedAt, purchaseInvoiceId, status, localSyncStatus',
+      purchaseReturnItems: 'id, purchaseReturnId, rawMaterialId',
+      warehouses: 'id, restaurantId, updatedAt, isDefault, isActive',
+      warehouseTransfers: 'id, restaurantId, updatedAt, status, fromWarehouseId, toWarehouseId',
+      warehouseStocks: 'id, warehouseId, restaurantId, rawMaterialId, finalProductId, updatedAt',
+      cashAccountTransactions:
+        '++id, restaurantId, accountType, transactionType, date, orderId, localId, syncStatus, [restaurantId+accountType], [restaurantId+date], [restaurantId+syncStatus]',
+      syncOperations:
+        '++id, localOpId, restaurantId, status, entityType, entityId, createdAt, updatedAt, [restaurantId+status]',
+      syncMeta: 'key',
+    });
   }
 }
 
@@ -358,6 +416,10 @@ function mapCollectionName(entityType: SyncEntityType): keyof MenusAccountingDb 
       return 'cashBankAccounts';
     case 'operational_expense':
       return 'operationalExpenses';
+    case 'expense_category':
+      return 'expenseCategories';
+    case 'raw_material_category':
+      return 'rawMaterialCategories';
     default:
       return 'rawMaterials';
   }
@@ -723,6 +785,190 @@ export async function resetFailedPurchaseDraftsToPending(restaurantId: number) {
     ),
   );
   return failed.length;
+}
+
+// ─── دسته‌بندی مواد اولیه (آفلاین) ──────────────────────────────────────────
+
+export async function listRawMaterialCategoriesLocal(restaurantId: number): Promise<any[]> {
+  return accountingDb.rawMaterialCategories.where('restaurantId').equals(restaurantId).toArray();
+}
+
+export async function upsertPulledRawMaterialCategories(categories: any[]): Promise<void> {
+  if (!categories?.length) return;
+  await accountingDb.rawMaterialCategories.bulkPut(categories);
+}
+
+export async function createRawMaterialCategoryLocal(input: { restaurantId: number; name: string }) {
+  const id = nextLocalEntityId();
+  const now = new Date().toISOString();
+  const row = { id, restaurantId: input.restaurantId, name: input.name.trim(), isActive: true, createdAt: now, updatedAt: now };
+  await accountingDb.rawMaterialCategories.put(row);
+  await enqueueAccountingOperation({
+    localOpId: nextOpId(), restaurantId: input.restaurantId, entityType: 'raw_material_category',
+    entityId: String(id), operationType: 'create', payload: row, version: 1, clientUpdatedAt: now,
+  });
+  return row;
+}
+
+export async function updateRawMaterialCategoryLocal(input: { id: number; restaurantId: number; patch: Partial<{ name: string; isActive: boolean }> }) {
+  const existing = await accountingDb.rawMaterialCategories.get(input.id);
+  if (!existing) return null;
+  const now = new Date().toISOString();
+  const next = { ...existing, ...input.patch, updatedAt: now };
+  await accountingDb.rawMaterialCategories.put(next);
+  await enqueueAccountingOperation({
+    localOpId: nextOpId(), restaurantId: input.restaurantId, entityType: 'raw_material_category',
+    entityId: String(input.id), operationType: 'update', payload: next,
+    version: Number(existing.version || 1) + 1, clientUpdatedAt: now,
+  });
+  return next;
+}
+
+export async function deleteRawMaterialCategoryLocal(input: { id: number; restaurantId: number }) {
+  const existing = await accountingDb.rawMaterialCategories.get(input.id);
+  if (!existing) return false;
+  await accountingDb.rawMaterialCategories.delete(input.id);
+  await enqueueAccountingOperation({
+    localOpId: nextOpId(), restaurantId: input.restaurantId, entityType: 'raw_material_category',
+    entityId: String(input.id), operationType: 'delete', payload: { id: input.id },
+    version: Number(existing.version || 1) + 1, clientUpdatedAt: new Date().toISOString(),
+  });
+  return true;
+}
+
+// ─── مرجوعی خرید (آفلاین) ───────────────────────────────────────────────────
+
+export async function createPurchaseReturnLocal(input: {
+  restaurantId: number;
+  purchaseInvoiceId: number;
+  returnDate: string;
+  notes?: string;
+  items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number }>;
+}) {
+  const id = nextLocalEntityId();
+  const now = new Date().toISOString();
+  const returnRow = {
+    id,
+    restaurantId: input.restaurantId,
+    purchaseInvoiceId: input.purchaseInvoiceId,
+    returnDate: input.returnDate,
+    notes: input.notes || null,
+    status: 'draft',
+    localSyncStatus: 'pending',
+    createdAt: now,
+    updatedAt: now,
+  };
+  const items = input.items.map((x) => ({
+    id: nextLocalEntityId(),
+    purchaseReturnId: id,
+    rawMaterialId: x.rawMaterialId ?? null,
+    finalProductId: x.finalProductId ?? null,
+    quantity: Number(x.quantity),
+    unitPrice: Number(x.unitPrice),
+  }));
+  await accountingDb.purchaseReturns.put(returnRow);
+  await accountingDb.purchaseReturnItems.bulkPut(items);
+  await enqueueAccountingOperation({
+    localOpId: nextOpId(), restaurantId: input.restaurantId, entityType: 'purchase_return',
+    entityId: String(id), operationType: 'create',
+    payload: { ...returnRow, items },
+    version: 1, clientUpdatedAt: now,
+  });
+  return { returnRow, items };
+}
+
+export async function getPendingPurchaseReturnDrafts(restaurantId: number): Promise<any[]> {
+  return accountingDb.purchaseReturns
+    .where('restaurantId').equals(restaurantId)
+    .filter((r) => r.localSyncStatus === 'pending' || r.localSyncStatus === 'failed')
+    .toArray();
+}
+
+export async function markPurchaseReturnSyncState(
+  id: number,
+  localSyncStatus: 'pending' | 'syncing' | 'synced' | 'failed',
+  patch?: { syncError?: string | null; serverReturnId?: number },
+) {
+  await accountingDb.purchaseReturns.update(id, { localSyncStatus, ...patch, updatedAt: new Date().toISOString() });
+}
+
+// ─── دسته‌بندی هزینه (آفلاین) ────────────────────────────────────────────────
+
+export async function listExpenseCategoriesLocal(restaurantId: number): Promise<any[]> {
+  return accountingDb.expenseCategories.where('restaurantId').equals(restaurantId).toArray();
+}
+
+export async function upsertPulledExpenseCategories(categories: any[]): Promise<void> {
+  if (!categories?.length) return;
+  await accountingDb.expenseCategories.bulkPut(categories);
+}
+
+export async function createExpenseCategoryLocal(input: {
+  restaurantId: number;
+  name: string;
+}) {
+  const id = nextLocalEntityId();
+  const now = new Date().toISOString();
+  const row = {
+    id,
+    restaurantId: input.restaurantId,
+    name: input.name.trim(),
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await accountingDb.expenseCategories.put(row);
+  await enqueueAccountingOperation({
+    localOpId: nextOpId(),
+    restaurantId: input.restaurantId,
+    entityType: 'expense_category',
+    entityId: String(id),
+    operationType: 'create',
+    payload: row,
+    version: 1,
+    clientUpdatedAt: now,
+  });
+  return row;
+}
+
+export async function updateExpenseCategoryLocal(input: {
+  id: number;
+  restaurantId: number;
+  patch: Partial<{ name: string; isActive: boolean }>;
+}) {
+  const existing = await accountingDb.expenseCategories.get(input.id);
+  if (!existing) return null;
+  const now = new Date().toISOString();
+  const next = { ...existing, ...input.patch, updatedAt: now };
+  await accountingDb.expenseCategories.put(next);
+  await enqueueAccountingOperation({
+    localOpId: nextOpId(),
+    restaurantId: input.restaurantId,
+    entityType: 'expense_category',
+    entityId: String(input.id),
+    operationType: 'update',
+    payload: next,
+    version: Number(existing.version || 1) + 1,
+    clientUpdatedAt: now,
+  });
+  return next;
+}
+
+export async function deleteExpenseCategoryLocal(input: { id: number; restaurantId: number }) {
+  const existing = await accountingDb.expenseCategories.get(input.id);
+  if (!existing) return false;
+  await accountingDb.expenseCategories.delete(input.id);
+  await enqueueAccountingOperation({
+    localOpId: nextOpId(),
+    restaurantId: input.restaurantId,
+    entityType: 'expense_category',
+    entityId: String(input.id),
+    operationType: 'delete',
+    payload: { id: input.id },
+    version: Number(existing.version || 1) + 1,
+    clientUpdatedAt: new Date().toISOString(),
+  });
+  return true;
 }
 
 export async function createOperationalExpenseLocal(input: {

@@ -6,27 +6,27 @@ import { Input } from '../../ui/compat-input';
 import { ModalShell } from '../../ui/modal-shell';
 import { useAuthStore } from '../../store/authStore';
 import {
-  listRawMaterialCategories,
-  createRawMaterialCategory,
-  updateRawMaterialCategory,
-  deleteRawMaterialCategory,
-  RawMaterialCategoryRow,
+  listExpenseCategories,
+  createExpenseCategory,
+  updateExpenseCategory,
+  deleteExpenseCategory,
+  ExpenseCategoryRow,
 } from '../../services/api';
 import {
-  listRawMaterialCategoriesLocal,
-  createRawMaterialCategoryLocal,
-  updateRawMaterialCategoryLocal,
-  deleteRawMaterialCategoryLocal,
-  upsertPulledRawMaterialCategories,
+  listExpenseCategoriesLocal,
+  createExpenseCategoryLocal,
+  updateExpenseCategoryLocal,
+  deleteExpenseCategoryLocal,
+  upsertPulledExpenseCategories,
 } from '../../services/accountingLocalDb';
 import { toast } from '../../utils/toast';
 
-export default function AccountingRawMaterialCategoriesPage() {
+export default function AccountingExpenseCategoriesPage() {
   const navigate = useNavigate();
   const { user, token } = useAuthStore();
   const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
 
-  const [rows, setRows] = useState<RawMaterialCategoryRow[]>([]);
+  const [rows, setRows] = useState<ExpenseCategoryRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
 
@@ -35,20 +35,20 @@ export default function AccountingRawMaterialCategoriesPage() {
   const [saving, setSaving] = useState(false);
 
   const [editOpen, setEditOpen] = useState(false);
-  const [editRow, setEditRow] = useState<RawMaterialCategoryRow | null>(null);
+  const [editRow, setEditRow] = useState<ExpenseCategoryRow | null>(null);
   const [editName, setEditName] = useState('');
 
   const reload = async () => {
     if (!restaurantId || !token) return;
     setLoading(true);
     try {
-      const data = await listRawMaterialCategories(restaurantId, token);
+      const data = await listExpenseCategories(restaurantId, token);
       setIsOnline(true);
       setRows(data);
-      await upsertPulledRawMaterialCategories(data);
+      await upsertPulledExpenseCategories(data);
     } catch {
       setIsOnline(false);
-      const local = await listRawMaterialCategoriesLocal(restaurantId);
+      const local = await listExpenseCategoriesLocal(restaurantId);
       setRows(local);
     } finally {
       setLoading(false);
@@ -64,9 +64,9 @@ export default function AccountingRawMaterialCategoriesPage() {
     setSaving(true);
     try {
       if (isOnline) {
-        await createRawMaterialCategory({ restaurantId, name: newName.trim() }, token);
+        await createExpenseCategory({ restaurantId, name: newName.trim() }, token);
       } else {
-        await createRawMaterialCategoryLocal({ restaurantId, name: newName.trim() });
+        await createExpenseCategoryLocal({ restaurantId, name: newName.trim() });
       }
       toast.success('دسته‌بندی ثبت شد');
       setNewName('');
@@ -84,9 +84,9 @@ export default function AccountingRawMaterialCategoriesPage() {
     setSaving(true);
     try {
       if (isOnline) {
-        await updateRawMaterialCategory(editRow.id, { name: editName.trim() }, token);
+        await updateExpenseCategory(editRow.id, { name: editName.trim() }, token);
       } else {
-        await updateRawMaterialCategoryLocal({ id: editRow.id, restaurantId, patch: { name: editName.trim() } });
+        await updateExpenseCategoryLocal({ id: editRow.id, restaurantId, patch: { name: editName.trim() } });
       }
       toast.success('دسته‌بندی ویرایش شد');
       setEditOpen(false);
@@ -99,13 +99,13 @@ export default function AccountingRawMaterialCategoriesPage() {
     }
   };
 
-  const handleToggleActive = async (row: RawMaterialCategoryRow) => {
+  const handleToggleActive = async (row: ExpenseCategoryRow) => {
     if (!restaurantId || !token) return;
     try {
       if (isOnline) {
-        await updateRawMaterialCategory(row.id, { isActive: !row.isActive }, token);
+        await updateExpenseCategory(row.id, { isActive: !row.isActive }, token);
       } else {
-        await updateRawMaterialCategoryLocal({ id: row.id, restaurantId, patch: { isActive: !row.isActive } });
+        await updateExpenseCategoryLocal({ id: row.id, restaurantId, patch: { isActive: !row.isActive } });
       }
       toast.success(row.isActive ? 'غیرفعال شد' : 'فعال شد');
       await reload();
@@ -114,14 +114,14 @@ export default function AccountingRawMaterialCategoriesPage() {
     }
   };
 
-  const handleDelete = async (row: RawMaterialCategoryRow) => {
+  const handleDelete = async (row: ExpenseCategoryRow) => {
     if (!restaurantId || !token) return;
     if (!window.confirm(`دسته‌بندی «${row.name}» حذف شود؟`)) return;
     try {
       if (isOnline) {
-        await deleteRawMaterialCategory(row.id, restaurantId, token);
+        await deleteExpenseCategory(row.id, restaurantId, token);
       } else {
-        await deleteRawMaterialCategoryLocal({ id: row.id, restaurantId });
+        await deleteExpenseCategoryLocal({ id: row.id, restaurantId });
       }
       toast.success('دسته‌بندی حذف شد');
       await reload();
@@ -134,20 +134,28 @@ export default function AccountingRawMaterialCategoriesPage() {
     <div className="min-h-screen bg-default-100 p-6 space-y-4">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold">دسته‌بندی مواد اولیه</h1>
+          <h1 className="text-xl font-bold">دسته‌بندی هزینه‌ها</h1>
           <span
             className={`text-xs rounded-full px-2 py-0.5 font-medium ${
-              isOnline ? 'bg-success-100 text-success-700' : 'bg-default-200 text-default-500'
+              isOnline
+                ? 'bg-success-100 text-success-700'
+                : 'bg-default-200 text-default-500'
             }`}
           >
-            {isOnline ? '● آنلاین' : '○ در انتظار اتصال'}
+            {isOnline ? '● آنلاین' : '○ آفلاین'}
           </span>
         </div>
         <div className="flex gap-2">
-          <Button variant="flat" onPress={() => navigate('/accounting/raw-materials')}>
+          <Button variant="flat" onPress={() => navigate('/accounting/expenses')}>
             بازگشت
           </Button>
-          <Button color="primary" onPress={() => { setNewName(''); setCreateOpen(true); }}>
+          <Button
+            color="primary"
+            onPress={() => {
+              setNewName('');
+              setCreateOpen(true);
+            }}
+          >
             دسته‌بندی جدید
           </Button>
         </div>
@@ -185,13 +193,31 @@ export default function AccountingRawMaterialCategoriesPage() {
                 )}
               </div>
               <div className="flex gap-1">
-                <Button size="sm" variant="flat" onPress={() => { setEditRow(row); setEditName(row.name); setEditOpen(true); }}>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  onPress={() => {
+                    setEditRow(row);
+                    setEditName(row.name);
+                    setEditOpen(true);
+                  }}
+                >
                   ویرایش
                 </Button>
-                <Button size="sm" variant="flat" color={row.isActive ? 'warning' : 'success'} onPress={() => void handleToggleActive(row)}>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color={row.isActive ? 'warning' : 'success'}
+                  onPress={() => void handleToggleActive(row)}
+                >
                   {row.isActive ? 'غیرفعال' : 'فعال'}
                 </Button>
-                <Button size="sm" color="danger" variant="light" onPress={() => void handleDelete(row)}>
+                <Button
+                  size="sm"
+                  color="danger"
+                  variant="light"
+                  onPress={() => void handleDelete(row)}
+                >
                   حذف
                 </Button>
               </div>
@@ -204,11 +230,26 @@ export default function AccountingRawMaterialCategoriesPage() {
         <ModalShell size="sm">
           <ModalHeader>دسته‌بندی جدید</ModalHeader>
           <ModalBody>
-            <Input label="نام دسته‌بندی" value={newName} onValueChange={setNewName} isRequired autoFocus />
+            <Input
+              label="نام دسته‌بندی"
+              value={newName}
+              onValueChange={setNewName}
+              isRequired
+              autoFocus
+            />
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setCreateOpen(false)}>انصراف</Button>
-            <Button color="primary" isLoading={saving} isDisabled={!newName.trim()} onPress={handleCreate}>ثبت</Button>
+            <Button variant="flat" onPress={() => setCreateOpen(false)}>
+              انصراف
+            </Button>
+            <Button
+              color="primary"
+              isLoading={saving}
+              isDisabled={!newName.trim()}
+              onPress={handleCreate}
+            >
+              ثبت
+            </Button>
           </ModalFooter>
         </ModalShell>
       </Modal>
@@ -217,11 +258,26 @@ export default function AccountingRawMaterialCategoriesPage() {
         <ModalShell size="sm">
           <ModalHeader>ویرایش دسته‌بندی</ModalHeader>
           <ModalBody>
-            <Input label="نام جدید" value={editName} onValueChange={setEditName} isRequired autoFocus />
+            <Input
+              label="نام جدید"
+              value={editName}
+              onValueChange={setEditName}
+              isRequired
+              autoFocus
+            />
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setEditOpen(false)}>انصراف</Button>
-            <Button color="primary" isLoading={saving} isDisabled={!editName.trim()} onPress={handleEdit}>ذخیره</Button>
+            <Button variant="flat" onPress={() => setEditOpen(false)}>
+              انصراف
+            </Button>
+            <Button
+              color="primary"
+              isLoading={saving}
+              isDisabled={!editName.trim()}
+              onPress={handleEdit}
+            >
+              ذخیره
+            </Button>
           </ModalFooter>
         </ModalShell>
       </Modal>

@@ -7,7 +7,11 @@ import { ModalShell } from '../../ui/modal-shell';
 import { Select, SelectItem } from '../../ui/compat-select';
 import { useAuthStore } from '../../store/authStore';
 import { useFiscalYearStore } from '../../store/fiscalYearStore';
-import { accountingDb, createOperationalExpenseLocal } from '../../services/accountingLocalDb';
+import {
+  accountingDb,
+  createOperationalExpenseLocal,
+  listExpenseCategoriesLocal,
+} from '../../services/accountingLocalDb';
 import {
   listExpenseCategories,
   listOperationalExpensesOnline,
@@ -91,7 +95,10 @@ export default function AccountingExpensesPage() {
     try {
       const cats = await listExpenseCategories(restaurantId, token);
       setCategories(cats.filter((c) => c.isActive));
-    } catch { /* آفلاین */ }
+    } catch {
+      const local = await listExpenseCategoriesLocal(restaurantId);
+      setCategories(local.filter((c) => c.isActive));
+    }
   }, [restaurantId, token]);
 
   useEffect(() => {
@@ -227,6 +234,7 @@ export default function AccountingExpensesPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="flat" onPress={() => navigate('/accounting')}>بازگشت</Button>
+          <Button variant="flat" color="secondary" onPress={() => navigate('/accounting/expense-categories')}>دسته‌بندی هزینه‌ها</Button>
           <Button color="primary" onPress={() => { resetForm(); setCreateOpen(true); }}>
             ثبت هزینه
           </Button>
@@ -235,8 +243,16 @@ export default function AccountingExpensesPage() {
 
       {/* هشدار: دسته تعریف نشده */}
       {categories.length === 0 && (
-        <div className="bg-warning-50 border border-warning-200 rounded-lg p-3 text-sm text-warning-700">
-          ⚠️ هنوز دسته‌بندی هزینه تعریف نشده است. ابتدا از پنل وب دسته‌بندی ثبت کنید.
+        <div className="bg-warning-50 border border-warning-200 rounded-lg p-3 text-sm text-warning-700 flex items-center justify-between gap-3">
+          <span>⚠️ هنوز دسته‌بندی هزینه تعریف نشده است.</span>
+          <Button
+            size="sm"
+            color="warning"
+            variant="flat"
+            onPress={() => navigate('/accounting/expense-categories')}
+          >
+            ثبت دسته‌بندی
+          </Button>
         </div>
       )}
 
@@ -372,7 +388,7 @@ export default function AccountingExpensesPage() {
               isDisabled={!categoryId || !amount || Number(amount) <= 0 || !expenseDate}
               onPress={handleCreate}
             >
-              {isOnline ? 'ثبت (آنلاین)' : 'ثبت (آفلاین — صف)'}
+              ثبت
             </Button>
           </ModalFooter>
         </ModalShell>

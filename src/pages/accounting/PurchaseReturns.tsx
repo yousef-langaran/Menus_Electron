@@ -12,6 +12,7 @@ import { useSyncStore } from '../../store/syncStore';
 import {
   accountingDb,
   getPurchaseInvoiceItemsByInvoiceId,
+  createPurchaseReturnLocal,
   upsertPulledPurchaseReturns,
   upsertPulledPurchaseReturnItems,
 } from '../../services/accountingLocalDb';
@@ -196,22 +197,24 @@ export default function AccountingPurchaseReturnsPage() {
       return;
     }
     setSaving(true);
+    const payload = {
+      restaurantId,
+      purchaseInvoiceId: Number(selectedInvoiceId),
+      returnDate,
+      notes: notes.trim() || undefined,
+      items: lines.map((x) => ({
+        ...(x.rawMaterialId ? { rawMaterialId: Number(x.rawMaterialId) } : {}),
+        ...(x.finalProductId ? { finalProductId: Number(x.finalProductId) } : {}),
+        quantity: Number(x.quantity),
+        unitPrice: Number(normalizePriceInput(x.unitPrice) || 0),
+      })),
+    };
     try {
-      await createPurchaseReturn(
-        {
-          restaurantId,
-          purchaseInvoiceId: Number(selectedInvoiceId),
-          returnDate,
-          notes: notes.trim() || undefined,
-          items: lines.map((x) => ({
-            ...(x.rawMaterialId ? { rawMaterialId: Number(x.rawMaterialId) } : {}),
-            ...(x.finalProductId ? { finalProductId: Number(x.finalProductId) } : {}),
-            quantity: Number(x.quantity),
-            unitPrice: Number(normalizePriceInput(x.unitPrice) || 0),
-          })),
-        },
-        token,
-      );
+      if (isOnline) {
+        await createPurchaseReturn(payload, token);
+      } else {
+        await createPurchaseReturnLocal(payload);
+      }
       toast.success('مرجوعی ثبت شد');
       setCreateOpen(false);
       resetCreateForm();
@@ -269,7 +272,7 @@ export default function AccountingPurchaseReturnsPage() {
           <h1 className="text-xl font-bold text-foreground">برگشت از خرید</h1>
           {!isOnline && (
             <Chip size="sm" color="warning" variant="flat">
-              <Chip.Label>آفلاین</Chip.Label>
+              <Chip.Label>در انتظار اتصال</Chip.Label>
             </Chip>
           )}
         </div>
@@ -281,7 +284,6 @@ export default function AccountingPurchaseReturnsPage() {
             color="primary"
             size="sm"
             onPress={() => { resetCreateForm(); setCreateOpen(true); }}
-            isDisabled={!isOnline}
           >
             + ثبت مرجوعی
           </Button>
@@ -290,7 +292,7 @@ export default function AccountingPurchaseReturnsPage() {
 
       {!isOnline && (
         <div className="rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3 text-warning-700 text-sm">
-          حالت آفلاین — برای ثبت مرجوعی جدید به اینترنت نیاز دارید. داده‌های آخرین سینک نمایش داده می‌شود.
+          اتصال به سرور برقرار نیست — تغییرات ذخیره می‌شوند و پس از برقراری اتصال همگام‌سازی خواهند شد.
         </div>
       )}
 

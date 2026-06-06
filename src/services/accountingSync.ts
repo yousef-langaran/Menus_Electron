@@ -3,11 +3,15 @@ import {
   getPendingPurchaseInvoiceDrafts,
   getPurchaseInvoiceItemsByInvoiceId,
   getPendingAccountingOperations,
+  getPendingPurchaseReturnDrafts,
   getSyncMeta,
   markPurchaseInvoiceSyncState,
+  markPurchaseReturnSyncState,
   setSyncMeta,
   updateOperationSyncStatus,
   upsertPulledEntities,
+  upsertPulledExpenseCategories,
+  upsertPulledRawMaterialCategories,
   upsertPulledInvoices,
   upsertPulledInvoiceItems,
   upsertPulledCheques,
@@ -22,6 +26,9 @@ import {
 } from './accountingLocalDb';
 import {
   createPurchaseInvoiceAccounting,
+  createPurchaseReturn,
+  listExpenseCategories,
+  listRawMaterialCategories,
   syncAccountingPull,
   syncAccountingPush,
 } from './api';
@@ -181,9 +188,44 @@ export async function runAccountingSync(args: {
     }
   }
 
+  // Push pending purchase return drafts
+  const pendingReturnDrafts = await getPendingPurchaseReturnDrafts(restaurantId);
+  for (const draft of pendingReturnDrafts) {
+    try {
+      await markPurchaseReturnSyncState(draft.id, 'syncing');
+      const items = await accountingDb.purchaseReturnItems
+        .where('purchaseReturnId').equals(draft.id).toArray();
+      const response = await createPurchaseReturn(
+        {
+          restaurantId,
+          purchaseInvoiceId: Number(draft.purchaseInvoiceId),
+          returnDate: String(draft.returnDate || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
+          notes: draft.notes || undefined,
+          items: (items || []).map((x: any) => ({
+            ...(x.rawMaterialId ? { rawMaterialId: Number(x.rawMaterialId) } : {}),
+            ...(x.finalProductId ? { finalProductId: Number(x.finalProductId) } : {}),
+            quantity: Number(x.quantity),
+            unitPrice: Number(x.unitPrice),
+          })),
+        },
+        token,
+      );
+      await markPurchaseReturnSyncState(draft.id, 'synced', { serverReturnId: response?.id, syncError: null });
+    } catch (error: any) {
+      const rawMsg = error?.response?.data?.message;
+      const syncError = Array.isArray(rawMsg) ? rawMsg.join('؛ ') : rawMsg || error?.message || 'خطا در ارسال مرجوعی';
+      await markPurchaseReturnSyncState(draft.id, 'failed', { syncError });
+    }
+  }
+
   const pullSinceKey = `accounting:lastPullAt:${restaurantId}`;
   const since = await getSyncMeta(pullSinceKey);
   const pullResult = await syncAccountingPull(restaurantId, token, since || undefined, 1000);
+
+  const [expenseCategoriesFromServer, rawMaterialCategoriesFromServer] = await Promise.all([
+    listExpenseCategories(restaurantId, token).catch(() => []),
+    listRawMaterialCategories(restaurantId, token).catch(() => []),
+  ]);
 
   await Promise.all([
     upsertPulledEntities('raw_material', pullResult.data.rawMaterials || []),
@@ -192,6 +234,8 @@ export async function runAccountingSync(args: {
     upsertPulledEntities('recipe_item', pullResult.data.recipes || []),
     upsertPulledEntities('cash_bank_account', pullResult.data.cashBankAccounts || []),
     upsertPulledEntities('operational_expense', pullResult.data.operationalExpenses || []),
+    upsertPulledExpenseCategories(expenseCategoriesFromServer),
+    upsertPulledRawMaterialCategories(rawMaterialCategoriesFromServer),
     upsertPulledInvoices(restaurantId, pullResult.data.purchaseInvoices || []),
     upsertPulledInvoiceItems(pullResult.data.purchaseInvoiceItems || []),
     upsertPulledCheques(pullResult.data.cheques || []),

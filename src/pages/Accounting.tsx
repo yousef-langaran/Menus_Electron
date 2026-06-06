@@ -40,7 +40,7 @@ export default function AccountingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-default-100">
       <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm">
-        <h1 className="text-lg sm:text-xl font-bold text-foreground">حسابداری (آفلاین)</h1>
+        <h1 className="text-lg sm:text-xl font-bold text-foreground">حسابداری</h1>
       </header>
 
       <div className="p-6 max-w-5xl mx-auto w-full space-y-4">
@@ -131,8 +131,17 @@ export default function AccountingPage() {
             <Card>
               <CardContent className="gap-2">
                 <h3 className="font-semibold">ثبت هزینه</h3>
-                <p className="text-sm text-default-500">ثبت هزینه‌های عملیاتی با دسته‌بندی — آفلاین</p>
+                <p className="text-sm text-default-500">ثبت هزینه‌های عملیاتی با دسته‌بندی</p>
                 <Button color="primary" onPress={() => navigate('/accounting/expenses')}>ورود</Button>
+              </CardContent>
+            </Card>
+          )}
+          {hasAccounting && (
+            <Card>
+              <CardContent className="gap-2">
+                <h3 className="font-semibold">دسته‌بندی هزینه‌ها</h3>
+                <p className="text-sm text-default-500">تعریف، ویرایش و غیرفعال‌سازی دسته‌بندی هزینه</p>
+                <Button color="secondary" onPress={() => navigate('/accounting/expense-categories')}>ورود</Button>
               </CardContent>
             </Card>
           )}

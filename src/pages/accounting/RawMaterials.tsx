@@ -12,6 +12,7 @@ import {
   createRawMaterialLocal,
   deleteRawMaterialLocal,
   updateRawMaterialLocal,
+  listRawMaterialCategoriesLocal,
 } from '../../services/accountingLocalDb';
 import { listRawMaterialCategories, listUnits, RawMaterialCategoryRow, UnitRow } from '../../services/api';
 import { toast } from '../../utils/toast';
@@ -55,7 +56,8 @@ export default function AccountingRawMaterialsPage() {
       const cats = await listRawMaterialCategories(restaurantId, token);
       setCategories(cats.filter((c) => c.isActive));
     } catch {
-      // آفلاین — دسته‌بندی‌ها نمایش داده نمی‌شوند
+      const local = await listRawMaterialCategoriesLocal(restaurantId);
+      setCategories(local.filter((c) => c.isActive));
     }
   };
 
@@ -65,7 +67,7 @@ export default function AccountingRawMaterialsPage() {
       setUnits(data);
       setUnit((prev) => prev || data[0]?.name || '');
     } catch {
-      // آفلاین — از لیست ثابت استفاده نمی‌کنیم
+      // واحدها ثابت هستند — اگر کاربر قبلاً واحدی انتخاب کرده بود همان می‌ماند
     }
   };
 
