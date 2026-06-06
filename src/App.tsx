@@ -17,7 +17,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 
 // صفحات اصلی — eager (همیشه لازم هستند)
 import LoginPage from './pages/Login';
-import OrderPage from './pages/Order';
+import OrderPage from './pages/order';
 
 // صفحات ثانوی — lazy (فقط وقتی نیاز باشد لود می‌شوند)
 const SettingsPage = lazy(() => import('./pages/Settings'));
