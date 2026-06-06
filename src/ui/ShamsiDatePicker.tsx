@@ -78,15 +78,15 @@ export function ShamsiDatePicker({
         </DateField.Group>
 
         {/* ─── Calendar Popover ─── */}
-        <DatePicker.Popover className="z-[200] rounded-2xl shadow-xl border border-default-200 bg-background p-0 overflow-hidden">
+        <DatePicker.Popover className="z-[9999] rounded-2xl shadow-xl border border-default-200 bg-background p-0 overflow-hidden">
           <Calendar
             aria-label={label}
             className="w-[300px] p-4"
           >
-            {/* Header: month/year + nav */}
+            {/* Header: swap slots so RTL flex renders › (next) on RIGHT and ‹ (previous) on LEFT */}
             <Calendar.Header className="flex items-center justify-between mb-3">
               <Calendar.NavButton
-                slot="previous"
+                slot="next"
                 className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-default-100 transition-colors text-default-600 cursor-pointer"
               />
               <Calendar.YearPickerTrigger className="flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-default-100 transition-colors cursor-pointer">
@@ -94,7 +94,7 @@ export function ShamsiDatePicker({
                 <Calendar.YearPickerTriggerIndicator className="text-default-500 text-xs" />
               </Calendar.YearPickerTrigger>
               <Calendar.NavButton
-                slot="next"
+                slot="previous"
                 className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-default-100 transition-colors text-default-600 cursor-pointer"
               />
             </Calendar.Header>

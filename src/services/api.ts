@@ -1068,6 +1068,14 @@ export type RawMaterialCategoryRow = {
   isActive: boolean;
 };
 
+export type UnitRow = { id: number; name: string };
+
+export async function listUnits(): Promise<UnitRow[]> {
+  await apiConfigReady;
+  const response = await api.get('/units');
+  return Array.isArray(response.data) ? response.data : [];
+}
+
 export async function listRawMaterialCategories(
   restaurantId: number,
   token: string,

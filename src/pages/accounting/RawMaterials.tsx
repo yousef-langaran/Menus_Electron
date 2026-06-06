@@ -13,10 +13,8 @@ import {
   deleteRawMaterialLocal,
   updateRawMaterialLocal,
 } from '../../services/accountingLocalDb';
-import { listRawMaterialCategories, RawMaterialCategoryRow } from '../../services/api';
+import { listRawMaterialCategories, listUnits, RawMaterialCategoryRow, UnitRow } from '../../services/api';
 import { toast } from '../../utils/toast';
-
-const UNITS = ['gram', 'kilogram', 'liter', 'milliliter', 'piece', 'pack'];
 
 export default function AccountingRawMaterialsPage() {
   const navigate = useNavigate();
@@ -26,12 +24,13 @@ export default function AccountingRawMaterialsPage() {
 
   const [rows, setRows] = useState<any[]>([]);
   const [categories, setCategories] = useState<RawMaterialCategoryRow[]>([]);
+  const [units, setUnits] = useState<UnitRow[]>([]);
   const [search, setSearch] = useState('');
 
   // فرم ایجاد
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState('');
-  const [unit, setUnit] = useState('gram');
+  const [unit, setUnit] = useState('');
   const [minStock, setMinStock] = useState('0');
   const [categoryId, setCategoryId] = useState('');
 
@@ -60,9 +59,20 @@ export default function AccountingRawMaterialsPage() {
     }
   };
 
+  const loadUnits = async () => {
+    try {
+      const data = await listUnits();
+      setUnits(data);
+      setUnit((prev) => prev || data[0]?.name || '');
+    } catch {
+      // آفلاین — از لیست ثابت استفاده نمی‌کنیم
+    }
+  };
+
   useEffect(() => {
     void reload();
     void loadCategories();
+    void loadUnits();
   }, [restaurantId, token]);
 
   const filtered = useMemo(() => {
@@ -83,7 +93,7 @@ export default function AccountingRawMaterialsPage() {
 
   const resetCreateForm = () => {
     setName('');
-    setUnit('gram');
+    setUnit(units[0]?.name || '');
     setMinStock('0');
     setCategoryId('');
   };
@@ -143,7 +153,7 @@ export default function AccountingRawMaterialsPage() {
                 <div className="text-xs text-default-400 flex gap-2">
                   <span>موجودی: {m.currentStock}</span>
                   <span>حداقل: {m.minStock}</span>
-                  <span>واحد: {m.unit}</span>
+                  <span>واحد: {m.unit || '—'}</span>
                   {catName(m.rawMaterialCategoryId) && (
                     <span className="text-primary-600">
                       دسته: {catName(m.rawMaterialCategoryId)}
@@ -193,11 +203,11 @@ export default function AccountingRawMaterialsPage() {
             <Input label="نام" value={name} onValueChange={setName} isRequired />
             <Select
               label="واحد"
-              selectedKeys={[unit]}
-              onSelectionChange={(k) => setUnit(String(Array.from(k)[0] || 'gram'))}
+              selectedKeys={unit ? [unit] : []}
+              onSelectionChange={(k) => setUnit(String(Array.from(k)[0] || ''))}
             >
-              {UNITS.map((u) => (
-                <SelectItem key={u}>{u}</SelectItem>
+              {units.map((u) => (
+                <SelectItem key={u.name}>{u.name}</SelectItem>
               ))}
             </Select>
             <Select

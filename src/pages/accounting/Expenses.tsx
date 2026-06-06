@@ -18,6 +18,7 @@ import {
 } from '../../services/api';
 import { toast } from '../../utils/toast';
 import { ShamsiDatePicker } from '../../ui/ShamsiDatePicker';
+import { toShamsiDate } from '../../utils/date';
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -292,7 +293,7 @@ export default function AccountingExpensesPage() {
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
                   <div className="text-xs text-default-400 whitespace-nowrap">
-                    {String(e.expenseDate || '').slice(0, 10)}
+                    {toShamsiDate(String(e.expenseDate || '').slice(0, 10))}
                   </div>
                   {isOnline && (
                     <div className="flex gap-1">
