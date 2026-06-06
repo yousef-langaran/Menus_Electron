@@ -2,6 +2,9 @@
  * دسترسی‌های پنل دسکتاپ بر اساس restaurantPermissions بک‌اند
  * (هم‌راستا با RestaurantPermissionModule در Menus_BE)
  */
+import { MODULES, ACTIONS } from '../types';
+
+export { MODULES, ACTIONS };
 
 export type RestaurantPermissionRow = {
   id?: number;
@@ -54,14 +57,14 @@ export function canManageHardwareSettings(user: ElectronUser): boolean {
   const rid = getPrimaryRestaurantId(user);
   return (
     isOwnerOrAdmin(user) ||
-    hasModuleAccess(user, 'electron_panel', ['manage'], rid)
+    hasModuleAccess(user, MODULES.ELECTRON_PANEL, [ACTIONS.MANAGE], rid)
   );
 }
 
 /** همان شرط ورود به اپ (ثبت سفارش) */
 export function hasOrderRegisterAccess(user: ElectronUser): boolean {
   const rid = getPrimaryRestaurantId(user);
-  return hasModuleAccess(user, 'orders_management', ['create', 'manage'], rid);
+  return hasModuleAccess(user, MODULES.ORDERS_MANAGEMENT, [ACTIONS.CREATE, ACTIONS.MANAGE], rid);
 }
 
 export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
@@ -76,70 +79,70 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
   if (p === '/orders') {
     return (
       hasOrderRegisterAccess(user) ||
-      hasModuleAccess(user, 'orders_list', ['read', 'manage'], rid) ||
-      hasModuleAccess(user, 'orders_management', ['read', 'manage'], rid)
+      hasModuleAccess(user, MODULES.ORDERS_LIST, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
+      hasModuleAccess(user, MODULES.ORDERS_MANAGEMENT, [ACTIONS.READ, ACTIONS.MANAGE], rid)
     );
   }
 
   if (p === '/order-returns') {
     return (
       hasOrderRegisterAccess(user) ||
-      hasModuleAccess(user, 'orders_list', ['read', 'manage'], rid) ||
-      hasModuleAccess(user, 'orders_management', ['read', 'manage'], rid)
+      hasModuleAccess(user, MODULES.ORDERS_LIST, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
+      hasModuleAccess(user, MODULES.ORDERS_MANAGEMENT, [ACTIONS.READ, ACTIONS.MANAGE], rid)
     );
   }
 
   if (p === '/products') {
-    return hasModuleAccess(user, 'products', ['read', 'create', 'update', 'manage'], rid);
+    return hasModuleAccess(user, MODULES.PRODUCTS, [ACTIONS.READ, ACTIONS.CREATE, ACTIONS.UPDATE, ACTIONS.MANAGE], rid);
   }
 
   if (p === '/categories') {
-    return hasModuleAccess(user, 'categories', ['read', 'create', 'update', 'manage'], rid);
+    return hasModuleAccess(user, MODULES.CATEGORIES, [ACTIONS.READ, ACTIONS.CREATE, ACTIONS.UPDATE, ACTIONS.MANAGE], rid);
   }
 
   if (p === '/settings') {
     return (
-      hasModuleAccess(user, 'electron_panel', ['read', 'manage'], rid) ||
-      hasModuleAccess(user, 'print_templates', ['read', 'manage'], rid)
+      hasModuleAccess(user, MODULES.ELECTRON_PANEL, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
+      hasModuleAccess(user, MODULES.PRINT_TEMPLATES, [ACTIONS.READ, ACTIONS.MANAGE], rid)
     );
   }
 
   if (p === '/card-terminals') {
     return (
-      hasModuleAccess(user, 'electron_panel', ['read', 'manage'], rid) ||
+      hasModuleAccess(user, MODULES.ELECTRON_PANEL, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
       isOwnerOrAdmin(user)
     );
   }
 
   if (p === '/accounting') {
     return (
-      hasModuleAccess(user, 'accounting', ['read', 'manage'], rid) ||
-      hasModuleAccess(user, 'purchases', ['read', 'manage'], rid) ||
-      hasModuleAccess(user, 'inventory', ['read', 'manage'], rid)
+      hasModuleAccess(user, MODULES.ACCOUNTING, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
+      hasModuleAccess(user, MODULES.PURCHASES, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
+      hasModuleAccess(user, MODULES.INVENTORY, [ACTIONS.READ, ACTIONS.MANAGE], rid)
     );
   }
 
   if (p === '/accounting/raw-materials' || p === '/accounting/raw-material-categories') {
     return (
-      hasModuleAccess(user, 'inventory', ['read', 'manage'], rid) ||
-      hasModuleAccess(user, 'accounting', ['read', 'manage'], rid)
+      hasModuleAccess(user, MODULES.INVENTORY, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
+      hasModuleAccess(user, MODULES.ACCOUNTING, [ACTIONS.READ, ACTIONS.MANAGE], rid)
     );
   }
 
   if (p === '/accounting/suppliers' || p === '/accounting/purchase-drafts' || p === '/accounting/purchase-returns') {
     return (
-      hasModuleAccess(user, 'purchases', ['read', 'manage'], rid) ||
-      hasModuleAccess(user, 'accounting', ['read', 'manage'], rid)
+      hasModuleAccess(user, MODULES.PURCHASES, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
+      hasModuleAccess(user, MODULES.ACCOUNTING, [ACTIONS.READ, ACTIONS.MANAGE], rid)
     );
   }
 
   if (p === '/accounting/expenses' || p === '/accounting/cash-accounts' || p === '/accounting/expense-categories') {
-    return hasModuleAccess(user, 'accounting', ['read', 'manage'], rid);
+    return hasModuleAccess(user, MODULES.ACCOUNTING, [ACTIONS.READ, ACTIONS.MANAGE], rid);
   }
 
   if (p === '/call-history') {
     return (
-      hasModuleAccess(user, 'electron_panel', ['read', 'manage'], rid) ||
+      hasModuleAccess(user, MODULES.ELECTRON_PANEL, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
       hasOrderRegisterAccess(user) ||
       isOwnerOrAdmin(user)
     );

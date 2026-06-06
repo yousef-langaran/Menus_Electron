@@ -96,7 +96,10 @@ export async function runAccountingSync(args: {
     };
   }
 
-  const pendingOps = await getPendingAccountingOperations(restaurantId, 200);
+  const MAX_RETRY = 5;
+  const allPendingOps = await getPendingAccountingOperations(restaurantId, 200);
+  // عملیاتی که بیش از MAX_RETRY بار تلاش شده و همچنان failed است را کنار بگذار
+  const pendingOps = allPendingOps.filter((op) => Number(op.retryCount || 0) <= MAX_RETRY);
   let pushed = 0;
   let pushFailed = 0;
   let draftPurchaseSynced = 0;

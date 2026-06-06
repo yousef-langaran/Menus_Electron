@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useSyncStore } from '../store/syncStore';
 import { getAccountingQueueStats, runAccountingSync } from '../services/accountingSync';
+import { scheduleAccountingSync } from '../services/syncCoordinator';
 
 export function AccountingSyncManager() {
   const token = useAuthStore((s) => s.token);
@@ -25,9 +26,10 @@ export function AccountingSyncManager() {
         const result = await runAccountingSync({ restaurantId, token });
         setOnline(result.isOnline);
         if (result.syncedAt) setLastSyncedAt(result.syncedAt);
-        setLastError(null);
-        if (result.pushed > 0 || result.pushFailed > 0 || result.pulled > 0) {
-          console.log(`[Accounting sync:${reason}]`, result);
+        if (result.pushFailed > 0) {
+          setLastError(`همگام‌سازی حسابداری: ${result.pushFailed} عملیات ناموفق — داده‌ها در صف منتظرند`);
+        } else {
+          setLastError(null);
         }
       } catch (error: any) {
         setLastError(error?.message || 'Accounting sync failed');
@@ -45,13 +47,13 @@ export function AccountingSyncManager() {
     };
 
     void refreshQueue();
-    void sync('initial');
+    scheduleAccountingSync(() => sync('initial'));
 
-    const onOnline = () => void sync('online');
-    const onFocus = () => void sync('focus');
+    const onOnline = () => scheduleAccountingSync(() => sync('online'));
+    const onFocus = () => scheduleAccountingSync(() => sync('focus'));
     window.addEventListener('online', onOnline);
     window.addEventListener('focus', onFocus);
-    const interval = window.setInterval(() => void sync('interval'), 30_000);
+    const interval = window.setInterval(() => scheduleAccountingSync(() => sync('interval')), 30_000);
     const queueRefresh = window.setInterval(() => void refreshQueue(), 7_000);
 
     return () => {

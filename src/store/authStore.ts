@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { cacheUser, getCachedUser, clearUserCache } from '../services/cache';
-import { login as apiLogin, fetchProfile, getActiveSubscription } from '../services/api';
+import { login as apiLogin, fetchProfile, getActiveSubscription, setLiveToken } from '../services/api';
 
 interface User {
   id: number;
@@ -38,23 +38,21 @@ interface AuthState {
   isLoading: boolean;
   isHydrated: boolean;
   error: string | null;
+  subscriptionExpiresAt: string | null;
   login: (mobile: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   loadCachedUser: () => Promise<void>;
 }
 
 function syncLiveAuthToken(token: string | null) {
+  // توکن فقط در ماژول api نگه داشته می‌شود — هرگز به window expose نمی‌شود
+  setLiveToken(token);
   if (typeof window === 'undefined') return;
-  if (token) {
-    (window as any).__menusAuthToken = token;
-    const api = (window as any).electronAPI;
-    if (api?.updateUserSessionToken) {
-      void api.updateUserSessionToken(token).catch((err: unknown) => {
-        console.warn('[Auth] updateUserSessionToken (main process):', err);
-      });
-    }
-  } else {
-    delete (window as any).__menusAuthToken;
+  const electronApi = (window as any).electronAPI;
+  if (token && electronApi?.updateUserSessionToken) {
+    void electronApi.updateUserSessionToken(token).catch((err: unknown) => {
+      console.warn('[Auth] updateUserSessionToken (main process):', err);
+    });
   }
 }
 
@@ -88,6 +86,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
   isHydrated: false,
   error: null,
+  subscriptionExpiresAt: null,
 
   login: async (mobile: string, password: string) => {
     set({ isLoading: true, error: null });
@@ -303,6 +302,9 @@ async function checkSubscription(user: User | null, token: string): Promise<{ va
       expiresAt: subscription.expiresAt,
       status: subscription.status,
     }));
+
+    // ذخیره تاریخ انقضا در store برای نمایش هشدار
+    useAuthStore.setState({ subscriptionExpiresAt: subscription.expiresAt });
 
     return { valid: true };
   } catch (error: any) {

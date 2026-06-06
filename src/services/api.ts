@@ -29,6 +29,17 @@ export function setApiBaseUrl(baseURL: string) {
   api.defaults.baseURL = baseURL.replace(/\/+$/, '');
 }
 
+// ─── Live token (module-scoped, never exposed to window) ─────────────────────
+let _liveToken: string | null = null;
+
+export function setLiveToken(token: string | null) {
+  _liveToken = token;
+}
+
+export function getLiveToken(): string | null {
+  return _liveToken;
+}
+
 /** آدرس پایهٔ API (مثلاً برای درخواست‌ها) */
 export function getApiBaseUrl(): string {
   return api.defaults.baseURL || API_BASE_URL;
@@ -86,13 +97,10 @@ api.interceptors.request.use(
 
     const requestUrl = String(config.url || '');
     const isAuthRequest = requestUrl.includes('/auth/');
-    if (typeof window !== 'undefined' && !isAuthRequest) {
-      const liveToken = (window as any).__menusAuthToken as string | undefined;
-      if (liveToken) {
-        const headers: any = config.headers || {};
-        headers.Authorization = `Bearer ${liveToken}`;
-        config.headers = headers;
-      }
+    if (!isAuthRequest && _liveToken) {
+      const headers: any = config.headers || {};
+      headers.Authorization = `Bearer ${_liveToken}`;
+      config.headers = headers;
     }
     console.log('API Request:', {
       method: config.method,

@@ -1,30 +1,11 @@
 import { HashRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { I18nProvider } from 'react-aria-components';
 import { Toast } from '@heroui/react';
-import LoginPage from './pages/Login';
-import OrderPage from './pages/Order';
-import SettingsPage from './pages/Settings';
-import OrdersPage from './pages/Orders';
-import OrderReturnsPage from './pages/OrderReturns';
-import AccountingPage from './pages/Accounting';
-import AccountingRawMaterialsPage from './pages/accounting/RawMaterials';
-import AccountingSuppliersPage from './pages/accounting/Suppliers';
-import AccountingPurchaseDraftsPage from './pages/accounting/PurchaseDrafts';
-import AccountingServerPurchasesPage from './pages/accounting/ServerPurchases';
-import AccountingPurchaseReturnsPage from './pages/accounting/PurchaseReturns';
-import AccountingExpensesPage from './pages/accounting/Expenses';
-import AccountingRawMaterialCategoriesPage from './pages/accounting/RawMaterialCategories';
-import AccountingExpenseCategoriesPage from './pages/accounting/ExpenseCategories';
-import CashAccountsPage from './pages/accounting/CashAccounts';
-import ProductsPage from './pages/Products';
-import CategoriesPage from './pages/Categories';
-import CardTerminalsPage from './pages/CardTerminals';
-import CallHistoryPage from './pages/CallHistoryPage';
+import { lazy, Suspense, useEffect } from 'react';
 import { useAuthStore } from './store/authStore';
 import { AppShellLayout } from './layouts/AppShellLayout';
 import { RoutePermissionGuard } from './components/RoutePermissionGuard';
 import { usePrinterSettingsStore } from './store/printerSettingsStore';
-import { useEffect } from 'react';
 import { OrdersSocketManager } from './components/OrdersSocketManager';
 import { UpdateBanner } from './components/UpdateBanner';
 import { OfflineOrdersSync } from './components/OfflineOrdersSync';
@@ -32,6 +13,30 @@ import { AccountingSyncManager } from './components/AccountingSyncManager';
 import { CatalogSyncManager } from './components/CatalogSyncManager';
 import { CallerIdOverlay } from './components/CallerIdOverlay';
 import { useCallerIdStore } from './store/callerIdStore';
+import { ErrorBoundary } from './components/ErrorBoundary';
+
+// صفحات اصلی — eager (همیشه لازم هستند)
+import LoginPage from './pages/Login';
+import OrderPage from './pages/Order';
+
+// صفحات ثانوی — lazy (فقط وقتی نیاز باشد لود می‌شوند)
+const SettingsPage = lazy(() => import('./pages/Settings'));
+const OrdersPage = lazy(() => import('./pages/Orders'));
+const OrderReturnsPage = lazy(() => import('./pages/OrderReturns'));
+const AccountingPage = lazy(() => import('./pages/Accounting'));
+const AccountingRawMaterialsPage = lazy(() => import('./pages/accounting/RawMaterials'));
+const AccountingSuppliersPage = lazy(() => import('./pages/accounting/Suppliers'));
+const AccountingPurchaseDraftsPage = lazy(() => import('./pages/accounting/PurchaseDrafts'));
+const AccountingServerPurchasesPage = lazy(() => import('./pages/accounting/ServerPurchases'));
+const AccountingPurchaseReturnsPage = lazy(() => import('./pages/accounting/PurchaseReturns'));
+const AccountingExpensesPage = lazy(() => import('./pages/accounting/Expenses'));
+const AccountingRawMaterialCategoriesPage = lazy(() => import('./pages/accounting/RawMaterialCategories'));
+const AccountingExpenseCategoriesPage = lazy(() => import('./pages/accounting/ExpenseCategories'));
+const CashAccountsPage = lazy(() => import('./pages/accounting/CashAccounts'));
+const ProductsPage = lazy(() => import('./pages/Products'));
+const CategoriesPage = lazy(() => import('./pages/Categories'));
+const CardTerminalsPage = lazy(() => import('./pages/CardTerminals'));
+const CallHistoryPage = lazy(() => import('./pages/CallHistoryPage'));
 
 /** پس از 401 از API، خروج از نشست و رفتن به صفحهٔ ورود (بدون وابستگی دایره‌ای به axios) */
 function UnauthorizedListener() {
@@ -124,37 +129,40 @@ function AppRoutes() {
       <OrdersSocketManager />
       <CallerIdManager />
       <CallerIdOverlay />
-      <Routes>
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/order" replace /> : <LoginPage />}
-        />
-        <Route element={<RequireAuth />}>
-          <Route element={<AppShellLayout />}>
-            <Route element={<RoutePermissionGuard />}>
-              <Route path="/order" element={<OrderPage />} />
-              <Route path="/orders" element={<OrdersPage />} />
-              <Route path="/order-returns" element={<OrderReturnsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/products" element={<ProductsPage />} />
-              <Route path="/categories" element={<CategoriesPage />} />
-              <Route path="/accounting" element={<AccountingPage />} />
-              <Route path="/accounting/raw-materials" element={<AccountingRawMaterialsPage />} />
-              <Route path="/accounting/suppliers" element={<AccountingSuppliersPage />} />
-              <Route path="/accounting/purchase-drafts" element={<AccountingPurchaseDraftsPage />} />
-              <Route path="/accounting/server-purchases" element={<AccountingServerPurchasesPage />} />
-              <Route path="/accounting/expenses" element={<AccountingExpensesPage />} />
-              <Route path="/accounting/raw-material-categories" element={<AccountingRawMaterialCategoriesPage />} />
-              <Route path="/accounting/expense-categories" element={<AccountingExpenseCategoriesPage />} />
-              <Route path="/accounting/cash-accounts" element={<CashAccountsPage />} />
-              <Route path="/accounting/purchase-returns" element={<AccountingPurchaseReturnsPage />} />
-              <Route path="/card-terminals" element={<CardTerminalsPage />} />
-              <Route path="/call-history" element={<CallHistoryPage />} />
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-default-100" dir="rtl"><p className="text-default-500 text-sm animate-pulse">در حال بارگذاری...</p></div>}>
+        <Routes>
+          <Route
+            path="/login"
+            element={user ? <Navigate to="/order" replace /> : <LoginPage />}
+          />
+          <Route element={<RequireAuth />}>
+            <Route element={<AppShellLayout />}>
+              <Route element={<RoutePermissionGuard />}>
+                <Route path="/order" element={<OrderPage />} />
+                <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/order-returns" element={<OrderReturnsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/products" element={<ProductsPage />} />
+                <Route path="/categories" element={<CategoriesPage />} />
+                <Route path="/accounting" element={<AccountingPage />} />
+                <Route path="/accounting/raw-materials" element={<AccountingRawMaterialsPage />} />
+                <Route path="/accounting/suppliers" element={<AccountingSuppliersPage />} />
+                <Route path="/accounting/purchase-drafts" element={<AccountingPurchaseDraftsPage />} />
+                <Route path="/accounting/server-purchases" element={<AccountingServerPurchasesPage />} />
+                <Route path="/accounting/expenses" element={<AccountingExpensesPage />} />
+                <Route path="/accounting/raw-material-categories" element={<AccountingRawMaterialCategoriesPage />} />
+                <Route path="/accounting/expense-categories" element={<AccountingExpenseCategoriesPage />} />
+                <Route path="/accounting/cash-accounts" element={<CashAccountsPage />} />
+                <Route path="/accounting/purchase-returns" element={<AccountingPurchaseReturnsPage />} />
+                <Route path="/card-terminals" element={<CardTerminalsPage />} />
+                <Route path="/call-history" element={<CallHistoryPage />} />
+              </Route>
             </Route>
           </Route>
-        </Route>
-        <Route path="/" element={<Navigate to={user ? '/order' : '/login'} replace />} />
-      </Routes>
+          <Route path="/" element={<Navigate to={user ? '/order' : '/login'} replace />} />
+          <Route path="*" element={<Navigate to={user ? '/order' : '/login'} replace />} />
+        </Routes>
+      </Suspense>
     </I18nProvider>
   );
 }
@@ -177,11 +185,13 @@ function App() {
   }
 
   return (
-    <HashRouter>
-      <div dir="rtl" className="h-full w-full">
-        <AppRoutes />
-      </div>
-    </HashRouter>
+    <ErrorBoundary>
+      <HashRouter>
+        <div dir="rtl" className="h-full w-full">
+          <AppRoutes />
+        </div>
+      </HashRouter>
+    </ErrorBoundary>
   );
 }
 

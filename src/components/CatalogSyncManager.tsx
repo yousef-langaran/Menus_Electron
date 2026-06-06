@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { useSyncStore } from '../store/syncStore';
 import { runCatalogSync, getCatalogQueueStats } from '../services/catalogSync';
+import { scheduleCatalogSync } from '../services/syncCoordinator';
 
 /**
  * کامپوننت پس‌زمینه برای سینک آفلاین محصولات و دسته‌بندی‌ها.
@@ -13,6 +15,7 @@ export function CatalogSyncManager() {
   const restaurantId = user?.restaurants?.[0]?.id;
   const restaurantName = user?.restaurants?.[0]?.name;
   const syncingRef = useRef(false);
+  const setLastError = useSyncStore((s) => s.setLastError);
 
   useEffect(() => {
     if (!token || !restaurantId) return;
@@ -22,43 +25,38 @@ export function CatalogSyncManager() {
       syncingRef.current = true;
       try {
         const result = await runCatalogSync({ restaurantId, restaurantName, token });
-        if (
-          result.categoriesPushed > 0 ||
-          result.categoriesFailed > 0 ||
-          result.productsPushed > 0 ||
-          result.productsFailed > 0 ||
-          result.categoriesPulled > 0 ||
-          result.productsPulled > 0
-        ) {
-          console.log('[CatalogSync]', result);
-        }
         if (result.categoriesFailed > 0 || result.productsFailed > 0) {
           const stats = await getCatalogQueueStats(restaurantId);
           if (stats.failedCount > 0) {
-            console.warn('[CatalogSync] آیتم‌های ناموفق در صف:', stats);
+            setLastError(`همگام‌سازی کاتالوگ: ${stats.failedCount} آیتم ناموفق`);
           }
+        } else {
+          // پاک کردن خطای قبلی catalog اگر موفق بود
+          setLastError(null);
         }
-      } catch (e) {
-        console.warn('[CatalogSync] خطا:', e);
+      } catch (e: any) {
+        setLastError(`خطای همگام‌سازی کاتالوگ: ${e?.message || 'خطای ناشناخته'}`);
       } finally {
         syncingRef.current = false;
       }
     };
 
-    void sync();
+    const scheduleSync = () => scheduleCatalogSync(sync);
 
-    const onOnline = () => void sync();
-    const onFocus = () => void sync();
+    scheduleSync();
+
+    const onOnline = scheduleSync;
+    const onFocus = scheduleSync;
     window.addEventListener('online', onOnline);
     window.addEventListener('focus', onFocus);
-    const interval = window.setInterval(() => void sync(), 60_000);
+    const interval = window.setInterval(scheduleSync, 60_000);
 
     return () => {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('focus', onFocus);
       window.clearInterval(interval);
     };
-  }, [token, restaurantId, restaurantName]);
+  }, [token, restaurantId, restaurantName, setLastError]);
 
   return null;
 }
