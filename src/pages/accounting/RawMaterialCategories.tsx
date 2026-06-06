@@ -13,6 +13,7 @@ import {
   RawMaterialCategoryRow,
 } from '../../services/api';
 import {
+  accountingDb,
   listRawMaterialCategoriesLocal,
   createRawMaterialCategoryLocal,
   updateRawMaterialCategoryLocal,
@@ -41,17 +42,19 @@ export default function AccountingRawMaterialCategoriesPage() {
   const reload = async () => {
     if (!restaurantId || !token) return;
     setLoading(true);
+    // اول local را فوری نمایش بده
+    const local = await listRawMaterialCategoriesLocal(restaurantId);
+    if (local.length) setRows(local);
+    setLoading(false);
+    // بعد از سرور sync کن
     try {
       const data = await listRawMaterialCategories(restaurantId, token);
       setIsOnline(true);
-      setRows(data);
       await upsertPulledRawMaterialCategories(data);
+      setRows(data);
     } catch {
       setIsOnline(false);
-      const local = await listRawMaterialCategoriesLocal(restaurantId);
-      setRows(local);
-    } finally {
-      setLoading(false);
+      if (!local.length) setRows([]);
     }
   };
 
@@ -63,15 +66,19 @@ export default function AccountingRawMaterialCategoriesPage() {
     if (!restaurantId || !token || !newName.trim()) return;
     setSaving(true);
     try {
-      if (isOnline) {
-        await createRawMaterialCategory({ restaurantId, name: newName.trim() }, token);
-      } else {
-        await createRawMaterialCategoryLocal({ restaurantId, name: newName.trim() });
-      }
+      const localRow = await createRawMaterialCategoryLocal({ restaurantId, name: newName.trim() });
       toast.success('دسته‌بندی ثبت شد');
       setNewName('');
       setCreateOpen(false);
-      await reload();
+      setRows((prev) => [...prev, localRow]);
+      if (isOnline) {
+        createRawMaterialCategory({ restaurantId, name: newName.trim() }, token)
+          .then((serverRow) => {
+            accountingDb.rawMaterialCategories.delete(localRow.id);
+            accountingDb.rawMaterialCategories.put({ ...serverRow, restaurantId });
+            setRows((prev) => prev.map((r) => r.id === localRow.id ? { ...serverRow, restaurantId } : r));
+          }).catch(() => {});
+      }
     } catch {
       toast.error('خطا در ثبت دسته‌بندی');
     } finally {
@@ -83,15 +90,18 @@ export default function AccountingRawMaterialCategoriesPage() {
     if (!editRow || !restaurantId || !token || !editName.trim()) return;
     setSaving(true);
     try {
-      if (isOnline) {
-        await updateRawMaterialCategory(editRow.id, { name: editName.trim() }, token);
-      } else {
-        await updateRawMaterialCategoryLocal({ id: editRow.id, restaurantId, patch: { name: editName.trim() } });
-      }
+      await updateRawMaterialCategoryLocal({ id: editRow.id, restaurantId, patch: { name: editName.trim() } });
       toast.success('دسته‌بندی ویرایش شد');
+      setRows((prev) => prev.map((r) => r.id === editRow.id ? { ...r, name: editName.trim() } : r));
       setEditOpen(false);
       setEditRow(null);
-      await reload();
+      if (isOnline) {
+        updateRawMaterialCategory(editRow.id, { name: editName.trim() }, token)
+          .then((serverRow) => {
+            accountingDb.rawMaterialCategories.put({ ...serverRow, restaurantId });
+            setRows((prev) => prev.map((r) => r.id === editRow.id ? { ...serverRow, restaurantId } : r));
+          }).catch(() => {});
+      }
     } catch {
       toast.error('خطا در ویرایش دسته‌بندی');
     } finally {
@@ -101,15 +111,20 @@ export default function AccountingRawMaterialCategoriesPage() {
 
   const handleToggleActive = async (row: RawMaterialCategoryRow) => {
     if (!restaurantId || !token) return;
+    const newActive = !row.isActive;
+    setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, isActive: newActive } : r));
     try {
+      await updateRawMaterialCategoryLocal({ id: row.id, restaurantId, patch: { isActive: newActive } });
+      toast.success(newActive ? 'فعال شد' : 'غیرفعال شد');
       if (isOnline) {
-        await updateRawMaterialCategory(row.id, { isActive: !row.isActive }, token);
-      } else {
-        await updateRawMaterialCategoryLocal({ id: row.id, restaurantId, patch: { isActive: !row.isActive } });
+        updateRawMaterialCategory(row.id, { isActive: newActive }, token)
+          .then((serverRow) => {
+            accountingDb.rawMaterialCategories.put({ ...serverRow, restaurantId });
+            setRows((prev) => prev.map((r) => r.id === row.id ? { ...serverRow, restaurantId } : r));
+          }).catch(() => {});
       }
-      toast.success(row.isActive ? 'غیرفعال شد' : 'فعال شد');
-      await reload();
     } catch {
+      setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, isActive: row.isActive } : r));
       toast.error('خطا در تغییر وضعیت');
     }
   };
@@ -117,15 +132,15 @@ export default function AccountingRawMaterialCategoriesPage() {
   const handleDelete = async (row: RawMaterialCategoryRow) => {
     if (!restaurantId || !token) return;
     if (!window.confirm(`دسته‌بندی «${row.name}» حذف شود؟`)) return;
+    setRows((prev) => prev.filter((r) => r.id !== row.id));
     try {
-      if (isOnline) {
-        await deleteRawMaterialCategory(row.id, restaurantId, token);
-      } else {
-        await deleteRawMaterialCategoryLocal({ id: row.id, restaurantId });
-      }
+      await deleteRawMaterialCategoryLocal({ id: row.id, restaurantId });
       toast.success('دسته‌بندی حذف شد');
-      await reload();
+      if (isOnline) {
+        deleteRawMaterialCategory(row.id, restaurantId, token).catch(() => {});
+      }
     } catch {
+      setRows((prev) => [...prev, row]);
       toast.error('خطا در حذف دسته‌بندی');
     }
   };

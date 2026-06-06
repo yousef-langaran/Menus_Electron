@@ -11,6 +11,7 @@ import {
   accountingDb,
   createOperationalExpenseLocal,
   listExpenseCategoriesLocal,
+  upsertPulledEntities,
 } from '../../services/accountingLocalDb';
 import {
   listExpenseCategories,
@@ -63,32 +64,39 @@ export default function AccountingExpensesPage() {
   const [editDescription, setEditDescription] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
-  // ─── بارگذاری ────────────────────────────────────────────────────────────
+  // ─── بارگذاری از local (فوری) ────────────────────────────────────────────
+  const reloadLocal = useCallback(async () => {
+    if (!restaurantId) return;
+    const all = await accountingDb.operationalExpenses.toArray();
+    setRows(
+      all
+        .filter((x) => Number(x.restaurantId) === restaurantId)
+        .sort((a, b) => String(b.expenseDate).localeCompare(String(a.expenseDate))),
+    );
+  }, [restaurantId]);
+
+  // ─── بارگذاری کامل (local + سینک با سرور در background) ─────────────────
   const reload = useCallback(async () => {
     if (!restaurantId || !token) return;
     setLoading(true);
+    // اول local را فوری نمایش بده
+    await reloadLocal();
+    setLoading(false);
+    // بعد در background از سرور sync کن
     try {
-      // اول سرور — اگر آنلاین باشد
       const serverRows = await listOperationalExpensesOnline(restaurantId, token, fiscalYearId);
       setIsOnline(true);
+      // سرور را در local ذخیره کن
+      await upsertPulledEntities('operational_expense', serverRows);
       setRows(
         [...serverRows].sort((a, b) =>
           String(b.expenseDate).localeCompare(String(a.expenseDate)),
         ),
       );
     } catch {
-      // آفلاین — دیکسی محلی
       setIsOnline(false);
-      const all = await accountingDb.operationalExpenses.toArray();
-      setRows(
-        all
-          .filter((x) => Number(x.restaurantId) === restaurantId)
-          .sort((a, b) => String(b.expenseDate).localeCompare(String(a.expenseDate))),
-      );
-    } finally {
-      setLoading(false);
     }
-  }, [restaurantId, token, fiscalYearId]);
+  }, [restaurantId, token, fiscalYearId, reloadLocal]);
 
   const loadCategories = useCallback(async () => {
     if (!restaurantId || !token) return;
@@ -139,32 +147,31 @@ export default function AccountingExpensesPage() {
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     setSaving(true);
     try {
-      if (isOnline) {
-        // آنلاین: مستقیم روی سرور
-        await createOperationalExpenseOnline(
-          {
-            restaurantId,
-            expenseCategoryId: Number(categoryId),
-            expenseDate,
-            amount: parsedAmount,
-            description: description.trim() || undefined,
-          },
-          token,
-        );
-      } else {
-        // آفلاین: صف محلی
-        await createOperationalExpenseLocal({
-          restaurantId,
-          expenseCategoryId: Number(categoryId),
-          expenseDate,
-          amount: parsedAmount,
-          description: description.trim() || undefined,
-        });
-      }
+      // همیشه اول local ذخیره کن (optimistic)
+      const localRow = await createOperationalExpenseLocal({
+        restaurantId,
+        expenseCategoryId: Number(categoryId),
+        expenseDate,
+        amount: parsedAmount,
+        description: description.trim() || undefined,
+      });
       toast.success('هزینه ثبت شد');
       resetForm();
       setCreateOpen(false);
-      await reload();
+      // لیست را فوری از local بروز کن
+      await reloadLocal();
+      // در background به سرور ارسال کن
+      if (isOnline) {
+        createOperationalExpenseOnline(
+          { restaurantId, expenseCategoryId: Number(categoryId), expenseDate, amount: parsedAmount, description: description.trim() || undefined },
+          token,
+        ).then((serverRow) => {
+          // id سرور را جایگزین id محلی کن
+          accountingDb.operationalExpenses.delete(localRow.id);
+          accountingDb.operationalExpenses.put({ ...serverRow, restaurantId });
+          void reloadLocal();
+        }).catch(() => { /* sync بعداً انجام می‌شود */ });
+      }
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'خطا در ثبت هزینه');
     } finally {
@@ -179,21 +186,31 @@ export default function AccountingExpensesPage() {
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     setEditSaving(true);
     try {
-      await updateOperationalExpenseOnline(
-        Number(editingRow.id),
-        {
-          restaurantId,
-          expenseCategoryId: Number(editCategoryId),
-          expenseDate: editExpenseDate,
-          amount: parsedAmount,
-          description: editDescription.trim() || undefined,
-        },
-        token,
-      );
+      // optimistic: فوری در local آپدیت کن
+      const optimistic = {
+        ...editingRow,
+        expenseCategoryId: Number(editCategoryId),
+        expenseDate: editExpenseDate,
+        amount: parsedAmount,
+        description: editDescription.trim() || undefined,
+        updatedAt: new Date().toISOString(),
+      };
+      await accountingDb.operationalExpenses.put(optimistic);
       toast.success('هزینه ویرایش شد');
       setEditOpen(false);
       setEditingRow(null);
-      await reload();
+      await reloadLocal();
+      // در background به سرور ارسال کن
+      if (isOnline) {
+        updateOperationalExpenseOnline(
+          Number(editingRow.id),
+          { restaurantId, expenseCategoryId: Number(editCategoryId), expenseDate: editExpenseDate, amount: parsedAmount, description: editDescription.trim() || undefined },
+          token,
+        ).then((serverRow) => {
+          accountingDb.operationalExpenses.put({ ...serverRow, restaurantId });
+          void reloadLocal();
+        }).catch(() => { /* sync بعداً انجام می‌شود */ });
+      }
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'خطا در ویرایش هزینه');
     } finally {
@@ -205,12 +222,14 @@ export default function AccountingExpensesPage() {
   const handleDelete = async (row: any) => {
     if (!restaurantId || !token) return;
     if (!window.confirm('این هزینه حذف شود؟')) return;
-    try {
-      await deleteOperationalExpenseOnline(Number(row.id), restaurantId, token);
-      toast.success('هزینه حذف شد');
-      await reload();
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || 'خطا در حذف هزینه');
+    // optimistic: فوری از local حذف کن
+    await accountingDb.operationalExpenses.delete(Number(row.id));
+    toast.success('هزینه حذف شد');
+    await reloadLocal();
+    // در background از سرور هم حذف کن
+    if (isOnline) {
+      deleteOperationalExpenseOnline(Number(row.id), restaurantId, token)
+        .catch(() => { /* sync بعداً انجام می‌شود */ });
     }
   };
 

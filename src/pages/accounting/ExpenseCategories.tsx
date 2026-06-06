@@ -13,6 +13,7 @@ import {
   ExpenseCategoryRow,
 } from '../../services/api';
 import {
+  accountingDb,
   listExpenseCategoriesLocal,
   createExpenseCategoryLocal,
   updateExpenseCategoryLocal,
@@ -41,17 +42,19 @@ export default function AccountingExpenseCategoriesPage() {
   const reload = async () => {
     if (!restaurantId || !token) return;
     setLoading(true);
+    // اول local را فوری نمایش بده
+    const local = await listExpenseCategoriesLocal(restaurantId);
+    if (local.length) setRows(local);
+    setLoading(false);
+    // بعد از سرور sync کن
     try {
       const data = await listExpenseCategories(restaurantId, token);
       setIsOnline(true);
-      setRows(data);
       await upsertPulledExpenseCategories(data);
+      setRows(data);
     } catch {
       setIsOnline(false);
-      const local = await listExpenseCategoriesLocal(restaurantId);
-      setRows(local);
-    } finally {
-      setLoading(false);
+      if (!local.length) setRows([]);
     }
   };
 
@@ -63,15 +66,21 @@ export default function AccountingExpenseCategoriesPage() {
     if (!restaurantId || !token || !newName.trim()) return;
     setSaving(true);
     try {
-      if (isOnline) {
-        await createExpenseCategory({ restaurantId, name: newName.trim() }, token);
-      } else {
-        await createExpenseCategoryLocal({ restaurantId, name: newName.trim() });
-      }
+      // optimistic: همیشه اول local ذخیره کن
+      const localRow = await createExpenseCategoryLocal({ restaurantId, name: newName.trim() });
       toast.success('دسته‌بندی ثبت شد');
       setNewName('');
       setCreateOpen(false);
-      await reload();
+      setRows((prev) => [...prev, localRow]);
+      // در background به سرور ارسال کن
+      if (isOnline) {
+        createExpenseCategory({ restaurantId, name: newName.trim() }, token)
+          .then((serverRow) => {
+            accountingDb.expenseCategories.delete(localRow.id);
+            accountingDb.expenseCategories.put({ ...serverRow, restaurantId });
+            setRows((prev) => prev.map((r) => r.id === localRow.id ? { ...serverRow, restaurantId } : r));
+          }).catch(() => {});
+      }
     } catch {
       toast.error('خطا در ثبت دسته‌بندی');
     } finally {
@@ -83,15 +92,19 @@ export default function AccountingExpenseCategoriesPage() {
     if (!editRow || !restaurantId || !token || !editName.trim()) return;
     setSaving(true);
     try {
-      if (isOnline) {
-        await updateExpenseCategory(editRow.id, { name: editName.trim() }, token);
-      } else {
-        await updateExpenseCategoryLocal({ id: editRow.id, restaurantId, patch: { name: editName.trim() } });
-      }
+      // optimistic: فوری در local و UI آپدیت کن
+      await updateExpenseCategoryLocal({ id: editRow.id, restaurantId, patch: { name: editName.trim() } });
       toast.success('دسته‌بندی ویرایش شد');
+      setRows((prev) => prev.map((r) => r.id === editRow.id ? { ...r, name: editName.trim() } : r));
       setEditOpen(false);
       setEditRow(null);
-      await reload();
+      if (isOnline) {
+        updateExpenseCategory(editRow.id, { name: editName.trim() }, token)
+          .then((serverRow) => {
+            accountingDb.expenseCategories.put({ ...serverRow, restaurantId });
+            setRows((prev) => prev.map((r) => r.id === editRow.id ? { ...serverRow, restaurantId } : r));
+          }).catch(() => {});
+      }
     } catch {
       toast.error('خطا در ویرایش دسته‌بندی');
     } finally {
@@ -101,15 +114,22 @@ export default function AccountingExpenseCategoriesPage() {
 
   const handleToggleActive = async (row: ExpenseCategoryRow) => {
     if (!restaurantId || !token) return;
+    // optimistic: فوری در UI تغییر بده
+    const newActive = !row.isActive;
+    setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, isActive: newActive } : r));
     try {
+      await updateExpenseCategoryLocal({ id: row.id, restaurantId, patch: { isActive: newActive } });
+      toast.success(newActive ? 'فعال شد' : 'غیرفعال شد');
       if (isOnline) {
-        await updateExpenseCategory(row.id, { isActive: !row.isActive }, token);
-      } else {
-        await updateExpenseCategoryLocal({ id: row.id, restaurantId, patch: { isActive: !row.isActive } });
+        updateExpenseCategory(row.id, { isActive: newActive }, token)
+          .then((serverRow) => {
+            accountingDb.expenseCategories.put({ ...serverRow, restaurantId });
+            setRows((prev) => prev.map((r) => r.id === row.id ? { ...serverRow, restaurantId } : r));
+          }).catch(() => {});
       }
-      toast.success(row.isActive ? 'غیرفعال شد' : 'فعال شد');
-      await reload();
     } catch {
+      // rollback
+      setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, isActive: row.isActive } : r));
       toast.error('خطا در تغییر وضعیت');
     }
   };
@@ -117,15 +137,17 @@ export default function AccountingExpenseCategoriesPage() {
   const handleDelete = async (row: ExpenseCategoryRow) => {
     if (!restaurantId || !token) return;
     if (!window.confirm(`دسته‌بندی «${row.name}» حذف شود؟`)) return;
+    // optimistic: فوری از UI حذف کن
+    setRows((prev) => prev.filter((r) => r.id !== row.id));
     try {
-      if (isOnline) {
-        await deleteExpenseCategory(row.id, restaurantId, token);
-      } else {
-        await deleteExpenseCategoryLocal({ id: row.id, restaurantId });
-      }
+      await deleteExpenseCategoryLocal({ id: row.id, restaurantId });
       toast.success('دسته‌بندی حذف شد');
-      await reload();
+      if (isOnline) {
+        deleteExpenseCategory(row.id, restaurantId, token).catch(() => {});
+      }
     } catch {
+      // rollback
+      setRows((prev) => [...prev, row]);
       toast.error('خطا در حذف دسته‌بندی');
     }
   };
