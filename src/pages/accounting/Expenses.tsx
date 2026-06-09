@@ -15,6 +15,7 @@ import {
 } from '../../services/accountingLocalDb';
 import {
   listExpenseCategories,
+  listFiscalYears,
   listOperationalExpensesOnline,
   createOperationalExpenseOnline,
   updateOperationalExpenseOnline,
@@ -38,8 +39,19 @@ export default function AccountingExpensesPage() {
   const { user, token } = useAuthStore();
   const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
 
-  const { selectedByRestaurant } = useFiscalYearStore();
+  const { selectedByRestaurant, setSelectedFiscalYear } = useFiscalYearStore();
   const fiscalYearId = restaurantId ? selectedByRestaurant[restaurantId] : undefined;
+
+  // اگر کاربر مستقیم به این صفحه آمده (بدون عبور از Accounting.tsx)، سال مالی فعال را بارگذاری کن
+  useEffect(() => {
+    if (fiscalYearId || !restaurantId || !token) return;
+    listFiscalYears(restaurantId, token)
+      .then((rows) => {
+        const active = rows.find((x: any) => x.isActive && x.status === 'open')?.id;
+        if (active) setSelectedFiscalYear(restaurantId, active);
+      })
+      .catch(() => {});
+  }, [restaurantId, token, fiscalYearId, setSelectedFiscalYear]);
 
   const [rows, setRows] = useState<any[]>([]);
   const [categories, setCategories] = useState<ExpenseCategoryRow[]>([]);
