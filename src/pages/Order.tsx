@@ -21,6 +21,7 @@ import {
     searchMasterProducts,
     getProductsLastUpdatedAt,
     getProductsPublicPaginated,
+    getProductsAdmin,
     getWheelPrizeVouchers,
     redeemWheelPrizeVoucher,
     type WheelPrizeVoucher,
@@ -171,6 +172,8 @@ export default function OrderPage() {
     }, [location.key]);
 
     const [products, setProducts] = useState<any[]>([]);
+    const productsRef = useRef<any[]>([]);
+    productsRef.current = products;
     const [categories, setCategories] = useState<string[]>([]);
     const [productCategories, setProductCategories] = useState<any[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -1515,7 +1518,7 @@ export default function OrderPage() {
     const handleBarcodeAdd = async (rawCode?: string) => {
         const code = normalizeBarcode(rawCode ?? barcodeInput);
         if (!code) return;
-        const matched = products.find((p: any) => normalizeBarcode(String(p?.barcode || '')) === code);
+        const matched = productsRef.current.find((p: any) => normalizeBarcode(String(p?.barcode || '')) === code);
         if (!matched) {
             playScanBeep(false);
             if (!rawCode) setBarcodeInput('');
@@ -1523,7 +1526,25 @@ export default function OrderPage() {
             setIsCheckingMasterProduct(true);
             setShowCreateProductModal(true);
             try {
-                const master = await getMasterProductByBarcode(code, token || undefined);
+                const restaurantId = user?.restaurants?.[0]?.id;
+                const [master, adminResult] = await Promise.all([
+                    getMasterProductByBarcode(code, token || undefined),
+                    token && restaurantId
+                        ? getProductsAdmin({ restaurantId: Number(restaurantId), page: 1, limit: 10, search: code }, token).catch(() => null)
+                        : Promise.resolve(null),
+                ]);
+                const serverProduct = adminResult?.data?.find(
+                    (p: any) => normalizeBarcode(String(p?.barcode || '')) === code,
+                );
+                if (serverProduct) {
+                    setProducts((prev) => prev.some((p) => p.id === serverProduct.id) ? prev : [serverProduct, ...prev]);
+                    setShowCreateProductModal(false);
+                    addToCart(serverProduct);
+                    playScanBeep(true);
+                    setSuccessMessage('محصول به سبد اضافه شد');
+                    setError('');
+                    return;
+                }
                 if (master) {
                     const matchedCat = productCategories.find(
                         (c: any) => (c.name_fa || c.name || '').toLowerCase() === (master.category || '').toLowerCase(),
@@ -1589,8 +1610,39 @@ export default function OrderPage() {
             playScanBeep(true);
             setSuccessMessage('محصول جدید ثبت و به سبد اضافه شد');
         } catch (err: any) {
+            const errMsg: string = err?.response?.data?.message || err?.message || '';
+            const isDuplicateBarcode = errMsg.includes('تکراری') && errMsg.includes('بارکد');
+            if (isDuplicateBarcode && newProductForm.barcode) {
+                const code = normalizeBarcode(newProductForm.barcode);
+                let existing = productsRef.current.find(
+                    (p: any) => normalizeBarcode(String(p?.barcode || '')) === code,
+                );
+                if (!existing && token) {
+                    try {
+                        const restaurantId = user?.restaurants?.[0]?.id;
+                        const result = await getProductsAdmin(
+                            { restaurantId: restaurantId ? Number(restaurantId) : undefined, page: 1, limit: 10, search: code },
+                            token,
+                        );
+                        existing = result.data.find(
+                            (p: any) => normalizeBarcode(String(p?.barcode || '')) === code,
+                        );
+                        if (existing) {
+                            setProducts((prev) => prev.some((p) => p.id === existing.id) ? prev : [existing, ...prev]);
+                        }
+                    } catch {}
+                }
+                if (existing) {
+                    addToCart(existing);
+                    setShowCreateProductModal(false);
+                    setBarcodeInput('');
+                    playScanBeep(true);
+                    setSuccessMessage('محصول به سبد اضافه شد');
+                    return;
+                }
+            }
             playScanBeep(false);
-            setError(err?.response?.data?.message || err?.message || 'ثبت محصول ناموفق بود');
+            setError(errMsg || 'ثبت محصول ناموفق بود');
         } finally {
             setCreatingProduct(false);
         }
