@@ -43,6 +43,20 @@ function resolveOnlineStatus(): Promise<boolean> {
   return Promise.resolve(typeof navigator !== 'undefined' ? navigator.onLine : true);
 }
 
+async function concurrentMap<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += limit) {
+    const chunk = items.slice(i, i + limit);
+    const chunkResults = await Promise.all(chunk.map(fn));
+    results.push(...chunkResults);
+  }
+  return results;
+}
+
 export async function runCatalogSync(args: {
   restaurantId: number;
   restaurantName?: string;
@@ -71,7 +85,7 @@ export async function runCatalogSync(args: {
   // ─── PUSH: دسته‌بندی‌ها ────────────────────────────────────────────────────
   const pendingCategories = await getPendingCategories(restaurantId);
 
-  for (const cat of pendingCategories) {
+  const catResults = await concurrentMap(pendingCategories, 5, async (cat) => {
     try {
       if (cat._syncStatus === 'pending_create' || (cat._syncStatus === 'failed' && cat.id < 0)) {
         const serverCat = await createCategory(
@@ -84,7 +98,7 @@ export async function runCatalogSync(args: {
           token,
         );
         await resolveCategoryTempId(cat.id, Number(serverCat.id));
-        categoriesPushed++;
+        return { pushed: 1, failed: 0 };
       } else if (cat._syncStatus === 'pending_update' || cat._syncStatus === 'failed') {
         await updateCategoryById(
           cat.id,
@@ -96,25 +110,29 @@ export async function runCatalogSync(args: {
           token,
         );
         await markCategorySynced(cat.id);
-        categoriesPushed++;
+        return { pushed: 1, failed: 0 };
       }
+      return { pushed: 0, failed: 0 };
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || 'خطای سینک دسته‌بندی';
       await markCategoryFailed(cat.id, msg);
-      categoriesFailed++;
+      return { pushed: 0, failed: 1 };
     }
+  });
+  for (const r of catResults) {
+    categoriesPushed += r.pushed;
+    categoriesFailed += r.failed;
   }
 
   // ─── PUSH: محصولات ────────────────────────────────────────────────────────
   const pendingProducts = await getPendingProducts(restaurantId);
 
-  for (const prod of pendingProducts) {
+  const prodResults = await concurrentMap(pendingProducts, 5, async (prod) => {
+    // اگر category_id هنوز منفی است یعنی دسته offline ساخته شده و هنوز sync نشده
+    if (prod.category_id < 0) {
+      return { pushed: 0, failed: 0 }; // بعد از sync دسته، این محصول در دور بعدی sync خواهد شد
+    }
     try {
-      // اگر category_id هنوز منفی است یعنی دسته offline ساخته شده و هنوز sync نشده
-      if (prod.category_id < 0) {
-        continue; // بعد از sync دسته، این محصول در دور بعدی sync خواهد شد
-      }
-
       if (prod._syncStatus === 'pending_create' || (prod._syncStatus === 'failed' && prod.id < 0)) {
         const serverProd = await createProduct(
           {
@@ -130,7 +148,7 @@ export async function runCatalogSync(args: {
           token,
         );
         await resolveProductTempId(prod.id, Number(serverProd.id));
-        productsPushed++;
+        return { pushed: 1, failed: 0 };
       } else if (prod._syncStatus === 'pending_update' || prod._syncStatus === 'failed') {
         await updateProductById(
           prod.id,
@@ -146,13 +164,18 @@ export async function runCatalogSync(args: {
           token,
         );
         await markProductSynced(prod.id);
-        productsPushed++;
+        return { pushed: 1, failed: 0 };
       }
+      return { pushed: 0, failed: 0 };
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || 'خطای سینک محصول';
       await markProductFailed(prod.id, msg);
-      productsFailed++;
+      return { pushed: 0, failed: 1 };
     }
+  });
+  for (const r of prodResults) {
+    productsPushed += r.pushed;
+    productsFailed += r.failed;
   }
 
   // ─── PULL: دسته‌بندی‌ها ────────────────────────────────────────────────────
@@ -183,14 +206,13 @@ export async function runCatalogSync(args: {
 
     if (serverProdUpdatedAt && serverProdUpdatedAt !== cachedProdUpdatedAt) {
       const CHUNK = 100;
-      let allProducts: any[] = [];
       const first = await getProductsAdmin({ restaurantId, restaurantName, page: 1, limit: CHUNK }, token);
-      allProducts = first.data;
       const totalPages = Math.ceil(first.total / CHUNK);
-      for (let pg = 2; pg <= totalPages; pg++) {
-        const chunk = await getProductsAdmin({ restaurantId, restaurantName, page: pg, limit: CHUNK }, token);
-        allProducts = allProducts.concat(chunk.data);
-      }
+      const remainingPages = Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => i + 2);
+      const remaining = await Promise.all(
+        remainingPages.map((pg) => getProductsAdmin({ restaurantId, restaurantName, page: pg, limit: CHUNK }, token)),
+      );
+      const allProducts = [first.data, ...remaining.map((r) => r.data)].flat();
       await bulkUpsertProducts(allProducts, restaurantId);
       productsPulled = allProducts.length;
       await setCatalogSyncMeta(prodMetaKey, serverProdUpdatedAt);

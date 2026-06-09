@@ -31,47 +31,49 @@ function resolveAuthTokenWithoutOverride(sessionTok: string, orderTok: string): 
   return s;
 }
 
+async function concurrentMap<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += limit) {
+    const chunk = items.slice(i, i + limit);
+    const chunkResults = await Promise.all(chunk.map(fn));
+    results.push(...chunkResults);
+  }
+  return results;
+}
+
 export async function syncOfflineOrders(tokenOverride?: string) {
   const offlineOrders = await getOfflineOrders();
-  const results = {
-    success: 0,
-    failed: 0,
-    errors: [] as string[],
-  };
-
-  if (offlineOrders.length === 0) {
-    return results;
-  }
+  const results = { success: 0, failed: 0, errors: [] as string[] };
+  if (offlineOrders.length === 0) return results;
 
   const apiConfig = getApiConfig();
   const defaultBaseURL = apiConfig.baseURL;
+  // بار session یک‌بار برای همه سفارش‌ها
+  const currentSession = await loadUserSession();
+  const latestSessionToken = typeof currentSession?.token === 'string' ? currentSession.token.trim() : '';
+  const override = typeof tokenOverride === 'string' ? tokenOverride.trim() : '';
 
-  for (const order of offlineOrders) {
-    if (!order.id) continue;
+  type ItemResult = { success: number; failed: number; errors: string[] };
+
+  const itemResults = await concurrentMap(offlineOrders, 3, async (order): Promise<ItemResult> => {
+    if (!order.id) return { success: 0, failed: 0, errors: [] };
 
     const items = order.orderData?.items;
     if (!Array.isArray(items) || items.length === 0) {
       await markOrderAsSynced(order.id);
-      results.failed++;
-      results.errors.push(`سفارش ${order.id}: رد شد (بدون آیتم)`);
-      continue;
+      return { success: 0, failed: 1, errors: [`سفارش ${order.id}: رد شد (بدون آیتم)`] };
     }
 
     try {
       // اگر sync با توکن زنده‌ی رندرر انجام می‌شود، باید به همان سرور فعلی بزنیم
       // نه baseURL قدیمی ذخیره‌شده روی سفارش آفلاین.
-      const hasTokenOverride = typeof tokenOverride === 'string' && tokenOverride.trim().length > 0;
-      const targetBaseURL = hasTokenOverride ? defaultBaseURL : (order.baseURL || defaultBaseURL);
-      const currentSession = await loadUserSession();
-      const latestSessionToken =
-        typeof currentSession?.token === 'string' ? currentSession.token.trim() : '';
-
-      const override = typeof tokenOverride === 'string' ? tokenOverride.trim() : '';
+      const targetBaseURL = override.length > 0 ? defaultBaseURL : (order.baseURL || defaultBaseURL);
       const orderTok = typeof order.token === 'string' ? order.token.trim() : '';
-
-      const authToken = override
-        ? override
-        : resolveAuthTokenWithoutOverride(latestSessionToken, orderTok);
+      const authToken = override || resolveAuthTokenWithoutOverride(latestSessionToken, orderTok);
 
       const response = await axios.post(`${targetBaseURL}/orders`, order.orderData, {
         headers: {
@@ -82,63 +84,54 @@ export async function syncOfflineOrders(tokenOverride?: string) {
 
       if (response.data) {
         await markOrderAsSynced(order.id);
-        results.success++;
+        return { success: 1, failed: 0, errors: [] };
       }
+      return { success: 0, failed: 1, errors: [`سفارش ${order.id}: پاسخ خالی از سرور`] };
     } catch (error: any) {
-      results.failed++;
       const status = error?.response?.status;
-      if (status === 401) {
-        results.errors.push(`سفارش ${order.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`);
-      } else {
-        const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
-        results.errors.push(`Order ${order.id}: ${errorMsg}`);
-      }
+      const errorMsg = status === 401
+        ? `سفارش ${order.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`
+        : `Order ${order.id}: ${error.response?.data?.message || error.message || 'Unknown error'}`;
       console.error(`Failed to sync order ${order.id}:`, error);
+      return { success: 0, failed: 1, errors: [errorMsg] };
     }
-  }
+  });
 
+  for (const r of itemResults) {
+    results.success += r.success;
+    results.failed += r.failed;
+    results.errors.push(...r.errors);
+  }
   return results;
 }
 
 export async function syncOfflineReturns(tokenOverride?: string) {
   const offlineReturns = await getOfflineReturns();
-  const results = {
-    success: 0,
-    failed: 0,
-    errors: [] as string[],
-  };
-
-  if (offlineReturns.length === 0) {
-    return results;
-  }
+  const results = { success: 0, failed: 0, errors: [] as string[] };
+  if (offlineReturns.length === 0) return results;
 
   const apiConfig = getApiConfig();
   const defaultBaseURL = apiConfig.baseURL;
+  // بار session یک‌بار برای همه مرجوعی‌ها
+  const currentSession = await loadUserSession();
+  const latestSessionToken = typeof currentSession?.token === 'string' ? currentSession.token.trim() : '';
+  const override = typeof tokenOverride === 'string' ? tokenOverride.trim() : '';
 
-  for (const ret of offlineReturns) {
-    if (!ret.id) continue;
+  type ItemResult = { success: number; failed: number; errors: string[] };
+
+  const itemResults = await concurrentMap(offlineReturns, 3, async (ret): Promise<ItemResult> => {
+    if (!ret.id) return { success: 0, failed: 0, errors: [] };
 
     const items = ret.returnData?.items;
     if (!Array.isArray(items) || items.length === 0) {
       await markReturnAsSynced(ret.id);
-      results.failed++;
-      results.errors.push(`مرجوعی ${ret.id}: رد شد (بدون آیتم)`);
-      continue;
+      return { success: 0, failed: 1, errors: [`مرجوعی ${ret.id}: رد شد (بدون آیتم)`] };
     }
 
     try {
-      const hasTokenOverride = typeof tokenOverride === 'string' && tokenOverride.trim().length > 0;
-      const targetBaseURL = hasTokenOverride ? defaultBaseURL : (ret.baseURL || defaultBaseURL);
-      const currentSession = await loadUserSession();
-      const latestSessionToken =
-        typeof currentSession?.token === 'string' ? currentSession.token.trim() : '';
-
-      const override = typeof tokenOverride === 'string' ? tokenOverride.trim() : '';
+      const targetBaseURL = override.length > 0 ? defaultBaseURL : (ret.baseURL || defaultBaseURL);
       const retTok = typeof ret.token === 'string' ? ret.token.trim() : '';
-
-      const authToken = override
-        ? override
-        : resolveAuthTokenWithoutOverride(latestSessionToken, retTok);
+      const authToken = override || resolveAuthTokenWithoutOverride(latestSessionToken, retTok);
 
       const response = await axios.post(`${targetBaseURL}/order-returns`, ret.returnData, {
         headers: {
@@ -149,20 +142,23 @@ export async function syncOfflineReturns(tokenOverride?: string) {
 
       if (response.data) {
         await markReturnAsSynced(ret.id);
-        results.success++;
+        return { success: 1, failed: 0, errors: [] };
       }
+      return { success: 0, failed: 1, errors: [`مرجوعی ${ret.id}: پاسخ خالی از سرور`] };
     } catch (error: any) {
-      results.failed++;
       const status = error?.response?.status;
-      if (status === 401) {
-        results.errors.push(`مرجوعی ${ret.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`);
-      } else {
-        const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
-        results.errors.push(`مرجوعی ${ret.id}: ${errorMsg}`);
-      }
+      const errorMsg = status === 401
+        ? `مرجوعی ${ret.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`
+        : `مرجوعی ${ret.id}: ${error.response?.data?.message || error.message || 'Unknown error'}`;
       console.error(`Failed to sync return ${ret.id}:`, error);
+      return { success: 0, failed: 1, errors: [errorMsg] };
     }
-  }
+  });
 
+  for (const r of itemResults) {
+    results.success += r.success;
+    results.failed += r.failed;
+    results.errors.push(...r.errors);
+  }
   return results;
 }

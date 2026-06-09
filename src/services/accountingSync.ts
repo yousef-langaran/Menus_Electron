@@ -40,6 +40,20 @@ function resolveOnlineStatus(): Promise<boolean> {
   return Promise.resolve(typeof navigator !== 'undefined' ? navigator.onLine : true);
 }
 
+async function concurrentMap<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += limit) {
+    const chunk = items.slice(i, i + limit);
+    const chunkResults = await Promise.all(chunk.map(fn));
+    results.push(...chunkResults);
+  }
+  return results;
+}
+
 export async function getAccountingQueueStats(restaurantId: number) {
   let pendingOps = 0;
   let failedOps = 0;
@@ -145,7 +159,7 @@ export async function runAccountingSync(args: {
   // Push draft purchase invoices AFTER entities so supplierId / finalProductId / rawMaterialId
   // references are guaranteed to exist on the server side.
   const pendingDraftInvoices = await getPendingPurchaseInvoiceDrafts(restaurantId, 50);
-  for (const draft of pendingDraftInvoices) {
+  const invoiceResults = await concurrentMap(pendingDraftInvoices, 5, async (draft) => {
     try {
       await markPurchaseInvoiceSyncState(draft.id, {
         localSyncStatus: 'syncing',
@@ -173,12 +187,12 @@ export async function runAccountingSync(args: {
         },
         token,
       );
-      draftPurchaseSynced += 1;
       await markPurchaseInvoiceSyncState(draft.id, {
         localSyncStatus: 'synced',
         syncError: null,
         serverInvoiceId: response.invoiceId,
       });
+      return 1;
     } catch (error: any) {
       const rawMsg = error?.response?.data?.message;
       const syncError = Array.isArray(rawMsg)
@@ -188,12 +202,14 @@ export async function runAccountingSync(args: {
         localSyncStatus: 'failed',
         syncError,
       });
+      return 0;
     }
-  }
+  });
+  draftPurchaseSynced = invoiceResults.reduce((a, b) => a + b, 0);
 
   // Push pending purchase return drafts
   const pendingReturnDrafts = await getPendingPurchaseReturnDrafts(restaurantId);
-  for (const draft of pendingReturnDrafts) {
+  await concurrentMap(pendingReturnDrafts, 5, async (draft) => {
     try {
       await markPurchaseReturnSyncState(draft.id, 'syncing');
       const items = await accountingDb.purchaseReturnItems
@@ -219,7 +235,7 @@ export async function runAccountingSync(args: {
       const syncError = Array.isArray(rawMsg) ? rawMsg.join('؛ ') : rawMsg || error?.message || 'خطا در ارسال مرجوعی';
       await markPurchaseReturnSyncState(draft.id, 'failed', { syncError });
     }
-  }
+  });
 
   const pullSinceKey = `accounting:lastPullAt:${restaurantId}`;
   const since = await getSyncMeta(pullSinceKey);
