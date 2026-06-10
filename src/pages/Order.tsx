@@ -344,12 +344,15 @@ export default function OrderPage() {
                         };
                     });
                 const {
+                    restoreDraft,
                     setDiscountType,
                     setDiscountAmount,
                     setDiscountCode,
                     setAppliedDiscountCode,
                 } = useOrderStore.getState();
-                useOrderStore.setState({
+                const codeVal = (order.discountCodeValue || '').trim();
+                const disc = Number(order.discountAmount) || 0;
+                restoreDraft({
                     cart: cartItems,
                     customerPhone: order.customerPhone || '',
                     serviceType: order.serviceType === 'takeaway' ? 'takeaway' : 'dine_in',
@@ -358,8 +361,6 @@ export default function OrderPage() {
                     paymentMethod: order.paymentMethod || 'cash',
                     notes: order.notes || '',
                 });
-                const codeVal = (order.discountCodeValue || '').trim();
-                const disc = Number(order.discountAmount) || 0;
                 if (codeVal) {
                     setDiscountType('code');
                     setDiscountCode(codeVal);
