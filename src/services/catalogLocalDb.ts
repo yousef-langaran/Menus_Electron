@@ -320,3 +320,27 @@ export async function bulkUpsertProducts(
     }));
   if (rows.length > 0) await catalogDb.products.bulkPut(rows);
 }
+
+/** حذف دسته‌بندی‌هایی که از سرور پاک شده‌اند (IDs مثبت که در پاسخ سرور نیستند) */
+export async function reconcileCatalogCategories(
+  restaurantId: number,
+  serverCategories: any[],
+): Promise<number> {
+  const serverIds = new Set(serverCategories.map((c) => Number(c.id)));
+  const local = await catalogDb.categories.where('restaurantId').equals(restaurantId).toArray();
+  const toDelete = local.filter((c) => c.id > 0 && !serverIds.has(c.id)).map((c) => c.id);
+  if (toDelete.length) await catalogDb.categories.bulkDelete(toDelete);
+  return toDelete.length;
+}
+
+/** حذف محصولاتی که از سرور پاک شده‌اند (IDs مثبت که در پاسخ سرور نیستند) */
+export async function reconcileCatalogProducts(
+  restaurantId: number,
+  serverProducts: any[],
+): Promise<number> {
+  const serverIds = new Set(serverProducts.map((p) => Number(p.id)));
+  const local = await catalogDb.products.where('restaurantId').equals(restaurantId).toArray();
+  const toDelete = local.filter((p) => p.id > 0 && !serverIds.has(p.id)).map((p) => p.id);
+  if (toDelete.length) await catalogDb.products.bulkDelete(toDelete);
+  return toDelete.length;
+}

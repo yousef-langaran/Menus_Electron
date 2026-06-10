@@ -420,6 +420,8 @@ function mapCollectionName(entityType: SyncEntityType): keyof MenusAccountingDb 
       return 'expenseCategories';
     case 'raw_material_category':
       return 'rawMaterialCategories';
+    case 'purchase_return':
+      return 'purchaseReturns';
     default:
       return 'rawMaterials';
   }
@@ -550,6 +552,41 @@ export async function upsertPulledPurchaseReturnItems(items: any[]) {
   await accountingDb.purchaseReturnItems.bulkPut(items);
 }
 
+/**
+ * Full-sync reconciliation: removes entities from local Dexie that the server no longer has.
+ * Only deletes records that have no pending/failed local sync op (i.e. they're not awaiting push).
+ */
+export async function reconcileDeletedEntities(
+  restaurantId: number,
+  entityType: SyncEntityType,
+  serverIds: Set<number>,
+): Promise<number> {
+  const tableName = mapCollectionName(entityType);
+  const table = accountingDb.table<any, any>(tableName as string);
+
+  const all = await accountingDb.syncOperations.toArray();
+  const pendingEntityIds = new Set(
+    all
+      .filter(
+        (op) =>
+          op.restaurantId === restaurantId &&
+          op.entityType === entityType &&
+          (op.status === 'pending' || op.status === 'failed' || op.status === 'syncing'),
+      )
+      .map((op) => Number(op.entityId)),
+  );
+
+  const localRows = await table.where('restaurantId').equals(restaurantId).toArray();
+  const idsToDelete = localRows
+    .filter((r) => !serverIds.has(Number(r.id)) && !pendingEntityIds.has(Number(r.id)))
+    .map((r) => r.id);
+
+  if (idsToDelete.length) {
+    await table.bulkDelete(idsToDelete);
+  }
+  return idsToDelete.length;
+}
+
 export async function getSyncMeta(key: string): Promise<string | null> {
   const row = await accountingDb.syncMeta.get(key);
   return row?.value ?? null;
@@ -569,12 +606,14 @@ export async function resetAccountingPullTimestamp(restaurantId: number): Promis
  */
 export async function resetEntitySyncOperationsToPending(restaurantId: number): Promise<number> {
   const entityTypes: SyncEntityType[] = [
-    'supplier', 'raw_material', 'final_product', 'recipe_item', 'cash_bank_account', 'operational_expense',
+    'supplier', 'raw_material', 'final_product', 'recipe_item', 'cash_bank_account',
+    'operational_expense', 'expense_category', 'raw_material_category',
   ];
   const all = await accountingDb.syncOperations
     .where('restaurantId')
     .equals(restaurantId)
     .toArray();
+  // Reset failed, syncing, and already-synced entity ops — server is idempotent (ON CONFLICT DO UPDATE).
   const toReset = all.filter((op) => entityTypes.includes(op.entityType as SyncEntityType));
   const now = new Date().toISOString();
   await Promise.all(

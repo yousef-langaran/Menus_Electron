@@ -7,6 +7,7 @@ import {
   getSyncMeta,
   markPurchaseInvoiceSyncState,
   markPurchaseReturnSyncState,
+  reconcileDeletedEntities,
   setSyncMeta,
   updateOperationSyncStatus,
   upsertPulledEntities,
@@ -89,6 +90,7 @@ export async function getAccountingQueueStats(restaurantId: number) {
 export async function runAccountingSync(args: {
   restaurantId: number;
   token: string;
+  forceFullSync?: boolean;
 }): Promise<{
   isOnline: boolean;
   pushed: number;
@@ -97,7 +99,7 @@ export async function runAccountingSync(args: {
   syncedAt: string | null;
   draftPurchaseSynced: number;
 }> {
-  const { restaurantId, token } = args;
+  const { restaurantId, token, forceFullSync = false } = args;
   const isOnline = await resolveOnlineStatus();
   if (!isOnline) {
     return {
@@ -111,6 +113,40 @@ export async function runAccountingSync(args: {
   }
 
   const MAX_RETRY = 5;
+
+  // Reset ops stuck in 'syncing' — they can get stuck if a previous sync was
+  // interrupted by a network error or server crash before results were processed.
+  try {
+    let stuckSyncing: any[];
+    try {
+      stuckSyncing = await accountingDb.syncOperations
+        .where('[restaurantId+status]')
+        .equals([restaurantId, 'syncing'])
+        .toArray();
+    } catch {
+      // Fallback for older Dexie schema without compound index.
+      const all = await accountingDb.syncOperations.toArray();
+      stuckSyncing = all.filter(
+        (op) => op.restaurantId === restaurantId && op.status === 'syncing',
+      );
+    }
+    if (stuckSyncing.length > 0) {
+      const now = new Date().toISOString();
+      await Promise.all(
+        stuckSyncing.map((op) =>
+          accountingDb.syncOperations.update(op.id!, {
+            status: 'failed',
+            retryCount: Number(op.retryCount || 0) + 1,
+            errorMessage: 'Reset from stuck syncing state',
+            updatedAt: now,
+          }),
+        ),
+      );
+    }
+  } catch {
+    // non-critical — proceed even if reset fails
+  }
+
   const allPendingOps = await getPendingAccountingOperations(restaurantId, 200);
   // عملیاتی که بیش از MAX_RETRY بار تلاش شده و همچنان failed است را کنار بگذار
   const pendingOps = allPendingOps.filter((op) => Number(op.retryCount || 0) <= MAX_RETRY);
@@ -126,33 +162,46 @@ export async function runAccountingSync(args: {
       await updateOperationSyncStatus(op.id, 'syncing');
     }
 
-    const pushResult = await syncAccountingPush(
-      restaurantId,
-      pendingOps.map((op) => ({
-        localOpId: op.localOpId,
-        entityType: op.entityType,
-        operationType: op.operationType,
-        entityId: op.entityId,
-        payload: op.payload,
-        version: op.version,
-        clientUpdatedAt: op.clientUpdatedAt,
-      })),
-      token,
-    );
+    try {
+      const pushResult = await syncAccountingPush(
+        restaurantId,
+        pendingOps.map((op) => ({
+          localOpId: op.localOpId,
+          entityType: op.entityType,
+          operationType: op.operationType,
+          entityId: op.entityId,
+          payload: op.payload,
+          version: op.version,
+          clientUpdatedAt: op.clientUpdatedAt,
+        })),
+        token,
+      );
 
-    for (const item of pushResult.results || []) {
-      const local = pendingOps.find((x) => x.localOpId === item.localOpId);
-      if (!local?.id) continue;
-      if (item.status === 'synced') {
-        pushed += 1;
-        await updateOperationSyncStatus(local.id, 'synced', { errorMessage: undefined });
-      } else {
-        pushFailed += 1;
-        await updateOperationSyncStatus(local.id, 'failed', {
-          retryCount: Number(local.retryCount || 0) + 1,
-          errorMessage: item.error || 'Unknown sync error',
+      for (const item of pushResult.results || []) {
+        const local = pendingOps.find((x) => x.localOpId === item.localOpId);
+        if (!local?.id) continue;
+        if (item.status === 'synced') {
+          pushed += 1;
+          await updateOperationSyncStatus(local.id, 'synced', { errorMessage: undefined });
+        } else {
+          pushFailed += 1;
+          await updateOperationSyncStatus(local.id, 'failed', {
+            retryCount: Number(local.retryCount || 0) + 1,
+            errorMessage: item.error || 'Unknown sync error',
+          });
+        }
+      }
+    } catch (pushError: any) {
+      // Network error or server 500 — reset all syncing ops to failed so they are retried next time.
+      const errMsg = String(pushError?.message || 'Sync push failed');
+      for (const op of pendingOps) {
+        if (!op.id) continue;
+        await updateOperationSyncStatus(op.id, 'failed', {
+          retryCount: Number(op.retryCount || 0) + 1,
+          errorMessage: errMsg,
         });
       }
+      pushFailed += pendingOps.length;
     }
   }
 
@@ -238,12 +287,28 @@ export async function runAccountingSync(args: {
   });
 
   const pullSinceKey = `accounting:lastPullAt:${restaurantId}`;
+  const lastFullSyncKey = `accounting:lastFullSyncAt:${restaurantId}`;
   const since = await getSyncMeta(pullSinceKey);
-  const pullResult = await syncAccountingPull(restaurantId, token, since || undefined, 1000);
+  const lastFullSync = await getSyncMeta(lastFullSyncKey);
 
+  // Full pull (no since filter) when:
+  //   - forceFullSync flag set (app just came online or initial load)
+  //   - first sync ever (no since stored)
+  //   - safety fallback: last full sync was >4h ago (covers long always-online sessions)
+  const MS_4H = 4 * 60 * 60 * 1000;
+  const needsFullSync =
+    forceFullSync ||
+    !since ||
+    !lastFullSync ||
+    Date.now() - new Date(lastFullSync).getTime() > MS_4H;
+  const effectiveSince = needsFullSync ? undefined : (since || undefined);
+
+  const pullResult = await syncAccountingPull(restaurantId, token, effectiveSince, 1000);
+
+  // Use null sentinel to distinguish "API failed" from "genuinely empty list"
   const [expenseCategoriesFromServer, rawMaterialCategoriesFromServer] = await Promise.all([
-    listExpenseCategories(restaurantId, token).catch(() => []),
-    listRawMaterialCategories(restaurantId, token).catch(() => []),
+    listExpenseCategories(restaurantId, token).catch(() => null),
+    listRawMaterialCategories(restaurantId, token).catch(() => null),
   ]);
 
   await Promise.all([
@@ -253,8 +318,12 @@ export async function runAccountingSync(args: {
     upsertPulledEntities('recipe_item', pullResult.data.recipes || []),
     upsertPulledEntities('cash_bank_account', pullResult.data.cashBankAccounts || []),
     upsertPulledEntities('operational_expense', pullResult.data.operationalExpenses || []),
-    upsertPulledExpenseCategories(expenseCategoriesFromServer),
-    upsertPulledRawMaterialCategories(rawMaterialCategoriesFromServer),
+    expenseCategoriesFromServer !== null
+      ? upsertPulledExpenseCategories(expenseCategoriesFromServer)
+      : Promise.resolve(),
+    rawMaterialCategoriesFromServer !== null
+      ? upsertPulledRawMaterialCategories(rawMaterialCategoriesFromServer)
+      : Promise.resolve(),
     upsertPulledInvoices(restaurantId, pullResult.data.purchaseInvoices || []),
     upsertPulledInvoiceItems(pullResult.data.purchaseInvoiceItems || []),
     upsertPulledCheques(pullResult.data.cheques || []),
@@ -265,6 +334,38 @@ export async function runAccountingSync(args: {
     upsertPulledPurchaseReturns(pullResult.data.purchaseReturns || []),
     upsertPulledPurchaseReturnItems(pullResult.data.purchaseReturnItems || []),
   ]);
+
+  // Categories are always fetched in full — reconcile on every successful call.
+  await Promise.allSettled([
+    expenseCategoriesFromServer !== null
+      ? reconcileDeletedEntities(restaurantId, 'expense_category',
+          new Set(expenseCategoriesFromServer.map((r: any) => Number(r.id))))
+      : Promise.resolve(),
+    rawMaterialCategoriesFromServer !== null
+      ? reconcileDeletedEntities(restaurantId, 'raw_material_category',
+          new Set(rawMaterialCategoriesFromServer.map((r: any) => Number(r.id))))
+      : Promise.resolve(),
+  ]);
+
+  // After a full pull, reconcile deletions for entities that can be deleted from server.
+  if (needsFullSync) {
+    const serverWarehouseIds = new Set((pullResult.data.warehouses || []).map((r: any) => Number(r.id)));
+
+    await Promise.allSettled([
+      reconcileDeletedEntities(restaurantId, 'supplier',           new Set((pullResult.data.suppliers || []).map((r: any) => Number(r.id)))),
+      reconcileDeletedEntities(restaurantId, 'raw_material',       new Set((pullResult.data.rawMaterials || []).map((r: any) => Number(r.id)))),
+      reconcileDeletedEntities(restaurantId, 'final_product',      new Set((pullResult.data.finalProducts || []).map((r: any) => Number(r.id)))),
+      reconcileDeletedEntities(restaurantId, 'cash_bank_account',  new Set((pullResult.data.cashBankAccounts || []).map((r: any) => Number(r.id)))),
+      reconcileDeletedEntities(restaurantId, 'recipe_item',        new Set((pullResult.data.recipes || []).map((r: any) => Number(r.id)))),
+      reconcileDeletedEntities(restaurantId, 'operational_expense', new Set((pullResult.data.operationalExpenses || []).map((r: any) => Number(r.id)))),
+      // Warehouses are read-only pulled entities — reconcile inline.
+      accountingDb.warehouses.where('restaurantId').equals(restaurantId).toArray().then((local) => {
+        const toDelete = local.filter((w) => !serverWarehouseIds.has(Number(w.id))).map((w) => w.id);
+        return toDelete.length ? accountingDb.warehouses.bulkDelete(toDelete) : Promise.resolve();
+      }),
+    ]);
+    await setSyncMeta(lastFullSyncKey, new Date().toISOString());
+  }
 
   const syncedAt = pullResult.syncedAt || new Date().toISOString();
   await setSyncMeta(pullSinceKey, syncedAt);

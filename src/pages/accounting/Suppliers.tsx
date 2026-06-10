@@ -6,7 +6,7 @@ import { Input } from '../../ui/compat-input';
 import { ModalShell } from '../../ui/modal-shell';
 import { useAuthStore } from '../../store/authStore';
 import { useSyncStore } from '../../store/syncStore';
-import { accountingDb, createSupplierLocal, deleteSupplierLocal, updateSupplierLocal } from '../../services/accountingLocalDb';
+import { accountingDb, createSupplierLocal, deleteSupplierLocal, resetAccountingPullTimestamp, resetEntitySyncOperationsToPending, updateSupplierLocal } from '../../services/accountingLocalDb';
 import { toast } from '../../utils/toast';
 
 export default function AccountingSuppliersPage() {
@@ -17,6 +17,7 @@ export default function AccountingSuppliersPage() {
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt);
 
   const [rows, setRows] = useState<any[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -24,15 +25,21 @@ export default function AccountingSuppliersPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [saving, setSaving] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   const reload = async () => {
     if (!restaurantId) return;
     const data = await accountingDb.suppliers.where('restaurantId').equals(restaurantId).reverse().sortBy('id');
     setRows(data);
+    const all = await accountingDb.syncOperations.toArray();
+    const unsyncedSupplierOps = all.filter(
+      (op) => op.restaurantId === restaurantId && op.entityType === 'supplier' && op.status !== 'synced',
+    );
+    setPendingCount(unsyncedSupplierOps.length);
   };
 
   useEffect(() => { void reload(); }, [restaurantId]);
-  useEffect(() => { if (lastSyncedAt) void reload(); }, [lastSyncedAt]);
+  useEffect(() => { void reload(); }, [lastSyncedAt]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -51,6 +58,25 @@ export default function AccountingSuppliersPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="flat" onPress={() => navigate('/accounting')}>بازگشت</Button>
+          {isOnline && (
+            <Button
+              variant="flat"
+              color={pendingCount > 0 ? 'warning' : 'default'}
+              isLoading={retrying}
+              onPress={async () => {
+                if (!restaurantId) return;
+                setRetrying(true);
+                try {
+                  await resetEntitySyncOperationsToPending(restaurantId);
+                  await resetAccountingPullTimestamp(restaurantId);
+                  toast.success('همگام‌سازی کامل آغاز شد...');
+                  await reload();
+                } catch { toast.error('خطا در همگام‌سازی'); } finally { setRetrying(false); }
+              }}
+            >
+              {pendingCount > 0 ? `همگام‌سازی کامل (${pendingCount})` : 'همگام‌سازی کامل'}
+            </Button>
+          )}
           <Button color="primary" onPress={() => { setName(''); setPhone(''); setCreateOpen(true); }}>ثبت تامین‌کننده</Button>
         </div>
       </div>

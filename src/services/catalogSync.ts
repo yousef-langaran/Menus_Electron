@@ -10,6 +10,8 @@ import {
   markCategorySynced,
   markProductFailed,
   markProductSynced,
+  reconcileCatalogCategories,
+  reconcileCatalogProducts,
   resolveCategoryTempId,
   resolveProductTempId,
   setCatalogSyncMeta,
@@ -61,8 +63,9 @@ export async function runCatalogSync(args: {
   restaurantId: number;
   restaurantName?: string;
   token: string;
+  forceFullSync?: boolean;
 }): Promise<CatalogSyncResult> {
-  const { restaurantId, restaurantName, token } = args;
+  const { restaurantId, restaurantName, token, forceFullSync = false } = args;
 
   const isOnline = await resolveOnlineStatus();
   if (!isOnline) {
@@ -178,9 +181,18 @@ export async function runCatalogSync(args: {
     productsFailed += r.failed;
   }
 
-  // ─── PULL: دسته‌بندی‌ها ────────────────────────────────────────────────────
+  // ─── PULL: دسته‌بندی‌ها و محصولات ────────────────────────────────────────
   const catMetaKey = `catalog:categories:lastUpdatedAt:${restaurantId}`;
   const prodMetaKey = `catalog:products:lastUpdatedAt:${restaurantId}`;
+  const lastFullCatalogSyncKey = `catalog:lastFullSyncAt:${restaurantId}`;
+
+  // Full sync when: forceFullSync flag set, first sync ever, or safety fallback every 4h.
+  const MS_4H = 4 * 60 * 60 * 1000;
+  const lastFullCatalogSync = await getCatalogSyncMeta(lastFullCatalogSyncKey);
+  const needsFullCatalogSync =
+    forceFullSync ||
+    !lastFullCatalogSync ||
+    Date.now() - new Date(lastFullCatalogSync).getTime() > MS_4H;
 
   let categoriesPulled = 0;
   let productsPulled = 0;
@@ -188,12 +200,14 @@ export async function runCatalogSync(args: {
   try {
     const cachedCatUpdatedAt = await getCatalogSyncMeta(catMetaKey);
     const { lastUpdatedAt: serverCatUpdatedAt } = await getCategoriesLastUpdatedAt(restaurantId, token);
+    const shouldPullCategories = needsFullCatalogSync || (serverCatUpdatedAt && serverCatUpdatedAt !== cachedCatUpdatedAt);
 
-    if (serverCatUpdatedAt && serverCatUpdatedAt !== cachedCatUpdatedAt) {
+    if (shouldPullCategories) {
       const serverCategories = await getCategories(restaurantName, restaurantId, token);
       await bulkUpsertCategories(serverCategories, restaurantId);
+      await reconcileCatalogCategories(restaurantId, serverCategories);
       categoriesPulled = serverCategories.length;
-      await setCatalogSyncMeta(catMetaKey, serverCatUpdatedAt);
+      if (serverCatUpdatedAt) await setCatalogSyncMeta(catMetaKey, serverCatUpdatedAt);
     }
   } catch {
     // pull خطا داد، سینک push را خراب نمی‌کند
@@ -203,8 +217,9 @@ export async function runCatalogSync(args: {
   try {
     const cachedProdUpdatedAt = await getCatalogSyncMeta(prodMetaKey);
     const { lastUpdatedAt: serverProdUpdatedAt } = await getProductsLastUpdatedAt(restaurantId, token);
+    const shouldPullProducts = needsFullCatalogSync || (serverProdUpdatedAt && serverProdUpdatedAt !== cachedProdUpdatedAt);
 
-    if (serverProdUpdatedAt && serverProdUpdatedAt !== cachedProdUpdatedAt) {
+    if (shouldPullProducts) {
       const CHUNK = 100;
       const first = await getProductsAdmin({ restaurantId, restaurantName, page: 1, limit: CHUNK }, token);
       const totalPages = Math.ceil(first.total / CHUNK);
@@ -214,11 +229,16 @@ export async function runCatalogSync(args: {
       );
       const allProducts = [first.data, ...remaining.map((r) => r.data)].flat();
       await bulkUpsertProducts(allProducts, restaurantId);
+      await reconcileCatalogProducts(restaurantId, allProducts);
       productsPulled = allProducts.length;
-      await setCatalogSyncMeta(prodMetaKey, serverProdUpdatedAt);
+      if (serverProdUpdatedAt) await setCatalogSyncMeta(prodMetaKey, serverProdUpdatedAt);
     }
   } catch {
     // pull خطا داد
+  }
+
+  if (needsFullCatalogSync) {
+    await setCatalogSyncMeta(lastFullCatalogSyncKey, new Date().toISOString());
   }
 
   // ─── به‌روزرسانی کش صفحه سفارش ─────────────────────────────────────────

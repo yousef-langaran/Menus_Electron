@@ -20,11 +20,11 @@ export function CatalogSyncManager() {
   useEffect(() => {
     if (!token || !restaurantId) return;
 
-    const sync = async () => {
+    const sync = async (forceFullSync = false) => {
       if (syncingRef.current) return;
       syncingRef.current = true;
       try {
-        const result = await runCatalogSync({ restaurantId, restaurantName, token });
+        const result = await runCatalogSync({ restaurantId, restaurantName, token, forceFullSync });
         if (result.categoriesFailed > 0 || result.productsFailed > 0) {
           const stats = await getCatalogQueueStats(restaurantId);
           if (stats.failedCount > 0) {
@@ -41,15 +41,15 @@ export function CatalogSyncManager() {
       }
     };
 
-    const scheduleSync = () => scheduleCatalogSync(sync);
+    const scheduleSync = (full = false) => scheduleCatalogSync(() => sync(full));
 
-    scheduleSync();
+    scheduleSync(true); // initial load = full sync
 
-    const onOnline = scheduleSync;
-    const onFocus = scheduleSync;
+    const onOnline = () => scheduleSync(true);  // back online = full sync
+    const onFocus = () => scheduleSync(false);  // focus = incremental
     window.addEventListener('online', onOnline);
     window.addEventListener('focus', onFocus);
-    const interval = window.setInterval(scheduleSync, 60_000);
+    const interval = window.setInterval(() => scheduleSync(false), 60_000); // interval = incremental
 
     return () => {
       window.removeEventListener('online', onOnline);

@@ -23,7 +23,8 @@ export function AccountingSyncManager() {
       syncingRef.current = true;
       setSyncing(true);
       try {
-        const result = await runAccountingSync({ restaurantId, token });
+        const forceFullSync = reason === 'initial' || reason === 'online';
+        const result = await runAccountingSync({ restaurantId, token, forceFullSync });
         setOnline(result.isOnline);
         if (result.syncedAt) setLastSyncedAt(result.syncedAt);
         if (result.pushFailed > 0) {
