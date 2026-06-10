@@ -527,7 +527,14 @@ export const useOrderStore = create<OrderState>()(
               return { success: true, pending: true };
             }
 
-            // آفلاین
+            // آفلاین — ویرایش فاکتور بدون اتصال ممکن نیست
+            if (editingOrderId != null) {
+              set({ isSubmitting: false });
+              const msg = 'برای ویرایش فاکتور باید به اینترنت متصل باشید.';
+              onOrderFailed?.(msg);
+              return { success: false, error: msg };
+            }
+
             let orderId: number;
             if (window.electronAPI) {
               const latestToken = useAuthStore.getState().token || token;
