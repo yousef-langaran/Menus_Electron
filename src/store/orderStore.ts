@@ -474,17 +474,32 @@ export const useOrderStore = create<OrderState>()(
                 set({ isSubmitting: false });
                 return { success: false, error: 'نشست کاربری معتبر نیست. دوباره وارد شوید.' };
               }
-              const apiCall = editingOrderId != null
-                ? updateOrder(editingOrderId, orderData, latestToken)
-                : createOrder(orderData, latestToken);
+              // ویرایش: منتظر پاسخ سرور می‌مانیم تا نتیجه را به caller برگردانیم
+              if (editingOrderId != null) {
+                try {
+                  const response = await updateOrder(editingOrderId, orderData, latestToken);
+                  const order = (response as any)?.data ?? response;
+                  const acctWarn = typeof order?.accountingWarning === 'string' ? order.accountingWarning.trim() : '';
+                  if (acctWarn) { onOrderFailed?.(acctWarn); set({ isSubmitting: false }); return { success: false, error: acctWarn }; }
+                  set({ isSubmitting: false });
+                  return { success: true, orderId: order.id ?? editingOrderId };
+                } catch (error: any) {
+                  const status = Number(error?.response?.status || 0);
+                  const errorMessage = extractApiErrorMessage(error) || 'خطا در ویرایش سفارش';
+                  if (status !== 401) onOrderFailed?.(errorMessage);
+                  set({ isSubmitting: false });
+                  return { success: false, error: errorMessage };
+                }
+              }
 
-              apiCall
+              // سفارش جدید: fire-and-forget برای سرعت پاسخ
+              createOrder(orderData, latestToken)
                 .then(async (response) => {
                   const order = (response as any)?.data ?? response;
                   const acctWarn = typeof order?.accountingWarning === 'string' ? order.accountingWarning.trim() : '';
                   if (acctWarn) { onOrderFailed?.(acctWarn); return; }
                   onOrderCreated?.({
-                    orderId: order.id ?? editingOrderId,
+                    orderId: order.id,
                     orderNumber: order.orderNumber,
                     receiptCallNumber: order.receiptCallNumber,
                     offline: false,
@@ -495,7 +510,7 @@ export const useOrderStore = create<OrderState>()(
                   const status = Number(error?.response?.status || 0);
                   const errorMessage = extractApiErrorMessage(error) || 'خطا در ثبت سفارش';
                   if (status === 401) { console.warn('Online submission failed with 401:', errorMessage); return; }
-                  if (status === 400 || editingOrderId != null) { onOrderFailed?.(errorMessage); return; }
+                  if (status === 400) { onOrderFailed?.(errorMessage); return; }
                   console.warn('Online submission failed, saving offline:', errorMessage);
                   try {
                     if (window.electronAPI) {
