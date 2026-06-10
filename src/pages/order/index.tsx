@@ -155,15 +155,18 @@ export default function OrderPage() {
           totalPrice: Number(r.price) * Number(r.quantity),
           itemOption: r.itemNote?.trim() ?? '',
         }));
-        useOrderStore.setState({
-          cart: cartItems, customerPhone: order.customerPhone || '',
-          serviceType: order.serviceType === 'takeaway' ? 'takeaway' : 'dine_in',
-          tableNumber: order.tableNumber || '', customerAddress: order.customerAddress || '',
-          paymentMethod: order.paymentMethod || 'cash', notes: order.notes || '',
-        });
         const codeVal = (order.discountCodeValue || '').trim();
         const disc = Number(order.discountAmount) || 0;
-        const { setDiscountType, setDiscountAmount, setDiscountCode, setAppliedDiscountCode } = useOrderStore.getState();
+        const { restoreDraft, setDiscountType, setDiscountAmount, setDiscountCode, setAppliedDiscountCode } = useOrderStore.getState();
+        restoreDraft({
+          cart: cartItems,
+          customerPhone: order.customerPhone || '',
+          serviceType: order.serviceType === 'takeaway' ? 'takeaway' : 'dine_in',
+          tableNumber: order.tableNumber || '',
+          customerAddress: order.customerAddress || '',
+          paymentMethod: order.paymentMethod || 'cash',
+          notes: order.notes || '',
+        });
         if (codeVal) { setDiscountType('code'); setDiscountCode(codeVal); setAppliedDiscountCode({ code: codeVal, discountAmount: disc }); }
         else { setDiscountType('fixed'); setDiscountAmount(disc); setAppliedDiscountCode(null); setDiscountCode(''); }
         const nameRaw = (order.customerName || '').trim();
