@@ -2000,8 +2000,8 @@ export default function OrderPage() {
                     <div className="flex flex-col gap-2 overflow-hidden min-h-0 h-[calc(100vh_-120px)]">
                         <Card className="flex-1 overflow-hidden min-h-0">
                             <CardContent className="overflow-y-auto p-2 sm:p-3">
-                                {/* ─── تب‌های چند سبد خرید ─── */}
-                                <div className="flex items-center gap-1 mb-2 flex-wrap">
+                                {/* ─── تب‌های چند سبد خرید (فقط در حالت سفارش جدید) ─── */}
+                                {editingOrderId == null && <div className="flex items-center gap-1 mb-2 flex-wrap">
                                     {sessions.map((session) => {
                                         const isActive = session.id === activeSessionId;
                                         const itemCount = session.cart.reduce((n, i) => n + i.quantity, 0);
@@ -2051,7 +2051,7 @@ export default function OrderPage() {
                                             <span>سبد جدید</span>
                                         </button>
                                     )}
-                                </div>
+                                </div>}
                                 <h2 className="text-sm font-semibold text-foreground mb-2">سبد خرید</h2>
                                 {cart.length === 0 ? (
                                     <p className="text-default-500 text-sm py-4 text-center">سبد خرید خالی است</p>

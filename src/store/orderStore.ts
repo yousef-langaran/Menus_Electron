@@ -436,11 +436,13 @@ export const useOrderStore = create<OrderState>()(
             discountAmount: useDiscountCode ? 0 : discountAmount,
             ...(useDiscountCode
               ? { discountCode: (appliedDiscountCode?.code ?? discountCode.trim()) }
-              : {
-                  manualDiscountAmount: discountAmount,
-                  manualDiscountType: discountType,
-                  manualDiscountValue: session.discountAmount,
-                }),
+              : editingOrderId != null
+                ? { manualDiscountAmount: discountAmount }
+                : {
+                    manualDiscountAmount: discountAmount,
+                    manualDiscountType: discountType,
+                    manualDiscountValue: session.discountAmount,
+                  }),
             notes: notes.trim() || undefined,
             restaurantName: user?.restaurants?.[0]?.name || '',
             ...(posWarehouseId ? { warehouseId: posWarehouseId } : {}),
@@ -452,8 +454,10 @@ export const useOrderStore = create<OrderState>()(
             splitOnline: splitOnline > 0 ? splitOnline : undefined,
             items: cart.map(item => ({
               productId: item.productId,
-              productName: item.product?.name_fa || item.product?.name || undefined,
-              product: item.product ? { name_fa: item.product.name_fa, unit: item.product.unit } : undefined,
+              ...(editingOrderId == null ? {
+                productName: item.product?.name_fa || item.product?.name || undefined,
+                product: item.product ? { name_fa: item.product.name_fa, unit: item.product.unit } : undefined,
+              } : {}),
               quantity: item.quantity,
               price: item.price,
               itemNote: item.itemOption?.trim() || undefined,

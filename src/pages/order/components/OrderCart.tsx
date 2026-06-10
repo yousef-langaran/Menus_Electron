@@ -45,8 +45,8 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
     <div className="flex flex-col gap-2 overflow-hidden min-h-0 h-[calc(100vh_-120px)]">
       <div className="flex-1 overflow-hidden min-h-0 rounded-xl border border-default-200 bg-content1">
         <div className="overflow-y-auto h-full p-2 sm:p-3">
-          {/* Session tabs */}
-          <div className="flex items-center gap-1 mb-2 flex-wrap">
+          {/* Session tabs — hidden in edit mode */}
+          {editingOrderId == null && <div className="flex items-center gap-1 mb-2 flex-wrap">
             {sessions.map((session) => {
               const isActive = session.id === activeSessionId;
               const itemCount = session.cart.reduce((n, i) => n + i.quantity, 0);
@@ -91,7 +91,7 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
                 <span>سبد جدید</span>
               </button>
             )}
-          </div>
+          </div>}
 
           <h2 className="text-sm font-semibold text-foreground mb-2">سبد خرید</h2>
 
