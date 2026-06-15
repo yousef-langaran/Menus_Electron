@@ -629,6 +629,34 @@ export async function resetEntitySyncOperationsToPending(restaurantId: number): 
   return toReset.length;
 }
 
+export async function getFailedAccountingSyncOps(restaurantId: number): Promise<LocalSyncOperation[]> {
+  try {
+    return await accountingDb.syncOperations
+      .where('[restaurantId+status]')
+      .equals([restaurantId, 'failed'])
+      .toArray();
+  } catch {
+    const rows = await accountingDb.syncOperations.toArray();
+    return rows.filter((row) => row.restaurantId === restaurantId && row.status === 'failed');
+  }
+}
+
+export async function retryFailedAccountingOps(restaurantId: number): Promise<number> {
+  const failed = await getFailedAccountingSyncOps(restaurantId);
+  const now = new Date().toISOString();
+  await Promise.all(
+    failed.map((op) =>
+      accountingDb.syncOperations.update(op.id!, {
+        status: 'pending',
+        retryCount: 0,
+        errorMessage: undefined,
+        updatedAt: now,
+      }),
+    ),
+  );
+  return failed.length;
+}
+
 export async function setSyncMeta(key: string, value: string): Promise<void> {
   await accountingDb.syncMeta.put({ key, value });
 }

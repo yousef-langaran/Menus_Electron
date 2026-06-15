@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useSyncStore } from '../store/syncStore';
 import { useAuthStore } from '../store/authStore';
+import { SyncFailedOpsModal } from './SyncFailedOpsModal';
 
 /**
  * نوار هشدار — sync failures و انقضای اشتراک را نمایش می‌دهد.
@@ -10,6 +12,8 @@ export function SyncErrorBanner() {
   const failedOps = useSyncStore((s) => s.failedOps);
   const setLastError = useSyncStore((s) => s.setLastError);
   const subscriptionExpiresAt = useAuthStore((s) => s.subscriptionExpiresAt);
+
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   // هشدار انقضای اشتراک — اگر کمتر از ۷ روز مانده
   const subscriptionWarning = (() => {
@@ -27,28 +31,40 @@ export function SyncErrorBanner() {
   if (!syncMessage && !subscriptionWarning) return null;
 
   return (
-    <div className="flex flex-col">
-      {subscriptionWarning && (
-        <div className="bg-danger-50 border-b border-danger-200 px-4 py-2 text-sm text-danger-800 text-center font-medium">
-          ⚠️ {subscriptionWarning}
-        </div>
-      )}
-      {syncMessage && (
-        <div className="bg-warning-50 border-b border-warning-200 px-4 py-2 flex items-center justify-between gap-3 text-sm text-warning-800">
-          <div className="flex items-center gap-2">
-            <span>⚠️</span>
-            <span>{syncMessage}</span>
-            <span className="text-warning-600 text-xs">— با اتصال به اینترنت خودکار همگام‌سازی می‌شود</span>
+    <>
+      <div className="flex flex-col">
+        {subscriptionWarning && (
+          <div className="bg-danger-50 border-b border-danger-200 px-4 py-2 text-sm text-danger-800 text-center font-medium">
+            ⚠️ {subscriptionWarning}
           </div>
-          <button
-            onClick={() => setLastError(null)}
-            className="text-warning-600 hover:text-warning-900 text-lg leading-none"
-            aria-label="بستن"
-          >
-            ×
-          </button>
-        </div>
-      )}
-    </div>
+        )}
+        {syncMessage && (
+          <div className="bg-warning-50 border-b border-warning-200 px-4 py-2 flex items-center justify-between gap-3 text-sm text-warning-800">
+            <div className="flex items-center gap-2">
+              <span>⚠️</span>
+              <span>{syncMessage}</span>
+              <span className="text-warning-600 text-xs">— با اتصال به اینترنت خودکار همگام‌سازی می‌شود</span>
+              {failedOps > 0 && (
+                <button
+                  onClick={() => setDetailsOpen(true)}
+                  className="text-xs underline text-warning-700 hover:text-warning-900 font-medium"
+                >
+                  جزئیات
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setLastError(null)}
+              className="text-warning-600 hover:text-warning-900 text-lg leading-none"
+              aria-label="بستن"
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
+
+      <SyncFailedOpsModal isOpen={detailsOpen} onClose={() => setDetailsOpen(false)} />
+    </>
   );
 }
