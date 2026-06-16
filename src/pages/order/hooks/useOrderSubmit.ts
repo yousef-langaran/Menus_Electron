@@ -179,7 +179,12 @@ export function useOrderSubmit() {
         serviceType: snapshot.serviceType, tableNumber: snapshot.tableNumber,
         customerAddress: snapshot.customerAddress, paymentMethod: snapshot.paymentMethod,
         notes: snapshot.notes, items: snapshot.items,
-        totalAmount: snapshot.totalAmount,
+        // totalAmount/discountAmount/finalAmount باید همگی از یک منبع بیایند، وگرنه
+        // در رسید چاپی «جمع کل» و «مبلغ نهایی» حتی بدون تخفیف می‌توانند متفاوت باشند —
+        // مثلاً وقتی سرور قیمت واحد را برای کاربر staff بازمحاسبه می‌کند
+        // (resolveStaffOrderLineUnitPrice) و orderSubtotal سرور با totalAmount محاسبه‌شدهٔ
+        // سبدِ سمتِ کلاینت یکی نیست. پس همیشه مقدار نهایی سرور را اولویت می‌دهیم.
+        totalAmount: Number(res.order?.totalAmount ?? snapshot.totalAmount),
         discountAmount: Number(res.order?.discountAmount ?? snapshot.discountAmount ?? 0),
         finalAmount: Number(res.order?.finalAmount ?? snapshot.finalAmount ?? snapshot.totalAmount),
       };
