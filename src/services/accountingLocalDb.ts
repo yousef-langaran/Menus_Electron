@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import { catalogDb } from './catalogLocalDb';
 
 export type SyncEntityType =
   | 'raw_material'
@@ -615,6 +616,7 @@ export async function resetEntitySyncOperationsToPending(restaurantId: number): 
     .toArray();
   // Reset failed, syncing, and already-synced entity ops — server is idempotent (ON CONFLICT DO UPDATE).
   const toReset = all.filter((op) => entityTypes.includes(op.entityType as SyncEntityType));
+  await repairOrphanedFinalProductPayloads(toReset);
   const now = new Date().toISOString();
   await Promise.all(
     toReset.map((op) =>
@@ -641,8 +643,60 @@ export async function getFailedAccountingSyncOps(restaurantId: number): Promise<
   }
 }
 
+/**
+ * عملیات «ایجاد محصول نهایی» قدیمی که قبل از resolveFinalProductTempProductId
+ * ساخته شده‌اند، ممکن است هنوز payload.productId منفی (temp ID) داشته باشند —
+ * حتی اگر محصول واقعی مدت‌ها پیش با موفقیت sync شده باشد. چون آن لحظه‌ی resolve
+ * گذشته، رابطهٔ temp-id → real-id دیگر در Dexie وجود ندارد، پس با تطبیق نام
+ * محصول (در میان محصولات کاتالوگ که واقعاً sync شده‌اند) تلاش می‌کنیم اصلاح کنیم.
+ * فقط وقتی دقیقاً یک محصول هم‌نام پیدا شود لینک را اصلاح می‌کنیم؛ در غیر این
+ * صورت (صفر یا چند مورد مشابه) برای جلوگیری از لینک‌شدن اشتباه، فقط لینک را
+ * پاک می‌کنیم تا رکورد حداقل بدون خطای «out of range» سینک شود.
+ */
+async function repairOrphanedFinalProductPayloads(
+  ops: LocalSyncOperation[],
+): Promise<void> {
+  const orphaned = ops.filter(
+    (op) => op.entityType === 'final_product' && Number(op.payload?.productId) < 0,
+  );
+  if (!orphaned.length) return;
+
+  const restaurantIds = Array.from(new Set(orphaned.map((op) => op.restaurantId)));
+  const syncedProductsByRestaurant = new Map<number, any[]>();
+  await Promise.all(
+    restaurantIds.map(async (rid) => {
+      const products = await catalogDb.products
+        .where('restaurantId')
+        .equals(rid)
+        .filter((p) => Number(p.id) > 0)
+        .toArray();
+      syncedProductsByRestaurant.set(rid, products);
+    }),
+  );
+
+  const now = new Date().toISOString();
+  await Promise.all(
+    orphaned.map(async (op) => {
+      const name = String(op.payload?.name || '').trim();
+      const candidates = (syncedProductsByRestaurant.get(op.restaurantId) || []).filter(
+        (p) => (p.name_fa || p.name || '').trim() === name,
+      );
+      const fixedProductId = name && candidates.length === 1 ? Number(candidates[0].id) : null;
+
+      await accountingDb.syncOperations.update(op.id!, {
+        payload: { ...op.payload, productId: fixedProductId },
+      });
+      const fpId = Number(op.entityId);
+      if (fpId) {
+        await accountingDb.finalProducts.update(fpId, { productId: fixedProductId, updatedAt: now });
+      }
+    }),
+  );
+}
+
 export async function retryFailedAccountingOps(restaurantId: number): Promise<number> {
   const failed = await getFailedAccountingSyncOps(restaurantId);
+  await repairOrphanedFinalProductPayloads(failed);
   const now = new Date().toISOString();
   await Promise.all(
     failed.map((op) =>
@@ -1226,6 +1280,56 @@ export async function createFinalProductLocal(input: {
     clientUpdatedAt: now,
   });
   return row;
+}
+
+/**
+ * وقتی یک محصول منوی ساخته‌شده آفلاین واقعاً sync می‌شود، temp ID منفی‌اش
+ * (مثلاً ‎-1781108301585‎) با یک ID واقعی سرور جایگزین می‌شود (catalogLocalDb →
+ * resolveProductTempId). اما اگر قبل از آن sync، یک «محصول نهایی» حسابداری
+ * (FinalProduct) با ‎productId = همان temp ID منفی‎ ساخته و در صف ارسال
+ * گذاشته شده باشد (مثلاً از فاکتور خرید)، آن رکورد محلی و payload عملیات
+ * سینکش برای همیشه به temp ID اشاره می‌کند — چون چیزی این مقدار را اصلاح
+ * نمی‌کند. سرور چنین مقداری را اصلاً نمی‌شناسد (هرگز در جدول product وجود
+ * نداشته) و چون ستون product_id از نوع integer است، حتی قبل از رسیدن به
+ * خطای FK، با خطای «out of range for type integer» رد می‌شود — و «تلاش
+ * مجدد» تا ابد همین خطا را تکرار می‌کند چون payload هیچ‌وقت اصلاح نمی‌شود.
+ *
+ * این تابع بعد از resolveProductTempId صدا زده می‌شود تا temp ID را در
+ * رکوردهای FinalProduct و در payload عملیات سینک pending/failed مربوطه با
+ * ID واقعی جایگزین کند و آن عملیات را برای ارسال دوباره به pending برگرداند.
+ */
+export async function resolveFinalProductTempProductId(
+  tempProductId: number,
+  realProductId: number,
+): Promise<void> {
+  const affected = await accountingDb.finalProducts
+    .where('productId')
+    .equals(tempProductId)
+    .toArray();
+  await Promise.all(
+    affected.map((fp) =>
+      accountingDb.finalProducts.update(fp.id, { productId: realProductId, updatedAt: new Date().toISOString() }),
+    ),
+  );
+
+  const ops = await accountingDb.syncOperations
+    .where('entityType')
+    .equals('final_product')
+    .toArray();
+  const now = new Date().toISOString();
+  await Promise.all(
+    ops
+      .filter((op) => Number(op.payload?.productId) === tempProductId)
+      .map((op) =>
+        accountingDb.syncOperations.update(op.id!, {
+          payload: { ...op.payload, productId: realProductId },
+          status: 'pending',
+          retryCount: 0,
+          errorMessage: undefined,
+          updatedAt: now,
+        }),
+      ),
+  );
 }
 
 /** پیدا کردن یا ساختن FinalProduct حسابداری برای یک محصول منو */

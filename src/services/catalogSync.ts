@@ -16,6 +16,7 @@ import {
   resolveProductTempId,
   setCatalogSyncMeta,
 } from './catalogLocalDb';
+import { resolveFinalProductTempProductId } from './accountingLocalDb';
 import {
   createCategory,
   createProduct,
@@ -151,6 +152,10 @@ export async function runCatalogSync(args: {
           token,
         );
         await resolveProductTempId(prod.id, Number(serverProd.id));
+        // اگر قبل از sync این محصول، یک «محصول نهایی» حسابداری (مثلاً از فاکتور
+        // خرید) با temp ID منفی همین محصول ساخته شده بود، آن ارجاع را هم اصلاح کن
+        // — وگرنه برای همیشه به یک productId موهوم اشاره می‌کند و sync آن fail می‌ماند.
+        await resolveFinalProductTempProductId(prod.id, Number(serverProd.id));
         return { pushed: 1, failed: 0 };
       } else if (prod._syncStatus === 'pending_update' || prod._syncStatus === 'failed') {
         await updateProductById(
