@@ -354,7 +354,12 @@ export default function AccountingPurchaseDraftsPage() {
 
   const reload = useCallback(async () => {
     if (!restaurantId) return;
-    const [s, m, afp, d, mp, cats] = await Promise.all([
+    // از Promise.allSettled به‌جای Promise.all استفاده می‌کنیم: اگر یکی از کوئری‌های
+    // فرعی (مثلاً محصولات/دسته‌بندی‌ها) خطا بدهد، نباید لیست فاکتورهای خرید
+    // (که مهم‌ترین بخش این صفحه است) آپدیت‌نشده باقی بماند — قبلاً با Promise.all
+    // یک reject در هر کدام، setDrafts را اصلاً اجرا نمی‌کرد و فاکتور تازه‌ثبت‌شده
+    // (که در Dexie واقعاً ذخیره شده بود) در لیست ظاهر نمی‌شد.
+    const [s, m, afp, d, mp, cats] = await Promise.allSettled([
       accountingDb.suppliers.where('restaurantId').equals(restaurantId).reverse().sortBy('id'),
       accountingDb.rawMaterials.where('restaurantId').equals(restaurantId).reverse().sortBy('id'),
       accountingDb.finalProducts.where('restaurantId').equals(restaurantId).toArray(),
@@ -365,12 +370,17 @@ export default function AccountingPurchaseDraftsPage() {
       ),
       getLocalCategories(restaurantId),
     ]);
-    setSuppliers(s);
-    setMaterials(m);
-    setAccountingFinalProducts(afp);
-    setDrafts(d);
-    setMenuProducts(mp);
-    setCategories(cats);
+    const unwrap = <T,>(r: PromiseSettledResult<T>, label: string, fallback: T): T => {
+      if (r.status === 'fulfilled') return r.value;
+      console.error(`[PurchaseDrafts] reload: ${label} failed`, r.reason);
+      return fallback;
+    };
+    setSuppliers((prev) => unwrap(s, 'suppliers', prev));
+    setMaterials((prev) => unwrap(m, 'rawMaterials', prev));
+    setAccountingFinalProducts((prev) => unwrap(afp, 'finalProducts', prev));
+    setDrafts((prev) => unwrap(d, 'purchaseInvoices', prev));
+    setMenuProducts((prev) => unwrap(mp, 'menuProducts', prev));
+    setCategories((prev) => unwrap(cats, 'categories', prev));
     setIsLoading(false);
   }, [restaurantId]);
 
