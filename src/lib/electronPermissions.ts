@@ -122,7 +122,7 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
     );
   }
 
-  if (p === '/accounting/raw-materials' || p === '/accounting/raw-material-categories') {
+  if (p === '/accounting/raw-materials' || p === '/accounting/raw-material-categories' || p === '/accounting/kardex') {
     return (
       hasModuleAccess(user, MODULES.INVENTORY, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
       hasModuleAccess(user, MODULES.ACCOUNTING, [ACTIONS.READ, ACTIONS.MANAGE], rid)

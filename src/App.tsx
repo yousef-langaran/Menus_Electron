@@ -32,6 +32,7 @@ const AccountingPurchaseReturnsPage = lazy(() => import('./pages/accounting/Purc
 const AccountingExpensesPage = lazy(() => import('./pages/accounting/Expenses'));
 const AccountingRawMaterialCategoriesPage = lazy(() => import('./pages/accounting/RawMaterialCategories'));
 const AccountingExpenseCategoriesPage = lazy(() => import('./pages/accounting/ExpenseCategories'));
+const AccountingKardexPage = lazy(() => import('./pages/accounting/Kardex'));
 const CashAccountsPage = lazy(() => import('./pages/accounting/CashAccounts'));
 const ProductsPage = lazy(() => import('./pages/Products'));
 const CategoriesPage = lazy(() => import('./pages/Categories'));
@@ -154,6 +155,7 @@ function AppRoutes() {
                 <Route path="/accounting/expense-categories" element={<AccountingExpenseCategoriesPage />} />
                 <Route path="/accounting/cash-accounts" element={<CashAccountsPage />} />
                 <Route path="/accounting/purchase-returns" element={<AccountingPurchaseReturnsPage />} />
+                <Route path="/accounting/kardex" element={<AccountingKardexPage />} />
                 <Route path="/card-terminals" element={<CardTerminalsPage />} />
                 <Route path="/call-history" element={<CallHistoryPage />} />
               </Route>

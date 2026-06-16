@@ -229,8 +229,13 @@ export async function runCatalogSync(args: {
       const first = await getProductsAdmin({ restaurantId, restaurantName, page: 1, limit: CHUNK }, token);
       const totalPages = Math.ceil(first.total / CHUNK);
       const remainingPages = Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => i + 2);
-      const remaining = await Promise.all(
-        remainingPages.map((pg) => getProductsAdmin({ restaurantId, restaurantName, page: pg, limit: CHUNK }, token)),
+      // قبلاً همهٔ صفحات با Promise.all بدون محدودیت هم‌زمان درخواست می‌شدند —
+      // با کاتالوگ‌های بزرگ این یعنی ده‌ها درخواست هم‌زمان به سرور، که هم بار
+      // غیرضروری ایجاد می‌کند هم ریسک پاسخ ناقص/تایم‌اوت زیر بار را بالا می‌برد.
+      const remaining = await concurrentMap(
+        remainingPages,
+        5,
+        (pg) => getProductsAdmin({ restaurantId, restaurantName, page: pg, limit: CHUNK }, token),
       );
       const allProducts = [first.data, ...remaining.map((r) => r.data)].flat();
       await bulkUpsertProducts(allProducts, restaurantId);

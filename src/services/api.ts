@@ -1402,6 +1402,46 @@ export async function approvePurchaseReturn(
   return response.data;
 }
 
+export interface KardexRow {
+  id: number;
+  date: string;
+  movementType: string;
+  isIncrease: boolean;
+  quantity: number;
+  balanceAfter: number;
+  referenceType: string | null;
+  referenceId: number | null;
+  invoiceNumber: string | null;
+  unitPrice: number | null;
+  salePrice: number | null;
+  warehouseName: string | null;
+  description: string | null;
+}
+
+export interface KardexReport {
+  item: {
+    id: number;
+    type: 'final_product' | 'raw_material';
+    name: string;
+    unit: string | null;
+    currentStock: number;
+  };
+  rows: KardexRow[];
+}
+
+/** گزارش کاردکس کالا — تاریخچهٔ کامل ورود/خروج + قیمت خرید/فروش هر رویداد */
+export async function getInventoryKardex(
+  params: { restaurantId: number; rawMaterialId?: number; finalProductId?: number; fiscalYearId?: number },
+  token: string,
+): Promise<KardexReport> {
+  await apiConfigReady;
+  const response = await api.get('/accounting/inventory/kardex', {
+    params,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
 export async function cancelPurchaseReturn(returnId: number, restaurantId: number, token: string) {
   await apiConfigReady;
   const response = await api.delete(`/accounting/purchases/returns/${returnId}`, {

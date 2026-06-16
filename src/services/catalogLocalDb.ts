@@ -307,7 +307,11 @@ export async function bulkUpsertProducts(
       restaurantId,
       name_fa: p.name_fa || '',
       name: p.name || '',
-      price: Number(p.price ?? 0),
+      // p.price نباید null/undefined باشد، اما اگر به هر علتی (پاسخ ناقص شبکه،
+      // رقابت چند درخواست هم‌زمان صفحه‌بندی و...) چنین چیزی پیش بیاید، صفر
+      // کردن قیمتِ محلی معتبرِ قبلی به مراتب بدتر از نگه‌داشتن همان مقدار قبلی
+      // است؛ پس فقط وقتی سرور صراحتاً عددی (even 0) فرستاده باشد قبول می‌کنیم.
+      price: p.price != null ? Number(p.price) : (localMap.get(Number(p.id))?.price ?? 0),
       category_id: Number(p.category?.id ?? p.category_id ?? 0),
       barcode: p.barcode ?? null,
       unit: p.unit || 'عدد',
