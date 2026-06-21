@@ -263,6 +263,7 @@ export default function OrdersPage() {
   }, [statusFilter, isOnline, currentPage, pageSize, restaurantName, token]);
 
   useEffect(() => {
+    console.log('[OrdersPage] Socket useEffect triggered', {
       hasToken: !!token,
       restaurantName,
       isOnline,
