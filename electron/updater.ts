@@ -162,7 +162,7 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null) {
 
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
-    autoUpdater.logger = console;
+    autoUpdater.logger = null;
 
     autoUpdater.on('update-available', (info) => {
       sendToRenderer('update-available', {

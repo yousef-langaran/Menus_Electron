@@ -65,13 +65,8 @@ const hydrateUserProfile = async (token: string, fallbackUser: User): Promise<Us
     return fallbackUser;
   }
   try {
-    console.log('[AuthStore] Fetching profile for hydration...');
     const profile = await fetchProfile(token);
     if (profile) {
-      console.log('[AuthStore] Profile fetched', {
-        restaurants: profile?.restaurants?.length,
-        ownedRestaurants: profile?.ownedRestaurants?.length,
-      });
       return profile;
     }
   } catch (error) {
@@ -94,7 +89,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Always drop stale session before issuing a fresh login.
       await clearUserCache();
       set({ user: null, token: null });
-      console.log('[AuthStore] Logging in user...');
       const response = await apiLogin(mobile, password);
 
       let rawUser: User | null = null;
@@ -114,18 +108,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error('اطلاعات کاربر یا توکن ناقص است');
       }
 
-      console.log('[AuthStore] Login succeeded, evaluating profile hydration', {
-        hasRestaurants: !!rawUser.restaurants,
-        restaurantCount: rawUser.restaurants?.length,
-      });
-
       const hydratedUser = needsProfileRefresh(rawUser)
         ? await hydrateUserProfile(token, rawUser)
         : rawUser;
-
-      console.log('[AuthStore] User hydrated', {
-        restaurants: hydratedUser?.restaurants?.length,
-      });
 
       // بررسی دسترسی ثبت سفارش
       const hasOrderPermission = checkOrderPermission(hydratedUser);
@@ -194,10 +179,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isHydrated: true });
         return;
       }
-      console.log('[AuthStore] Cached user found, checking profile hydration', {
-        hasRestaurants: !!cached.user.restaurants,
-        restaurantCount: cached.user.restaurants?.length,
-      });
       let resolvedUser = cached.user;
       if (needsProfileRefresh(resolvedUser)) {
         resolvedUser = await hydrateUserProfile(cached.token, resolvedUser);
@@ -220,9 +201,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
 
-      console.log('[AuthStore] Cached user ready', {
-        restaurants: resolvedUser?.restaurants?.length,
-      });
       const liveTokenAfterHydration = get().token;
       if (liveTokenAfterHydration && liveTokenAfterHydration !== cached.token) {
         set({ isHydrated: true });
@@ -252,12 +230,6 @@ function checkOrderPermission(user: User | null): boolean {
     if (perm.restaurant?.id !== primaryRestaurant.id) return false;
     if (perm.module !== 'orders_management') return false;
     return perm.actions?.includes('create') || perm.actions?.includes('manage');
-  });
-
-  console.log('[AuthStore] Order permission check:', {
-    hasPermission,
-    restaurantId: primaryRestaurant.id,
-    permissions: permissions.map(p => ({ module: p.module, actions: p.actions, restaurant: p.restaurant?.id })),
   });
 
   return hasPermission;
