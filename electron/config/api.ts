@@ -44,7 +44,7 @@ export function getApiConfig(): ApiConfig {
 
   const baseURL = getBaseUrlFromEnv() || (cachedFileConfig?.baseURL as string) || '';
   return {
-    baseURL: baseURL || 'https://api.hoshmenu.ir/api/v1',
+    baseURL: baseURL || 'https://api.secoin.ir/api/v1',
     ...(cachedFileConfig && {
       token: cachedFileConfig.token,
       restaurantName: cachedFileConfig.restaurantName,

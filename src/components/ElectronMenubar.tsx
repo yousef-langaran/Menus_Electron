@@ -152,8 +152,8 @@ export function ElectronMenubar() {
     >
       <div className="flex items-center gap-2 pe-2">
         <img
-          src="./branding/hoshmenu-frontend-logo.png"
-          alt="هوش منو"
+          src="./branding/secoin-frontend-logo.png"
+          alt="سکه"
           className="h-7 w-auto ps-1"
         />
         <Chip

@@ -29,12 +29,6 @@ const combos = [
 
 let tick = 0;
 
-console.log("\n════════════════════════════════════════════");
-console.log("  🔔  READY — زنگ بزن!");
-console.log("  نمایش هر تغییر، بدون فیلتر");
-console.log("  هر 200ms 4 ترکیب چک میشه");
-console.log("════════════════════════════════════════════\n");
-
 function doPoll() {
   tick++;
   for (const {wv, label} of combos) {
@@ -52,21 +46,12 @@ function doPoll() {
       // Is this interesting?
       const interesting = !firstLine.startsWith('~OK TILDA KISH');
       const prefix = interesting ? "🚨" : "  ";
-
-      console.log(`${prefix} [${ts}][${label}] ${firstLine.slice(0,70)}`);
-      if (interesting) {
-        console.log(`   FULL(80): ${ascii.slice(0, 120)}`);
-        console.log(`   HEX:      ${data.toString("hex")}`);
-        console.log(`   ─────────────────────────────────────────`);
-      }
     });
   }
 }
 
 const poll = setInterval(doPoll, 200);
 
-// Heartbeat every 30s
-setInterval(() => console.log(`  ⏱  پایش... tick=${tick}`), 30000);
 
 process.on("SIGINT", () => {
   clearInterval(poll);
@@ -77,7 +62,6 @@ process.on("SIGINT", () => {
 // Auto-stop after 5 minutes
 setTimeout(() => {
   clearInterval(poll);
-  console.log("\n════ پایان ════");
   iface.release(true, () => device.close());
   setTimeout(() => process.exit(0), 500);
 }, 300_000);

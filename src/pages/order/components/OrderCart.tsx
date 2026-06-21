@@ -35,7 +35,7 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
 
   const getAssetBaseUrl = () => {
     // inline to avoid circular import — same as api.ts helper
-    return (window as any).__assetBaseUrl__ || 'https://api.hoshmenu.ir';
+    return (window as any).__assetBaseUrl__ || 'https://api.secoin.ir';
   };
 
   const isInteractive = (e: React.MouseEvent) =>

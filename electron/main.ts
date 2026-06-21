@@ -486,7 +486,6 @@ ipcMain.handle('print-receipt', async (event, orderData, printerJobs, orderKeys)
 ipcMain.handle('get-receipt-numbers-map', async () => {
   try {
     const map = getReceiptNumbersMap();
-    console.log('[شماره رسید] خواندن نقشه از main. تعداد کلیدها:', Object.keys(map).length, 'کلیدها:', Object.keys(map));
     return map;
   } catch (error) {
     console.error('get-receipt-numbers-map error:', error);

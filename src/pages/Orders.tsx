@@ -106,7 +106,6 @@ export default function OrdersPage() {
 
   const restaurantName = useMemo(() => {
     const name = user?.restaurants?.[0]?.name;
-    console.log('[OrdersPage] Restaurant name resolved:', { name, userRestaurants: user?.restaurants });
     return name;
   }, [user]);
   const restaurantNameFa = useMemo(
@@ -264,7 +263,6 @@ export default function OrdersPage() {
   }, [statusFilter, isOnline, currentPage, pageSize, restaurantName, token]);
 
   useEffect(() => {
-    console.log('[OrdersPage] Socket effect triggered', {
       hasToken: !!token,
       restaurantName,
       isOnline,
@@ -276,10 +274,8 @@ export default function OrdersPage() {
       return;
     }
 
-    console.log('[OrdersPage] Attempting to connect socket...');
     const socket = connectOrdersSocket({ token, restaurantName });
     if (!socket) {
-      console.error('[OrdersPage] Failed to create socket');
       return;
     }
 

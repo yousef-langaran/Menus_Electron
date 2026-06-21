@@ -650,7 +650,6 @@ export function setReceiptNumbersForOrder(orderKeys: string[], receiptNumber: nu
     current[key] = receiptNumber;
   }
   fs.writeFileSync(filePath, JSON.stringify(current, null, 2), 'utf-8');
-  console.log('[شماره رسید] ذخیره در فایل:', filePath, 'کلیدها:', keys, 'شماره:', receiptNumber);
 }
 
 /** فقط شماره بعدی را مصرف کرده و برای سفارش ذخیره می‌کند (بدون چاپ) — برای وقتی چاپ انجام نمی‌شود */

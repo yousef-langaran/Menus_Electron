@@ -247,7 +247,6 @@ const printCopyWithRetry = async (
 ): Promise<void> => {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      console.log(`[PRINT] Sending print command to "${printerName}" (${receiptType}), attempt ${attempt + 1}/3`);
       await withTimeout(
         new Promise<void>((resolve, reject) => {
           printWindow.webContents.print(
@@ -699,7 +698,7 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
     <div class="divider"></div>
 
     <div class="footer">
-      <div>با تشکر از انتخاب شما نرم افزار هوشمنو hoshmenu.ir </div>
+      <div>با تشکر از انتخاب شما نرم افزار سکه secoin.ir </div>
       <div style="margin-top: 4px;">${date}</div>
     </div>
   </div>

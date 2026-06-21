@@ -16,11 +16,6 @@ const toAscii = (b) => Array.from(b).map(x => x >= 32 && x < 127 ? String.fromCh
 let lastHex0100 = '', lastHex0300 = '';
 let tick = 0;
 
-console.log("════════════════════════════════════════");
-console.log("🔔  آماده — همین الان زنگ بزن!");
-console.log("    (هر 100ms هر دو وضعیت نشان داده میشه)");
-console.log("════════════════════════════════════════");
-
 const poll = setInterval(() => {
   tick++;
 

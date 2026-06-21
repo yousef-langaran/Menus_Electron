@@ -3,10 +3,10 @@ import { net } from 'electron';
 export async function isOnline(): Promise<boolean> {
   return new Promise((resolve) => {
     // خواندن آدرس‌ها از متغیرهای محیطی با در نظر گرفتن مقادیر پیش‌فرض
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.hoshmenu.ir';
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.secoin.ir';
     const apiVersion = process.env.NEXT_PUBLIC_API_BASE_VERSION || '/api/v1';
 
-    // ترکیب آدرس: https://api.hoshmenu.ir/api/v1
+    // ترکیب آدرس: https://api.secoin.ir/api/v1
     const targetUrl = `${baseUrl}${apiVersion}`;
 
     const request = net.request({

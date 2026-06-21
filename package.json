@@ -62,21 +62,21 @@
   },
   "build": {
     "appId": "com.menus.electron",
-    "productName": "hosh menu",
+    "productName": "secoin",
     "directories": {
       "output": "release"
     },
     "publish": [
       {
         "provider": "generic",
-        "url": "https://update.hoshmenu.ir"
+        "url": "https://update.secoin.ir"
       }
     ],
     "protocols": [
       {
-        "name": "hosh menu",
+        "name": "secoin",
         "schemes": [
-          "hosh-menu"
+          "secoin"
         ]
       }
     ],
@@ -92,7 +92,7 @@
       }
     ],
     "win": {
-      "artifactName": "Hosh-Menu-Setup.${ext}",
+      "artifactName": "Secoin-Setup.${ext}",
       "target": [
         "nsis"
       ],
@@ -103,7 +103,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Hosh Menu",
+      "shortcutName": "Secoin",
       "deleteAppDataOnUninstall": false,
       "perMachine": false
     },
