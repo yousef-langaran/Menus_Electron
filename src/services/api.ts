@@ -5,7 +5,7 @@ import { toast } from '../utils/toast';
 const getDefaultBaseUrl = () => {
   const baseUrl = import.meta.env.VITE_API_BASE_URL ||
     import.meta.env.NEXT_PUBLIC_API_BASE_URL ||
-    'https://api.hoshmenu.ir';
+    'https://api.secoin.ir';
   const version = import.meta.env.VITE_API_BASE_VERSION ||
     import.meta.env.NEXT_PUBLIC_API_BASE_VERSION ||
     '/api/v1';
@@ -49,7 +49,7 @@ export function getApiBaseUrl(): string {
 export function getAssetBaseUrl(): string {
   const base = getApiBaseUrl();
   const withoutPath = base.replace(/\/api\/v\d+(\/)?$/i, '').replace(/\/+$/, '');
-  return withoutPath || 'https://api.hoshmenu.ir';
+  return withoutPath || 'https://api.secoin.ir';
 }
 
 /**
@@ -102,12 +102,12 @@ api.interceptors.request.use(
       headers.Authorization = `Bearer ${_liveToken}`;
       config.headers = headers;
     }
-    console.log('API Request:', {
-      method: config.method,
-      url: config.url,
-      baseURL: config.baseURL,
-      fullURL: `${config.baseURL}${config.url}`,
-    });
+    // console.log('API Request:', {
+    //   method: config.method,
+    //   url: config.url,
+    //   baseURL: config.baseURL,
+    //   fullURL: `${config.baseURL}${config.url}`,
+    // });
     return config;
   },
   (error) => {
@@ -321,10 +321,6 @@ export async function getProducts(restaurantName?: string, restaurantId?: number
   if (restaurantId) {
     body.restaurantId = restaurantId;
   }
-  if (token) {
-    body.includeStaffInventoryOrderPrice = true;
-  }
-
   const response = await api.post('/products/filter/public', body, { headers });
   return Array.isArray(response.data) ? response.data : [];
 }
@@ -1277,7 +1273,6 @@ export async function getProductsPublicPaginated(
     restaurantName: params.restaurantName,
     page: params.page,
     limit: params.limit,
-    includeStaffInventoryOrderPrice: true,
   };
   const response = await api.post('/products/filter/public/paginated', body, { headers });
   return response.data;
@@ -1320,7 +1315,6 @@ export async function getProductsAdmin(
     page: params.page,
     limit: params.limit,
     search: params.search,
-    includeStaffInventoryOrderPrice: true,
   };
   const response = await api.post('/products/filter/admin', body, {
     headers: { Authorization: `Bearer ${token}` },

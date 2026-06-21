@@ -222,7 +222,12 @@ export async function runCatalogSync(args: {
   try {
     const cachedProdUpdatedAt = await getCatalogSyncMeta(prodMetaKey);
     const { lastUpdatedAt: serverProdUpdatedAt } = await getProductsLastUpdatedAt(restaurantId, token);
-    const shouldPullProducts = needsFullCatalogSync || (serverProdUpdatedAt && serverProdUpdatedAt !== cachedProdUpdatedAt);
+    // Skip pull when lastUpdatedAt already matches — even on forceFullSync — because
+    // useProductLoader writes Dexie + updates this key after every server fetch, so a
+    // matching timestamp means Dexie is already up-to-date with fresh data.
+    const shouldPullProducts =
+      serverProdUpdatedAt !== cachedProdUpdatedAt &&
+      (needsFullCatalogSync || Boolean(serverProdUpdatedAt));
 
     if (shouldPullProducts) {
       const CHUNK = 100;
@@ -263,7 +268,6 @@ export async function runCatalogSync(args: {
       // فقط محصولات synced به کش Order اضافه می‌شوند
       const syncedProducts = localProducts.filter((p) => p._syncStatus === 'synced');
       const syncedCategories = localCategories.filter((c) => c._syncStatus === 'synced');
-      // محصولات را با اطلاعات دسته‌بندی غنی‌سازی می‌کنیم (فرمت مورد انتظار Order.tsx)
       const catMap = new Map(syncedCategories.map((c) => [c.id, c]));
       const enrichedProducts = syncedProducts.map((p) => ({
         ...p,

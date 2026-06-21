@@ -413,6 +413,7 @@ export default function OrderPage() {
                     ...p,
                     category: catMap.get(p.category_id) || { id: p.category_id, name_fa: '' },
                 }));
+                // console.log('[handleCatalogSynced Line 402]:' ,enriched)
                 setProducts(enriched);
                 setProductCategories(syncedCats);
                 const uniqueCatNames = Array.from(
@@ -1453,11 +1454,7 @@ export default function OrderPage() {
         measureElement: (el) => el.getBoundingClientRect().height,
     });
 
-    const staffCartUnitPrice = (product: { staffOrderUnitPrice?: number; price?: number }) => {
-        const inv = Number(product?.staffOrderUnitPrice);
-        if (Number.isFinite(inv) && inv > 0) return inv;
-        return Number(product?.price || 0);
-    };
+    const staffCartUnitPrice = (product: { price?: number }) => Number(product?.price || 0);
 
     const openScaleModal = async (product: any) => {
         setScaleModalProduct(product);

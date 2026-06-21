@@ -265,10 +265,7 @@ export default function OrderPage() {
     if (editingOrderId != null) navigate('/order');
   };
 
-  const staffCartUnitPrice = (product: any) => {
-    const inv = Number(product?.staffOrderUnitPrice);
-    return Number.isFinite(inv) && inv > 0 ? inv : Number(product?.price || 0);
-  };
+  const staffCartUnitPrice = (product: any) => Number(product?.price || 0);
 
   const openScaleModal = async (product: any) => {
     setScaleModalProduct(product); setScaleWeight(null); setScaleError(''); setScaleModalOpen(true); setScaleReading(true);

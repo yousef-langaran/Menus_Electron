@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../../../store/authStore';
 import {
   getCategories,
@@ -9,7 +9,13 @@ import {
   getProductsPublicPaginated,
 } from '../../../services/api';
 import { getCachedMenu, cacheMenu } from '../../../services/cache';
-import { getLocalProducts, getLocalCategories } from '../../../services/catalogLocalDb';
+import {
+  getLocalProducts,
+  getLocalCategories,
+  bulkUpsertProducts,
+  reconcileCatalogProducts,
+  setCatalogSyncMeta,
+} from '../../../services/catalogLocalDb';
 
 export function useProductLoader() {
   const { user, token } = useAuthStore();
@@ -19,6 +25,9 @@ export function useProductLoader() {
   const [cartItemOptions, setCartItemOptions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  // true در طول کل loadProducts (از شروع fetch سرور تا finally) — از race condition
+  // جلوگیری می‌کند که catalog:synced بتواند state را قبل از پاسخ سرور overwrite کند.
+  const isFetchingRef = useRef(false);
 
   // Restaurant settings
   const [isMobileRequired, setIsMobileRequired] = useState(true);
@@ -47,6 +56,7 @@ export function useProductLoader() {
   };
 
   const loadProducts = async () => {
+    isFetchingRef.current = true;
     setIsLoading(true);
     setError('');
     const restaurantName = user?.restaurants?.[0]?.name;
@@ -54,7 +64,7 @@ export function useProductLoader() {
     let productsData: any[] = [];
 
     try {
-      // 1. Cache first
+      // 1. Cache first — show immediately so the screen is not blank while the server fetch runs.
       const cached = await getCachedMenu(restaurantId, restaurantName);
       if (cached) {
         productsData = cached.products;
@@ -109,14 +119,15 @@ export function useProductLoader() {
         return;
       }
 
-      // 4. Check if products changed
+      // 4. Always fetch fresh products from server.
+      //    The lastUpdatedAt check is kept only to decide whether to rewrite the cache.
       let serverLastUpdatedAt: string | null = null;
-      let shouldFetchProducts = true;
+      let productMetadataChanged = true;
       if (restaurantId) {
         try {
           const { lastUpdatedAt } = await getProductsLastUpdatedAt(Number(restaurantId), token);
           serverLastUpdatedAt = lastUpdatedAt;
-          if (lastUpdatedAt && lastUpdatedAt === cached?.lastUpdatedAt) shouldFetchProducts = false;
+          if (lastUpdatedAt && lastUpdatedAt === cached?.lastUpdatedAt) productMetadataChanged = false;
         } catch {}
       }
 
@@ -127,23 +138,31 @@ export function useProductLoader() {
         : getRestaurantByName(restaurantName || '', token)
       ).catch(() => null);
 
-      // 6. Paginated product fetch
-      if (shouldFetchProducts) {
+      // 6. Paginated product fetch — collect ALL pages then setProducts once atomically.
+      {
         const CHUNK = 100;
         const firstChunk = await getProductsPublicPaginated(
           { restaurantId, restaurantName, page: 1, limit: CHUNK }, token,
         );
         productsData = firstChunk.data;
-        setProducts([...productsData]);
-        setIsLoading(false);
+
+        // No cached data yet — show the first page immediately so the screen isn't
+        // blank while the remaining pages load.
+        if (!cached && !hasDexieFallback) {
+          setProducts([...productsData]);
+          setIsLoading(false);
+        }
+
         const totalPages = Math.ceil(firstChunk.total / CHUNK);
         for (let pg = 2; pg <= totalPages; pg++) {
           const chunk = await getProductsPublicPaginated(
             { restaurantId, restaurantName, page: pg, limit: CHUNK }, token,
           );
           productsData = [...productsData, ...chunk.data];
-          setProducts([...productsData]);
         }
+
+        setProducts([...productsData]);
+        setIsLoading(false);
       }
 
       // 7. Apply results
@@ -175,22 +194,46 @@ export function useProductLoader() {
       }
       applyRestaurantSettings(settings);
 
-      // 8. Update cache
-      if (shouldFetchProducts) {
-        const uniqueCategories = Array.from(new Set(productsData.map((p) => p.category?.name_fa).filter(Boolean)));
-        setCategories(uniqueCategories as string[]);
+      // 8. Write fresh products to cache. Categories only recomputed when metadata changed.
+      {
+        const uniqueCategories = productMetadataChanged
+          ? Array.from(new Set(productsData.map((p) => p.category?.name_fa).filter(Boolean)))
+          : (Array.isArray(cached?.categories) ? cached.categories : []) as string[];
+
+        if (productMetadataChanged) setCategories(uniqueCategories);
+
         await cacheMenu(
           restaurantId || 0, restaurantName || '', productsData,
-          uniqueCategories as string[], settings.cartItemOptions,
+          uniqueCategories, settings.cartItemOptions,
           settings.isMobileRequired, settings.isScaleIntegrationEnabled,
           settings.restrictScaleAccess, settings.isCardTerminalEnabled,
           settings.restrictCardTerminalAccess, settings.allowDirectSendAmountToCardTerminal,
-          serverLastUpdatedAt, Array.isArray(categoriesResult) ? categoriesResult : [],
+          serverLastUpdatedAt,
+          productMetadataChanged
+            ? (Array.isArray(categoriesResult) ? categoriesResult : [])
+            : (Array.isArray(cached?.productCategories) ? cached.productCategories : []),
         );
+      }
+
+      // 9. Write fresh products to Dexie so CatalogSyncManager sees lastUpdatedAt
+      //    matches and skips the admin-endpoint PULL — cuts 2 redundant requests per
+      //    page of products on every order-page load.
+      if (restaurantId) {
+        try {
+          await bulkUpsertProducts(productsData, restaurantId);
+          await reconcileCatalogProducts(restaurantId, productsData);
+          if (serverLastUpdatedAt) {
+            const prodMetaKey = `catalog:products:lastUpdatedAt:${restaurantId}`;
+            const lastFullKey = `catalog:lastFullSyncAt:${restaurantId}`;
+            await setCatalogSyncMeta(prodMetaKey, serverLastUpdatedAt);
+            await setCatalogSyncMeta(lastFullKey, new Date().toISOString());
+          }
+        } catch {}
       }
     } catch (err: any) {
       if (productsData.length === 0) setError(err.message || 'خطا در بارگذاری منو');
     } finally {
+      isFetchingRef.current = false;
       setIsLoading(false);
     }
   };
@@ -218,6 +261,7 @@ export function useProductLoader() {
     const restaurantId = user?.restaurants?.[0]?.id;
     if (!restaurantId) return;
     const handleCatalogSynced = async () => {
+      if (isFetchingRef.current) return;
       try {
         const [{ data: localProds }, localCats] = await Promise.all([
           getLocalProducts(restaurantId),
@@ -227,7 +271,10 @@ export function useProductLoader() {
         const syncedCats = localCats.filter((c) => c._syncStatus === 'synced');
         if (syncedProds.length === 0) return;
         const catMap = new Map(syncedCats.map((c) => [c.id, c]));
-        setProducts(syncedProds.map((p) => ({ ...p, category: catMap.get(p.category_id) || { id: p.category_id, name_fa: '' } })));
+        setProducts(syncedProds.map((p) => ({
+          ...p,
+          category: catMap.get(p.category_id) || { id: p.category_id, name_fa: '' },
+        })));
         setProductCategories(syncedCats);
         setCategories(Array.from(new Set(syncedCats.map((c) => c.name_fa).filter(Boolean))));
       } catch {}

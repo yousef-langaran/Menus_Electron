@@ -263,8 +263,7 @@ export const useOrderStore = create<OrderState>()(
                 ),
               };
             }
-            const staffPrice = Number((product as { staffOrderUnitPrice?: number }).staffOrderUnitPrice);
-            const unit = Number.isFinite(staffPrice) && staffPrice > 0 ? staffPrice : Number(product.price ?? 0);
+            const unit = Number(product.price || 0);
             return {
               ...s,
               cart: [...s.cart, { productId: product.id, product, quantity: 1, price: unit, totalPrice: unit, itemOption: '' }],
