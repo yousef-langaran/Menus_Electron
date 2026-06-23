@@ -1444,3 +1444,47 @@ export async function cancelPurchaseReturn(returnId: number, restaurantId: numbe
   });
   return response.data;
 }
+
+// ─── Service Jobs ─────────────────────────────────────────────────────────────
+
+export async function getServiceBoards(restaurantId: number, token: string): Promise<any[]> {
+  await apiConfigReady;
+  const response = await api.get('/service-jobs/boards', {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export interface CreateServiceJobElectronDto {
+  restaurantId: number;
+  boardId: number;
+  title: string;
+  description?: string;
+  customerName?: string;
+  customerPhone?: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  initialStatusId?: number;
+}
+
+export async function createServiceJobRemote(dto: CreateServiceJobElectronDto, token: string): Promise<any> {
+  await apiConfigReady;
+  const { restaurantId, ...body } = dto;
+  const response = await api.post('/service-jobs', body, {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function listServiceJobsRemote(
+  params: { restaurantId: number; boardId?: number; page?: number; limit?: number },
+  token: string,
+): Promise<{ data: any[]; total: number }> {
+  await apiConfigReady;
+  const response = await api.get('/service-jobs', {
+    params,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}

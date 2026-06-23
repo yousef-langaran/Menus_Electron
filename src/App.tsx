@@ -11,6 +11,7 @@ import { UpdateBanner } from './components/UpdateBanner';
 import { OfflineOrdersSync } from './components/OfflineOrdersSync';
 import { AccountingSyncManager } from './components/AccountingSyncManager';
 import { CatalogSyncManager } from './components/CatalogSyncManager';
+import { ServiceJobsSyncManager } from './components/ServiceJobsSyncManager';
 import { CallerIdOverlay } from './components/CallerIdOverlay';
 import { useCallerIdStore } from './store/callerIdStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -38,6 +39,7 @@ const ProductsPage = lazy(() => import('./pages/Products'));
 const CategoriesPage = lazy(() => import('./pages/Categories'));
 const CardTerminalsPage = lazy(() => import('./pages/CardTerminals'));
 const CallHistoryPage = lazy(() => import('./pages/CallHistoryPage'));
+const ServiceJobsPage = lazy(() => import('./pages/ServiceJobs'));
 
 /** پس از 401 از API، خروج از نشست و رفتن به صفحهٔ ورود (بدون وابستگی دایره‌ای به axios) */
 function UnauthorizedListener() {
@@ -127,6 +129,7 @@ function AppRoutes() {
       <OfflineOrdersSync />
       <AccountingSyncManager />
       <CatalogSyncManager />
+      <ServiceJobsSyncManager />
       <OrdersSocketManager />
       <CallerIdManager />
       <CallerIdOverlay />
@@ -158,6 +161,7 @@ function AppRoutes() {
                 <Route path="/accounting/kardex" element={<AccountingKardexPage />} />
                 <Route path="/card-terminals" element={<CardTerminalsPage />} />
                 <Route path="/call-history" element={<CallHistoryPage />} />
+                <Route path="/service-jobs" element={<ServiceJobsPage />} />
               </Route>
             </Route>
           </Route>

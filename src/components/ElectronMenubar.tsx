@@ -59,6 +59,10 @@ function accountingGroupActive(pathname: string): boolean {
   return pathname === '/accounting' || pathname.startsWith('/accounting/');
 }
 
+function serviceJobsActive(pathname: string): boolean {
+  return pathname === '/service-jobs';
+}
+
 export function ElectronMenubar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -123,6 +127,7 @@ export function ElectronMenubar() {
   const catalogVis = filterVisible(catalogItems);
   const accountingVis = filterVisible(accountingItems);
   const systemVis = filterVisible(systemItems);
+  const showServiceJobs = canAccessRoute(user, '/service-jobs');
   const systemHwVis = systemVis.filter((i) => i.path !== '/call-history');
   const systemCallVis = systemVis.filter((i) => i.path === '/call-history');
 
@@ -267,6 +272,17 @@ export function ElectronMenubar() {
             </Dropdown.Menu>
           </Dropdown.Popover>
         </Dropdown.Root>
+      ) : null}
+
+      {showServiceJobs ? (
+        <button
+          type="button"
+          onClick={() => navigate('/service-jobs')}
+          className={menuBtnClass(serviceJobsActive(pathname))}
+          style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+        >
+          پرونده خدمات
+        </button>
       ) : null}
 
       {systemVis.length > 0 ? (

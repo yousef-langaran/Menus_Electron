@@ -148,5 +148,12 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
     );
   }
 
+  if (p === '/service-jobs') {
+    return (
+      hasModuleAccess(user, MODULES.SERVICE_JOBS, [ACTIONS.READ, ACTIONS.CREATE, ACTIONS.MANAGE], rid) ||
+      isOwnerOrAdmin(user)
+    );
+  }
+
   return false;
 }

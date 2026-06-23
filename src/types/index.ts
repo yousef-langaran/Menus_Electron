@@ -10,6 +10,7 @@ export const MODULES = {
   INVENTORY: 'inventory',
   ELECTRON_PANEL: 'electron_panel',
   PRINT_TEMPLATES: 'print_templates',
+  SERVICE_JOBS: 'service_jobs',
 } as const;
 
 export type ModuleKey = typeof MODULES[keyof typeof MODULES];
