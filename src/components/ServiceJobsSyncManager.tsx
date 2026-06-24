@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useSyncStore } from '../store/syncStore';
 import { runServiceJobsSync } from '../services/serviceJobsSync';
-import { getServiceJobsQueueStats } from '../services/serviceJobsLocalDb';
+import { getPendingServiceJobsCount } from '../services/serviceJobsLocalDb';
 
 /**
  * پس‌زمینه سینک پرونده‌های خدمت (آفلاین → سرور).
@@ -25,7 +25,7 @@ export function ServiceJobsSyncManager() {
       try {
         const result = await runServiceJobsSync({ restaurantId, token });
         if (result.jobsFailed > 0) {
-          const stats = await getServiceJobsQueueStats(restaurantId);
+          const stats = await getPendingServiceJobsCount(restaurantId);
           if (stats.failedCount > 0) {
             setLastError(`سینک پرونده‌های خدمت: ${stats.failedCount} پرونده ناموفق`);
           }
