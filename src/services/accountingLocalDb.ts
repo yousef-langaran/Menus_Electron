@@ -1348,6 +1348,30 @@ export async function getOrCreateFinalProductByProductId(
   return newFp.id;
 }
 
+/**
+ * نقشه‌ای از productId (محصول منو) → currentStock (موجودی محصول نهایی) می‌سازد.
+ * فقط ردیف‌هایی که productId دارند و به این رستوران تعلق دارند در نظر گرفته می‌شوند.
+ * برای نمایش موجودی هر محصول در لیست محصولات استفاده می‌شود.
+ */
+export async function getFinalProductStockByProductId(
+  restaurantId: number,
+): Promise<Map<number, number>> {
+  const rows = await accountingDb.finalProducts
+    .where('restaurantId')
+    .equals(restaurantId)
+    .toArray();
+  const map = new Map<number, number>();
+  for (const fp of rows) {
+    const pid = Number(fp.productId);
+    if (!Number.isFinite(pid) || pid <= 0) continue;
+    // اگر چند FinalProduct به یک productId وصل بودند، مجموع را نگه می‌داریم
+    // (احتمالاً نباید چنین چیزی رخ دهد، ولی محافظ کار اضافه است).
+    const stock = Number(fp.currentStock || 0);
+    map.set(pid, (map.get(pid) ?? 0) + stock);
+  }
+  return map;
+}
+
 export async function deletePurchaseInvoiceDraftLocal(invoiceId: number) {
   const existing = await accountingDb.purchaseInvoices.get(invoiceId);
   if (!existing) return false;

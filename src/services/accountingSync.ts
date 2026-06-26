@@ -387,6 +387,12 @@ export async function runAccountingSync(args: {
     console.warn('[CashSync] pushPendingCashTransactions failed:', err),
   );
 
+  // اطلاع به کامپوننت‌های React که sync حسابداری انجام شد (مثلاً برای به‌روزرسانی
+  // موجودی نمایش‌داده‌شده در لیست محصولات).
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('accounting:synced'));
+  }
+
   return {
     isOnline: true,
     pushed,

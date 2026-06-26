@@ -17,6 +17,7 @@ import {
   type LocalCategory,
   type LocalProduct,
 } from '../services/catalogLocalDb';
+import { getFinalProductStockByProductId } from '../services/accountingLocalDb';
 import { runCatalogSync } from '../services/catalogSync';
 import { toast } from '../utils/toast';
 
@@ -96,6 +97,7 @@ export default function ProductsPage() {
 
   const [allProducts, setAllProducts] = useState<LocalProduct[]>([]);
   const [categories, setCategories] = useState<LocalCategory[]>([]);
+  const [stockByProductId, setStockByProductId] = useState<Map<number, number>>(new Map());
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
@@ -153,12 +155,14 @@ export default function ProductsPage() {
     if (!restaurantId) return;
     setLoading(true);
     try {
-      const [{ data }, cats] = await Promise.all([
+      const [{ data }, cats, stockMap] = await Promise.all([
         getLocalProducts(restaurantId),
         getLocalCategories(restaurantId),
+        getFinalProductStockByProductId(restaurantId),
       ]);
       setAllProducts(data);
       setCategories(cats);
+      setStockByProductId(stockMap);
     } finally {
       setLoading(false);
     }
@@ -170,10 +174,12 @@ export default function ProductsPage() {
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
     window.addEventListener('catalog:synced', onSync);
+    window.addEventListener('accounting:synced', onSync);
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     return () => {
       window.removeEventListener('catalog:synced', onSync);
+      window.removeEventListener('accounting:synced', onSync);
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };
@@ -545,6 +551,19 @@ export default function ProductsPage() {
                       <div className="text-xs text-default-500 flex items-center flex-wrap gap-x-2">
                         <span>بارکد: {p.barcode || '—'} | قیمت: {p.price.toLocaleString('fa-IR')} | {p.unit || 'عدد'}</span>
                         {(() => { const cat = categories.find((c) => c.id === p.category_id); return cat ? <span>{cat.name_fa || cat.name}</span> : null; })()}
+                        {(() => {
+                          const stock = stockByProductId.get(p.id);
+                          const defined = stockByProductId.has(p.id);
+                          const isLow = defined && Number(stock) <= 0;
+                          return (
+                            <span
+                              title={defined ? 'موجودی محصول نهایی' : 'موجودی تعریف‌نشده — این محصول هنوز به کالای حسابداری وصل نشده'}
+                              className={isLow ? 'text-danger-600 font-medium' : ''}
+                            >
+                              موجودی: {defined ? Number(stock).toLocaleString('fa-IR') : '—'}
+                            </span>
+                          );
+                        })()}
                         {p.useScaleForWeight && (
                           <span className="inline-flex items-center gap-1 text-xs bg-primary-50 text-primary-700 border border-primary-200 px-1.5 py-0.5 rounded-full">
                             ترازو
