@@ -24,11 +24,28 @@ export function getPrimaryRestaurantId(user: ElectronUser): number | undefined {
   return user?.restaurants?.[0]?.id;
 }
 
-export function isOwnerOrAdmin(user: ElectronUser): boolean {
+/** آیا کاربر صرف‌نظر از نقش، صاحب یکی از رستوران‌هاست؟ (فقط برای نمایش برچسب/منطق صاحب) */
+export function isRestaurantOwner(user: ElectronUser): boolean {
   const roles = Array.isArray(user?.roles) ? user.roles : [];
-  return roles.some((r) =>
-    ['restaurant_owner', 'admin', 'super_admin'].includes(String(r?.title)),
-  );
+  return roles.some((r) => String(r?.title) === 'restaurant_owner');
+}
+
+/** ادمین سیستمی (پشتیبانی/توسعه) که به همه ماژول‌ها دسترسی کامل دارد. */
+export function isSystemAdmin(user: ElectronUser): boolean {
+  const roles = Array.isArray(user?.roles) ? user.roles : [];
+  return roles.some((r) => ['admin', 'super_admin'].includes(String(r?.title)));
+}
+
+/**
+ * @deprecated از `isSystemAdmin` برای دسترسی کامل و `isRestaurantOwner` برای شناسایی
+ * صاحب رستوران استفاده کنید. صاحب رستوران دیگر نباید همه دسترسی‌ها را دور بزند؛
+ * دسترسی او باید از طریق restaurantPermissions کنترل شود.
+ *
+ * برای حفظ سازگاری با کدهای فعلی که این تابع را می‌خوانند، فقط ادمین سیستمی را
+ * پوشش می‌دهد (نه restaurant_owner).
+ */
+export function isOwnerOrAdmin(user: ElectronUser): boolean {
+  return isSystemAdmin(user);
 }
 
 /** حداقل یکی از anyOfActions؛ manage همیشه همه را پوشش می‌دهد */
@@ -39,7 +56,8 @@ export function hasModuleAccess(
   restaurantId?: number,
 ): boolean {
   if (!user) return false;
-  if (isOwnerOrAdmin(user)) return true;
+  // فقط ادمین سیستمی دسترسی کامل دارد؛ صاحب رستوران از طریق restaurantPermissions کنترل می‌شود.
+  if (isSystemAdmin(user)) return true;
   const rid = restaurantId ?? getPrimaryRestaurantId(user);
   const perms = user.restaurantPermissions || [];
   return perms.some((perm) => {
@@ -78,7 +96,6 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
 
   if (p === '/orders') {
     return (
-      hasOrderRegisterAccess(user) ||
       hasModuleAccess(user, MODULES.ORDERS_LIST, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
       hasModuleAccess(user, MODULES.ORDERS_MANAGEMENT, [ACTIONS.READ, ACTIONS.MANAGE], rid)
     );
@@ -86,7 +103,6 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
 
   if (p === '/order-returns') {
     return (
-      hasOrderRegisterAccess(user) ||
       hasModuleAccess(user, MODULES.ORDERS_LIST, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
       hasModuleAccess(user, MODULES.ORDERS_MANAGEMENT, [ACTIONS.READ, ACTIONS.MANAGE], rid)
     );
@@ -108,10 +124,7 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
   }
 
   if (p === '/card-terminals') {
-    return (
-      hasModuleAccess(user, MODULES.ELECTRON_PANEL, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
-      isOwnerOrAdmin(user)
-    );
+    return hasModuleAccess(user, MODULES.ELECTRON_PANEL, [ACTIONS.READ, ACTIONS.MANAGE], rid);
   }
 
   if (p === '/accounting') {
@@ -143,16 +156,12 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
   if (p === '/call-history') {
     return (
       hasModuleAccess(user, MODULES.ELECTRON_PANEL, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
-      hasOrderRegisterAccess(user) ||
-      isOwnerOrAdmin(user)
+      hasOrderRegisterAccess(user)
     );
   }
 
   if (p === '/service-jobs') {
-    return (
-      hasModuleAccess(user, MODULES.SERVICE_JOBS, [ACTIONS.READ, ACTIONS.CREATE, ACTIONS.MANAGE], rid) ||
-      isOwnerOrAdmin(user)
-    );
+    return hasModuleAccess(user, MODULES.SERVICE_JOBS, [ACTIONS.READ, ACTIONS.CREATE, ACTIONS.MANAGE], rid);
   }
 
   return false;

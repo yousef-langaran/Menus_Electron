@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/authStore';
 import { useSyncStore } from '../store/syncStore';
 import { runCatalogSync, getCatalogQueueStats } from '../services/catalogSync';
 import { scheduleCatalogSync } from '../services/syncCoordinator';
+import { canAccessRoute } from '../lib/electronPermissions';
 
 /**
  * کامپوننت پس‌زمینه برای سینک آفلاین محصولات و دسته‌بندی‌ها.
@@ -18,7 +19,10 @@ export function CatalogSyncManager() {
   const setLastError = useSyncStore((s) => s.setLastError);
 
   useEffect(() => {
-    if (!token || !restaurantId) return;
+    // فقط کاربری که دسترسی ماژول محصولات/دسته‌بندی‌ها دارد باید سینک پس‌زمینه را اجرا کند؛
+    // در غیر این صورت هیچ رکوئستی به سرور نرود. (صفحه ثبت سفارش از endpointهای
+    // public خودش استفاده می‌کند و به این سینک وابسته نیست.)
+    if (!user || !canAccessRoute(user, '/products') || !token || !restaurantId) return;
 
     const sync = async (forceFullSync = false) => {
       if (syncingRef.current) return;
@@ -56,7 +60,7 @@ export function CatalogSyncManager() {
       window.removeEventListener('focus', onFocus);
       window.clearInterval(interval);
     };
-  }, [token, restaurantId, restaurantName, setLastError]);
+  }, [token, user, restaurantId, restaurantName, setLastError]);
 
   return null;
 }

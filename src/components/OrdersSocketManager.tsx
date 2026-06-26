@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { connectOrdersSocket, disconnectOrdersSocket } from '../services/ordersSocket';
 import { attachOrdersSocketPanelSidecar } from '../services/ordersSocketPanelSidecar';
 import { useAuthStore } from '../store/authStore';
+import { canAccessRoute } from '../lib/electronPermissions';
 
 const formatPrice = (value?: number) => {
   if (typeof value !== 'number') {
@@ -56,7 +57,10 @@ export function OrdersSocketManager() {
   const restaurantKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isOrdersPage || !token || !restaurantName) {
+    // سوکت زنده سفارشات فقط برای کاربری که دسترسی لیست سفارشات دارد برقرار می‌شود؛
+    // در غیر این صورت هیچ اتصالی ساخته نمی‌شود.
+    const canAccessOrdersList = !!user && canAccessRoute(user, '/orders');
+    if (isOrdersPage || !canAccessOrdersList || !token || !restaurantName) {
       disconnectOrdersSocket();
       restaurantKeyRef.current = null;
       return;
@@ -126,7 +130,7 @@ export function OrdersSocketManager() {
       socket.off('orders:new', handleNewOrder);
       socket.off('orders:updated', handleOrderUpdated);
     };
-  }, [token, restaurantName, isOrdersPage, ensurePermission]);
+  }, [user, token, restaurantName, isOrdersPage, ensurePermission]);
 
   return null;
 }

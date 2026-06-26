@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/authStore';
 import { useSyncStore } from '../store/syncStore';
 import { runServiceJobsSync } from '../services/serviceJobsSync';
 import { getPendingServiceJobsCount } from '../services/serviceJobsLocalDb';
+import { canAccessRoute } from '../lib/electronPermissions';
 
 /**
  * پس‌زمینه سینک پرونده‌های خدمت (آفلاین → سرور).
@@ -17,7 +18,9 @@ export function ServiceJobsSyncManager() {
   const setLastError = useSyncStore((s) => s.setLastError);
 
   useEffect(() => {
-    if (!token || !restaurantId) return;
+    // فقط کاربری که دسترسی ماژول پرونده خدمات دارد باید سینک پس‌زمینه را اجرا کند؛
+    // در غیر این صورت هیچ رکوئستی به سرور نرود.
+    if (!user || !canAccessRoute(user, '/service-jobs') || !token || !restaurantId) return;
 
     const sync = async () => {
       if (syncingRef.current) return;
@@ -50,7 +53,7 @@ export function ServiceJobsSyncManager() {
       window.removeEventListener('focus', onFocus);
       window.clearInterval(interval);
     };
-  }, [token, restaurantId, setLastError]);
+  }, [token, user, restaurantId, setLastError]);
 
   return null;
 }

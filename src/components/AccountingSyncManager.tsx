@@ -3,10 +3,12 @@ import { useAuthStore } from '../store/authStore';
 import { useSyncStore } from '../store/syncStore';
 import { getAccountingQueueStats, runAccountingSync } from '../services/accountingSync';
 import { scheduleAccountingSync } from '../services/syncCoordinator';
+import { canAccessRoute } from '../lib/electronPermissions';
 
 export function AccountingSyncManager() {
   const token = useAuthStore((s) => s.token);
-  const restaurantId = useAuthStore((s) => s.user?.restaurants?.[0]?.id);
+  const user = useAuthStore((s) => s.user);
+  const restaurantId = user?.restaurants?.[0]?.id;
   const syncingRef = useRef(false);
 
   const setOnline = useSyncStore((s) => s.setOnline);
@@ -16,7 +18,9 @@ export function AccountingSyncManager() {
   const setLastError = useSyncStore((s) => s.setLastError);
 
   useEffect(() => {
-    if (!token || !restaurantId) return;
+    // فقط کاربری که دسترسی ماژول حسابداری دارد باید سینک پس‌زمینه را اجرا کند؛
+    // در غیر این صورت هیچ رکوئستی به سرور نرود.
+    if (!user || !canAccessRoute(user, '/accounting') || !token || !restaurantId) return;
 
     const sync = async (reason: string) => {
       if (syncingRef.current) return;
@@ -65,6 +69,7 @@ export function AccountingSyncManager() {
     };
   }, [
     token,
+    user,
     restaurantId,
     setLastError,
     setLastSyncedAt,
