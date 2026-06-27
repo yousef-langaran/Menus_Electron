@@ -57,20 +57,22 @@ export default function CategoriesPage() {
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const loadFromDb = async () => {
+  // هنگام رفرش داده‌های قبلی روی صفحه می‌مانند تا صفحه پرش نکند؛
+  // spinner فقط بار اول (وقتی هنوز داده‌ای نیست) نمایش داده می‌شود.
+  const loadFromDb = async (isRefresh = false) => {
     if (!restaurantId) return;
-    setLoading(true);
+    if (!isRefresh) setLoading(true);
     try {
       const data = await getLocalCategories(restaurantId);
       setRows(data);
     } finally {
-      setLoading(false);
+      if (!isRefresh) setLoading(false);
     }
   };
 
   useEffect(() => {
     void loadFromDb();
-    const onSync = () => void loadFromDb();
+    const onSync = () => void loadFromDb(true);
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
     window.addEventListener('catalog:synced', onSync);
@@ -135,12 +137,12 @@ export default function CategoriesPage() {
         isOnline ? toast.success('دسته‌بندی جدید ثبت شد') : toast.info('دسته‌بندی ذخیره شد — در انتظار سینک');
       }
       setModalOpen(false);
-      await loadFromDb();
+      await loadFromDb(true);
 
       if (isOnline) {
         try {
           await runCatalogSync({ restaurantId, restaurantName, token });
-          await loadFromDb();
+          await loadFromDb(true);
         } catch {
           // سینک background انجام خواهد داد
         }
@@ -157,7 +159,7 @@ export default function CategoriesPage() {
     setDeletingId(row.id);
     try {
       await deleteCategoryLocal(row.id);
-      await loadFromDb();
+      await loadFromDb(true);
     } finally {
       setDeletingId(null);
     }

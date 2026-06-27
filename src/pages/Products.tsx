@@ -151,9 +151,12 @@ export default function ProductsPage() {
   const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
   const products = filteredProducts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const loadFromDb = async () => {
+  // هنگام رفرش (رویدادهای sync، بعد از ذخیره/حذف) داده‌های قبلی روی صفحه
+  // باقی می‌مانند تا صفحه پرش نکند؛ spinner فقط بار اول (وقتی هنوز داده‌ای
+  // نیست) نمایش داده می‌شود — الگوی stale-while-revalidate.
+  const loadFromDb = async (isRefresh = false) => {
     if (!restaurantId) return;
-    setLoading(true);
+    if (!isRefresh) setLoading(true);
     try {
       const [{ data }, cats, stockMap] = await Promise.all([
         getLocalProducts(restaurantId),
@@ -164,13 +167,13 @@ export default function ProductsPage() {
       setCategories(cats);
       setStockByProductId(stockMap);
     } finally {
-      setLoading(false);
+      if (!isRefresh) setLoading(false);
     }
   };
 
   useEffect(() => {
     void loadFromDb();
-    const onSync = () => void loadFromDb();
+    const onSync = () => void loadFromDb(true);
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
     window.addEventListener('catalog:synced', onSync);
@@ -188,7 +191,7 @@ export default function ProductsPage() {
   const handleDeleteFailed = async (id: number) => {
     await deleteProductLocal(id);
     setDeletingId(null);
-    await loadFromDb();
+    await loadFromDb(true);
     toast.success('محصول از لیست آفلاین حذف شد');
   };
 
@@ -388,13 +391,13 @@ export default function ProductsPage() {
         isOnline ? toast.success('محصول جدید ثبت شد') : toast.info('محصول ذخیره شد — در انتظار سینک');
       }
       setModalOpen(false);
-      await loadFromDb();
+      await loadFromDb(true);
 
       // سینک فوری اگر آنلاین هستیم
       if (isOnline) {
         try {
           await runCatalogSync({ restaurantId, restaurantName, token });
-          await loadFromDb();
+          await loadFromDb(true);
         } catch {
           // سینک background انجام خواهد داد
         }

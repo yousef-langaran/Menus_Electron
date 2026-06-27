@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { fetchOrders, updateOrderStatus, createCreditPayment } from '../services/api';
@@ -209,6 +209,22 @@ export default function OrdersPage() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
+  // Debouncer برای جمع‌بست burst رویدادهای سوکت (orders:new/updated پشت‌سرهم)
+  // تا به‌جای چندین درخواست fetch پشت‌سرهم، فقط یک رفرش سایلنت انجام شود.
+  // شناسهٔ پایدار: همیشه به آخرین loadOnlineOrders از طریق ref اشاره می‌کند،
+  // بنابراین socket effect با هر رندر بازتولید نمی‌شود.
+  const onlineReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadOnlineOrdersRef = useRef<(isRefresh?: boolean) => Promise<void>>(
+    async () => {},
+  );
+  const scheduleOnlineReload = useCallback(() => {
+    if (onlineReloadTimerRef.current) clearTimeout(onlineReloadTimerRef.current);
+    onlineReloadTimerRef.current = setTimeout(() => {
+      onlineReloadTimerRef.current = null;
+      void loadOnlineOrdersRef.current(true);
+    }, 800);
+  }, []);
+
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
 
@@ -286,11 +302,11 @@ export default function OrdersPage() {
 
     const handleNewOrder = (order: any) => {
       toast.success(`سفارش جدید ${order.orderNumber || order.id} ثبت شد.`);
-      loadOnlineOrders();
+      scheduleOnlineReload();
     };
 
     const handleOrderUpdated = (_order: any) => {
-      loadOnlineOrders();
+      scheduleOnlineReload();
     };
 
     const handleSocketError = (message: any) => {
@@ -323,9 +339,12 @@ export default function OrdersPage() {
       socket.off('connect_error', handleConnectError);
       disconnectOrdersSocket();
     };
-  }, [token, restaurantName, isOnline, statusFilter, currentPage, pageSize]);
+  }, [token, restaurantName, isOnline, statusFilter, currentPage, pageSize, scheduleOnlineReload]);
 
-  const loadOnlineOrders = async () => {
+  // هنگام رفرش (سوکت، تغییر وضعیت، ثبت پرداخت) سفارشات قبلی روی صفحه
+  // می‌مانند تا صفحه پرش نکند؛ spinner فقط بار اول (وقتی هنوز داده‌ای نیست)
+  // نمایش داده می‌شود — الگوی stale-while-revalidate.
+  const loadOnlineOrders = async (isRefresh = false) => {
     if (!isOnline) return;
     if (!token) {
       toast.warning('برای مشاهده سفارشات آنلاین، ابتدا وارد شوید.');
@@ -333,7 +352,7 @@ export default function OrdersPage() {
       setOnlineMeta(DEFAULT_ONLINE_META);
       return;
     }
-    setOnlineLoading(true);
+    if (!isRefresh) setOnlineLoading(true);
     try {
       const params: Record<string, string | number> = {
         page: currentPage,
@@ -377,6 +396,9 @@ export default function OrdersPage() {
       }
     }
   };
+  // نگه‌داشتن آخرین loadOnlineOrders در ref تا scheduleOnlineReload همیشه
+  // نسخهٔ به‌روز را صدا بزند بدون آنکه socket effect بازتولید شود.
+  loadOnlineOrdersRef.current = loadOnlineOrders;
 
   const loadOfflineOrders = async () => {
     setOfflineLoading(true);
@@ -454,7 +476,7 @@ export default function OrdersPage() {
       setCreditPayModalOpen(false);
       setCreditPayAmount('');
       setCreditPayNotes('');
-      await loadOnlineOrders();
+      await loadOnlineOrders(true);
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'خطا در ثبت پرداخت');
     } finally {
@@ -466,7 +488,7 @@ export default function OrdersPage() {
     setStatusUpdateLoading(orderId);
     try {
       await updateOrderStatus(orderId, status, token || undefined);
-      await loadOnlineOrders();
+      await loadOnlineOrders(true);
     } catch (error: any) {
       console.error('Failed to update status:', error);
       toast.error(error?.response?.data?.message || 'خطا در تغییر وضعیت سفارش');
@@ -484,24 +506,24 @@ export default function OrdersPage() {
     setSyncInProgress(true);
     try {
           const result = await window.electronAPI.syncOrders(token || undefined);
-        if (result) {
-          const unauthorizedError = Array.isArray(result.errors)
-            ? result.errors.find((msg: string) => typeof msg === 'string' && /unauthorized/i.test(msg))
-            : null;
+          if (result) {
+            const unauthorizedError = Array.isArray(result.errors)
+              ? result.errors.find((msg: string) => typeof msg === 'string' && /unauthorized/i.test(msg))
+              : null;
 
-          if (unauthorizedError) {
-            toast.warning('نشست شما منقضی شده است. لطفاً دوباره وارد شوید و سپس همگام‌سازی را تکرار کنید.');
-            if (!auto) {
-              await logout();
-              navigate('/login');
+            if (unauthorizedError) {
+              toast.warning('نشست شما منقضی شده است. لطفاً دوباره وارد شوید و سپس همگام‌سازی را تکرار کنید.');
+              if (!auto) {
+                await logout();
+                navigate('/login');
+              }
+              return;
             }
-            return;
-          }
 
-          toast.success(`ارسال انجام شد: ${result.success} موفق، ${result.failed} ناموفق`);
-        }
-      await loadOfflineOrders();
-      await loadOnlineOrders();
+            toast.success(`ارسال انجام شد: ${result.success} موفق، ${result.failed} ناموفق`);
+          }
+        await loadOfflineOrders();
+        await loadOnlineOrders(true);
     } catch (error: any) {
       console.error('Sync error:', error);
       toast.error(error?.message || 'خطا در همگام‌سازی سفارشات آفلاین');
@@ -652,7 +674,7 @@ export default function OrdersPage() {
 
   const handleReturnSuccess = () => {
     toast.success('مرجوعی با موفقیت ثبت شد');
-    loadOnlineOrders();
+    loadOnlineOrders(true);
   };
 
   const doReprint = async () => {
@@ -978,7 +1000,7 @@ export default function OrdersPage() {
                     <SelectItem key={option.value} textValue={option.label}>{option.label}</SelectItem>
                   ))}
                 </Select>
-                <Button size="sm" variant="flat" onPress={loadOnlineOrders}>بروزرسانی</Button>
+                <Button size="sm" variant="flat" onPress={() => void loadOnlineOrders()}>بروزرسانی</Button>
                 {onlineOrders.length > 0 && (
                   <p className="text-xs text-default-500 w-full sm:w-auto">
                     میانبر: ← و → برای رفتن به سفارش قبلی/بعدی در همین صفحه و باز کردن ویرایش فاکتور
