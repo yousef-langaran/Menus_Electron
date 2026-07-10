@@ -275,20 +275,28 @@ export async function runCatalogSync(args: {
       }));
       // نام‌های دسته‌بندی به صورت string[] (فرمت مورد انتظار Order.tsx)
       const catNames = Array.from(new Set(syncedCategories.map((c) => c.name_fa).filter(Boolean)));
-      await cacheMenu(
-        restaurantId,
-        restaurantName || existing?.restaurantName || '',
-        enrichedProducts,
-        catNames,
-        existing?.cartItemOptions,
-        existing?.isMobileRequiredInElectronPanel,
-        existing?.isScaleIntegrationEnabled,
-        existing?.restrictScaleAccessToElectronManagers,
-        existing?.isCardTerminalEnabled,
-        existing?.restrictCardTerminalAccessToElectronManagers,
-        existing?.allowDirectSendAmountToCardTerminal,
-        new Date().toISOString(),
-      );
+      // گارد پاسخ خالی: اگر Dexie الان هیچ محصول synced ندارد ولی کش صفحهٔ سفارش پر است،
+      // بازنویسی کش یعنی خالی‌شدن دائمی صفحهٔ سفارش در راه‌اندازی بعدی. رد می‌شویم.
+      if (enrichedProducts.length === 0 && (existing?.products?.length ?? 0) > 0) {
+        console.warn(
+          `[catalogSync] Dexie has 0 synced products while order cache has ${existing.products.length} — SKIPPING cacheMenu rewrite`,
+        );
+      } else {
+        await cacheMenu(
+          restaurantId,
+          restaurantName || existing?.restaurantName || '',
+          enrichedProducts,
+          catNames,
+          existing?.cartItemOptions,
+          existing?.isMobileRequiredInElectronPanel,
+          existing?.isScaleIntegrationEnabled,
+          existing?.restrictScaleAccessToElectronManagers,
+          existing?.isCardTerminalEnabled,
+          existing?.restrictCardTerminalAccessToElectronManagers,
+          existing?.allowDirectSendAmountToCardTerminal,
+          new Date().toISOString(),
+        );
+      }
     } catch {
       // به‌روزرسانی cacheMenu اختیاری است
     }

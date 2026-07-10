@@ -12,6 +12,55 @@ const normalizeBarcode = (value: string) =>
     .replace(/\s+/g, '')
     .trim();
 
+const MAX_THUMB_RETRIES = 3;
+
+/**
+ * Product-card photo with automatic retry-with-backoff on load failure. Restaurant
+ * wifi/API hiccups intermittently fail a single image request — without this, that
+ * looks exactly like "the photo disappeared" even though the product data is fine.
+ * After retries are exhausted it shows a distinct placeholder (not just blank), so a
+ * genuinely broken image is visually distinguishable from a product with no photo.
+ */
+function ProductThumb({ src, alt }: { src: string; alt: string }) {
+  const [attempt, setAttempt] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setAttempt(0);
+    setFailed(false);
+  }, [src]);
+
+  useEffect(() => () => {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+  }, []);
+
+  if (failed) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-default-300 text-[10px]">
+        بدون تصویر
+      </div>
+    );
+  }
+
+  const bustedSrc = attempt === 0 ? src : `${src}${src.includes('?') ? '&' : '?'}_r=${attempt}`;
+
+  return (
+    <img
+      src={bustedSrc}
+      alt={alt}
+      className="w-full h-full object-cover"
+      onError={() => {
+        if (attempt < MAX_THUMB_RETRIES) {
+          retryTimerRef.current = setTimeout(() => setAttempt((a) => a + 1), 400 * (attempt + 1));
+        } else {
+          setFailed(true);
+        }
+      }}
+    />
+  );
+}
+
 interface Props {
   products: any[];
   categories: string[];
@@ -49,9 +98,23 @@ export function OrderProductGrid({
   useEffect(() => {
     const el = productGridRef.current;
     if (!el) return;
-    const calc = (w: number) => w < 640 ? 2 : w < 768 ? 3 : 4;
-    setColCount(calc(el.clientWidth));
-    const obs = new ResizeObserver((entries) => setColCount(calc(entries[0].contentRect.width)));
+    // Hysteresis around the breakpoints: once a column count is picked, the width has
+    // to move well past the boundary before switching away from it again. Without this,
+    // a width sitting right at 640/768px can flip-flop on every ResizeObserver tick (e.g.
+    // scrollbar show/hide, sub-pixel layout jitter) — each flip reshuffles every row and
+    // remounts every product card/photo, which looks like photos randomly blinking out.
+    const HYSTERESIS = 24;
+    const calc = (w: number, current: number) => {
+      if (current === 2) return w < 640 + HYSTERESIS ? 2 : w < 768 ? 3 : 4;
+      if (current === 3) return w < 640 ? 2 : w < 768 + HYSTERESIS ? 3 : 4;
+      return w < 640 ? 2 : w < 768 - HYSTERESIS ? 3 : 4;
+    };
+    const update = (w: number) => setColCount((prev) => {
+      const next = calc(w, prev);
+      return next === prev ? prev : next;
+    });
+    update(el.clientWidth);
+    const obs = new ResizeObserver((entries) => update(entries[0].contentRect.width));
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
@@ -67,7 +130,9 @@ export function OrderProductGrid({
   const virtualizer = useVirtualizer({
     count: productRows.length,
     getScrollElement: () => productGridRef.current,
-    estimateSize: () => 76,
+    // Card height is now fixed (image slot + text slot), so this matches exactly —
+    // no post-mount remeasurement/reflow that could momentarily misplace rows.
+    estimateSize: () => 104,
     overscan: 5,
     measureElement: (el) => el.getBoundingClientRect().height,
   });
@@ -122,9 +187,9 @@ export function OrderProductGrid({
   const assetBase = getAssetBaseUrl();
 
   return (
-    <div className="flex flex-row h-full overflow-hidden">
+    <div className="flex flex-row h-full min-h-0 overflow-hidden w-full">
       {/* Product grid */}
-      <div ref={productGridRef} className="flex-1 overflow-y-auto p-2 sm:p-3 min-w-0 relative">
+      <div ref={productGridRef} className="w-full flex-1 min-h-0 overflow-y-scroll p-2 sm:p-3 min-w-0 relative">
         {orderEditLoading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-content1/80 text-default-600 text-sm">
             در حال بارگذاری فاکتور...
@@ -151,21 +216,25 @@ export function OrderProductGrid({
                   <button
                     key={product.id}
                     type="button"
-                    className="flex flex-col rounded-lg border border-default-200 bg-content1 text-start overflow-hidden outline-none transition hover:border-primary hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-content1 p-0 cursor-pointer"
+                    className="flex rounded-lg border border-default-200 bg-content1 text-start overflow-hidden outline-none transition hover:border-primary hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-content1 p-0 cursor-pointer"
                     onClick={() => onProductClick(product)}
                   >
-                    {product.multiMedia?.url ? (
-                      <img
-                        src={`${assetBase}${product.multiMedia.url}`}
-                        alt={product.name_fa || product.name}
-                        className="w-full h-[4.5rem] sm:h-20 object-cover shrink-0"
-                      />
-                    ) : null}
-                    <div className={product.multiMedia?.url ? 'px-2 py-1.5 text-right min-h-0' : 'px-2 py-2 text-right min-h-0'}>
-                      <span className="font-semibold text-foreground text-xs leading-snug line-clamp-2 block">
+                    {/* Fixed-height slot for every card (with or without a photo) so row
+                        height never depends on content — keeps the virtualizer's row
+                        offsets stable and prevents rows from overlapping/hiding images. */}
+                    {product.multiMedia?.url && (
+                    <div className="w-10 h-10 sm:h-14 sm:w-14 shrink-0 bg-default-100">
+                        <ProductThumb
+                          src={`${assetBase}${product.multiMedia.url}`}
+                          alt={product.name_fa || product.name}
+                        />
+                    </div>
+                    )}
+                    <div className="px-1.5 py-1 text-right h-14 overflow-hidden">
+                      <span className="font-semibold text-foreground text-[11px] leading-tight line-clamp-2 block">
                         {product.name_fa || product.name}
                       </span>
-                      <span className="text-primary text-xs mt-0.5 block tabular-nums">
+                      <span className="text-primary text-[11px] mt-0.5 block tabular-nums">
                         {formatPrice(staffCartUnitPrice(product))}
                       </span>
                     </div>

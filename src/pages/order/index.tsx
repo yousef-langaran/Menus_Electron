@@ -428,10 +428,15 @@ export default function OrderPage() {
       )}
 
       {/* Main layout */}
-      <Group className="pt-2">
-        <Panel>
+      <Group className="pt-2 min-h-0">
+        {/* Mixing an unconstrained percentage panel with a pixel-constrained sibling
+            (cart's minSize/maxSize below are px) left this panel with no defaultSize
+            hint — react-resizable-panels couldn't reconcile the two on first layout
+            and collapsed it to ~0 width instead of the intended leftover space. An
+            explicit defaultSize + minSize makes the initial layout deterministic. */}
+        <Panel defaultSize="70%" minSize="40%">
           <Card className="overflow-hidden flex flex-col min-h-0 h-[calc(100vh_-120px)]">
-            <CardContent className="flex-1 overflow-hidden flex flex-row gap-0 p-0">
+            <CardContent className="flex-1 min-h-0 overflow-hidden flex flex-row gap-0 p-0">
               <OrderProductGrid
                 products={productLoader.products}
                 categories={productLoader.categories}
@@ -447,7 +452,7 @@ export default function OrderPage() {
           </Card>
         </Panel>
         <Separator className="px-2" />
-        <Panel maxSize={500} minSize={350}>
+        <Panel defaultSize={420} maxSize={500} minSize={350}>
           <OrderCart
             cartItemOptions={productLoader.cartItemOptions}
             formatPrice={formatPrice}

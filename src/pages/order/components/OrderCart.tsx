@@ -3,6 +3,7 @@ import { Button } from '../../../ui/compat-button';
 import { Input } from '../../../ui/compat-input';
 import { Textarea } from '../../../ui/compat-textarea';
 import { useOrderStore } from '../../../store/orderStore';
+import { getAssetBaseUrl } from '../../../services/api';
 
 function CartItemNoteIcon({ className }: { className?: string }) {
   return (
@@ -32,11 +33,6 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
   const [expandedNoteProductId, setExpandedNoteProductId] = useState<number | null>(null);
   const notePanelRef = useRef<HTMLDivElement | null>(null);
   const openNoteSectionRef = useRef<HTMLDivElement | null>(null);
-
-  const getAssetBaseUrl = () => {
-    // inline to avoid circular import — same as api.ts helper
-    return (window as any).__assetBaseUrl__ || 'https://api.secoin.ir';
-  };
 
   const isInteractive = (e: React.MouseEvent) =>
     (e.target as HTMLElement).closest('button, input, textarea, select');

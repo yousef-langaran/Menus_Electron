@@ -45,15 +45,28 @@ export async function cacheMenu(
   }
 }
 
+// A cached menu is only usable if it actually belongs to the restaurant being
+// requested — otherwise switching accounts/restaurants on the same machine would
+// briefly show a *different* restaurant's stale products (and photos) before the
+// real fetch for the current restaurant overwrites it.
+const matchesRestaurant = (cached: any, restaurantId?: number, restaurantName?: string) => {
+  if (!cached) return false;
+  if (restaurantId != null) return Number(cached.restaurantId) === Number(restaurantId);
+  if (restaurantName) return cached.restaurantName === restaurantName;
+  return true;
+};
+
 export async function getCachedMenu(restaurantId?: number, restaurantName?: string) {
   if (menuCache) {
-    return menuCache;
+    return matchesRestaurant(menuCache, restaurantId, restaurantName) ? menuCache : null;
   }
 
   try {
     const cached = localStorage.getItem('menuCache');
     if (cached) {
-      menuCache = JSON.parse(cached);
+      const parsed = JSON.parse(cached);
+      if (!matchesRestaurant(parsed, restaurantId, restaurantName)) return null;
+      menuCache = parsed;
       return menuCache;
     }
   } catch (error) {
