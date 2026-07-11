@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { pathToFileURL } from 'url';
 
-import { app, BrowserWindow, nativeImage, ipcMain, dialog, session } from 'electron';
+import { app, BrowserWindow, nativeImage, ipcMain, dialog, session, shell } from 'electron';
 import axios from 'axios';
 
 // بارگذاری .env — در build: کنار exe یا در userData؛ در dev: روت پروژه
@@ -258,6 +258,20 @@ ipcMain.on('app:get-version-sync', (event) => {
 
 ipcMain.handle('check-online', async () => {
   return await isOnline();
+});
+
+// باز کردن یک لینک در مرورگر پیش‌فرض سیستم (مثلاً پنل وب مدیریت)
+ipcMain.handle('open-external', async (_event, url: string) => {
+  try {
+    const parsed = new URL(String(url));
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return { success: false, error: 'INVALID_PROTOCOL' };
+    }
+    await shell.openExternal(parsed.toString());
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: String(err?.message || 'INVALID_URL') };
+  }
 });
 
 function pickByPath(source: any, pathExpr: string): any {

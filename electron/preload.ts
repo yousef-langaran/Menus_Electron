@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getApiConfig: () => ipcRenderer.invoke('get-api-config'),
   getAppVersion: () => ipcRenderer.invoke('app:get-version'),
   checkOnline: () => ipcRenderer.invoke('check-online'),
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   syncOrders: (token?: string) => ipcRenderer.invoke('sync-orders', token),
   syncReturns: (token?: string) => ipcRenderer.invoke('sync-returns', token),
   saveOfflineReturn: (returnData: any, token: string, baseURL?: string) =>
@@ -161,6 +162,7 @@ declare global {
       getApiConfig: () => Promise<{ baseURL: string; token?: string; restaurantName?: string; restaurantId?: number }>;
       getAppVersion: () => Promise<string>;
       checkOnline: () => Promise<boolean>;
+      openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
       syncOrders: (token?: string) => Promise<any>;
       syncReturns: (token?: string) => Promise<{ success: number; failed: number; errors: string[] }>;
       saveOfflineReturn: (

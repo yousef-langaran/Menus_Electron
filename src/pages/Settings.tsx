@@ -8,7 +8,7 @@ import { SwitchCompat as Switch } from '../ui/compat-switch';
 import { useAuthStore } from '../store/authStore';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
 import { useThemeStore } from '../store/themeStore';
-import { getReceiptNumberSettingsFromServer, getPrintTemplates, type PrintTemplateItem } from '../services/api';
+import { getReceiptNumberSettingsFromServer, getPrintTemplates, type PrintTemplateItem, WEB_PANEL_URL } from '../services/api';
 import { useSyncStore } from '../store/syncStore';
 import { toast } from '../utils/toast';
 import { useNavigate } from 'react-router-dom';
@@ -483,6 +483,17 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
     }
   };
 
+  const handleOpenWebPanel = async () => {
+    if (!window.electronAPI?.openExternal) {
+      toast.warning('این قابلیت فقط در Electron در دسترس است');
+      return;
+    }
+    const result = await window.electronAPI.openExternal(WEB_PANEL_URL);
+    if (!result.success) {
+      toast.error('خطا در باز کردن پنل وب');
+    }
+  };
+
   const handleSync = async () => {
     if (!window.electronAPI) {
       toast.warning('این قابلیت فقط در Electron در دسترس است');
@@ -539,6 +550,18 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
           </CardContent>
         </Card>
 
+
+        <Card>
+          <CardContent className="gap-3">
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">پنل وب</h2>
+            <p className="text-sm text-default-500">
+              برای دسترسی به گزارش‌ها و تنظیمات کامل، پنل مدیریت وب را در مرورگر باز کنید.
+            </p>
+            <Button color="primary" onPress={handleOpenWebPanel} className="w-full">
+              باز کردن پنل وب (داشبورد)
+            </Button>
+          </CardContent>
+        </Card>
 
         {window.electronAPI?.saveCardTerminalConfig && (
           <Card>

@@ -16,6 +16,13 @@ const getDefaultBaseUrl = () => {
 
 export const API_BASE_URL = getDefaultBaseUrl();
 
+// آدرس پنل مدیریت وب (Menus_FE) — برای دکمه «پنل وب» در دسکتاپ
+export const WEB_PANEL_URL = (
+  import.meta.env.VITE_WEB_PANEL_URL ||
+  import.meta.env.NEXT_PUBLIC_WEB_PANEL_URL ||
+  'https://secoin.ir/admin/dashboard'
+).replace(/\/+$/, '');
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
