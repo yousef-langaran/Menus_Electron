@@ -132,13 +132,28 @@ export default function AccountingRawMaterialCategoriesPage() {
   const handleDelete = async (row: RawMaterialCategoryRow) => {
     if (!restaurantId || !token) return;
     if (!window.confirm(`دسته‌بندی «${row.name}» حذف شود؟`)) return;
+
+    if (isOnline) {
+      // آنلاین: اول از سرور حذف کن. اگر سرور رد کرد (مثلاً ماده اولیه‌ای به این
+      // دسته متصل است)، خطای واقعی را نشان بده و UI/local را دست‌نخورده نگه دار —
+      // در غیر این صورت دسته از Electron ناپدید می‌شد ولی در وب هنوز وجود داشت.
+      try {
+        await deleteRawMaterialCategory(row.id, restaurantId, token);
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || 'خطا در حذف دسته‌بندی');
+        return;
+      }
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+      await accountingDb.rawMaterialCategories.delete(row.id);
+      toast.success('دسته‌بندی حذف شد');
+      return;
+    }
+
+    // آفلاین: optimistic حذف محلی + صف sync برای پس از اتصال
     setRows((prev) => prev.filter((r) => r.id !== row.id));
     try {
       await deleteRawMaterialCategoryLocal({ id: row.id, restaurantId });
-      toast.success('دسته‌بندی حذف شد');
-      if (isOnline) {
-        deleteRawMaterialCategory(row.id, restaurantId, token).catch(() => {});
-      }
+      toast.success('دسته‌بندی حذف شد — پس از اتصال همگام می‌شود');
     } catch {
       setRows((prev) => [...prev, row]);
       toast.error('خطا در حذف دسته‌بندی');

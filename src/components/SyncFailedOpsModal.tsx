@@ -3,6 +3,8 @@ import { Modal, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { ModalShell } from '../ui/modal-shell';
 import {
+  discardAccountingSyncOp,
+  discardFailedAccountingSyncOps,
   getFailedAccountingSyncOps,
   retryFailedAccountingOps,
   type LocalSyncOperation,
@@ -44,6 +46,7 @@ export function SyncFailedOpsModal({ isOpen, onClose }: Props) {
   const [ops, setOps] = useState<LocalSyncOperation[]>([]);
   const [loading, setLoading] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !restaurantId) return;
@@ -65,6 +68,38 @@ export function SyncFailedOpsModal({ isOpen, onClose }: Props) {
       toast.error('خطا در ریست کردن عملیات ناموفق');
     } finally {
       setRetrying(false);
+    }
+  };
+
+  const handleDiscardOne = async (opId?: number) => {
+    if (opId === undefined) return;
+    try {
+      await discardAccountingSyncOp(opId);
+      const next = ops.filter((op) => op.id !== opId);
+      setOps(next);
+      // When the last failed op is discarded, clear the banner count.
+      if (next.length === 0) setQueueState(pendingOps, 0);
+    } catch {
+      toast.error('خطا در حذف عملیات');
+    }
+  };
+
+  const handleDiscardAll = async () => {
+    if (!restaurantId || ops.length === 0) return;
+    if (!window.confirm('همه عملیات‌های ناموفق برای همیشه حذف شوند؟ این عمل قابل بازگشت نیست.')) {
+      return;
+    }
+    setDiscarding(true);
+    try {
+      const count = await discardFailedAccountingSyncOps(restaurantId);
+      setOps([]);
+      setQueueState(pendingOps, 0);
+      toast.success(`${count} عملیات ناموفق حذف شد`);
+      onClose();
+    } catch {
+      toast.error('خطا در حذف عملیات‌های ناموفق');
+    } finally {
+      setDiscarding(false);
     }
   };
 
@@ -93,6 +128,7 @@ export function SyncFailedOpsModal({ isOpen, onClose }: Props) {
                       <th className="px-3 py-2 font-medium">تعداد تلاش</th>
                       <th className="px-3 py-2 font-medium">پیام خطا</th>
                       <th className="px-3 py-2 font-medium">آخرین تلاش</th>
+                      <th className="px-3 py-2 font-medium">عملیات</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -126,6 +162,17 @@ export function SyncFailedOpsModal({ isOpen, onClose }: Props) {
                         <td className="px-3 py-2 text-xs text-default-400 whitespace-nowrap">
                           {op.updatedAt ? toShamsiDateTime(op.updatedAt) : '—'}
                         </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <Button
+                            size="sm"
+                            color="danger"
+                            variant="light"
+                            isDisabled={discarding}
+                            onPress={() => handleDiscardOne(op.id)}
+                          >
+                            حذف
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -139,13 +186,23 @@ export function SyncFailedOpsModal({ isOpen, onClose }: Props) {
             بستن
           </Button>
           {ops.length > 0 && (
-            <Button
-              color="warning"
-              isLoading={retrying}
-              onPress={handleRetryAll}
-            >
-              تلاش مجدد برای همه
-            </Button>
+            <>
+              <Button
+                color="danger"
+                variant="flat"
+                isLoading={discarding}
+                onPress={handleDiscardAll}
+              >
+                حذف همه عملیات ناموفق
+              </Button>
+              <Button
+                color="warning"
+                isLoading={retrying}
+                onPress={handleRetryAll}
+              >
+                تلاش مجدد برای همه
+              </Button>
+            </>
           )}
         </ModalFooter>
       </ModalShell>

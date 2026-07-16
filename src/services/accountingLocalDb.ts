@@ -711,6 +711,33 @@ export async function retryFailedAccountingOps(restaurantId: number): Promise<nu
   return failed.length;
 }
 
+/**
+ * Permanently removes a single failed sync operation from the local queue.
+ *
+ * Useful for operations that will never succeed (e.g. a delete blocked by an FK the
+ * server protects, or a create whose payload is inherently invalid). The row is removed
+ * from IndexedDB only — it is never re-sent to the server.
+ */
+export async function discardAccountingSyncOp(opId: number): Promise<void> {
+  await accountingDb.syncOperations.delete(opId);
+}
+
+/**
+ * Permanently removes every failed sync operation for a restaurant from the local queue.
+ * Returns the number of operations discarded. Mirrors retryFailedAccountingOps but
+ * deletes instead of resetting to 'pending'.
+ */
+export async function discardFailedAccountingSyncOps(
+  restaurantId: number,
+): Promise<number> {
+  const failed = await getFailedAccountingSyncOps(restaurantId);
+  const ids = failed.map((op) => op.id!).filter((id) => id !== undefined);
+  if (ids.length > 0) {
+    await accountingDb.syncOperations.bulkDelete(ids);
+  }
+  return failed.length;
+}
+
 export async function setSyncMeta(key: string, value: string): Promise<void> {
   await accountingDb.syncMeta.put({ key, value });
 }

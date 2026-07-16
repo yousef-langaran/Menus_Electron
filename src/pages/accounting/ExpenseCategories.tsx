@@ -137,14 +137,28 @@ export default function AccountingExpenseCategoriesPage() {
   const handleDelete = async (row: ExpenseCategoryRow) => {
     if (!restaurantId || !token) return;
     if (!window.confirm(`دسته‌بندی «${row.name}» حذف شود؟`)) return;
-    // optimistic: فوری از UI حذف کن
+
+    if (isOnline) {
+      // آنلاین: اول از سرور حذف کن. اگر سرور رد کرد (مثلاً هزینه‌ای به این دسته
+      // متصل است)، خطای واقعی را نشان بده و UI/local را دست‌نخورده نگه دار —
+      // در غیر این صورت دسته از Electron ناپدید می‌شد ولی در وب هنوز وجود داشت.
+      try {
+        await deleteExpenseCategory(row.id, restaurantId, token);
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || 'خطا در حذف دسته‌بندی');
+        return;
+      }
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+      await accountingDb.expenseCategories.delete(row.id);
+      toast.success('دسته‌بندی حذف شد');
+      return;
+    }
+
+    // آفلاین: optimistic حذف محلی + صف sync برای پس از اتصال
     setRows((prev) => prev.filter((r) => r.id !== row.id));
     try {
       await deleteExpenseCategoryLocal({ id: row.id, restaurantId });
-      toast.success('دسته‌بندی حذف شد');
-      if (isOnline) {
-        deleteExpenseCategory(row.id, restaurantId, token).catch(() => {});
-      }
+      toast.success('دسته‌بندی حذف شد — پس از اتصال همگام می‌شود');
     } catch {
       // rollback
       setRows((prev) => [...prev, row]);

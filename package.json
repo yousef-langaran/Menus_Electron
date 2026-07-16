@@ -1,6 +1,6 @@
 {
   "name": "secoin-electron",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "Electron app for restaurant order management with offline support",
   "main": "dist/main.js",
   "scripts": {
