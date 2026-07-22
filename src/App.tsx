@@ -90,6 +90,36 @@ function GlobalShortcutListener() {
   return null;
 }
 
+/** لینک secoin://order/<id> را می‌گیرد و به /orders?openOrderId=<id> ناوبری می‌کند */
+function DeepLinkListener() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onDeepLinkOpenOrder) return;
+
+    const unsub = api.onDeepLinkOpenOrder((url) => {
+      try {
+        const parsed = new URL(url);
+        const isOrderLink = parsed.hostname === 'order' || parsed.pathname.startsWith('/order/');
+        const rawId = isOrderLink
+          ? (parsed.hostname === 'order' ? parsed.pathname : parsed.pathname.replace('/order', '')).replace(/^\/+/, '')
+          : '';
+        const orderId = rawId.split('/')[0];
+        if (orderId) {
+          navigate(`/orders?openOrderId=${encodeURIComponent(orderId)}`);
+        }
+      } catch (e) {
+        console.warn('[DeepLink] failed to parse url:', url, e);
+      }
+    });
+
+    return () => unsub?.();
+  }, [navigate]);
+
+  return null;
+}
+
 function RequireAuth() {
   const user = useAuthStore((s) => s.user);
   if (!user) return <Navigate to="/login" replace />;
@@ -125,6 +155,7 @@ function AppRoutes() {
       <Toast.Provider placement="top start" maxVisibleToasts={4} />
       <UnauthorizedListener />
       <GlobalShortcutListener />
+      <DeepLinkListener />
       <UpdateBanner />
       <OfflineOrdersSync />
       <AccountingSyncManager />

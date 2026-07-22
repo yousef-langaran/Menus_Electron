@@ -44,19 +44,30 @@ const writeOrdersToDisk = async (orders: OfflineOrder[]) => {
   await fs.promises.writeFile(dbPath, JSON.stringify(orders, null, 2), 'utf-8');
 };
 
+// سریالایز کردن تمام عملیات read-modify-write روی فایل — بدون این قفل، دو نوشتن هم‌زمان
+// (مثلاً ثبت سفارش آفلاین جدید هم‌زمان با sync شدن یک سفارش قبلی) می‌توانند یکدیگر را overwrite کنند.
+let ordersLock: Promise<void> = Promise.resolve();
+const withOrdersLock = <T>(fn: () => Promise<T>): Promise<T> => {
+  const next = ordersLock.then(() => fn());
+  ordersLock = next.then(() => {}, () => {});
+  return next;
+};
+
 export async function saveOfflineOrder(orderData: any, token: string, baseURL?: string): Promise<number> {
-  const orders = await readOrdersFromDisk();
-  const id = Date.now();
-  orders.push({
-    id,
-    orderData,
-    token,
-    createdAt: new Date().toISOString(),
-    synced: false,
-    baseURL,
+  return withOrdersLock(async () => {
+    const orders = await readOrdersFromDisk();
+    const id = Date.now();
+    orders.push({
+      id,
+      orderData,
+      token,
+      createdAt: new Date().toISOString(),
+      synced: false,
+      baseURL,
+    });
+    await writeOrdersToDisk(orders);
+    return id;
   });
-  await writeOrdersToDisk(orders);
-  return id;
 }
 
 export async function getOfflineOrders(): Promise<OfflineOrder[]> {
@@ -70,20 +81,24 @@ export async function getAllOrders(): Promise<OfflineOrder[]> {
 }
 
 export async function markOrderAsSynced(id: number): Promise<void> {
-  const orders = await readOrdersFromDisk();
-  const index = orders.findIndex((order) => order.id === id);
-  if (index >= 0) {
-    orders[index].synced = true;
-    orders[index].syncedAt = new Date().toISOString();
-    await writeOrdersToDisk(orders);
-  }
+  return withOrdersLock(async () => {
+    const orders = await readOrdersFromDisk();
+    const index = orders.findIndex((order) => order.id === id);
+    if (index >= 0) {
+      orders[index].synced = true;
+      orders[index].syncedAt = new Date().toISOString();
+      await writeOrdersToDisk(orders);
+    }
+  });
 }
 
 export async function deleteOrder(id: number): Promise<void> {
-  const orders = await readOrdersFromDisk();
-  const filtered = orders.filter((order) => order.id !== id);
-  if (filtered.length !== orders.length) {
-    await writeOrdersToDisk(filtered);
-  }
+  return withOrdersLock(async () => {
+    const orders = await readOrdersFromDisk();
+    const filtered = orders.filter((order) => order.id !== id);
+    if (filtered.length !== orders.length) {
+      await writeOrdersToDisk(filtered);
+    }
+  });
 }
 

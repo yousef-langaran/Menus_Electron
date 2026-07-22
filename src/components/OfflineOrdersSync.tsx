@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { useSyncStore } from '../store/syncStore';
 
 /**
  * پس از آنلاین شدن (رویداد مرورگر، فوکوس پنجره، یا بازهٔ زمانی)
@@ -8,6 +9,10 @@ import { useAuthStore } from '../store/authStore';
 export function OfflineOrdersSync() {
   const token = useAuthStore((s) => s.token);
   const syncingRef = useRef(false);
+
+  const setSyncing = useSyncStore((s) => s.setSyncing);
+  const setLastSyncedAt = useSyncStore((s) => s.setLastSyncedAt);
+  const setLastError = useSyncStore((s) => s.setLastError);
 
   useEffect(() => {
     if (!window.electronAPI?.checkOnline) {
@@ -28,12 +33,16 @@ export function OfflineOrdersSync() {
       if (!online) return;
 
       syncingRef.current = true;
+      setSyncing(true);
+      const errors: string[] = [];
       try {
         if (window.electronAPI.syncOrders) {
           const ordersResult = await window.electronAPI.syncOrders(liveToken);
           if (ordersResult && (ordersResult.success > 0 || ordersResult.failed > 0)) {
             console.log(`[Offline orders sync:${reason}]`, ordersResult);
           }
+          if (ordersResult?.errors?.length) errors.push(...ordersResult.errors);
+          if (ordersResult?.success > 0) setLastSyncedAt(new Date().toISOString());
         }
 
         if (window.electronAPI.syncReturns) {
@@ -41,10 +50,20 @@ export function OfflineOrdersSync() {
           if (returnsResult && (returnsResult.success > 0 || returnsResult.failed > 0)) {
             console.log(`[Offline returns sync:${reason}]`, returnsResult);
           }
+          if (returnsResult?.errors?.length) errors.push(...returnsResult.errors);
+          if (returnsResult?.success > 0) setLastSyncedAt(new Date().toISOString());
         }
-      } catch (e) {
+
+        if (errors.length > 0) {
+          setLastError(`همگام‌سازی سفارش/مرجوعی آفلاین: ${errors.length} مورد ناموفق — ${errors[0]}`);
+        } else {
+          setLastError(null);
+        }
+      } catch (e: any) {
         console.warn(`[Offline sync:${reason}]`, e);
+        setLastError(e?.message || 'همگام‌سازی سفارش‌های آفلاین ناموفق بود');
       } finally {
+        setSyncing(false);
         syncingRef.current = false;
       }
     };
@@ -64,7 +83,7 @@ export function OfflineOrdersSync() {
       window.removeEventListener('focus', onFocus);
       window.clearInterval(interval);
     };
-  }, [token]);
+  }, [token, setSyncing, setLastSyncedAt, setLastError]);
 
   return null;
 }

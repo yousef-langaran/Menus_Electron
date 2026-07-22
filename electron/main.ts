@@ -91,7 +91,8 @@ function getAssetPath(...parts: string[]): string {
 
 let mainWindow: BrowserWindow | null = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-const DEEP_LINK_PROTOCOL = 'hosh-menu';
+// باید با build.protocols در package.json (که نصاب NSIS واقعاً ثبت می‌کند) یکسان باشد.
+const DEEP_LINK_PROTOCOL = 'secoin';
 const PROTOCOL_PREFIX = `${DEEP_LINK_PROTOCOL}://`;
 let pendingDeepLinkUrl: string | null = null;
 

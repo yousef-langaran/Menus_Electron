@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button, Chip, Dropdown, Separator } from '@heroui/react';
 import { useAuthStore } from '../store/authStore';
 import { useCallerIdStore } from '../store/callerIdStore';
+import { useSyncStore } from '../store/syncStore';
 import {
   canAccessRoute,
   hasOrderRegisterAccess,
@@ -11,10 +12,12 @@ import {
 
 type NavLeaf = { path: string; label: string; visible: (u: ElectronUser) => boolean };
 
+// تنها منبع وضعیت آنلاین/آفلاین در کل اپ — نتیجه در useSyncStore نوشته می‌شود
+// تا سایر بخش‌ها (مثل Suppliers.tsx) هم همین مقدار را بخوانند و دچار ناهماهنگی نشوند.
 function useOnlineFlag() {
-  const [online, setOnline] = useState(
-    typeof navigator !== 'undefined' ? navigator.onLine : true,
-  );
+  const online = useSyncStore((s) => s.isOnline);
+  const setOnline = useSyncStore((s) => s.setOnline);
+
   const refresh = useCallback(async () => {
     if (typeof window !== 'undefined' && window.electronAPI?.checkOnline) {
       try {
@@ -25,7 +28,7 @@ function useOnlineFlag() {
       }
     }
     setOnline(typeof navigator !== 'undefined' ? navigator.onLine : true);
-  }, []);
+  }, [setOnline]);
 
   useEffect(() => {
     void refresh();
@@ -275,14 +278,14 @@ export function ElectronMenubar() {
       ) : null}
 
       {showServiceJobs ? (
-        <button
-          type="button"
-          onClick={() => navigate('/service-jobs')}
+        <Button
+          variant="ghost"
+          size="sm"
+          onPress={() => navigate('/service-jobs')}
           className={menuBtnClass(serviceJobsActive(pathname))}
-          style={{ border: 'none', background: 'none', cursor: 'pointer' }}
         >
           پرونده خدمات
-        </button>
+        </Button>
       ) : null}
 
       {systemVis.length > 0 ? (

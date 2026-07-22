@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { fetchOrders, updateOrderStatus, createCreditPayment } from '../services/api';
+import { fetchOrders, fetchOrderById, updateOrderStatus, createCreditPayment } from '../services/api';
 import CreateOrderReturnModal from '../components/CreateOrderReturnModal';
 import { getAllOrders } from '../services/offlineStorage';
 import { hasModuleAccess } from '../lib/electronPermissions';
@@ -59,6 +59,7 @@ const DEFAULT_ONLINE_META = {
 
 export default function OrdersPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, token, logout } = useAuthStore();
   const [statusFilter, setStatusFilter] = useState('all');
   const [onlineOrders, setOnlineOrders] = useState<any[]>([]);
@@ -655,6 +656,41 @@ export default function OrdersPage() {
       : `پیش‌نمایش سفارش #${order?.orderNumber || order?.id || ''}`;
     openReceiptPreview(normalized, title);
   };
+
+  // ورود از طریق deep-link (secoin://order/<id>) — App.tsx به /orders?openOrderId=<id> ناوبری می‌کند
+  useEffect(() => {
+    const openOrderId = searchParams.get('openOrderId');
+    if (!openOrderId || !token) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const order = await fetchOrderById(Number(openOrderId), token);
+        if (!cancelled && order) {
+          handlePreviewOrder(order, false);
+        } else if (!cancelled) {
+          toast.error('سفارش مورد نظر پیدا نشد');
+        }
+      } catch (error: any) {
+        if (!cancelled) {
+          toast.error(error?.message || 'خطا در دریافت سفارش');
+        }
+      } finally {
+        if (!cancelled) {
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete('openOrderId');
+            return next;
+          }, { replace: true });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, token]);
 
   const openReprintModal = (order: any, isOffline = false) => {
     if (!enabledPrinters.length) {

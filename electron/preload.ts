@@ -127,6 +127,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('caller-id:incoming-call', handler);
     return () => ipcRenderer.removeListener('caller-id:incoming-call', handler);
   },
+  onDeepLinkOpenOrder: (callback: (url: string) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, url: string) => callback(url);
+    ipcRenderer.on('deep-link-open-order', handler);
+    return () => ipcRenderer.removeListener('deep-link-open-order', handler);
+  },
   onCallEnded: (callback: () => void) => {
     const handler = () => callback();
     ipcRenderer.on('caller-id:call-ended', handler);
@@ -163,7 +168,7 @@ declare global {
       getAppVersion: () => Promise<string>;
       checkOnline: () => Promise<boolean>;
       openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
-      syncOrders: (token?: string) => Promise<any>;
+      syncOrders: (token?: string) => Promise<{ success: number; failed: number; errors: string[] }>;
       syncReturns: (token?: string) => Promise<{ success: number; failed: number; errors: string[] }>;
       saveOfflineReturn: (
         returnData: any,
@@ -241,6 +246,7 @@ declare global {
       callerIdHidDisconnect: () => Promise<{ success: boolean; error?: string }>;
       callerIdHidStatus: () => Promise<{ connected: boolean }>;
       onIncomingCall: (callback: (payload: { phone: string; timestamp: string }) => void) => () => void;
+      onDeepLinkOpenOrder: (callback: (url: string) => void) => () => void;
       onCallEnded: (callback: () => void) => () => void;
       callerIdLoadHistory: () => Promise<any[]>;
       callerIdSaveHistory: (history: any[]) => Promise<{ success: boolean; error?: string }>;

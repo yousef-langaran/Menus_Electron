@@ -11,7 +11,6 @@ export function AccountingSyncManager() {
   const restaurantId = user?.restaurants?.[0]?.id;
   const syncingRef = useRef(false);
 
-  const setOnline = useSyncStore((s) => s.setOnline);
   const setSyncing = useSyncStore((s) => s.setSyncing);
   const setQueueState = useSyncStore((s) => s.setQueueState);
   const setLastSyncedAt = useSyncStore((s) => s.setLastSyncedAt);
@@ -29,7 +28,6 @@ export function AccountingSyncManager() {
       try {
         const forceFullSync = reason === 'initial' || reason === 'online';
         const result = await runAccountingSync({ restaurantId, token, forceFullSync });
-        setOnline(result.isOnline);
         if (result.syncedAt) setLastSyncedAt(result.syncedAt);
         if (result.pushFailed > 0) {
           setLastError(`همگام‌سازی حسابداری: ${result.pushFailed} عملیات ناموفق — داده‌ها در صف منتظرند`);
@@ -73,7 +71,6 @@ export function AccountingSyncManager() {
     restaurantId,
     setLastError,
     setLastSyncedAt,
-    setOnline,
     setQueueState,
     setSyncing,
   ]);

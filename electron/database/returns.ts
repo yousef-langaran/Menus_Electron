@@ -44,19 +44,30 @@ const writeToDisk = async (returns: OfflineReturn[]) => {
   await fs.promises.writeFile(dbPath, JSON.stringify(returns, null, 2), 'utf-8');
 };
 
+// سریالایز کردن تمام عملیات read-modify-write روی فایل — بدون این قفل، دو نوشتن هم‌زمان
+// (مثلاً ثبت مرجوعی آفلاین جدید هم‌زمان با sync شدن یک مرجوعی قبلی) می‌توانند یکدیگر را overwrite کنند.
+let returnsLock: Promise<void> = Promise.resolve();
+const withReturnsLock = <T>(fn: () => Promise<T>): Promise<T> => {
+  const next = returnsLock.then(() => fn());
+  returnsLock = next.then(() => {}, () => {});
+  return next;
+};
+
 export async function saveOfflineReturn(returnData: any, token: string, baseURL?: string): Promise<number> {
-  const returns = await readFromDisk();
-  const id = Date.now();
-  returns.push({
-    id,
-    returnData,
-    token,
-    createdAt: new Date().toISOString(),
-    synced: false,
-    baseURL,
+  return withReturnsLock(async () => {
+    const returns = await readFromDisk();
+    const id = Date.now();
+    returns.push({
+      id,
+      returnData,
+      token,
+      createdAt: new Date().toISOString(),
+      synced: false,
+      baseURL,
+    });
+    await writeToDisk(returns);
+    return id;
   });
-  await writeToDisk(returns);
-  return id;
 }
 
 export async function getOfflineReturns(): Promise<OfflineReturn[]> {
@@ -70,19 +81,23 @@ export async function getAllReturns(): Promise<OfflineReturn[]> {
 }
 
 export async function markReturnAsSynced(id: number): Promise<void> {
-  const returns = await readFromDisk();
-  const index = returns.findIndex((r) => r.id === id);
-  if (index >= 0) {
-    returns[index].synced = true;
-    returns[index].syncedAt = new Date().toISOString();
-    await writeToDisk(returns);
-  }
+  return withReturnsLock(async () => {
+    const returns = await readFromDisk();
+    const index = returns.findIndex((r) => r.id === id);
+    if (index >= 0) {
+      returns[index].synced = true;
+      returns[index].syncedAt = new Date().toISOString();
+      await writeToDisk(returns);
+    }
+  });
 }
 
 export async function deleteReturn(id: number): Promise<void> {
-  const returns = await readFromDisk();
-  const filtered = returns.filter((r) => r.id !== id);
-  if (filtered.length !== returns.length) {
-    await writeToDisk(filtered);
-  }
+  return withReturnsLock(async () => {
+    const returns = await readFromDisk();
+    const filtered = returns.filter((r) => r.id !== id);
+    if (filtered.length !== returns.length) {
+      await writeToDisk(filtered);
+    }
+  });
 }

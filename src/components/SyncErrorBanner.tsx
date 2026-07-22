@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSyncStore } from '../store/syncStore';
 import { useAuthStore } from '../store/authStore';
 import { SyncFailedOpsModal } from './SyncFailedOpsModal';
+import { Button } from '../ui/compat-button';
 
 /**
  * نوار هشدار — sync failures و انقضای اشتراک را نمایش می‌دهد.
@@ -45,21 +46,26 @@ export function SyncErrorBanner() {
               <span>{syncMessage}</span>
               <span className="text-warning-600 text-xs">— با اتصال به اینترنت خودکار همگام‌سازی می‌شود</span>
               {failedOps > 0 && (
-                <button
-                  onClick={() => setDetailsOpen(true)}
-                  className="text-xs underline text-warning-700 hover:text-warning-900 font-medium"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onPress={() => setDetailsOpen(true)}
+                  className="h-auto min-h-0 px-1 py-0 text-xs underline text-warning-700 hover:text-warning-900 font-medium"
                 >
                   جزئیات
-                </button>
+                </Button>
               )}
             </div>
-            <button
-              onClick={() => setLastError(null)}
+            <Button
+              variant="light"
+              size="sm"
+              isIconOnly
+              onPress={() => setLastError(null)}
               className="text-warning-600 hover:text-warning-900 text-lg leading-none"
               aria-label="بستن"
             >
               ×
-            </button>
+            </Button>
           </div>
         )}
       </div>

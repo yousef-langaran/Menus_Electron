@@ -47,12 +47,37 @@ function mapToV3Variant(color?: LegacyColor, variant?: LegacyVariant): HeroBtn['
   return 'primary';
 }
 
-export function Button({ color, variant, isLoading, children, isDisabled, ...rest }: CompatButtonProps) {
+/**
+ * v3 Button هیچ variant اختصاصی برای success ندارد (فقط danger/danger-soft/ghost/outline/
+ * primary/secondary/tertiary — نگاه کنید به @heroui/styles button.styles.ts)، برای همین
+ * mapToV3Variant قبلاً color="success" را بی‌صدا با primary/secondary یکی می‌کرد و دکمه‌های
+ * تأیید/پرداخت از دکمه‌های اصلی قابل تشخیص نبودند. اینجا از همان توکن‌های رنگ success که
+ * خود HeroUI به Chip/Toast می‌دهد (--color-success, --color-success-soft, ...) به‌عنوان
+ * className override استفاده می‌کنیم تا ظاهر success واقعاً سبز/متمایز بماند.
+ */
+function successClassName(variant?: LegacyVariant): string {
+  const v = variant ?? 'solid';
+  if (v === 'bordered') return '!border-success !text-success hover:!bg-success-soft';
+  if (v === 'light' || v === 'ghost') return '!text-success hover:!bg-success-soft';
+  if (v === 'flat') return '!bg-success-soft !text-success-soft-foreground hover:!bg-success-soft-hover';
+  return '!bg-success !text-success-foreground hover:!bg-success-hover';
+}
+
+export function Button({ color, variant, isLoading, children, isDisabled, className, ...rest }: CompatButtonProps) {
   const nextVariant = mapToV3Variant(color, variant);
   const disabled = Boolean(isDisabled || isLoading);
+  const mergedClassName = [color === 'success' ? successClassName(variant) : '', className]
+    .filter(Boolean)
+    .join(' ') || undefined;
 
   return (
-    <HeroButton {...rest} variant={nextVariant} isDisabled={disabled} isPending={isLoading}>
+    <HeroButton
+      {...rest}
+      variant={nextVariant}
+      isDisabled={disabled}
+      isPending={isLoading}
+      className={mergedClassName}
+    >
       {isLoading ? (
         <span className="inline-flex items-center justify-center gap-2">
           <Spinner size="sm" color="current" aria-label="در حال بارگذاری" />
