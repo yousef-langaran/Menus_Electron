@@ -349,58 +349,59 @@
   dependencies:
     "@hapi/hoek" "^9.0.0"
 
-"@heroui/react@^3.1.0":
-  version "3.1.0"
-  resolved "https://registry.npmjs.org/@heroui/react/-/react-3.1.0.tgz"
-  integrity sha512-q+K3Kz5h2ceOEMPuNORLGX1Pqh4McN30y31eykzZZjLbmta4nwi4sDMVAv7/w8QWnWVDOucusXz5x9s5N656nA==
+"@heroui/react@^3.2.2":
+  version "3.2.2"
+  resolved "https://registry.npmjs.org/@heroui/react/-/react-3.2.2.tgz"
+  integrity sha512-TN8ccfHCRIxa9dGhWMaVSl5sGCKWH2E13z2NJ5QBZTFQCow8GogQzW3cn/dRz3YEdYt4B9zfH2N0oKEazVoKRA==
   dependencies:
-    "@heroui/styles" "3.1.0"
+    "@heroui/styles" "3.2.2"
     "@radix-ui/react-avatar" "1.1.11"
-    "@react-aria/i18n" "3.13.0"
-    "@react-aria/ssr" "3.10.0"
-    "@react-aria/utils" "3.34.0"
-    "@react-stately/utils" "3.12.0"
+    "@react-aria/i18n" "3.13.1"
+    "@react-aria/ssr" "3.10.1"
+    "@react-aria/utils" "3.34.1"
+    "@react-stately/utils" "3.12.1"
     "@react-types/color" "3.2.0"
-    "@react-types/shared" "3.34.0"
+    "@react-types/shared" "3.36.0"
     input-otp "1.4.2"
-    react-aria-components "1.17.0"
+    react-aria "^3.50.0"
+    react-aria-components "^1.19.0"
     tailwind-merge "3.4.0"
     tailwind-variants "3.2.2"
 
-"@heroui/styles@^3.1.0", "@heroui/styles@3.1.0":
-  version "3.1.0"
-  resolved "https://registry.npmjs.org/@heroui/styles/-/styles-3.1.0.tgz"
-  integrity sha512-euZtlV5hk9qOWhkSbTaJIrdnm0bGxvu1FEN6nnLGt7PM7AdL40z4C3ZYQ+cW+ObSsqsWHzQRsuhmLHVt1uTS4w==
+"@heroui/styles@^3.2.2", "@heroui/styles@3.2.2":
+  version "3.2.2"
+  resolved "https://registry.npmjs.org/@heroui/styles/-/styles-3.2.2.tgz"
+  integrity sha512-aDvmcF1bEtWMTg6xbbfv62PFhm2ldIoYIt1uFKyTXEwWH1VWbr+er4LvZojtddTbqA9t58rbE5y32xM8ei9gHg==
   dependencies:
     tailwind-variants "3.2.2"
     tw-animate-css "1.4.0"
 
-"@internationalized/date@^3.12.1":
-  version "3.12.1"
-  resolved "https://registry.npmjs.org/@internationalized/date/-/date-3.12.1.tgz"
-  integrity sha512-6IedsVWXyq4P9Tj+TxuU8WGWM70hYLl12nbYU8jkikVpa6WXapFazPUcHUMDMoWftIDE2ILDkFFte6W2nFCkRQ==
+"@internationalized/date@^3.12.1", "@internationalized/date@^3.12.2":
+  version "3.12.2"
+  resolved "https://registry.npmjs.org/@internationalized/date/-/date-3.12.2.tgz"
+  integrity sha512-FY1Y+H64NDs+HAF6omlnWxm3mEpfgaCSWtL5l551ZZfImA+kGjPFgrnJrGjH6lfmLL0g8Z/mBu1R3kufeCp6Jw==
   dependencies:
     "@swc/helpers" "^0.5.0"
 
 "@internationalized/message@^3.1.9":
-  version "3.1.9"
-  resolved "https://registry.npmjs.org/@internationalized/message/-/message-3.1.9.tgz"
-  integrity sha512-x03MSVTaB/4JHtW1VAYaY/2cCuBrHbWM6ZvlgpKdnSdW28tZbqpR673RJrVJyXWRw1bpgYN89Tz7ohX5tgNgPA==
+  version "3.1.10"
+  resolved "https://registry.npmjs.org/@internationalized/message/-/message-3.1.10.tgz"
+  integrity sha512-nc0Or6EdWHqZRcsXb6P9hBIpLsfSl/ILh0rk5h/OVBpzmhdExXtPy2cQtWsq8XKRBpRHwDNnAHt4OpolcB7dog==
   dependencies:
     "@swc/helpers" "^0.5.0"
     intl-messageformat "^10.1.0"
 
-"@internationalized/number@^3.6.6":
-  version "3.6.6"
-  resolved "https://registry.npmjs.org/@internationalized/number/-/number-3.6.6.tgz"
-  integrity sha512-iFgmQaXHE0vytNfpLZWOC2mEJCBRzcUxt53Xf/yCXG93lRvqas237i3r7X4RKMwO3txiyZD4mQjKAByFv6UGSQ==
+"@internationalized/number@^3.6.6", "@internationalized/number@^3.6.7":
+  version "3.6.7"
+  resolved "https://registry.npmjs.org/@internationalized/number/-/number-3.6.7.tgz"
+  integrity sha512-3ji1fcrT+FPAK86UqEhB/psHixYo6niWPJtt7+qRaYFynt/BaJG8GhAPimtWUpEiVSTq8ZM8L5psMxGquiB/Vg==
   dependencies:
     "@swc/helpers" "^0.5.0"
 
-"@internationalized/string@^3.2.8":
-  version "3.2.8"
-  resolved "https://registry.npmjs.org/@internationalized/string/-/string-3.2.8.tgz"
-  integrity sha512-NdbMQUSfXLYIQol5VyMtinm9pZDciiMfN7RtmSuSB78io1hqwJ0naYfxyW6vgxWBkzWymQa/3uLDlbfmshtCaA==
+"@internationalized/string@^3.2.8", "@internationalized/string@^3.2.9":
+  version "3.2.9"
+  resolved "https://registry.npmjs.org/@internationalized/string/-/string-3.2.9.tgz"
+  integrity sha512-kzP/M/mbQxODlmOt4bIQZ2SBVUWUSqMLXooXixnX7noche8WHaQcA+nwFN1K2KCF/cp+LDUhcJsCicwkvhD1pg==
   dependencies:
     "@swc/helpers" "^0.5.0"
 
@@ -555,33 +556,33 @@
     "@swc/helpers" "^0.5.0"
     react-aria "3.48.0"
 
-"@react-aria/i18n@3.13.0":
-  version "3.13.0"
-  resolved "https://registry.npmjs.org/@react-aria/i18n/-/i18n-3.13.0.tgz"
-  integrity sha512-APjw4EwmvlnIyDxixSWfjHvOFFkW2rVTyKZ4l9FV0v7hOerh+FWLE6mF1XnnX3pgz3yARkKWwhSR9xYcRK6tpg==
+"@react-aria/i18n@3.13.1":
+  version "3.13.1"
+  resolved "https://registry.npmjs.org/@react-aria/i18n/-/i18n-3.13.1.tgz"
+  integrity sha512-z56ZYcbfpNmMyiGLhyEjytpmEfoTlBaksk84q4kds3HvNkf7QWKj+DJVfVDrJX+c1LyuBsszLSX7yxJRiHsYKQ==
   dependencies:
     "@internationalized/date" "^3.12.1"
     "@internationalized/message" "^3.1.9"
     "@internationalized/string" "^3.2.8"
     "@swc/helpers" "^0.5.0"
-    react-aria "3.48.0"
+    react-aria "^3.48.0"
 
-"@react-aria/ssr@3.10.0":
-  version "3.10.0"
-  resolved "https://registry.npmjs.org/@react-aria/ssr/-/ssr-3.10.0.tgz"
-  integrity sha512-mnelvACtfNWWKFCT1YHebxJRmfBmmANGwHQhCFPByMVTx1L8RumcaLxChYkE87g2KPuP5xX2il/oRn1DytW+qQ==
+"@react-aria/ssr@3.10.1":
+  version "3.10.1"
+  resolved "https://registry.npmjs.org/@react-aria/ssr/-/ssr-3.10.1.tgz"
+  integrity sha512-jn038/ZYmu6DpfXJ6r2U9zFFppjbc9wnApPJSCxao2RZVEqep4YyoniHSy8qv6V21/xyS4IV7W9a+X2jOjSuag==
   dependencies:
     "@swc/helpers" "^0.5.0"
-    react-aria "3.48.0"
+    react-aria "^3.48.0"
 
-"@react-aria/utils@3.34.0":
-  version "3.34.0"
-  resolved "https://registry.npmjs.org/@react-aria/utils/-/utils-3.34.0.tgz"
-  integrity sha512-ZM1ZXIqpwGTJjjL6o3JhlZkEaBpQdxuOCqLEvwEwooaj5GsYI3E9UfOl5vy3UW6bYiEEWl9pNBntrb9CR9kItQ==
+"@react-aria/utils@3.34.1":
+  version "3.34.1"
+  resolved "https://registry.npmjs.org/@react-aria/utils/-/utils-3.34.1.tgz"
+  integrity sha512-H6+rGZL+0f58bBNaUMfctEnT+NogqwAk+nHiB8sR3K+YlQ37GTuCijy2U/pPvQtFMS5mURrjZeBH5JNNXsx14A==
   dependencies:
     "@swc/helpers" "^0.5.0"
-    react-aria "3.48.0"
-    react-stately "3.46.0"
+    react-aria "^3.48.0"
+    react-stately "^3.46.0"
 
 "@react-spectrum/color@^3.2.0":
   version "3.2.0"
@@ -608,13 +609,13 @@
     "@swc/helpers" "^0.5.0"
     react-stately "3.46.0"
 
-"@react-stately/utils@3.12.0":
-  version "3.12.0"
-  resolved "https://registry.npmjs.org/@react-stately/utils/-/utils-3.12.0.tgz"
-  integrity sha512-7q+iHz9cENvro1dVKgdTxNh1i1mtWuLUI6UHp10TAgpxM9DyRDvmuN35zLXYCmMDgx3WLY2xkwqoez8xd+CdxQ==
+"@react-stately/utils@3.12.1":
+  version "3.12.1"
+  resolved "https://registry.npmjs.org/@react-stately/utils/-/utils-3.12.1.tgz"
+  integrity sha512-NqKfzrknpfwiewx7R2vk1P+CneClInPDsIhw15+jOcUYSEfej0nta4cJywuKQJ2gsPwqX/ojDNixedCve9FWGw==
   dependencies:
     "@swc/helpers" "^0.5.0"
-    react-stately "3.46.0"
+    react-stately "^3.46.0"
 
 "@react-types/color@3.2.0":
   version "3.2.0"
@@ -625,10 +626,10 @@
     "@react-spectrum/color" "^3.2.0"
     "@react-stately/color" "^3.10.0"
 
-"@react-types/shared@^3.34.0", "@react-types/shared@3.34.0":
-  version "3.34.0"
-  resolved "https://registry.npmjs.org/@react-types/shared/-/shared-3.34.0.tgz"
-  integrity sha512-gp6xo/s2lX54AlTjOiqwDnxA7UW79BNvI9dB9pr3LZTzRKCd1ZA+ZbgKw/ReIiWuvvVw/8QFJpnqeeFyLocMcQ==
+"@react-types/shared@^3.34.0", "@react-types/shared@^3.36.0", "@react-types/shared@3.36.0":
+  version "3.36.0"
+  resolved "https://registry.npmjs.org/@react-types/shared/-/shared-3.36.0.tgz"
+  integrity sha512-DkP/H0C2YjjS7gZWKNqOmU8a16qHPjQNdzMwmTq9SzplM6Iw0kVMTZ0OIoe6FOgGqa+FwMsE2QbPjh/n3g/jXQ==
 
 "@remix-run/router@1.23.2":
   version "1.23.2"
@@ -3017,6 +3018,18 @@ quick-lru@^5.1.1:
   resolved "https://registry.npmjs.org/quick-lru/-/quick-lru-5.1.1.tgz"
   integrity sha512-WuyALRjWPDGtt/wzJiadO5AXY+8hZ80hVpe6MyivgraREW751X3SbhRvG3eLKOYN+8VEvqLcf3wdnt44Z4S4SA==
 
+react-aria-components@^1.19.0:
+  version "1.19.0"
+  resolved "https://registry.npmjs.org/react-aria-components/-/react-aria-components-1.19.0.tgz"
+  integrity sha512-2smSS5nqJ8cGYMQezuUXveZm7eMyHCqTN6mDpylQBYLYbdF5dxCCuW1DHn1VKLe1DybSfPvX/cZtJlDmvFfn8A==
+  dependencies:
+    "@internationalized/date" "^3.12.2"
+    "@react-types/shared" "^3.36.0"
+    "@swc/helpers" "^0.5.0"
+    client-only "^0.0.1"
+    react-aria "3.50.0"
+    react-stately "3.48.0"
+
 react-aria-components@1.17.0:
   version "1.17.0"
   resolved "https://registry.npmjs.org/react-aria-components/-/react-aria-components-1.17.0.tgz"
@@ -3029,7 +3042,7 @@ react-aria-components@1.17.0:
     react-aria "3.48.0"
     react-stately "3.46.0"
 
-react-aria@3.48.0:
+react-aria@^3.48.0, react-aria@3.48.0:
   version "3.48.0"
   resolved "https://registry.npmjs.org/react-aria/-/react-aria-3.48.0.tgz"
   integrity sha512-jQjd4rBEIMqecBaAKYJbVGK6EqIHLa5znVQ7jwFyK5vCyljoj6KhgtiahmcIPsG5vG5vEDLw+ba+bEWn6A2P4w==
@@ -3042,6 +3055,21 @@ react-aria@3.48.0:
     aria-hidden "^1.2.3"
     clsx "^2.0.0"
     react-stately "3.46.0"
+    use-sync-external-store "^1.6.0"
+
+react-aria@^3.50.0, react-aria@3.50.0:
+  version "3.50.0"
+  resolved "https://registry.npmjs.org/react-aria/-/react-aria-3.50.0.tgz"
+  integrity sha512-S0Os6QZk33fzUAKu1QLT9afoUaCBt1ZNdoiq0n2YMVgKIdNIQS8zxiZ8O9hYE6QyDkHKjD6q39LQZ+qaSAIgjw==
+  dependencies:
+    "@internationalized/date" "^3.12.2"
+    "@internationalized/number" "^3.6.7"
+    "@internationalized/string" "^3.2.9"
+    "@react-types/shared" "^3.36.0"
+    "@swc/helpers" "^0.5.0"
+    aria-hidden "^1.2.3"
+    clsx "^2.0.0"
+    react-stately "3.48.0"
     use-sync-external-store "^1.6.0"
 
 "react-dom@^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc", "react-dom@^16.8 || ^17.0 || ^18.0 || ^19.0.0 || ^19.0.0-rc", "react-dom@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom@^16.8.0 || ^17.0.0-rc.1 || ^18.0.0 || ^19.0.0", "react-dom@^16.8.0 || ^17.0.0-rc.1 || ^18.0.0 || ^19.0.0-rc.1", "react-dom@^18.0.0 || ^19.0.0", react-dom@>=16.6.0, react-dom@>=16.8, react-dom@>=16.8.0, react-dom@>=19.0.0, react-dom@19.2.4:
@@ -3075,7 +3103,7 @@ react-router@6.30.3:
   dependencies:
     "@remix-run/router" "1.23.2"
 
-react-stately@3.46.0:
+react-stately@^3.46.0, react-stately@3.46.0:
   version "3.46.0"
   resolved "https://registry.npmjs.org/react-stately/-/react-stately-3.46.0.tgz"
   integrity sha512-OdxhWvHgs2L4OJGIs7hnuTr5WjjMM6enhNEAMRqiekhF8+ITvA2LRwNftOZwcogaoCslGYq5S2VQTQwnm0GbCA==
@@ -3084,6 +3112,18 @@ react-stately@3.46.0:
     "@internationalized/number" "^3.6.6"
     "@internationalized/string" "^3.2.8"
     "@react-types/shared" "^3.34.0"
+    "@swc/helpers" "^0.5.0"
+    use-sync-external-store "^1.6.0"
+
+react-stately@3.48.0:
+  version "3.48.0"
+  resolved "https://registry.npmjs.org/react-stately/-/react-stately-3.48.0.tgz"
+  integrity sha512-ImicSAG+lTotAe5izcs1fz49Zk48w7pDusqYg04WaPhCoej8BJ24soMu3iLXIrsi273s4P1gZrYGrqReMfgEEA==
+  dependencies:
+    "@internationalized/date" "^3.12.2"
+    "@internationalized/number" "^3.6.7"
+    "@internationalized/string" "^3.2.9"
+    "@react-types/shared" "^3.36.0"
     "@swc/helpers" "^0.5.0"
     use-sync-external-store "^1.6.0"
 
