@@ -350,6 +350,7 @@ export async function createCategory(
     name_fa: string;
     name?: string;
     description?: string;
+    hasVat?: boolean;
     restaurantId?: number;
   },
   token: string,
@@ -367,6 +368,7 @@ export async function updateCategoryById(
     name_fa: string;
     name?: string;
     description?: string;
+    hasVat?: boolean;
   }>,
   token: string,
 ) {

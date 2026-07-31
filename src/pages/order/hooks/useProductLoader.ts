@@ -8,6 +8,7 @@ import {
   getProductsPublicPaginated,
 } from '../../../services/api';
 import { getCachedMenu, cacheMenu } from '../../../services/cache';
+import { useOrderStore } from '../../../store/orderStore';
 import {
   getLocalProducts,
   getLocalCategories,
@@ -71,6 +72,7 @@ export function useProductLoader() {
     isCardTerminalEnabled?: boolean;
     restrictCardTerminalAccess?: boolean;
     allowDirectSendAmountToCardTerminal?: boolean;
+    vatRate?: number | null;
   }) => {
     if (settings.cartItemOptions !== undefined) setCartItemOptions(settings.cartItemOptions);
     if (settings.isMobileRequired !== undefined) setIsMobileRequired(settings.isMobileRequired);
@@ -79,6 +81,9 @@ export function useProductLoader() {
     if (settings.isCardTerminalEnabled !== undefined) setIsCardTerminalEnabled(settings.isCardTerminalEnabled);
     if (settings.restrictCardTerminalAccess !== undefined) setRestrictCardTerminalAccess(settings.restrictCardTerminalAccess);
     if (settings.allowDirectSendAmountToCardTerminal !== undefined) setAllowDirectSendAmountToCardTerminal(settings.allowDirectSendAmountToCardTerminal);
+    // نرخ ارزش افزوده در store سفارش نگه داشته می‌شود تا محاسبهٔ مبلغ قابل
+    // پرداخت (و رسید آفلاین) بدون رفت‌وبرگشت به سرور ممکن باشد.
+    if (settings.vatRate !== undefined) useOrderStore.getState().setVatRate(settings.vatRate ?? null);
   };
 
   const loadProducts = async () => {
@@ -106,6 +111,7 @@ export function useProductLoader() {
           isCardTerminalEnabled: Boolean(cached.isCardTerminalEnabled),
           restrictCardTerminalAccess: cached.restrictCardTerminalAccessToElectronManagers !== false,
           allowDirectSendAmountToCardTerminal: Boolean(cached.allowDirectSendAmountToCardTerminal),
+          vatRate: cached.vatRate ?? null,
         });
         setIsLoading(false);
       }
@@ -212,6 +218,7 @@ export function useProductLoader() {
         isCardTerminalEnabled: Boolean(cached?.isCardTerminalEnabled),
         restrictCardTerminalAccess: cached?.restrictCardTerminalAccessToElectronManagers !== false,
         allowDirectSendAmountToCardTerminal: Boolean(cached?.allowDirectSendAmountToCardTerminal),
+        vatRate: (cached?.vatRate ?? null) as number | null,
       };
 
       if (restaurantResult) {
@@ -225,6 +232,7 @@ export function useProductLoader() {
           isCardTerminalEnabled: Boolean(ps?.isCardTerminalEnabled),
           restrictCardTerminalAccess: ps?.restrictCardTerminalAccessToElectronManagers !== false,
           allowDirectSendAmountToCardTerminal: Boolean(ps?.allowDirectSendAmountToCardTerminal),
+          vatRate: ps?.vatRate ?? null,
         };
       }
       applyRestaurantSettings(settings);
@@ -249,6 +257,7 @@ export function useProductLoader() {
           productMetadataChanged
             ? (Array.isArray(categoriesResult) ? categoriesResult : [])
             : (Array.isArray(cached?.productCategories) ? cached.productCategories : []),
+          settings.vatRate,
         );
       }
 

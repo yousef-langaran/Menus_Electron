@@ -97,6 +97,7 @@ export async function runCatalogSync(args: {
             name_fa: cat.name_fa,
             name: cat.name || undefined,
             description: cat.description || undefined,
+            hasVat: Boolean(cat.hasVat),
             restaurantId,
           },
           token,
@@ -110,6 +111,7 @@ export async function runCatalogSync(args: {
             name_fa: cat.name_fa,
             name: cat.name || undefined,
             description: cat.description || undefined,
+            hasVat: Boolean(cat.hasVat),
           },
           token,
         );
@@ -295,6 +297,8 @@ export async function runCatalogSync(args: {
           existing?.restrictCardTerminalAccessToElectronManagers,
           existing?.allowDirectSendAmountToCardTerminal,
           new Date().toISOString(),
+          existing?.productCategories,
+          existing?.vatRate,
         );
       }
     } catch {

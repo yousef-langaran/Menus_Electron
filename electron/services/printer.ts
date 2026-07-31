@@ -517,7 +517,8 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
   const items = orderData.items || [];
   const totalAmount = orderData.totalAmount || 0;
   const discountAmount = orderData.discountAmount || 0;
-  const finalAmount = orderData.finalAmount || totalAmount - discountAmount;
+  const vatAmount = orderData.vatAmount || 0;
+  const finalAmount = orderData.finalAmount || totalAmount - discountAmount + vatAmount;
   const orderNumber = orderData.orderNumber || orderData.order_number || orderData.id || 'N/A';
   const customerName = orderData.customerName || orderData.customerPhone || 'مشتری';
   const restaurantName = orderData.restaurantName || '';
@@ -687,6 +688,12 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
       <div class="total-row">
         <span>تخفیف:</span>
         <span>-${formatPrice(discountAmount)}</span>
+      </div>
+      ` : ''}
+      ${vatAmount > 0 ? `
+      <div class="total-row">
+        <span>ارزش افزوده:</span>
+        <span>+${formatPrice(vatAmount)}</span>
       </div>
       ` : ''}
       <div class="total-row final">
@@ -985,9 +992,11 @@ function renderLayoutModuleHtml(
     if (!showPrice) return `<div style="${style}"></div>`;
     const total = orderData?.totalAmount ?? 0;
     const discount = orderData?.discountAmount ?? 0;
-    const final = orderData?.finalAmount ?? total - discount;
+    const vat = orderData?.vatAmount ?? 0;
+    const final = orderData?.finalAmount ?? total - discount + vat;
     let html = `<div style="${style}"><div style="display:flex;justify-content:space-between;padding:2px 0">جمع: ${formatPrice(total)}</div>`;
     if (discount > 0) html += `<div style="display:flex;justify-content:space-between;padding:2px 0">تخفیف: -${formatPrice(discount)}</div>`;
+    if (vat > 0) html += `<div style="display:flex;justify-content:space-between;padding:2px 0">ارزش افزوده: +${formatPrice(vat)}</div>`;
     html += `<div style="display:flex;justify-content:space-between;padding:4px 0;font-weight:bold;border-top:2px solid #000;margin-top:4px">مبلغ نهایی: ${formatPrice(final)}</div></div>`;
     return html;
   }

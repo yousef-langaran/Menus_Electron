@@ -10,6 +10,8 @@ export interface LocalCategory {
   name_fa: string;
   description: string;
   sortOrder: number;
+  /** محصولات این دسته مشمول مالیات بر ارزش افزوده هستند */
+  hasVat: boolean;
   updatedAt: string;
   _syncStatus: CatalogSyncStatus;
   _syncError?: string | null;
@@ -100,6 +102,7 @@ export async function createCategoryLocal(input: {
   name_fa: string;
   name?: string;
   description?: string;
+  hasVat?: boolean;
 }): Promise<LocalCategory> {
   const now = new Date().toISOString();
   const row: LocalCategory = {
@@ -109,6 +112,7 @@ export async function createCategoryLocal(input: {
     name: input.name?.trim() || '',
     description: input.description?.trim() || '',
     sortOrder: 0,
+    hasVat: Boolean(input.hasVat),
     updatedAt: now,
     _syncStatus: 'pending_create',
     _syncError: null,
@@ -119,7 +123,7 @@ export async function createCategoryLocal(input: {
 
 export async function updateCategoryLocal(
   id: number,
-  patch: Partial<Pick<LocalCategory, 'name_fa' | 'name' | 'description'>>,
+  patch: Partial<Pick<LocalCategory, 'name_fa' | 'name' | 'description' | 'hasVat'>>,
 ): Promise<LocalCategory | null> {
   const existing = await catalogDb.categories.get(id);
   if (!existing) return null;
@@ -184,6 +188,7 @@ export async function bulkUpsertCategories(
       name: c.name || '',
       description: c.description || '',
       sortOrder: Number(c.sortOrder ?? 0),
+      hasVat: Boolean(c.hasVat),
       updatedAt: c.updated_at || c.updatedAt || new Date().toISOString(),
       _syncStatus: 'synced' as const,
       _syncError: null,

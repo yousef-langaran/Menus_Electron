@@ -39,7 +39,7 @@ export function useOrderSubmit() {
   const {
     cart, customerPhone, serviceType, tableNumber, customerAddress,
     paymentMethod, notes, splitCash, splitCard, splitOnline,
-    getTotalAmount, getFinalAmount, getDiscountAmount,
+    getTotalAmount, getFinalAmount, getDiscountAmount, getVatAmount,
     appliedDiscountCode, discountType,
     submitOrder, restoreDraft,
   } = useOrderStore();
@@ -153,6 +153,7 @@ export function useOrderSubmit() {
       customerPhone: normalizedPhone || customerPhone,
       serviceType, tableNumber, customerAddress, paymentMethod, notes,
       discountAmount: getDiscountAmount(),
+      vatAmount: getVatAmount(),
       totalAmount: getTotalAmount(),
       finalAmount: getFinalAmount(),
       items: cart.map((item) => ({
@@ -186,6 +187,7 @@ export function useOrderSubmit() {
         // سبدِ سمتِ کلاینت یکی نیست. پس همیشه مقدار نهایی سرور را اولویت می‌دهیم.
         totalAmount: Number(res.order?.totalAmount ?? snapshot.totalAmount),
         discountAmount: Number(res.order?.discountAmount ?? snapshot.discountAmount ?? 0),
+        vatAmount: Number(res.order?.vatAmount ?? snapshot.vatAmount ?? 0),
         finalAmount: Number(res.order?.finalAmount ?? snapshot.finalAmount ?? snapshot.totalAmount),
       };
       const orderKeys = res.offline
@@ -240,7 +242,8 @@ export function useOrderSubmit() {
           serviceType: snapshot.serviceType, tableNumber: snapshot.tableNumber,
           customerAddress: snapshot.customerAddress, paymentMethod: snapshot.paymentMethod,
           notes: snapshot.notes, items: snapshot.items,
-          totalAmount: snapshot.totalAmount, discountAmount: snapshot.discountAmount, finalAmount: snapshot.finalAmount,
+          totalAmount: snapshot.totalAmount, discountAmount: snapshot.discountAmount,
+          vatAmount: snapshot.vatAmount, finalAmount: snapshot.finalAmount,
         };
         runPrint(editedOrderData, [String(editingOrderId)], { printOption, selectedPrinterNames });
         onEditSuccess();

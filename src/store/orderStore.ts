@@ -5,6 +5,7 @@ import { createOrder, updateOrder, API_BASE_URL } from '../services/api';
 import { useAuthStore } from './authStore';
 import {getCachedMenu} from "@/services/cache.ts";
 import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
+import { calculateVatAmount } from '../utils/vat';
 
 function extractApiErrorMessage(error: any): string {
   return (
@@ -102,8 +103,28 @@ function calcDiscountAmount(session: CartSession): number {
     return Math.min(total, discountValue);
 }
 
-function calcFinalAmount(session: CartSession): number {
-    return Math.max(0, calcTotalAmount(session) - calcDiscountAmount(session));
+/**
+ * ارزش افزوده فقط روی خطوطی که دستهٔ محصولشان مشمول است — و پس از کسر سهم
+ * تخفیف. روی قیمت نمایشی محصول در سبد اثری ندارد و صرفاً به مبلغ قابل
+ * پرداخت افزوده می‌شود.
+ */
+function calcVatAmount(session: CartSession, vatRate: number | null): number {
+    return calculateVatAmount(
+        session.cart.map((item) => ({
+            lineTotal: item.totalPrice,
+            hasVat: Boolean(item.product?.category?.hasVat),
+        })),
+        calcTotalAmount(session),
+        calcDiscountAmount(session),
+        vatRate,
+    );
+}
+
+function calcFinalAmount(session: CartSession, vatRate: number | null): number {
+    return (
+        Math.max(0, calcTotalAmount(session) - calcDiscountAmount(session)) +
+        calcVatAmount(session, vatRate)
+    );
 }
 
 interface OrderState {
@@ -135,6 +156,12 @@ interface OrderState {
   splitCash: number;
   splitCard: number;
   splitOnline: number;
+  /**
+   * نرخ ارزش افزودهٔ رستوران (درصد) — از تنظیمات پنل می‌آید و صندوق آن را
+   * کش می‌کند تا محاسبهٔ آفلاین هم ممکن باشد. null یعنی هنوز خوانده نشده و
+   * نرخ پیش‌فرض به‌کار می‌رود.
+   */
+  vatRate: number | null;
 
   // ─── actions ─────────────────────────────────────────────────────────────
   addToCart: (product: any) => void;
@@ -181,9 +208,11 @@ interface OrderState {
     pending?: boolean;
   }>;
   clearCart: () => void;
+  setVatRate: (rate: number | null) => void;
   getTotalAmount: () => number;
   getFinalAmount: () => number;
   getDiscountAmount: () => number;
+  getVatAmount: () => number;
 }
 
 const INITIAL_SESSION_ID = 'session-1';
@@ -232,6 +261,7 @@ export const useOrderStore = create<OrderState>()(
         sessions: [initialSession],
         activeSessionId: INITIAL_SESSION_ID,
         isSubmitting: false,
+        vatRate: null,
 
         // flat fields (synced from active session)
         ...syncActiveFieldsFromSession(initialSession),
@@ -382,10 +412,17 @@ export const useOrderStore = create<OrderState>()(
           return calcDiscountAmount(getActiveSession(sessions, activeSessionId));
         },
 
-        getFinalAmount: () => {
-          const { sessions, activeSessionId } = get();
-          return calcFinalAmount(getActiveSession(sessions, activeSessionId));
+        getVatAmount: () => {
+          const { sessions, activeSessionId, vatRate } = get();
+          return calcVatAmount(getActiveSession(sessions, activeSessionId), vatRate);
         },
+
+        getFinalAmount: () => {
+          const { sessions, activeSessionId, vatRate } = get();
+          return calcFinalAmount(getActiveSession(sessions, activeSessionId), vatRate);
+        },
+
+        setVatRate: (vatRate) => set({ vatRate }),
 
         submitOrder: async (options) => {
           const state = get();
@@ -428,9 +465,22 @@ export const useOrderStore = create<OrderState>()(
             }
           }
 
-          const finalAmount = calcFinalAmount(session);
+          // نرخ ارزش افزوده از کش منو تازه می‌شود تا صندوق آفلاین هم درست
+          // محاسبه کند؛ اگر تنظیم نشده باشد نرخ پیش‌فرض اعمال می‌شود.
+          const cachedVatRate =
+            cached && cached.vatRate !== undefined ? cached.vatRate : state.vatRate;
+          if (cachedVatRate !== state.vatRate) set({ vatRate: cachedVatRate ?? null });
+
           const totalAmount = calcTotalAmount(session);
           const discountAmount = calcDiscountAmount(session);
+          const vatAmount = calcVatAmount(session, cachedVatRate ?? null);
+          // مبلغی که صندوق باید دریافت کند (شامل ارزش افزوده)
+          const finalAmount = calcFinalAmount(session, cachedVatRate ?? null);
+          // مبلغ بدون ارزش افزوده — فقط برای مسیر **ویرایش**. سرور در ویرایش
+          // مقدار `finalAmount` را مبنا می‌گیرد و ارزش افزوده را خودش از روی
+          // دسته‌بندی محصولات روی آن اضافه می‌کند؛ اگر مقدار شامل ارزش افزوده
+          // بفرستیم دوبار حساب می‌شود.
+          const finalAmountBeforeVat = Math.max(0, finalAmount - vatAmount);
 
           const mixedHasCredit = paymentMethod === 'mixed' &&
             (splitCash + splitCard + splitOnline) < finalAmount &&
@@ -485,7 +535,14 @@ export const useOrderStore = create<OrderState>()(
               : {}),
             paymentMethod: mixedHasCredit ? 'credit' : paymentMethod,
             totalAmount,
-            finalAmount: useDiscountCode ? totalAmount : finalAmount,
+            // در ثبت سفارش جدید سرور `finalAmount` را نادیده می‌گیرد و همه‌چیز
+            // را بازمحاسبه می‌کند؛ مقدار شامل ارزش افزوده را می‌فرستیم تا صف
+            // آفلاین برای چاپ مجدد رسید، مبلغ درست را داشته باشد.
+            finalAmount: useDiscountCode
+              ? totalAmount
+              : editingOrderId != null
+                ? finalAmountBeforeVat
+                : finalAmount,
             discountAmount: useDiscountCode ? 0 : discountAmount,
             ...(useDiscountCode
               ? { discountCode: (appliedDiscountCode?.code ?? discountCode.trim()) }

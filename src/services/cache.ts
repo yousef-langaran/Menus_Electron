@@ -20,6 +20,8 @@ export async function cacheMenu(
   allowDirectSendAmountToCardTerminal?: boolean,
   lastUpdatedAt?: string | null,
   productCategories?: any[],
+  /** نرخ ارزش افزوده (درصد) — null یعنی رستوران نرخی تنظیم نکرده */
+  vatRate?: number | null,
 ) {
   menuCache = {
     restaurantId,
@@ -35,6 +37,7 @@ export async function cacheMenu(
     restrictCardTerminalAccessToElectronManagers: restrictCardTerminalAccessToElectronManagers !== false,
     allowDirectSendAmountToCardTerminal: allowDirectSendAmountToCardTerminal || false,
     lastUpdatedAt: lastUpdatedAt ?? null,
+    vatRate: vatRate ?? null,
     cachedAt: new Date().toISOString(),
   };
 

@@ -91,7 +91,7 @@ export function OrderModal({
     setPaymentMethod, setNotes, setDiscountAmount, setDiscountType,
     setDiscountCode, setAppliedDiscountCode,
     setSplitCash, setSplitCard, setSplitOnline, getSplitCreditAmount,
-    getTotalAmount, getFinalAmount, getDiscountAmount,
+    getTotalAmount, getFinalAmount, getDiscountAmount, getVatAmount,
   } = useOrderStore();
 
   const { enabledPrinters } = usePrinterSettingsStore((s) => ({
@@ -625,6 +625,11 @@ export function OrderModal({
                 <span>تخفیف:</span><span>- {formatPrice(getDiscountAmount())}</span>
               </div>
             ) : null}
+            {getVatAmount() > 0 && (
+              <div className="flex justify-between text-foreground">
+                <span>ارزش افزوده:</span><span>+ {formatPrice(getVatAmount())}</span>
+              </div>
+            )}
             <div className="flex justify-between font-bold text-foreground pt-2 border-t border-default-200">
               <span>مبلغ نهایی:</span>
               <span>{discountType === 'code' && !appliedDiscountCode && discountCode.trim() ? '— (کد را ثبت کنید)' : formatPrice(getFinalAmount())}</span>

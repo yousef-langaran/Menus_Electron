@@ -557,6 +557,14 @@ export default function OrdersPage() {
         payload.items = order.orderData.items;
       }
       payload.restaurantName = payload.restaurantName || restaurantNameFa || restaurantName || '';
+      // صف آفلاین بدنهٔ ثبت سفارش را ذخیره می‌کند و آن بدنه فیلد جدا برای
+      // ارزش افزوده ندارد (DTO سرور آن را نمی‌پذیرد). اما `finalAmount` ذخیره‌شده
+      // شامل ارزش افزوده است، پس مبلغش از اختلاف با «جمع کل − تخفیف» درمی‌آید.
+      if (payload.vatAmount == null) {
+        const net = Number(payload.totalAmount || 0) - Number(payload.discountAmount || 0);
+        const derived = Number(payload.finalAmount || 0) - net;
+        payload.vatAmount = derived > 0 ? derived : 0;
+      }
       return payload;
     }
     const payload = { ...order };

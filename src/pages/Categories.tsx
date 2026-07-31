@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, Modal, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { Input } from '../ui/compat-input';
+import { SwitchCompat } from '../ui/compat-switch';
 import { ModalShell } from '../ui/modal-shell';
 import { useAuthStore } from '../store/authStore';
 import {
@@ -19,12 +20,14 @@ type CategoryForm = {
   name_fa: string;
   name: string;
   description: string;
+  hasVat: boolean;
 };
 
 const emptyForm: CategoryForm = {
   name_fa: '',
   name: '',
   description: '',
+  hasVat: false,
 };
 
 function SyncBadge({ status }: { status: LocalCategory['_syncStatus'] }) {
@@ -96,6 +99,7 @@ export default function CategoriesPage() {
       name_fa: row.name_fa,
       name: row.name || '',
       description: row.description || '',
+      hasVat: Boolean(row.hasVat),
     });
     setModalOpen(true);
   };
@@ -125,6 +129,7 @@ export default function CategoriesPage() {
           name_fa: trimmedNameFa,
           name: form.name.trim() || '',
           description: form.description.trim() || '',
+          hasVat: form.hasVat,
         });
         isOnline ? toast.success('دسته‌بندی ویرایش شد') : toast.info('دسته‌بندی ذخیره شد — در انتظار سینک');
       } else {
@@ -133,6 +138,7 @@ export default function CategoriesPage() {
           name_fa: trimmedNameFa,
           name: form.name.trim() || undefined,
           description: form.description.trim() || undefined,
+          hasVat: form.hasVat,
         });
         isOnline ? toast.success('دسته‌بندی جدید ثبت شد') : toast.info('دسته‌بندی ذخیره شد — در انتظار سینک');
       }
@@ -204,6 +210,11 @@ export default function CategoriesPage() {
                     <div className="space-y-1">
                       <div className="font-semibold flex items-center gap-2">
                         {c.name_fa || c.name}
+                        {c.hasVat && (
+                          <span className="text-xs bg-warning-100 text-warning-700 border border-warning-300 px-2 py-0.5 rounded-full">
+                            ارزش افزوده
+                          </span>
+                        )}
                         <SyncBadge status={c._syncStatus} />
                       </div>
                       <div className="text-xs text-default-500">{c.description || '—'}</div>
@@ -243,6 +254,18 @@ export default function CategoriesPage() {
             <Input label="نام فارسی" value={form.name_fa} onValueChange={(v) => setForm((f) => ({ ...f, name_fa: v }))} />
             <Input label="نام انگلیسی (اختیاری)" value={form.name} onValueChange={(v) => setForm((f) => ({ ...f, name: v }))} />
             <Input label="توضیحات (اختیاری)" value={form.description} onValueChange={(v) => setForm((f) => ({ ...f, description: v }))} />
+            <div className="rounded-lg border border-default-200 p-3 space-y-1">
+              <SwitchCompat
+                isSelected={form.hasVat}
+                onValueChange={(v) => setForm((f) => ({ ...f, hasVat: v }))}
+              >
+                مشمول مالیات بر ارزش افزوده
+              </SwitchCompat>
+              <p className="text-xs text-default-500">
+                قیمت نمایشی محصولات این دسته تغییر نمی‌کند؛ مبلغ ارزش افزوده فقط هنگام تسویه
+                زیر ردیف تخفیف در فیش نوشته و به مبلغ قابل پرداخت اضافه می‌شود.
+              </p>
+            </div>
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onPress={() => setModalOpen(false)}>انصراف</Button>
