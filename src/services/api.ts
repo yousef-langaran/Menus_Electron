@@ -649,6 +649,54 @@ export async function getCustomerAddresses(
   return Array.isArray(response.data) ? response.data : [];
 }
 
+// ─── ارسال با پیک ──────────────────────────────────────────────────────────
+
+export interface NeshanSearchItem {
+  title: string;
+  address: string;
+  location: { x: number; y: number };
+}
+
+/** جست‌وجوی آدرس. فقط آنلاین معنا دارد — فراخوان باید خودش چک کند. */
+export async function searchAddress(
+  term: string,
+  token: string,
+): Promise<NeshanSearchItem[]> {
+  await apiConfigReady;
+  const response = await api.get('/neshan/search', {
+    params: { term },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return Array.isArray(response.data?.items) ? response.data.items : [];
+}
+
+export interface DeliveryQuoteResult {
+  serviceable: boolean;
+  reason?: string;
+  fee: number;
+  distanceM: number;
+  durationS: number;
+  isFallback: boolean;
+}
+
+/** استعلام کرایه. بک‌اند روی قطعی نشان خطا نمی‌دهد و تخمین برمی‌گرداند. */
+export async function quoteDeliveryFee(
+  params: {
+    restaurantId: number;
+    dropoff: { lat: number; lng: number };
+    cartSubtotal: number;
+  },
+  token: string,
+): Promise<DeliveryQuoteResult> {
+  await apiConfigReady;
+  const response = await api.post(
+    `/delivery/quote/${params.restaurantId}`,
+    { dropoff: params.dropoff, cartSubtotal: params.cartSubtotal },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
 export interface CallerLookupResult {
   isKnown: boolean;
   phone: string;

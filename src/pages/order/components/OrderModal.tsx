@@ -16,6 +16,7 @@ import { isValidIranMobile, normalizeIranMobile, sanitizeMobileInput } from '../
 import { toast } from '../../../utils/toast';
 import { toShamsiDate } from '../../../utils/date';
 import { useAuthStore } from '../../../store/authStore';
+import { DeliveryDestination } from './DeliveryDestination';
 
 const normalizePriceInput = (value: string) =>
   String(value || '')
@@ -82,9 +83,11 @@ export function OrderModal({
   const { user, token } = useAuthStore();
   const {
     cart, customerPhone, serviceType, tableNumber, customerAddress, paymentMethod, notes,
+    deliveryLocation, deliveryFeeOverride,
     discountType, discountCode, appliedDiscountCode, discountAmount, isSubmitting,
     splitCash, splitCard, splitOnline,
     setCustomerPhone, setServiceType, setTableNumber, setCustomerAddress,
+    setDeliveryLocation, setDeliveryFeeOverride, setDeliveryFeeReason,
     setPaymentMethod, setNotes, setDiscountAmount, setDiscountType,
     setDiscountCode, setAppliedDiscountCode,
     setSplitCash, setSplitCard, setSplitOnline, getSplitCreditAmount,
@@ -152,9 +155,12 @@ export function OrderModal({
     return () => { cancelled = true; };
   }, [state.isOpen, canUseDiscountCode, customerPhone, token]);
 
-  // Load customer addresses for takeaway
+  // آدرس‌های قبلی مشتری — هم بیرون‌بر و هم ارسال با پیک.
+  // فروشگاهی که پیک ندارد و خودش می‌برد از «بیرون‌بر» استفاده می‌کند و
+  // به همان اندازه به آدرس آماده نیاز دارد.
   useEffect(() => {
-    if (!state.isOpen || serviceType !== 'takeaway' || !token || !customerPhone.trim()) {
+    const needsAddress = serviceType === 'takeaway' || serviceType === 'delivery';
+    if (!state.isOpen || !needsAddress || !token || !customerPhone.trim()) {
       set({ customerAddresses: [], selectedAddressId: null });
       return;
     }
@@ -367,17 +373,45 @@ export function OrderModal({
           {/* Service type */}
           <Select label="نوع سفارش" selectedKeys={[serviceType]}
             onSelectionChange={(keys) => {
-              const v = Array.from(keys)[0] as 'dine_in' | 'takeaway';
-              if (v) { setServiceType(v); setTableNumber(''); setCustomerAddress(''); set({ customerAddresses: [], selectedAddressId: null }); }
+              const v = Array.from(keys)[0] as 'dine_in' | 'takeaway' | 'delivery';
+              if (v) {
+                setServiceType(v);
+                setTableNumber('');
+                setCustomerAddress('');
+                setDeliveryLocation(null);
+                setDeliveryFeeOverride(null);
+                setDeliveryFeeReason('');
+                set({ customerAddresses: [], selectedAddressId: null });
+              }
             }} variant="bordered">
             <SelectItem key="dine_in" textValue="داخل سالن">داخل سالن</SelectItem>
             <SelectItem key="takeaway" textValue="بیرون‌بر">بیرون‌بر</SelectItem>
+            <SelectItem key="delivery" textValue="ارسال با پیک">ارسال با پیک</SelectItem>
           </Select>
+
+          {serviceType === 'delivery' && (
+            <DeliveryDestination
+              restaurantId={user?.restaurants?.[0]?.id}
+              token={token}
+              customerPhone={customerPhone}
+              cartSubtotal={finalAmt}
+              savedAddresses={state.customerAddresses}
+              address={customerAddress}
+              onAddressChange={setCustomerAddress}
+              location={deliveryLocation}
+              onLocationChange={setDeliveryLocation}
+              feeOverride={deliveryFeeOverride}
+              onFeeOverrideChange={(fee, reason) => {
+                setDeliveryFeeOverride(fee);
+                setDeliveryFeeReason(reason);
+              }}
+            />
+          )}
 
           {serviceType === 'dine_in' ? (
             <Input label="شماره میز (اختیاری)" placeholder="A12" value={tableNumber}
               onValueChange={setTableNumber} variant="bordered" classNames={{ input: 'text-right' }} />
-          ) : (
+          ) : serviceType === 'takeaway' ? (
             <div className="flex flex-col gap-2">
               <span className="text-sm font-medium text-foreground">آدرس</span>
               {state.loadingAddresses && <p className="text-default-500 text-sm">در حال بارگذاری آدرس‌ها...</p>}
@@ -401,7 +435,7 @@ export function OrderModal({
                   minRows={2} variant="bordered" classNames={{ input: 'text-right' }} />
               )}
             </div>
-          )}
+          ) : null}
 
           {/* Payment method */}
           <Select label="روش پرداخت" selectedKeys={[paymentMethod]}

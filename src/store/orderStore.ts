@@ -37,9 +37,12 @@ export interface CartSession {
     label: string;
     cart: CartItem[];
     customerPhone: string;
-    serviceType: 'dine_in' | 'takeaway';
+    serviceType: 'dine_in' | 'takeaway' | 'delivery';
     tableNumber: string;
     customerAddress: string;
+    deliveryLocation: { lat: number; lng: number } | null;
+    deliveryFeeOverride: number | null;
+    deliveryFeeReason: string;
     paymentMethod: 'cash' | 'card' | 'online' | 'mixed' | 'credit';
     notes: string;
     discountAmount: number;
@@ -62,6 +65,9 @@ function createEmptySession(id: string, label: string): CartSession {
         serviceType: 'dine_in',
         tableNumber: '',
         customerAddress: '',
+        deliveryLocation: null,
+        deliveryFeeOverride: null,
+        deliveryFeeReason: '',
         paymentMethod: 'cash',
         notes: '',
         discountAmount: 0,
@@ -111,9 +117,14 @@ interface OrderState {
   // ─── میانبرهای session فعال ──────────────────────────────────────────────
   cart: CartItem[];
   customerPhone: string;
-  serviceType: 'dine_in' | 'takeaway';
+  serviceType: 'dine_in' | 'takeaway' | 'delivery';
   tableNumber: string;
   customerAddress: string;
+  /** مختصات تأییدشدهٔ مقصد — null یعنی هنوز روی نقشه مشخص نشده */
+  deliveryLocation: { lat: number; lng: number } | null;
+  /** کرایهٔ دستی (ریال) — وقتی کرایهٔ خودکار در دسترس نیست */
+  deliveryFeeOverride: number | null;
+  deliveryFeeReason: string;
   paymentMethod: 'cash' | 'card' | 'online' | 'mixed' | 'credit';
   notes: string;
   discountAmount: number;
@@ -134,6 +145,9 @@ interface OrderState {
   setServiceType: (type: 'dine_in' | 'takeaway') => void;
   setTableNumber: (table: string) => void;
   setCustomerAddress: (address: string) => void;
+  setDeliveryLocation: (location: { lat: number; lng: number } | null) => void;
+  setDeliveryFeeOverride: (fee: number | null) => void;
+  setDeliveryFeeReason: (reason: string) => void;
   setPaymentMethod: (method: 'cash' | 'card' | 'online' | 'mixed' | 'credit') => void;
   setNotes: (notes: string) => void;
   setDiscountAmount: (amount: number) => void;
@@ -147,7 +161,7 @@ interface OrderState {
   restoreDraft: (draft: {
     cart: CartItem[];
     customerPhone?: string;
-    serviceType?: 'dine_in' | 'takeaway';
+    serviceType?: 'dine_in' | 'takeaway' | 'delivery';
     tableNumber?: string;
     customerAddress?: string;
     paymentMethod?: 'cash' | 'card' | 'online' | 'mixed' | 'credit';
@@ -176,6 +190,7 @@ const INITIAL_SESSION_ID = 'session-1';
 
 function syncActiveFieldsFromSession(session: CartSession): Pick<OrderState,
   'cart' | 'customerPhone' | 'serviceType' | 'tableNumber' | 'customerAddress' |
+  'deliveryLocation' | 'deliveryFeeOverride' | 'deliveryFeeReason' |
   'paymentMethod' | 'notes' | 'discountAmount' | 'discountType' | 'discountCode' |
   'appliedDiscountCode' | 'splitCash' | 'splitCard' | 'splitOnline'
 > {
@@ -183,6 +198,9 @@ function syncActiveFieldsFromSession(session: CartSession): Pick<OrderState,
     cart: session.cart,
     customerPhone: session.customerPhone,
     serviceType: session.serviceType,
+    deliveryLocation: session.deliveryLocation ?? null,
+    deliveryFeeOverride: session.deliveryFeeOverride ?? null,
+    deliveryFeeReason: session.deliveryFeeReason ?? '',
     tableNumber: session.tableNumber,
     customerAddress: session.customerAddress,
     paymentMethod: session.paymentMethod,
@@ -301,6 +319,9 @@ export const useOrderStore = create<OrderState>()(
         setServiceType: (serviceType) => updateActive(s => ({ ...s, serviceType })),
         setTableNumber: (tableNumber) => updateActive(s => ({ ...s, tableNumber })),
         setCustomerAddress: (customerAddress) => updateActive(s => ({ ...s, customerAddress })),
+        setDeliveryLocation: (deliveryLocation) => updateActive(s => ({ ...s, deliveryLocation })),
+        setDeliveryFeeOverride: (deliveryFeeOverride) => updateActive(s => ({ ...s, deliveryFeeOverride })),
+        setDeliveryFeeReason: (deliveryFeeReason) => updateActive(s => ({ ...s, deliveryFeeReason })),
         setPaymentMethod: (paymentMethod) => updateActive(s => ({ ...s, paymentMethod })),
         setNotes: (notes) => updateActive(s => ({ ...s, notes })),
         setDiscountAmount: (discountAmount) => updateActive(s => ({ ...s, discountAmount })),
@@ -385,12 +406,27 @@ export const useOrderStore = create<OrderState>()(
           const session = getActiveSession(sessions, activeSessionId);
           const {
             cart, customerPhone, serviceType, tableNumber, customerAddress,
+            deliveryLocation, deliveryFeeOverride, deliveryFeeReason,
             paymentMethod, notes, discountType, discountCode, appliedDiscountCode,
             splitCash, splitCard, splitOnline,
           } = session;
 
           if (!token) return { success: false, error: 'لطفاً ابتدا وارد شوید' };
           if (cart.length === 0) return { success: false, error: 'سبد خرید خالی است' };
+
+          if (serviceType === 'delivery') {
+            if (!customerAddress.trim()) {
+              return { success: false, error: 'آدرس مقصد را وارد کنید' };
+            }
+            // بدون مختصات، کرایه قابل محاسبه نیست — پس یا پین تأیید شده
+            // یا صندوق‌دار مبلغ را دستی زده. حالت آفلاین همیشه دومی است.
+            if (!deliveryLocation && deliveryFeeOverride == null) {
+              return {
+                success: false,
+                error: 'مقصد را روی نقشه مشخص کنید یا کرایه را دستی وارد کنید',
+              };
+            }
+          }
 
           const finalAmount = calcFinalAmount(session);
           const totalAmount = calcTotalAmount(session);
@@ -427,9 +463,26 @@ export const useOrderStore = create<OrderState>()(
 
           const orderData: Record<string, unknown> = {
             customerPhone: normalizeIranMobile(customerPhone.trim()),
-            customerAddress: serviceType === 'takeaway' ? customerAddress.trim() : undefined,
+            customerAddress:
+              serviceType === 'takeaway' || serviceType === 'delivery'
+                ? customerAddress.trim()
+                : undefined,
             tableNumber: serviceType === 'dine_in' ? tableNumber.trim() : undefined,
             serviceType,
+            // مختصات مقصد — فقط اگر صندوق‌دار روی نقشه تأییدش کرده باشد.
+            // بدون آن، بک‌اند ماموریت پیک نمی‌سازد و مدیر دستی می‌سازد.
+            ...(serviceType === 'delivery' && deliveryLocation
+              ? {
+                  deliveryLocation,
+                  ...(deliveryFeeOverride != null
+                    ? {
+                        deliveryFeeOverride,
+                        deliveryFeeReason: deliveryFeeReason || undefined,
+                        allowOutOfRangeDelivery: true,
+                      }
+                    : {}),
+                }
+              : {}),
             paymentMethod: mixedHasCredit ? 'credit' : paymentMethod,
             totalAmount,
             finalAmount: useDiscountCode ? totalAmount : finalAmount,
