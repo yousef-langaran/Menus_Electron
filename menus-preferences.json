@@ -1,0 +1,20 @@
+{
+  "printerTemplates": {
+    "POS-1::kitchen": {
+      "id": 6,
+      "name": "B",
+      "receiptType": "full",
+      "paperWidth": 80,
+      "paperLength": 200,
+      "margin": 5
+    },
+    "POS-1": {
+      "id": 5,
+      "name": "A",
+      "receiptType": "full",
+      "paperWidth": 80,
+      "paperLength": 200,
+      "margin": 5
+    }
+  }
+}

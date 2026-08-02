@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-08-02T05:13:58.990Z",
+  "timestamp": "2026-08-02T07:13:59.095Z",
   "projectRoot": "D:\\Project\\MyProject\\Menus\\Menus_Electron",
   "structure": {
     "hasPackageJson": true,
@@ -7,5 +7,5 @@
     "hasClaudeConfig": true,
     "hasClaudeFlow": true
   },
-  "scannedAt": 1785647638990
+  "scannedAt": 1785654839096
 }
