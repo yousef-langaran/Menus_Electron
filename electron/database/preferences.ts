@@ -144,8 +144,8 @@ export interface DefaultPrintTemplateSnapshot {
   layout?: any[] | null;
 }
 
-/** قالب چاپ به‌ازای هر پرینتر (نام پرینتر → اسنپ‌شات قالب) */
-export type PrinterTemplatesMap = Record<string, DefaultPrintTemplateSnapshot>;
+/** قالب چاپ به‌ازای هر پرینتر (نام پرینتر → اسنپ‌شات قالب؛ null = صراحتاً بدون قالب) */
+export type PrinterTemplatesMap = Record<string, DefaultPrintTemplateSnapshot | null>;
 
 interface PreferencesFile {
   userSession?: {
@@ -478,16 +478,31 @@ export async function loadPrintTemplatesMap(): Promise<Record<string, DefaultPri
   return { ...map };
 }
 
+/**
+ * کلید نگاشت قالب‌ها: با نوع رسید یعنی قالبِ همان رسید از همان پرینتر
+ * (`نام‌پرینتر::full`) و بدون آن یعنی قالبِ کلی همان پرینتر.
+ */
+export function printTemplateKey(printerName: string, receiptType?: 'full' | 'kitchen'): string {
+  return receiptType ? `${printerName}::${receiptType}` : printerName;
+}
+
+/**
+ * `null` یعنی کاربر صراحتاً «بدون قالب» را انتخاب کرده (پس قالب پیش‌فرض برنامه هم
+ * اعمال نمی‌شود). نبودنِ کلید یعنی «ارث‌بری از سطح بالاتر». برای پاک‌کردن کامل،
+ * `undefined` بفرستید.
+ */
 export async function setPrintTemplateForPrinter(
   printerName: string,
-  template: DefaultPrintTemplateSnapshot | null
+  template: DefaultPrintTemplateSnapshot | null | undefined,
+  receiptType?: 'full' | 'kitchen'
 ): Promise<void> {
   const prefs = await readPreferences();
   if (!prefs.printerTemplates) prefs.printerTemplates = {};
-  if (template) {
-    prefs.printerTemplates[printerName] = template;
+  const key = printTemplateKey(printerName, receiptType);
+  if (template === undefined) {
+    delete prefs.printerTemplates[key];
   } else {
-    delete prefs.printerTemplates[printerName];
+    prefs.printerTemplates[key] = template;
   }
   await writePreferences(prefs);
 }

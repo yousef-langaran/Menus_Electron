@@ -40,6 +40,8 @@ export interface CartSession {
     customerPhone: string;
     serviceType: 'dine_in' | 'takeaway' | 'delivery';
     tableNumber: string;
+    /** شناسهٔ میز از «مدیریت میزها» — null یعنی میز متنی یا تعریف‌نشده */
+    tableId: number | null;
     customerAddress: string;
     deliveryLocation: { lat: number; lng: number } | null;
     deliveryFeeOverride: number | null;
@@ -65,6 +67,7 @@ function createEmptySession(id: string, label: string): CartSession {
         customerPhone: '',
         serviceType: 'dine_in',
         tableNumber: '',
+        tableId: null,
         customerAddress: '',
         deliveryLocation: null,
         deliveryFeeOverride: null,
@@ -140,6 +143,7 @@ interface OrderState {
   customerPhone: string;
   serviceType: 'dine_in' | 'takeaway' | 'delivery';
   tableNumber: string;
+  tableId: number | null;
   customerAddress: string;
   /** مختصات تأییدشدهٔ مقصد — null یعنی هنوز روی نقشه مشخص نشده */
   deliveryLocation: { lat: number; lng: number } | null;
@@ -171,6 +175,8 @@ interface OrderState {
   setCustomerPhone: (phone: string) => void;
   setServiceType: (type: 'dine_in' | 'takeaway') => void;
   setTableNumber: (table: string) => void;
+  /** انتخاب میز از فهرست میزهای رستوران — نام میز هم همگام می‌شود */
+  setTable: (table: { id: number; name: string } | null) => void;
   setCustomerAddress: (address: string) => void;
   setDeliveryLocation: (location: { lat: number; lng: number } | null) => void;
   setDeliveryFeeOverride: (fee: number | null) => void;
@@ -190,6 +196,7 @@ interface OrderState {
     customerPhone?: string;
     serviceType?: 'dine_in' | 'takeaway' | 'delivery';
     tableNumber?: string;
+    tableId?: number | null;
     customerAddress?: string;
     paymentMethod?: 'cash' | 'card' | 'online' | 'mixed' | 'credit';
     notes?: string;
@@ -218,7 +225,7 @@ interface OrderState {
 const INITIAL_SESSION_ID = 'session-1';
 
 function syncActiveFieldsFromSession(session: CartSession): Pick<OrderState,
-  'cart' | 'customerPhone' | 'serviceType' | 'tableNumber' | 'customerAddress' |
+  'cart' | 'customerPhone' | 'serviceType' | 'tableNumber' | 'tableId' | 'customerAddress' |
   'deliveryLocation' | 'deliveryFeeOverride' | 'deliveryFeeReason' |
   'paymentMethod' | 'notes' | 'discountAmount' | 'discountType' | 'discountCode' |
   'appliedDiscountCode' | 'splitCash' | 'splitCard' | 'splitOnline'
@@ -231,6 +238,7 @@ function syncActiveFieldsFromSession(session: CartSession): Pick<OrderState,
     deliveryFeeOverride: session.deliveryFeeOverride ?? null,
     deliveryFeeReason: session.deliveryFeeReason ?? '',
     tableNumber: session.tableNumber,
+    tableId: session.tableId ?? null,
     customerAddress: session.customerAddress,
     paymentMethod: session.paymentMethod,
     notes: session.notes,
@@ -347,7 +355,12 @@ export const useOrderStore = create<OrderState>()(
 
         setCustomerPhone: (customerPhone) => updateActive(s => ({ ...s, customerPhone })),
         setServiceType: (serviceType) => updateActive(s => ({ ...s, serviceType })),
-        setTableNumber: (tableNumber) => updateActive(s => ({ ...s, tableNumber })),
+        setTableNumber: (tableNumber) => updateActive(s => ({ ...s, tableNumber, tableId: null })),
+        setTable: (table) => updateActive(s => ({
+          ...s,
+          tableId: table?.id ?? null,
+          tableNumber: table?.name ?? '',
+        })),
         setCustomerAddress: (customerAddress) => updateActive(s => ({ ...s, customerAddress })),
         setDeliveryLocation: (deliveryLocation) => updateActive(s => ({ ...s, deliveryLocation })),
         setDeliveryFeeOverride: (deliveryFeeOverride) => updateActive(s => ({ ...s, deliveryFeeOverride })),
@@ -378,6 +391,7 @@ export const useOrderStore = create<OrderState>()(
             customerPhone: draft.customerPhone ?? '',
             serviceType: draft.serviceType ?? 'dine_in',
             tableNumber: draft.tableNumber ?? '',
+            tableId: draft.tableId ?? null,
             customerAddress: draft.customerAddress ?? '',
             paymentMethod: draft.paymentMethod ?? 'cash',
             notes: draft.notes ?? '',
@@ -390,6 +404,7 @@ export const useOrderStore = create<OrderState>()(
             cart: [],
             customerPhone: '',
             tableNumber: '',
+            tableId: null,
             customerAddress: '',
             notes: '',
             discountAmount: 0,
@@ -442,7 +457,7 @@ export const useOrderStore = create<OrderState>()(
           const { sessions, activeSessionId } = state;
           const session = getActiveSession(sessions, activeSessionId);
           const {
-            cart, customerPhone, serviceType, tableNumber, customerAddress,
+            cart, customerPhone, serviceType, tableNumber, tableId, customerAddress,
             deliveryLocation, deliveryFeeOverride, deliveryFeeReason,
             paymentMethod, notes, discountType, discountCode, appliedDiscountCode,
             splitCash, splitCard, splitOnline,
@@ -518,6 +533,7 @@ export const useOrderStore = create<OrderState>()(
                 ? customerAddress.trim()
                 : undefined,
             tableNumber: serviceType === 'dine_in' ? tableNumber.trim() : undefined,
+            tableId: serviceType === 'dine_in' && tableId ? tableId : undefined,
             serviceType,
             // مختصات مقصد — فقط اگر صندوق‌دار روی نقشه تأییدش کرده باشد.
             // بدون آن، بک‌اند ماموریت پیک نمی‌سازد و مدیر دستی می‌سازد.

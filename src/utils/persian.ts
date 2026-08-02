@@ -6,7 +6,7 @@ export const normalizeNameFa = (value: string | null | undefined): string =>
     .replace(/[ةۀە]/g, 'ه')
     .replace(/[آأإٱ]/g, 'ا')
     .replace(/[ؤۄۊۋ]/g, 'و')
-    .replace(/[ً-ٰٟ]/g, '')
+    .replace(/[\u064B-\u065F\u0670]/g, '')
     .replace(/[​-‏‪-‮⁦-⁩﻿]/g, '')
     .replace(/\s+/g, ' ')
     .trim();

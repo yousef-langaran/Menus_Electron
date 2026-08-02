@@ -16,7 +16,10 @@
     "dist:win": "npm run build && electron-builder --win --publish always",
     "postdist:win": "node scripts/copy-env-example.js",
     "dist:linux": "npm run build && electron-builder --linux --publish always",
-    "rebuild": "electron-rebuild -f -w serialport"
+    "rebuild": "electron-rebuild -f -w serialport",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "electron",
@@ -51,16 +54,22 @@
   "devDependencies": {
     "@electron/rebuild": "^3.7.2",
     "@tailwindcss/vite": "^4.2.1",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20.14.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "concurrently": "^8.2.2",
     "electron": "^30.0.0",
     "electron-builder": "^24.13.3",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.0",
+    "vitest": "^4.1.10",
     "wait-on": "^7.2.0"
   },
   "build": {

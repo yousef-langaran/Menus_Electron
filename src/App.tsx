@@ -151,6 +151,9 @@ function CallerIdManager() {
 function AppRoutes() {
   const user = useAuthStore((s) => s.user);
   return (
+    // توجه: این Provider از نسخهٔ react-aria-components ِ خودِ اپ می‌آید، ولی HeroUI
+    // نسخهٔ nested خودش را import می‌کند؛ پس کانتکست بین‌شان مشترک نیست و جهت RTL ِ
+    // کامپوننت‌های HeroUI از لوکیل اپ می‌آید (سوییچ `lang` در electron/main.ts).
     <I18nProvider locale="fa-IR">
       <Toast.Provider placement="top start" maxVisibleToasts={4} />
       <UnauthorizedListener />

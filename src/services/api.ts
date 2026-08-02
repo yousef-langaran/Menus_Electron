@@ -651,6 +651,35 @@ export async function getCustomerAddresses(
   return Array.isArray(response.data) ? response.data : [];
 }
 
+// ─── میزها ─────────────────────────────────────────────────────────────────
+
+export type PosTableStatus = 'available' | 'occupied' | 'reserved' | 'out_of_service';
+
+export interface PosTable {
+  id: number;
+  name: string;
+  zone: string | null;
+  capacity: number;
+  status: PosTableStatus;
+  isActive: boolean;
+  sortOrder: number;
+  currentOrder?: { id: number; orderNumber: string; finalAmount: number } | null;
+}
+
+/**
+ * میزهای فعال رستوران برای انتخاب در سفارش سالنی. صندوق نتیجه را کش می‌کند
+ * تا در حالت آفلاین هم بتوان میز انتخاب کرد (وضعیت لحظه‌ای میز در آفلاین
+ * قدیمی است، ولی خودِ فهرست میزها به‌ندرت تغییر می‌کند).
+ */
+export async function getTables(restaurantId: number, token: string): Promise<PosTable[]> {
+  await apiConfigReady;
+  const response = await api.get('/tables', {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
 // ─── ارسال با پیک ──────────────────────────────────────────────────────────
 
 export interface NeshanSearchItem {

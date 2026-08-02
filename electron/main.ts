@@ -89,6 +89,12 @@ function getAssetPath(...parts: string[]): string {
     : path.join(__dirname, '..', 'assets', ...parts);
 }
 
+// لوکیل اپ را fa-IR می‌کنیم تا navigator.language در رندرر هم fa-IR شود.
+// React Aria (زیربنای HeroUI) جهت RTL را از همین مقدار می‌گیرد؛ بدون آن هر پورتالی
+// که بیرون از #root رندر می‌شود (منوی ناوبار، Popover ِ Select، ...) با dir="ltr" می‌آید.
+// باید قبل از app.whenReady صدا زده شود.
+app.commandLine.appendSwitch('lang', 'fa-IR');
+
 let mainWindow: BrowserWindow | null = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 // باید با build.protocols در package.json (که نصاب NSIS واقعاً ثبت می‌کند) یکسان باشد.
@@ -703,9 +709,15 @@ ipcMain.handle('get-print-templates-map', async () => {
   }
 });
 
-ipcMain.handle('set-print-template-for-printer', async (_event, printerName: string, template: any) => {
+ipcMain.handle('set-print-template-for-printer', async (
+  _event,
+  printerName: string,
+  template: any,
+  receiptType?: 'full' | 'kitchen'
+) => {
   try {
-    await setPrintTemplateForPrinter(printerName ?? '', template ?? null);
+    // undefined = ارث‌بری از سطح بالاتر (کلید پاک می‌شود)، null = صراحتاً بدون قالب
+    await setPrintTemplateForPrinter(printerName ?? '', template, receiptType);
     return { success: true };
   } catch (error) {
     console.error('Set print template for printer error:', error);

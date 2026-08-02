@@ -163,6 +163,7 @@ export default function OrderPage() {
           customerPhone: order.customerPhone || '',
           serviceType: order.serviceType === 'takeaway' ? 'takeaway' : 'dine_in',
           tableNumber: order.tableNumber || '',
+          tableId: order.tableId ?? order.table?.id ?? null,
           customerAddress: order.customerAddress || '',
           paymentMethod: order.paymentMethod || 'cash',
           notes: order.notes || '',

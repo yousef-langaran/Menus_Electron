@@ -13,6 +13,12 @@ import {
   saveReceiptNumbersToStorage,
 } from '../utils/receiptNumbersStorage';
 import { toShamsiDateTime } from '../utils/date';
+import {
+  buildPrinterJobs,
+  loadPrintTemplateSources,
+  normalizeTemplateLayout,
+  resolveTemplateForPrinter,
+} from '../utils/printTemplates';
 import { Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter, Chip, Input } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { Select, SelectItem } from '../ui/compat-select';
@@ -582,19 +588,13 @@ export default function OrdersPage() {
     let margin = printer?.margin ?? 5;
     let layout: { version: 2; rows: any[] } | undefined;
     if (window.electronAPI?.getPrintTemplatesMap) {
-      const templatesMap = await window.electronAPI.getPrintTemplatesMap();
-      const template = templatesMap?.[printerName] ?? null;
+      const { templatesMap, defaultTemplate } = await loadPrintTemplateSources();
+      // پیش‌نمایش همیشه رسید کامل است، پس قالبِ همان رسید را نشان می‌دهیم
+      const template = resolveTemplateForPrinter(printerName, templatesMap, defaultTemplate, 'full');
       if (template) {
         paperWidth = template.paperWidth ?? paperWidth;
         margin = template.margin ?? margin;
-        if (template.layout != null) {
-          const raw = template.layout;
-          if (Array.isArray(raw) && raw.length > 0) {
-            layout = { version: 2, rows: raw };
-          } else if (typeof raw === 'object' && raw.version === 2 && Array.isArray((raw as any).rows)) {
-            layout = raw as { version: 2; rows: any[] };
-          }
-        }
+        layout = normalizeTemplateLayout(template.layout);
       }
     }
     const isNarrow = paperWidth <= 62;
@@ -727,26 +727,9 @@ export default function OrdersPage() {
     }
     setReprintLoading(true);
     try {
-      const [templatesMap, defaultTemplate] = await Promise.all([
-        window.electronAPI?.getPrintTemplatesMap?.() ?? Promise.resolve({}),
-        window.electronAPI?.getDefaultPrintTemplate?.() ?? Promise.resolve(null),
-      ]);
+      const { templatesMap, defaultTemplate } = await loadPrintTemplateSources();
       const printersToUse = enabledPrinters.filter((p) => reprintSelectedPrinters.includes(p.name));
-      const printerJobs = printersToUse.flatMap((printer) => {
-        const template = templatesMap?.[printer.name] ?? defaultTemplate ?? null;
-        return getPrinterReceipts(printer.name)
-          .filter((r) => r.enabled)
-          .map((receipt) => ({
-            name: printer.name,
-            displayName: printer.displayName,
-            paperWidth: template?.paperWidth ?? printer.paperWidth,
-            paperLength: template?.paperLength ?? printer.paperLength,
-            margin: template?.margin ?? printer.margin,
-            receiptType: receipt.type,
-            copies: receipt.copies,
-            layout: template?.layout ?? undefined,
-          }));
-      });
+      const printerJobs = buildPrinterJobs(printersToUse, getPrinterReceipts, templatesMap, defaultTemplate);
       if (printerJobs.length === 0) {
         throw new Error('برای پرینترهای انتخابی، نوع رسید فعالی تنظیم نشده است.');
       }

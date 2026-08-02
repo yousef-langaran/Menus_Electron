@@ -20,7 +20,7 @@ export interface ReceiptLayoutV2 {
   rows: ReceiptLayoutRow[];
 }
 
-interface ReceiptLayoutRow {
+export interface ReceiptLayoutRow {
   id: string;
   type: 'single' | 'columns';
   order: number;
@@ -47,8 +47,31 @@ export interface PrinterJob {
   margin?: number; // mm
   receiptType?: ReceiptType;
   copies?: number;
+  /** عرض ناحیه چاپ قالب (mm) — اگر قالب سرور مقدار داده باشد */
+  contentWidthMm?: number;
+  /** فاصله خالی سمت راست کاغذ (mm) — اگر قالب سرور مقدار داده باشد */
+  shiftLeftMm?: number;
   /** اگر قالب طراح (نسخه ۲) باشد، چاپ بر اساس layout انجام می‌شود */
-  layout?: ReceiptLayoutV2;
+  layout?: ReceiptLayoutV2 | ReceiptLayoutRow[];
+}
+
+/**
+ * قالب ذخیره‌شده گاهی آرایهٔ ردیف‌ها و گاهی شیء { version: 2, rows } است.
+ * بدون این نرمال‌سازی، قالبِ گرفته‌شده از سرور در مسیر چاپ نادیده گرفته می‌شد و
+ * رسید با طرح پیش‌فرض چاپ می‌شد.
+ */
+export function normalizeReceiptLayout(raw: unknown): ReceiptLayoutV2 | undefined {
+  if (!raw) return undefined;
+  if (Array.isArray(raw)) {
+    return raw.length > 0 ? { version: 2, rows: raw as ReceiptLayoutRow[] } : undefined;
+  }
+  if (typeof raw === 'object') {
+    const obj = raw as { version?: unknown; rows?: unknown };
+    if (obj.version === 2 && Array.isArray(obj.rows) && obj.rows.length > 0) {
+      return { version: 2, rows: obj.rows as ReceiptLayoutRow[] };
+    }
+  }
+  return undefined;
 }
 
 interface ReceiptTemplateOptions {
@@ -312,8 +335,11 @@ const runPrinterJobs = async (
         }
         const paperWidth = job.paperWidth ?? defaultConfig?.paperWidth ?? 80;
         const isNarrow = paperWidth <= 62;
-        const shiftLeftMm = isNarrow ? 4 : 6;
-        const contentWidthMm = Math.max(32, paperWidth - marginSame * 2 - shiftLeftMm);
+        const shiftLeftMm = typeof job.shiftLeftMm === 'number' ? job.shiftLeftMm : isNarrow ? 4 : 6;
+        const contentWidthMm =
+          typeof job.contentWidthMm === 'number'
+            ? job.contentWidthMm
+            : Math.max(32, paperWidth - marginSame * 2 - shiftLeftMm);
         const opts = {
           paperWidth,
           margin,
@@ -323,8 +349,9 @@ const runPrinterJobs = async (
           receiptType,
           priceDisplayUnit,
         };
-        const receiptHTML = job.layout?.version === 2
-          ? generateReceiptHTMLFromLayout(orderData, job.layout, opts)
+        const layout = normalizeReceiptLayout(job.layout);
+        const receiptHTML = layout
+          ? generateReceiptHTMLFromLayout(orderData, layout, opts)
           : receiptType === 'kitchen'
             ? generateKitchenReceiptHTML(orderData, opts)
             : generateReceiptHTML(orderData, opts);
@@ -503,6 +530,21 @@ export async function printReceipt(
   return receiptNumber;
 }
 
+/** معرفی نرم‌افزار که باید زیر همهٔ رسیدها (هر قالبی) چاپ شود */
+const BRAND_FOOTER_TEXT = 'با تشکر از انتخاب شما نرم افزار سکه secoin.ir';
+
+/**
+ * فوتر برند + تاریخ؛ در همهٔ قالب‌ها (پیش‌فرض، آشپزخانه و قالب‌های سرور) یکسان است.
+ * اگر قالب خودش بلوک «تشکر» داشته باشد، فقط نام نرم‌افزار چاپ می‌شود تا تکراری نشود.
+ */
+function renderBrandFooterHtml(date: string, options: { thanksAlreadyShown?: boolean } = {}): string {
+  const text = options.thanksAlreadyShown ? 'نرم افزار سکه secoin.ir' : BRAND_FOOTER_TEXT;
+  return `<div class="brand-footer"><div>${text}</div><div style="margin-top:4px">${date}</div></div>`;
+}
+
+const BRAND_FOOTER_CSS =
+  '.brand-footer { text-align: center; margin-top: 12px; font-size: 8pt; font-weight: bold; }';
+
 function createFormatPrice(unit: ReceiptPriceDisplayUnit = 'toman'): (price: number) => string {
   return (price: number) => {
     const n = Number(price) || 0;
@@ -627,7 +669,8 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
       text-align-last: right; /* خط آخر راست‌چین بماند */
     }
 
-    .footer { text-align: center; margin-top: 15px; font-size: 8pt; font-weight: bold; }
+    ${BRAND_FOOTER_CSS}
+    .brand-footer { margin-top: 15px; }
   </style>
 </head>
 <body>
@@ -704,10 +747,7 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
 
     <div class="divider"></div>
 
-    <div class="footer">
-      <div>با تشکر از انتخاب شما نرم افزار سکه secoin.ir </div>
-      <div style="margin-top: 4px;">${date}</div>
-    </div>
+    ${renderBrandFooterHtml(date)}
   </div>
 </body>
 </html>
@@ -722,12 +762,11 @@ export async function renderReceiptPreview(
     options.priceDisplayUnit ?? (await loadReceiptPriceDisplayUnit());
   const resolvedOptions: ReceiptTemplateOptions = { ...options, priceDisplayUnit };
   const receiptType = resolvedOptions.receiptType || 'full';
-  const layout = resolvedOptions.layout;
-  const useLayout = layout?.version === 2 && Array.isArray(layout?.rows) && layout.rows.length > 0;
-  const html = receiptType === 'kitchen'
-    ? generateKitchenReceiptHTML(orderData, resolvedOptions)
-    : useLayout
-      ? generateReceiptHTMLFromLayout(orderData, layout, resolvedOptions)
+  const layout = normalizeReceiptLayout(resolvedOptions.layout);
+  const html = layout
+    ? generateReceiptHTMLFromLayout(orderData, layout, resolvedOptions)
+    : receiptType === 'kitchen'
+      ? generateKitchenReceiptHTML(orderData, resolvedOptions)
       : generateReceiptHTML(orderData, resolvedOptions);
   // برای پیش‌نمایش حاشیهٔ چپ و راست اضافه می‌کنیم تا محتوا از هیچ طرف بریده نشود
   const previewHtml = html.replace(
@@ -800,9 +839,13 @@ export function showSystemPrintDialog(
   const marginTop = 0;
   const marginBottom = 3;
 
-  const html = receiptType === 'kitchen'
-    ? generateKitchenReceiptHTML(orderData, { ...options, paperWidth, margin, contentWidthMm, shiftLeftMm })
-    : generateReceiptHTML(orderData, { ...options, paperWidth, margin, contentWidthMm, shiftLeftMm });
+  const layout = normalizeReceiptLayout(options.layout);
+  const htmlOptions = { ...options, paperWidth, margin, contentWidthMm, shiftLeftMm };
+  const html = layout
+    ? generateReceiptHTMLFromLayout(orderData, layout, htmlOptions)
+    : receiptType === 'kitchen'
+      ? generateKitchenReceiptHTML(orderData, htmlOptions)
+      : generateReceiptHTML(orderData, htmlOptions);
 
   const width = mmToMicrons(paperWidth);
   const height = mmToMicrons(options.paperLength ?? 200);
@@ -887,8 +930,11 @@ function getPaymentMethodText(method: string): string {
 
 function getValueForLayoutModule(type: string, orderData: any, module?: ReceiptLayoutModule): { value: string | number; isEmpty: boolean } {
   switch (type) {
-    case 'call_number':
-      return { value: orderData?.receiptCallNumber ?? 0, isEmpty: orderData?.receiptCallNumber == null };
+    case 'call_number': {
+      const callNumber = Number(orderData?.receiptCallNumber ?? 0);
+      // شمارهٔ صفر یعنی شماره‌ای وجود ندارد؛ نباید کادر خالیِ بزرگ چاپ شود
+      return { value: callNumber > 0 ? callNumber : '', isEmpty: !(callNumber > 0) };
+    }
     case 'restaurant_name':
       return { value: orderData?.restaurantName ?? '', isEmpty: !orderData?.restaurantName };
     case 'order_number':
@@ -946,6 +992,8 @@ function renderLayoutModuleHtml(
   if (borderWidth) style += `border:${borderWidth}px ${borderStyle} #333;`;
 
   if (module.type === 'call_number') {
+    // کادر شمارهٔ فراخوانی بدون شماره فقط یک مربع خالیِ بزرگ در بالای رسید است
+    if (isEmpty) return '';
     const box = opt.showCallNumberBox !== false;
     const size = (opt.callNumberBoxSize as number) ?? 22;
     const v = orderData?.receiptCallNumber ?? value;
@@ -1061,7 +1109,14 @@ export function generateReceiptHTMLFromLayout(
     }
   }
 
-  const bodyContent = parts.join('');
+  const hasFooterModule = rows.some((row) => {
+    const blocks = Array.isArray(row.blocks) ? row.blocks.flat() : [];
+    return (blocks as ReceiptLayoutModule[]).some((m) => m && m.type === 'footer' && m.visible);
+  });
+  const bodyContent =
+    parts.join('') +
+    renderBrandFooterHtml(new Date().toLocaleString('fa-IR'), { thanksAlreadyShown: hasFooterModule });
+
   return `<!DOCTYPE html>
 <html dir="rtl" lang="fa">
 <head>
@@ -1071,16 +1126,21 @@ export function generateReceiptHTMLFromLayout(
   <style>
     :root { --paper-width: ${paperWidth}mm; --printable-width: ${printableWidth}mm; --content-padding: ${contentPadding}mm; --shift-left: ${shiftLeftMm}mm; }
     @page { size: var(--paper-width) auto; margin: 0; }
-    html, body { 
-      width: var(--paper-width); max-width: var(--paper-width); margin: 0; padding: 0; 
-      margin-right: var(--shift-left); font-family: Tahoma, Arial, sans-serif; box-sizing: border-box; 
-      direction: rtl; text-align: right; word-break: break-word; background: #fff;
+    html, body {
+      width: var(--paper-width); max-width: var(--paper-width); margin: 0; padding: 0; padding-top: 0 !important;
+      margin-right: var(--shift-left); font-family: Tahoma, Arial, sans-serif; box-sizing: border-box;
+      direction: rtl; text-align: right; word-break: break-word; overflow-wrap: break-word; background: #fff;
+      font-size: 10pt;
       color: #000 !important; /* حیاتی برای کیفیت چاپ */
       -webkit-font-smoothing: none; /* حیاتی برای کیفیت چاپ */
       text-rendering: geometricPrecision;
     }
-    .receipt-root { width: var(--printable-width); max-width: var(--printable-width); padding: var(--content-padding); box-sizing: border-box; background: #fff; margin: 0; }
+    /* دقیقاً مثل قالب پیش‌فرض: بدون فاصلهٔ اضافه در بالای کاغذ */
+    .receipt-root { width: var(--printable-width); max-width: var(--printable-width); padding: var(--content-padding); padding-top: 0; box-sizing: border-box; background: #fff; margin: 0; }
+    .receipt-root > *:first-child { margin-top: 0 !important; padding-top: 0 !important; }
+    hr { margin: 0; }
     * { box-sizing: border-box; max-width: 100%; color: #000 !important; }
+    ${BRAND_FOOTER_CSS}
   </style>
 </head>
 <body>
@@ -1182,7 +1242,8 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
       text-align-last: right; 
     }
     
-    .footer { text-align: center; margin-top: 20px; font-size: 10pt; }
+    ${BRAND_FOOTER_CSS}
+    .brand-footer { margin-top: 20px; font-size: 10pt; }
   </style>
 </head>
 <body>
@@ -1222,9 +1283,7 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
   }).join('')}
     </div>
 
-    <div class="footer">
-      <div>${date}</div>
-    </div>
+    ${renderBrandFooterHtml(date)}
   </div>
 </body>
 </html>

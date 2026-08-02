@@ -9,6 +9,7 @@ import { useAuthStore } from '../store/authStore';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
 import { useThemeStore } from '../store/themeStore';
 import { getReceiptNumberSettingsFromServer, getPrintTemplates, type PrintTemplateItem, WEB_PANEL_URL } from '../services/api';
+import { printTemplateKey, resolveTemplateForPrinter } from '../utils/printTemplates';
 import { useSyncStore } from '../store/syncStore';
 import { toast } from '../utils/toast';
 import { useNavigate } from 'react-router-dom';
@@ -23,6 +24,7 @@ export default function SettingsPage() {
   const [availablePrinters, setAvailablePrinters] = useState<Array<{ name: string; displayName?: string; description?: string }>>([]);
   const [printTemplates, setPrintTemplates] = useState<PrintTemplateItem[]>([]);
   const [printerTemplatesMap, setPrinterTemplatesMap] = useState<Record<string, { id: number; name: string; paperWidth: number; paperLength: number; margin: number; layout?: unknown } | null>>({});
+  const [defaultTemplate, setDefaultTemplate] = useState<{ id: number; name: string } | null>(null);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [savingTemplateForPrinter, setSavingTemplateForPrinter] = useState<string | null>(null);
   const {
@@ -387,15 +389,18 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
       if (!token || !restaurantId) return;
       setLoadingTemplates(true);
       try {
-        const [list, map] = await Promise.all([
+        const [list, map, fallback] = await Promise.all([
           getPrintTemplates(restaurantId, token),
           window.electronAPI?.getPrintTemplatesMap?.() ?? Promise.resolve({}),
+          window.electronAPI?.getDefaultPrintTemplate?.() ?? Promise.resolve(null),
         ]);
         setPrintTemplates(list);
         setPrinterTemplatesMap(map ?? {});
+        setDefaultTemplate(fallback ?? null);
       } catch {
         setPrintTemplates([]);
         setPrinterTemplatesMap({});
+        setDefaultTemplate(null);
       } finally {
         setLoadingTemplates(false);
       }
@@ -403,36 +408,94 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
     loadTemplatesAndPerPrinter();
   }, [token, user?.restaurants?.[0]?.id]);
 
-  const handlePrinterTemplateChange = async (printerName: string, templateId: string | null) => {
-    if (!window.electronAPI?.setPrintTemplateForPrinter) return;
-    setSavingTemplateForPrinter(printerName);
+  /**
+   * انتخاب قالب برای یک پرینتر (receiptType نداشته باشد) یا برای یک رسید مشخص از
+   * آن پرینتر. مقدار `inherit` یعنی از سطح بالاتر ارث ببرد و `none` یعنی بدون قالب.
+   *
+   * بعد از ذخیره، نگاشت از خود لایهٔ الکترون دوباره خوانده می‌شود (نه به‌روزرسانی
+   * خوش‌بینانه) تا اگر نوشتن انجام نشده باشد، به‌جای برگشتن بی‌صدای انتخاب، خطا دیده شود.
+   */
+  const handlePrinterTemplateChange = async (
+    printerName: string,
+    templateId: string | null,
+    receiptType?: 'full' | 'kitchen',
+  ) => {
+    if (!window.electronAPI?.setPrintTemplateForPrinter) {
+      toast.error('دسترسی به تنظیمات برنامه برقرار نیست؛ برنامه را دوباره باز کنید.');
+      return;
+    }
+    const key = printTemplateKey(printerName, receiptType);
+    setSavingTemplateForPrinter(key);
+    const save = async (template: unknown) => {
+      const res = await window.electronAPI!.setPrintTemplateForPrinter(printerName, template, receiptType);
+      if (res && res.success === false) {
+        toast.error(`ذخیرهٔ قالب ناموفق بود: ${res.error ?? 'خطای نامشخص'}`);
+      }
+    };
     try {
-      if (!templateId || templateId === '') {
-        await window.electronAPI.setPrintTemplateForPrinter(printerName, null);
-        setPrinterTemplatesMap((prev) => ({ ...prev, [printerName]: null }));
+      let expectedId: number | null | undefined;
+      if (templateId === 'inherit') {
+        await save(undefined);
+        expectedId = undefined;
+      } else if (!templateId || templateId === '') {
+        await save(null);
+        expectedId = null;
       } else {
         const id = parseInt(templateId, 10);
         const t = printTemplates.find((x) => x.id === id);
-        if (t) {
-          const snapshot = {
-            id: t.id,
-            name: t.name,
-            receiptType: t.receiptType,
-            paperWidth: t.paperWidth,
-            paperLength: t.paperLength,
-            margin: t.margin,
-            contentWidthMm: t.contentWidthMm,
-            shiftLeftMm: t.shiftLeftMm,
-            layout: t.layout,
-          };
-          await window.electronAPI.setPrintTemplateForPrinter(printerName, snapshot);
-          setPrinterTemplatesMap((prev) => ({ ...prev, [printerName]: snapshot }));
+        if (!t) {
+          toast.error('قالب انتخاب‌شده پیدا نشد. لیست قالب‌ها را دوباره بارگذاری کنید.');
+          return;
         }
+        const snapshot = {
+          id: t.id,
+          name: t.name,
+          receiptType: t.receiptType,
+          paperWidth: t.paperWidth,
+          paperLength: t.paperLength,
+          margin: t.margin,
+          contentWidthMm: t.contentWidthMm,
+          shiftLeftMm: t.shiftLeftMm,
+          layout: t.layout,
+        };
+        await save(snapshot);
+        if (!receiptType) {
+          // قالبِ سطح پرینتر به‌عنوان قالب پیش‌فرض برنامه هم ذخیره می‌شود تا
+          // پرینترهایی که انتخاب صریحی ندارند با همین قالب چاپ کنند.
+          await window.electronAPI.setDefaultPrintTemplate?.(snapshot);
+          setDefaultTemplate(snapshot);
+        }
+        expectedId = t.id;
+      }
+
+      const saved = (await window.electronAPI.getPrintTemplatesMap?.()) ?? {};
+      setPrinterTemplatesMap(saved);
+
+      const hasKey = Object.prototype.hasOwnProperty.call(saved, key);
+      const actualId = hasKey ? (saved[key]?.id ?? null) : undefined;
+      if (actualId !== expectedId) {
+        toast.error(
+          receiptType
+            ? 'ذخیرهٔ قالب این رسید انجام نشد. برنامه را کامل ببندید و دوباره باز کنید (نسخهٔ در حال اجرا قدیمی است).'
+            : 'ذخیرهٔ قالب این پرینتر انجام نشد.',
+        );
       }
     } finally {
       setSavingTemplateForPrinter(null);
     }
   };
+
+  /** کلیدِ Select یک رسید: انتخاب صریح خودش، وگرنه «ارث‌بری» */
+  const receiptTemplateValue = (printerName: string, receiptType: 'full' | 'kitchen') => {
+    const key = printTemplateKey(printerName, receiptType);
+    if (!Object.prototype.hasOwnProperty.call(printerTemplatesMap, key)) return 'inherit';
+    return printerTemplatesMap[key] ? String(printerTemplatesMap[key]!.id) : 'none';
+  };
+
+  /** قالبی که واقعاً برای این رسید چاپ می‌شود (بعد از ارث‌بری) */
+  const effectiveReceiptTemplateName = (printerName: string, receiptType: 'full' | 'kitchen') =>
+    resolveTemplateForPrinter(printerName, printerTemplatesMap, defaultTemplate, receiptType)?.name ??
+    'قالب پیش‌فرض برنامه';
 
   useEffect(() => {
     const sync = async () => {
@@ -673,7 +736,12 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                   const receipts = getPrinterReceipts(printer.name);
                   const fullReceipt = receipts.find((r) => r.type === 'full');
                   const kitchenReceipt = receipts.find((r) => r.type === 'kitchen');
-                  const templateValue = printerTemplatesMap[printer.name] ? String(printerTemplatesMap[printer.name]!.id) : 'none';
+                  // انتخاب صریح این پرینتر؛ اگر انتخابی نشده باشد قالب پیش‌فرض برنامه اعمال می‌شود
+                  const hasExplicitTemplate = Object.prototype.hasOwnProperty.call(printerTemplatesMap, printer.name);
+                  const effectiveTemplate = hasExplicitTemplate
+                    ? printerTemplatesMap[printer.name]
+                    : defaultTemplate;
+                  const templateValue = effectiveTemplate ? String(effectiveTemplate.id) : 'none';
                   return (
                     <Card key={printer.name} className="shadow-sm border border-default-200">
                       <CardContent className="gap-4">
@@ -695,7 +763,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                               <p className="text-sm text-default-500">در حال بارگذاری قالب‌ها...</p>
                             ) : (
                               <Select
-                                label="قالب چاپ"
+                                label="قالب چاپ این پرینتر"
                                 placeholder="بدون قالب (تنظیمات دستی زیر)"
                                 selectedKeys={[templateValue]}
                                 onSelectionChange={(keys) => {
@@ -715,6 +783,11 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                   </SelectItem>
                                 ))}
                               </Select>
+                            )}
+                            {!loadingTemplates && (
+                              <p className="text-xs text-default-500 -mt-2">
+                                قالب پایهٔ این پرینتر؛ هر رسید می‌تواند در بخش «نوع رسید» قالب متفاوت خودش را داشته باشد.
+                              </p>
                             )}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                               <Input
@@ -751,44 +824,108 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                             <div className="border-t border-default-200 pt-4 space-y-3">
                               <h3 className="text-sm font-medium text-foreground">نوع رسید</h3>
                               <div className="flex flex-col gap-3">
-                                <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-default-50 border border-default-200">
-                                  <Checkbox
-                                    isSelected={fullReceipt?.enabled ?? true}
-                                    onValueChange={(checked) => setReceiptEnabled(printer.name, 'full', checked)}
-                                  >
-                                    رسید کامل (با قیمت)
-                                  </Checkbox>
-                                  {(fullReceipt?.enabled ?? true) && (
-                                    <Input
-                                      type="number"
-                                      size="sm"
-                                      className="w-20"
-                                      min={1}
-                                      max={5}
-                                      value={String(fullReceipt?.copies ?? 1)}
-                                      onValueChange={(v) => setReceiptCopies(printer.name, 'full', Number(v) || 1)}
-                                      aria-label="تعداد رسید کامل"
-                                    />
+                                <div className="flex flex-col gap-3 p-3 rounded-lg bg-default-50 border border-default-200">
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <Checkbox
+                                      isSelected={fullReceipt?.enabled ?? true}
+                                      onValueChange={(checked) => setReceiptEnabled(printer.name, 'full', checked)}
+                                    >
+                                      رسید کامل (با قیمت)
+                                    </Checkbox>
+                                    {(fullReceipt?.enabled ?? true) && (
+                                      <Input
+                                        type="number"
+                                        size="sm"
+                                        className="w-20"
+                                        min={1}
+                                        max={5}
+                                        value={String(fullReceipt?.copies ?? 1)}
+                                        onValueChange={(v) => setReceiptCopies(printer.name, 'full', Number(v) || 1)}
+                                        aria-label="تعداد رسید کامل"
+                                      />
+                                    )}
+                                  </div>
+                                  {(fullReceipt?.enabled ?? true) && !loadingTemplates && (
+                                    <div className="flex flex-col gap-1">
+                                      <Select
+                                        label="قالب این رسید"
+                                        selectedKeys={[receiptTemplateValue(printer.name, 'full')]}
+                                        onSelectionChange={(keys) => {
+                                          const v = Array.from(keys)[0] as string | undefined;
+                                          handlePrinterTemplateChange(printer.name, v ?? 'inherit', 'full');
+                                        }}
+                                        isDisabled={savingTemplateForPrinter === printTemplateKey(printer.name, 'full')}
+                                        variant="bordered"
+                                        size="sm"
+                                      >
+                                        <SelectItem key="inherit" textValue="مثل قالب پرینتر">
+                                          مثل قالب پرینتر
+                                        </SelectItem>
+                                        <SelectItem key="none" textValue="بدون قالب">
+                                          بدون قالب (تنظیمات دستی بالا)
+                                        </SelectItem>
+                                        {printTemplates.map((t) => (
+                                          <SelectItem key={String(t.id)} textValue={`${t.name} (${t.paperWidth}×${t.paperLength} mm)`}>
+                                            {t.name} ({t.paperWidth}×{t.paperLength} mm)
+                                          </SelectItem>
+                                        ))}
+                                      </Select>
+                                      <p className="text-xs text-default-500">
+                                        الان با «{effectiveReceiptTemplateName(printer.name, 'full')}» چاپ می‌شود
+                                      </p>
+                                    </div>
                                   )}
                                 </div>
-                                <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-default-50 border border-default-200">
-                                  <Checkbox
-                                    isSelected={kitchenReceipt?.enabled ?? false}
-                                    onValueChange={(checked) => setReceiptEnabled(printer.name, 'kitchen', checked)}
-                                  >
-                                    رسید آشپزخانه (بدون قیمت)
-                                  </Checkbox>
-                                  {(kitchenReceipt?.enabled ?? false) && (
-                                    <Input
-                                      type="number"
-                                      size="sm"
-                                      className="w-20"
-                                      min={1}
-                                      max={5}
-                                      value={String(kitchenReceipt?.copies ?? 1)}
-                                      onValueChange={(v) => setReceiptCopies(printer.name, 'kitchen', Number(v) || 1)}
-                                      aria-label="تعداد رسید آشپزخانه"
-                                    />
+                                <div className="flex flex-col gap-3 p-3 rounded-lg bg-default-50 border border-default-200">
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <Checkbox
+                                      isSelected={kitchenReceipt?.enabled ?? false}
+                                      onValueChange={(checked) => setReceiptEnabled(printer.name, 'kitchen', checked)}
+                                    >
+                                      رسید آشپزخانه (بدون قیمت)
+                                    </Checkbox>
+                                    {(kitchenReceipt?.enabled ?? false) && (
+                                      <Input
+                                        type="number"
+                                        size="sm"
+                                        className="w-20"
+                                        min={1}
+                                        max={5}
+                                        value={String(kitchenReceipt?.copies ?? 1)}
+                                        onValueChange={(v) => setReceiptCopies(printer.name, 'kitchen', Number(v) || 1)}
+                                        aria-label="تعداد رسید آشپزخانه"
+                                      />
+                                    )}
+                                  </div>
+                                  {(kitchenReceipt?.enabled ?? false) && !loadingTemplates && (
+                                    <div className="flex flex-col gap-1">
+                                      <Select
+                                        label="قالب این رسید"
+                                        selectedKeys={[receiptTemplateValue(printer.name, 'kitchen')]}
+                                        onSelectionChange={(keys) => {
+                                          const v = Array.from(keys)[0] as string | undefined;
+                                          handlePrinterTemplateChange(printer.name, v ?? 'inherit', 'kitchen');
+                                        }}
+                                        isDisabled={savingTemplateForPrinter === printTemplateKey(printer.name, 'kitchen')}
+                                        variant="bordered"
+                                        size="sm"
+                                      >
+                                        <SelectItem key="inherit" textValue="مثل قالب پرینتر">
+                                          مثل قالب پرینتر
+                                        </SelectItem>
+                                        <SelectItem key="none" textValue="بدون قالب">
+                                          بدون قالب (تنظیمات دستی بالا)
+                                        </SelectItem>
+                                        {printTemplates.map((t) => (
+                                          <SelectItem key={String(t.id)} textValue={`${t.name} (${t.paperWidth}×${t.paperLength} mm)`}>
+                                            {t.name} ({t.paperWidth}×{t.paperLength} mm)
+                                          </SelectItem>
+                                        ))}
+                                      </Select>
+                                      <p className="text-xs text-default-500">
+                                        الان با «{effectiveReceiptTemplateName(printer.name, 'kitchen')}» چاپ می‌شود
+                                      </p>
+                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -802,7 +939,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
               </div>
             )}
             <p className="text-default-500 text-sm">
-              برای هر پرینتر می‌توانید قالب چاپ و نوع/تعداد رسید را جداگانه تنظیم کنید. این تنظیمات برای چاپ خودکار رسید هنگام ثبت سفارش استفاده می‌شود.
+              برای هر پرینتر می‌توانید قالب چاپ و نوع/تعداد رسید را جداگانه تنظیم کنید. اگر از یک پرینتر دو فیش می‌گیرید، برای هرکدام در بخش «نوع رسید» قالب دلخواه خودش را انتخاب کنید؛ در غیر این صورت هر دو با قالب پایهٔ پرینتر چاپ می‌شوند. این تنظیمات برای چاپ خودکار رسید هنگام ثبت سفارش استفاده می‌شود.
             </p>
           </CardContent>
         </Card>

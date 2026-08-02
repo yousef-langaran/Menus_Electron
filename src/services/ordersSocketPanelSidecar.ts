@@ -1,5 +1,6 @@
 import type { Socket } from 'socket.io-client';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
+import { buildPrinterJobs, loadPrintTemplateSources } from '../utils/printTemplates';
 
 /**
  * اعلام پرینترهای پنل به سرور (وب‌ادمین لیست می‌گیرد) و اجرای چاپ از راه دور از وب.
@@ -86,26 +87,9 @@ async function runRemotePrintJob(payload: {
       ? enabledPrinters.filter((p) => selectedPrinterNames.includes(p.name))
       : enabledPrinters;
 
-  const [templatesMap, defaultTemplate] = await Promise.all([
-    window.electronAPI.getPrintTemplatesMap?.() ?? Promise.resolve({}),
-    window.electronAPI.getDefaultPrintTemplate?.() ?? Promise.resolve(null),
-  ]);
+  const { templatesMap, defaultTemplate } = await loadPrintTemplateSources();
 
-  const printerJobs = printersToUse.flatMap((printer) => {
-    const template = templatesMap?.[printer.name] ?? defaultTemplate ?? null;
-    return getPrinterReceipts(printer.name)
-      .filter((r) => r.enabled)
-      .map((receipt) => ({
-        name: printer.name,
-        displayName: printer.displayName,
-        paperWidth: template?.paperWidth ?? printer.paperWidth,
-        paperLength: template?.paperLength ?? printer.paperLength,
-        margin: template?.margin ?? printer.margin,
-        receiptType: receipt.type,
-        copies: receipt.copies,
-        layout: template?.layout ?? undefined,
-      }));
-  });
+  const printerJobs = buildPrinterJobs(printersToUse, getPrinterReceipts, templatesMap, defaultTemplate);
 
   if (printerJobs.length === 0) {
     throw new Error('PRINT_NO_PRINTER_SELECTED');

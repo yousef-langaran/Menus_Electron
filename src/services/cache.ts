@@ -79,6 +79,35 @@ export async function getCachedMenu(restaurantId?: number, restaurantName?: stri
   return null;
 }
 
+/**
+ * کش میزهای رستوران. صندوق باید در حالت آفلاین هم بتواند میز انتخاب کند،
+ * پس آخرین فهرست میزها به تفکیک رستوران نگه داشته می‌شود. وضعیت میز
+ * (اشغال/آزاد) در آفلاین قدیمی است و فقط نام/بخش میز قابل اتکاست.
+ */
+export async function cacheTables(restaurantId: number, tables: any[]) {
+  try {
+    localStorage.setItem(
+      'tablesCache',
+      JSON.stringify({ restaurantId, tables, cachedAt: new Date().toISOString() }),
+    );
+  } catch (error) {
+    console.error('Failed to cache tables:', error);
+  }
+}
+
+export async function getCachedTables(restaurantId?: number): Promise<any[]> {
+  try {
+    const cached = localStorage.getItem('tablesCache');
+    if (!cached) return [];
+    const parsed = JSON.parse(cached);
+    if (restaurantId != null && Number(parsed?.restaurantId) !== Number(restaurantId)) return [];
+    return Array.isArray(parsed?.tables) ? parsed.tables : [];
+  } catch (error) {
+    console.error('Failed to get cached tables:', error);
+    return [];
+  }
+}
+
 export async function cacheUser(user: any, token: string) {
   userCache = {
     user,

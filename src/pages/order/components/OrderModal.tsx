@@ -10,8 +10,10 @@ import { useOrderStore } from '../../../store/orderStore';
 import { usePrinterSettingsStore } from '../../../store/printerSettingsStore';
 import {
   getCustomerAddresses, checkUser, validateDiscountCode, getApplicableDiscountCodes,
-  getWheelPrizeVouchers, redeemWheelPrizeVoucher, type WheelPrizeVoucher,
+  getWheelPrizeVouchers, redeemWheelPrizeVoucher, getTables,
+  type WheelPrizeVoucher, type PosTable,
 } from '../../../services/api';
+import { cacheTables, getCachedTables } from '../../../services/cache';
 import { isValidIranMobile, normalizeIranMobile, sanitizeMobileInput } from '../../../utils/iranMobile';
 import { toast } from '../../../utils/toast';
 import { toShamsiDate } from '../../../utils/date';
@@ -82,11 +84,11 @@ export function OrderModal({
 }: Props) {
   const { user, token } = useAuthStore();
   const {
-    cart, customerPhone, serviceType, tableNumber, customerAddress, paymentMethod, notes,
+    cart, customerPhone, serviceType, tableNumber, tableId, customerAddress, paymentMethod, notes,
     deliveryLocation, deliveryFeeOverride,
     discountType, discountCode, appliedDiscountCode, discountAmount, isSubmitting,
     splitCash, splitCard, splitOnline,
-    setCustomerPhone, setServiceType, setTableNumber, setCustomerAddress,
+    setCustomerPhone, setServiceType, setTableNumber, setTable, setCustomerAddress,
     setDeliveryLocation, setDeliveryFeeOverride, setDeliveryFeeReason,
     setPaymentMethod, setNotes, setDiscountAmount, setDiscountType,
     setDiscountCode, setAppliedDiscountCode,
@@ -99,6 +101,9 @@ export function OrderModal({
   }));
 
   const phoneInputRef = useRef<HTMLInputElement>(null);
+  const [tables, setTables] = useState<PosTable[]>([]);
+  /** میز خارج از سرویس برای ثبت سفارش قابل انتخاب نیست */
+  const selectableTables = tables.filter((t) => t.isActive !== false && t.status !== 'out_of_service');
   const isElectronWithPrinters = typeof window !== 'undefined' && Boolean(window.electronAPI) && enabledPrinters.length > 0;
   const canUseDiscountCode = Boolean(customerPhone.trim()) && state.isOnline;
 
@@ -122,6 +127,38 @@ export function OrderModal({
   useEffect(() => {
     if (!state.isOpen) set({ cardTerminalStatus: 'idle', cardTerminalError: '', cardTerminalRefId: '' });
   }, [state.isOpen]);
+
+  /**
+   * میزهای رستوران. آنلاین از سرور خوانده و کش می‌شود؛ آفلاین از همان کش
+   * می‌آید. اگر رستوران میزی تعریف نکرده باشد، ورودی متنی شماره میز
+   * (رفتار قبلی) نمایش داده می‌شود.
+   */
+  useEffect(() => {
+    if (!state.isOpen || serviceType !== 'dine_in') return;
+    const restaurantId = user?.restaurants?.[0]?.id;
+    if (!restaurantId) return;
+
+    let cancelled = false;
+    getCachedTables(restaurantId).then((cached) => {
+      if (!cancelled && cached.length) setTables(cached as PosTable[]);
+    });
+
+    if (!token) return;
+    const onlineCheck = window.electronAPI ? window.electronAPI.checkOnline() : Promise.resolve(navigator.onLine);
+    onlineCheck.then((online) => {
+      if (!online || cancelled) return;
+      getTables(restaurantId, token)
+        .then((list) => {
+          if (cancelled) return;
+          setTables(list);
+          void cacheTables(restaurantId, list);
+        })
+        .catch(() => {
+          // آفلاین/خطا — همان کش قبلی نمایش داده می‌شود
+        });
+    });
+    return () => { cancelled = true; };
+  }, [state.isOpen, serviceType, token, user?.restaurants]);
 
   // Discount type guard
   useEffect(() => {
@@ -409,8 +446,43 @@ export function OrderModal({
           )}
 
           {serviceType === 'dine_in' ? (
-            <Input label="شماره میز (اختیاری)" placeholder="A12" value={tableNumber}
-              onValueChange={setTableNumber} variant="bordered" classNames={{ input: 'text-right' }} />
+            selectableTables.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-foreground">میز</span>
+                <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                  {selectableTables.map((table) => {
+                    const selected = tableId === table.id;
+                    const occupied = table.status === 'occupied';
+                    return (
+                      <button
+                        key={table.id}
+                        type="button"
+                        onClick={() => setTable(selected ? null : { id: table.id, name: table.name })}
+                        aria-pressed={selected}
+                        className={`rounded-lg border px-2 py-2 text-sm transition-colors ${
+                          selected
+                            ? 'border-primary bg-primary/10 font-semibold'
+                            : occupied
+                              ? 'border-danger/40 bg-danger/5'
+                              : 'border-default-200 hover:border-default-300'
+                        }`}
+                      >
+                        <span className="block truncate">{table.name}</span>
+                        <span className="block text-[10px] text-default-500">
+                          {occupied ? 'اشغال' : table.status === 'reserved' ? 'رزرو' : `${table.capacity} نفره`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="text-xs text-default-500">
+                  انتخاب میز اختیاری است؛ میز اشغال هم برای سفارش تکمیلی قابل انتخاب است.
+                </span>
+              </div>
+            ) : (
+              <Input label="شماره میز (اختیاری)" placeholder="A12" value={tableNumber}
+                onValueChange={setTableNumber} variant="bordered" classNames={{ input: 'text-right' }} />
+            )
           ) : serviceType === 'takeaway' ? (
             <div className="flex flex-col gap-2">
               <span className="text-sm font-medium text-foreground">آدرس</span>

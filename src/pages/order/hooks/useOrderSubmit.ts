@@ -10,6 +10,7 @@ import {
 } from '../../../services/api';
 import { isValidIranMobile, normalizeIranMobile } from '../../../utils/iranMobile';
 import { saveReceiptNumbersToStorage, getNextReceiptNumberBrowser } from '../../../utils/receiptNumbersStorage';
+import { buildPrinterJobs, loadPrintTemplateSources } from '../../../utils/printTemplates';
 import { toast } from '../../../utils/toast';
 
 interface SubmitOptions {
@@ -37,7 +38,7 @@ export function useOrderSubmit() {
   const navigate = useNavigate();
   const { user, token } = useAuthStore();
   const {
-    cart, customerPhone, serviceType, tableNumber, customerAddress,
+    cart, customerPhone, serviceType, tableNumber, tableId, customerAddress,
     paymentMethod, notes, splitCash, splitCard, splitOnline,
     getTotalAmount, getFinalAmount, getDiscountAmount, getVatAmount,
     appliedDiscountCode, discountType,
@@ -62,25 +63,13 @@ export function useOrderSubmit() {
             ? enabledPrinters.filter((p) => names.includes(p.name))
             : opt === 'all' ? enabledPrinters : [];
           if (shouldPrint && printersToUse.length > 0) {
-            const [templatesMap, defaultTemplate] = await Promise.all([
-              window.electronAPI?.getPrintTemplatesMap?.() ?? Promise.resolve({}),
-              window.electronAPI?.getDefaultPrintTemplate?.() ?? Promise.resolve(null),
-            ]);
-            const printerJobs = printersToUse.flatMap((printer) => {
-              const template = templatesMap?.[printer.name] ?? defaultTemplate ?? null;
-              return getPrinterReceipts(printer.name)
-                .filter((r) => r.enabled)
-                .map((receipt) => ({
-                  name: printer.name,
-                  displayName: printer.displayName,
-                  paperWidth: template?.paperWidth ?? printer.paperWidth,
-                  paperLength: template?.paperLength ?? printer.paperLength,
-                  margin: template?.margin ?? printer.margin,
-                  receiptType: receipt.type,
-                  copies: receipt.copies,
-                  layout: template?.layout ?? undefined,
-                }));
-            });
+            const { templatesMap, defaultTemplate } = await loadPrintTemplateSources();
+            const printerJobs = buildPrinterJobs(
+              printersToUse,
+              getPrinterReceipts,
+              templatesMap,
+              defaultTemplate,
+            );
             if (printerJobs.length > 0) {
               const res = await window.electronAPI!.printReceipt(orderData, printerJobs, orderKeys);
               if (res?.status === 'PRINT_OK') receiptNumber = res.receiptNumber ?? 0;
@@ -151,7 +140,7 @@ export function useOrderSubmit() {
 
     const snapshot = {
       customerPhone: normalizedPhone || customerPhone,
-      serviceType, tableNumber, customerAddress, paymentMethod, notes,
+      serviceType, tableNumber, tableId, customerAddress, paymentMethod, notes,
       discountAmount: getDiscountAmount(),
       vatAmount: getVatAmount(),
       totalAmount: getTotalAmount(),
@@ -225,7 +214,8 @@ export function useOrderSubmit() {
           totalPrice: item.quantity * item.price, itemOption: String(item.itemOption ?? ''),
         })),
         customerPhone: snapshot.customerPhone, serviceType: snapshot.serviceType,
-        tableNumber: snapshot.tableNumber, customerAddress: snapshot.customerAddress,
+        tableNumber: snapshot.tableNumber, tableId: snapshot.tableId,
+        customerAddress: snapshot.customerAddress,
         paymentMethod: snapshot.paymentMethod, notes: snapshot.notes,
       });
     };

@@ -20,6 +20,10 @@ type ElectronPrinterJob = {
   margin?: number;
   receiptType?: 'full' | 'kitchen';
   copies?: number;
+  /** عرض ناحیه چاپ قالب (mm) — از قالب سرور */
+  contentWidthMm?: number;
+  /** فاصله خالی سمت راست کاغذ (mm) — از قالب سرور */
+  shiftLeftMm?: number;
   /** قالب طراح (نسخه ۲) برای چاپ بر اساس layout */
   layout?: { version: 2; rows: any[] };
 };
@@ -73,10 +77,10 @@ declare global {
       clearUserSession: () => Promise<{ success: boolean; error?: string }>;
       loadPrinterConfigs: () => Promise<Record<string, any>>;
       savePrinterConfigs: (configs: Record<string, any>) => Promise<{ success: boolean; error?: string }>;
-      getDefaultPrintTemplate: () => Promise<{ id: number; name: string; receiptType: string; paperWidth: number; paperLength: number; margin: number; layout?: any } | null>;
+      getDefaultPrintTemplate: () => Promise<{ id: number; name: string; receiptType?: string; paperWidth?: number; paperLength?: number; margin?: number; contentWidthMm?: number | null; shiftLeftMm?: number | null; layout?: any } | null>;
       setDefaultPrintTemplate: (template: any) => Promise<{ success: boolean; error?: string }>;
-      getPrintTemplatesMap: () => Promise<Record<string, { id: number; name: string; paperWidth: number; paperLength: number; margin: number; layout?: any } | null>>;
-      setPrintTemplateForPrinter: (printerName: string, template: any) => Promise<{ success: boolean; error?: string }>;
+      getPrintTemplatesMap: () => Promise<Record<string, { id: number; name: string; paperWidth?: number; paperLength?: number; margin?: number; contentWidthMm?: number | null; shiftLeftMm?: number | null; layout?: any } | null>>;
+      setPrintTemplateForPrinter: (printerName: string, template: any, receiptType?: 'full' | 'kitchen') => Promise<{ success: boolean; error?: string }>;
       getReceiptNumberSettings: () => Promise<{ nextNumber: number; resetPolicy: string; startNumber: number; lastResetDate: string; dailyResetTime: string }>;
       saveReceiptNumberSettings: (settings: any) => Promise<{ success: boolean; error?: string }>;
       getReceiptPriceDisplayUnit: () => Promise<'toman' | 'rial'>;
