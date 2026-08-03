@@ -225,7 +225,10 @@ export function CallerIdOverlay() {
                         <p className="text-xs text-gray-500">{formatDate(order.createdAt)}</p>
                       </div>
                       <div className="text-left">
-                        <p className="text-xs text-gray-300">{formatCurrency(order.totalAmount)}</p>
+                        {/* مبلغ نهایی (شامل تخفیف و ارزش افزوده)، نه جمع خام اقلام */}
+                        <p className="text-xs text-gray-300">
+                          {formatCurrency(Number(order.finalAmount ?? order.totalAmount ?? 0))}
+                        </p>
                         <p className={`text-xs font-medium ${
                           order.status === 'completed' || order.status === 'delivered'
                             ? 'text-green-400'

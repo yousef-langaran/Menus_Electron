@@ -810,6 +810,9 @@ export default function OrdersPage() {
                 <div>پرداخت: {order.paymentMethod || '---'}</div>
                 <div>مبلغ کل: {formatPrice(order.totalAmount)}</div>
                 <div>تخفیف: {formatPrice(order.discountAmount)}</div>
+                {Number(order.vatAmount ?? 0) > 0 && (
+                  <div>ارزش افزوده: {formatPrice(Number(order.vatAmount))}</div>
+                )}
                 <div>مبلغ نهایی: {formatPrice(order.finalAmount)}</div>
                 <div>تاریخ: {formatDate(order.createdAt)}</div>
               </div>
@@ -958,6 +961,9 @@ export default function OrdersPage() {
                 <div>مشتری: {order.orderData?.customerPhone || '---'}</div>
                 <div>نوع: {order.orderData?.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر'}</div>
                 <div>مبلغ کل: {formatPrice(order.orderData?.totalAmount)}</div>
+                {Number(order.orderData?.vatAmount ?? 0) > 0 && (
+                  <div>ارزش افزوده: {formatPrice(Number(order.orderData.vatAmount))}</div>
+                )}
                 <div>مبلغ نهایی: {formatPrice(order.orderData?.finalAmount)}</div>
                 <div>تاریخ ثبت: {formatDate(order.createdAt)}</div>
               </div>

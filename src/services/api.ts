@@ -744,7 +744,13 @@ export interface CallerLookupResult {
   recentOrders: {
     id: number;
     orderNumber: string;
+    /** جمع خام اقلام — پیش از تخفیف و ارزش افزوده */
     totalAmount: number;
+    discountAmount?: number | null;
+    /** مالیات بر ارزش افزوده — در `finalAmount` لحاظ شده است */
+    vatAmount?: number | null;
+    /** مبلغ قابل پرداخت = جمع اقلام − تخفیف + ارزش افزوده */
+    finalAmount?: number | null;
     status: string;
     createdAt: string;
     items: any[];
