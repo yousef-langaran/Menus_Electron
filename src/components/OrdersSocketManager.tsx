@@ -52,7 +52,10 @@ export function OrdersSocketManager() {
   const { user, token } = useAuthStore();
   const restaurantName = useMemo(() => user?.restaurants?.[0]?.name?.trim(), [user]);
   const location = useLocation();
-  const isOrdersPage = location.pathname === '/orders';
+  // صفحات /orders و /kds خودشان یک اتصال سوکت مستقل و زنده مدیریت می‌کنند؛
+  // این منیجر سراسری فقط برای اعلان دسکتاپ در بقیهٔ صفحات وصل می‌شود تا
+  // دو اتصال هم‌زمان یا اعلان تکراری روی همان صفحه‌ای که خودش زنده است رخ ندهد.
+  const isOrdersPage = location.pathname === '/orders' || location.pathname === '/kds';
   const ensurePermission = useNotificationPermission();
   const restaurantKeyRef = useRef<string | null>(null);
 

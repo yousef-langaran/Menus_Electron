@@ -51,7 +51,12 @@ function pathIsActive(pathname: string, target: string): boolean {
 }
 
 function salesGroupActive(pathname: string): boolean {
-  return pathname === '/order' || pathname === '/orders' || pathname === '/order-returns';
+  return (
+    pathname === '/order' ||
+    pathname === '/orders' ||
+    pathname === '/order-returns' ||
+    pathname === '/kds'
+  );
 }
 
 function catalogGroupActive(pathname: string): boolean {
@@ -87,6 +92,11 @@ export function ElectronMenubar() {
         path: '/order-returns',
         label: 'مرجوعی‌ها',
         visible: (u) => canAccessRoute(u, '/orders'),
+      },
+      {
+        path: '/kds',
+        label: 'نمایشگر آشپزخانه',
+        visible: (u) => canAccessRoute(u, '/kds'),
       },
     ],
     [],
