@@ -9,6 +9,7 @@ import { NameAutocomplete } from '../../ui/NameAutocomplete';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { useAuthStore } from '../../store/authStore';
 import { useOrderStore } from '../../store/orderStore';
+import { useOrderNavStore } from '../../store/orderNavStore';
 import {
   createProduct, fetchOrderById, getMasterProductByBarcode, searchMasterProducts,
   getAssetBaseUrl, type MasterProduct,
@@ -238,6 +239,31 @@ export default function OrderPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [modalState.isOpen, cart.length]);
+
+  // پیمایش بین فاکتور قبلی/بعدی با ← / → حین ویرایش سفارش — فهرست شناسه‌ها از صفحهٔ
+  // لیست سفارشات در useOrderNavStore منتشر می‌شود چون رفتن به این صفحه (/order?edit=)
+  // آن کامپوننت را از DOM خارج می‌کند و شنوندهٔ کیبوردش دیگر وجود ندارد
+  useEffect(() => {
+    if (editingOrderId == null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active?.closest('input, textarea, [contenteditable="true"]')) return;
+      if (active?.closest('[role="dialog"]')) return;
+      if (active?.closest('[data-slot="select"]')) return;
+      const orderIds = useOrderNavStore.getState().orderIds;
+      if (orderIds.length === 0) return;
+      const currentIndex = orderIds.indexOf(editingOrderId);
+      if (currentIndex === -1) return;
+      const max = orderIds.length - 1;
+      const nextIndex = e.key === 'ArrowRight' ? Math.min(currentIndex + 1, max) : Math.max(currentIndex - 1, 0);
+      if (nextIndex === currentIndex) return;
+      e.preventDefault();
+      navigate(`/order?edit=${orderIds[nextIndex]}`);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editingOrderId, navigate]);
 
   useEffect(() => {
     const onShortcut = (e: KeyboardEvent) => {

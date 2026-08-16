@@ -8,6 +8,7 @@ import { hasModuleAccess } from '../lib/electronPermissions';
 import { connectOrdersSocket, disconnectOrdersSocket } from '../services/ordersSocket';
 import { attachOrdersSocketPanelSidecar } from '../services/ordersSocketPanelSidecar';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
+import { useOrderNavStore } from '../store/orderNavStore';
 import {
   getReceiptNumbersMapFromStorage,
   saveReceiptNumbersToStorage,
@@ -165,6 +166,12 @@ export default function OrdersPage() {
       if (onlineOrders.length === 0) return 0;
       return Math.min(Math.max(i, 0), onlineOrders.length - 1);
     });
+  }, [onlineOrders]);
+
+  // فهرست شناسه‌ها را در استور مشترک منتشر کن تا میانبر ← / → در صفحهٔ ویرایش سفارش
+  // (بعد از رفتن به /order?edit=<id> و خروج این کامپوننت از DOM) هم کار کند
+  useEffect(() => {
+    useOrderNavStore.getState().setOrderIds(onlineOrders.map((o) => o?.id).filter((id) => id != null));
   }, [onlineOrders]);
 
   useEffect(() => {
