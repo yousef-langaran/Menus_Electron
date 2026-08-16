@@ -8,7 +8,8 @@ import { ModalShell } from '../ui/modal-shell';
 import { useAuthStore } from '../store/authStore';
 import { toast } from '../utils/toast';
 
-type CardTerminalConnectionType = 'http' | 'serial-tlv';
+type CardTerminalConnectionType = 'http' | 'serial-tlv' | 'asan-pardakht';
+type AsanPardakhtConnectionMode = 'lan' | 'serial';
 
 type CardTerminalSettings = {
   enabled: boolean;
@@ -31,6 +32,12 @@ type CardTerminalSettings = {
   serialPortName: string;
   serialBaudRate: number;
   serialWithHandshake: boolean;
+  /** فقط برای connectionType=asan-pardakht (کارتخوان آسان‌پرداخت کیش — PosInterface.dll) */
+  asanPardakhtMode: AsanPardakhtConnectionMode;
+  asanPardakhtIp: string;
+  asanPardakhtPort: number;
+  asanPardakhtComPort: string;
+  asanPardakhtBaudRate: number;
 };
 
 type CardTerminalProfile = {
@@ -57,6 +64,11 @@ const DEFAULT_SETTINGS: CardTerminalSettings = {
   serialPortName: '',
   serialBaudRate: 19200,
   serialWithHandshake: false,
+  asanPardakhtMode: 'lan',
+  asanPardakhtIp: '',
+  asanPardakhtPort: 17000,
+  asanPardakhtComPort: '',
+  asanPardakhtBaudRate: 9600,
 };
 
 type CompanyPreset = {
@@ -359,6 +371,103 @@ function SerialTlvFields({
   );
 }
 
+function AsanPardakhtFields({
+  settings,
+  onChange,
+}: {
+  settings: CardTerminalSettings;
+  onChange: (patch: Partial<CardTerminalSettings>) => void;
+}) {
+  const [ports, setPorts] = useState<Array<{ path: string; manufacturer?: string; friendlyName?: string }>>([]);
+  const [loadingPorts, setLoadingPorts] = useState(false);
+
+  const refreshPorts = useCallback(async () => {
+    if (!window.electronAPI?.scaleListPorts) return;
+    setLoadingPorts(true);
+    try {
+      setPorts(await window.electronAPI.scaleListPorts());
+    } finally {
+      setLoadingPorts(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (settings.asanPardakhtMode === 'serial') refreshPorts();
+  }, [settings.asanPardakhtMode, refreshPorts]);
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-warning-300 bg-warning-50 p-3">
+        <p className="text-xs text-warning-800">
+          ⚠️ اتصال مستقیم به SDK آسان‌پرداخت (PosInterface.dll) است. کد موفقیت/شکست تراکنش تأیید
+          نهایی نشده — قبل از استفاده در تراکنش واقعی حتماً با یک مبلغ کوچک روی کارتخوان فیزیکی تست کنید.
+        </p>
+      </div>
+
+      <Select
+        label="نوع اتصال به کارتخوان"
+        selectedKeys={[settings.asanPardakhtMode]}
+        onSelectionChange={(keys) =>
+          onChange({ asanPardakhtMode: String(Array.from(keys)[0] || 'lan') as AsanPardakhtConnectionMode })
+        }
+        variant="bordered"
+      >
+        <SelectItem key="lan">شبکه (LAN)</SelectItem>
+        <SelectItem key="serial">پورت سریال (COM)</SelectItem>
+      </Select>
+
+      {settings.asanPardakhtMode === 'serial' ? (
+        <div className="flex gap-2 flex-wrap items-end">
+          <Select
+            label="پورت COM کارتخوان"
+            selectedKeys={settings.asanPardakhtComPort ? [settings.asanPardakhtComPort] : []}
+            onSelectionChange={(keys) => onChange({ asanPardakhtComPort: String(Array.from(keys)[0] || '') })}
+            variant="bordered"
+            className="flex-1 min-w-[160px]"
+            placeholder={ports.length === 0 ? 'پورتی یافت نشد' : 'انتخاب پورت'}
+          >
+            {ports.map((p) => (
+              <SelectItem key={p.path} textValue={p.path}>
+                {p.path}{p.friendlyName ? ` — ${p.friendlyName}` : p.manufacturer ? ` (${p.manufacturer})` : ''}
+              </SelectItem>
+            ))}
+          </Select>
+          <Button size="sm" variant="flat" onPress={refreshPorts} isLoading={loadingPorts}>
+            بازخوانی پورت‌ها
+          </Button>
+          <Input
+            type="number"
+            label="Baud Rate"
+            value={String(settings.asanPardakhtBaudRate)}
+            onValueChange={(v) => onChange({ asanPardakhtBaudRate: Number(v) || 9600 })}
+            variant="bordered"
+            className="w-32"
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input
+            label="آدرس IP کارتخوان"
+            placeholder="192.168.1.50"
+            value={settings.asanPardakhtIp}
+            onValueChange={(v) => onChange({ asanPardakhtIp: v })}
+            variant="bordered"
+            dir="ltr"
+          />
+          <Input
+            type="number"
+            label="پورت"
+            value={String(settings.asanPardakhtPort)}
+            onValueChange={(v) => onChange({ asanPardakhtPort: Number(v) || 17000 })}
+            variant="bordered"
+          />
+        </div>
+      )}
+      <FieldHelp text="مقادیر IP/پورت یا COM Port باید دقیقاً همان تنظیماتی باشد که در نرم‌افزار PCPOS روی خود کارتخوان تنظیم شده است." />
+    </div>
+  );
+}
+
 type ModalMode = { type: 'add' } | { type: 'edit'; profile: CardTerminalProfile };
 
 export default function CardTerminalsPage() {
@@ -453,6 +562,13 @@ export default function CardTerminalsPage() {
     if (!modalName.trim()) { toast.warning('نام کارتخوان را وارد کنید.'); return; }
     if (modalSettings.connectionType === 'serial-tlv') {
       if (!modalSettings.serialPortName?.trim()) { toast.warning('پورت COM کارتخوان انتخاب نشده است.'); return; }
+    } else if (modalSettings.connectionType === 'asan-pardakht') {
+      if (modalSettings.asanPardakhtMode === 'serial') {
+        if (!modalSettings.asanPardakhtComPort?.trim()) { toast.warning('پورت COM کارتخوان انتخاب نشده است.'); return; }
+      } else if (!modalSettings.asanPardakhtIp?.trim()) {
+        toast.warning('آدرس IP کارتخوان مشخص نیست.');
+        return;
+      }
     } else if (!modalSettings.endpointUrl?.trim()) {
       toast.warning('آدرس اتصال کارتخوان مشخص نیست. شرکت و IP را انتخاب کنید.');
       return;
@@ -589,6 +705,21 @@ export default function CardTerminalsPage() {
                         </span>
                       </div>
                     </>
+                  ) : profile.settings.connectionType === 'asan-pardakht' ? (
+                    <>
+                      <div className="flex gap-2 text-default-500">
+                        <span className="shrink-0">اتصال:</span>
+                        <span className="text-foreground">آسان‌پرداخت — {profile.settings.asanPardakhtMode === 'serial' ? 'سریال' : 'شبکه'}</span>
+                      </div>
+                      <div className="flex gap-2 text-default-500">
+                        <span className="shrink-0">{profile.settings.asanPardakhtMode === 'serial' ? 'پورت:' : 'آدرس:'}</span>
+                        <span className="text-foreground font-mono" dir="ltr">
+                          {profile.settings.asanPardakhtMode === 'serial'
+                            ? `${profile.settings.asanPardakhtComPort || '—'} @ ${profile.settings.asanPardakhtBaudRate}`
+                            : `${profile.settings.asanPardakhtIp || '—'}:${profile.settings.asanPardakhtPort}`}
+                        </span>
+                      </div>
+                    </>
                   ) : companyLabel ? (
                     <>
                       <div className="flex gap-2 text-default-500">
@@ -652,10 +783,18 @@ export default function CardTerminalsPage() {
               >
                 <SelectItem key="http">میان‌افزار شبکه (HTTP/JSON)</SelectItem>
                 <SelectItem key="serial-tlv">اتصال مستقیم سریال — پروتکل TLV سامان (آزمایشی)</SelectItem>
+                <SelectItem key="asan-pardakht">اتصال مستقیم آسان‌پرداخت کیش (PosInterface.dll)</SelectItem>
               </Select>
 
               {modalSettings.connectionType === 'serial-tlv' && (
                 <SerialTlvFields
+                  settings={modalSettings}
+                  onChange={(patch) => setModalSettings((prev) => ({ ...prev, ...patch }))}
+                />
+              )}
+
+              {modalSettings.connectionType === 'asan-pardakht' && (
+                <AsanPardakhtFields
                   settings={modalSettings}
                   onChange={(patch) => setModalSettings((prev) => ({ ...prev, ...patch }))}
                 />

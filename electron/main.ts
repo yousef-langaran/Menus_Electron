@@ -81,6 +81,7 @@ import { callerIdHidService, setupCallerIdHid, listHidDevices } from './services
 import { getApiConfig } from './config/api';
 import { scaleService, listSerialPorts } from './services/scale';
 import { sendAmountViaSamanSerial } from './services/samanPos';
+import { sendPaymentViaAsanPardakht } from './services/asanPardakht';
 import { setupAutoUpdater, checkForUpdates, startUpdateDownload, quitAndInstall } from './updater';
 
 /** مسیر فایل‌های asset برای هر دو حالت dev و packaged */
@@ -327,6 +328,23 @@ async function sendAmountUsingCardTerminalSettings(
       : { success: false, error: result.error || 'ارسال به کارتخوان ناموفق بود' };
   }
 
+  if (settings.connectionType === 'asan-pardakht') {
+    const orderId = Number(payload?.orderId || 0);
+    const result = await sendPaymentViaAsanPardakht(amountToSend, {
+      mode: settings.asanPardakhtMode,
+      ip: settings.asanPardakhtIp,
+      port: settings.asanPardakhtPort,
+      comPort: settings.asanPardakhtComPort,
+      baudRate: settings.asanPardakhtBaudRate,
+      bridgeExePath: getAssetPath('pos-bridge', 'PosBridge.exe'),
+    }, {
+      invoiceNumber: orderId > 0 ? String(orderId) : undefined,
+    });
+    return result.success
+      ? { success: true, message: 'پرداخت با موفقیت انجام شد', refId: result.rrn || result.stan }
+      : { success: false, error: result.error || 'پرداخت توسط کارتخوان ناموفق بود' };
+  }
+
   if (!settings.endpointUrl?.trim()) {
     return { success: false, error: 'آدرس API کارتخوان تنظیم نشده است' };
   }
@@ -412,6 +430,11 @@ ipcMain.handle('get-card-terminal-settings', async () => {
       serialPortName: '',
       serialBaudRate: 19200,
       serialWithHandshake: false,
+      asanPardakhtMode: 'lan',
+      asanPardakhtIp: '',
+      asanPardakhtPort: 17000,
+      asanPardakhtComPort: '',
+      asanPardakhtBaudRate: 9600,
     };
   }
 });

@@ -70,8 +70,13 @@ export const DEFAULT_SCALE_SETTINGS: ScaleSettings = {
   tcpPort: 8000,
 };
 export type CardTerminalHttpMethod = 'POST' | 'PUT';
-/** http = میان‌افزار JSON روی شبکه (روش فعلی)؛ serial-tlv = اتصال مستقیم به کارتخوان سامان (SEP) روی پورت سریال با پروتکل TLV */
-export type CardTerminalConnectionType = 'http' | 'serial-tlv';
+/**
+ * http = میان‌افزار JSON روی شبکه (روش فعلی)
+ * serial-tlv = اتصال مستقیم به کارتخوان سامان (SEP) روی پورت سریال با پروتکل TLV
+ * asan-pardakht = اتصال مستقیم به کارتخوان آسان‌پرداخت کیش از طریق PosInterface.dll (LAN یا سریال)
+ */
+export type CardTerminalConnectionType = 'http' | 'serial-tlv' | 'asan-pardakht';
+export type AsanPardakhtConnectionMode = 'lan' | 'serial';
 
 export interface CardTerminalSettings {
   enabled: boolean;
@@ -93,6 +98,12 @@ export interface CardTerminalSettings {
   serialBaudRate: number;
   /** آیا کارتخوان با تنظیم "With Handshake" فعال شده — در این حالت پس از ارسال مبلغ منتظر ACK (0x06) می‌مانیم */
   serialWithHandshake: boolean;
+  /** فقط برای connectionType=asan-pardakht */
+  asanPardakhtMode: AsanPardakhtConnectionMode;
+  asanPardakhtIp: string;
+  asanPardakhtPort: number;
+  asanPardakhtComPort: string;
+  asanPardakhtBaudRate: number;
 }
 
 export interface CardTerminalProfile {
@@ -141,6 +152,11 @@ const DEFAULT_CARD_TERMINAL_SETTINGS: CardTerminalSettings = {
   serialPortName: '',
   serialBaudRate: 19200,
   serialWithHandshake: false,
+  asanPardakhtMode: 'lan',
+  asanPardakhtIp: '',
+  asanPardakhtPort: 17000,
+  asanPardakhtComPort: '',
+  asanPardakhtBaudRate: 9600,
 };
 
 /** قالب چاپ پیش‌فرض انتخاب‌شده از سرور (کپی برای استفاده آفلاین) */
@@ -339,9 +355,11 @@ export async function loadCardTerminalSettings(): Promise<CardTerminalSettings> 
   const raw = selectedProfile?.settings || fallbackFromLegacy;
   const timeoutMs = Number((raw as any).timeoutMs);
   const normalizedMethod = String((raw as any).httpMethod || 'POST').toUpperCase() === 'PUT' ? 'PUT' : 'POST';
+  const rawConnectionType = (raw as any).connectionType;
   return {
     enabled: Boolean((raw as any).enabled),
-    connectionType: (raw as any).connectionType === 'serial-tlv' ? 'serial-tlv' : 'http',
+    connectionType:
+      rawConnectionType === 'serial-tlv' || rawConnectionType === 'asan-pardakht' ? rawConnectionType : 'http',
     endpointUrl: String((raw as any).endpointUrl || '').trim(),
     httpMethod: normalizedMethod,
     timeoutMs: Number.isFinite(timeoutMs) ? Math.max(3000, Math.min(timeoutMs, 120000)) : 10000,
@@ -357,6 +375,11 @@ export async function loadCardTerminalSettings(): Promise<CardTerminalSettings> 
     serialPortName: String((raw as any).serialPortName || '').trim(),
     serialBaudRate: Number((raw as any).serialBaudRate) || 19200,
     serialWithHandshake: Boolean((raw as any).serialWithHandshake),
+    asanPardakhtMode: (raw as any).asanPardakhtMode === 'serial' ? 'serial' : 'lan',
+    asanPardakhtIp: String((raw as any).asanPardakhtIp || '').trim(),
+    asanPardakhtPort: Number((raw as any).asanPardakhtPort) || 17000,
+    asanPardakhtComPort: String((raw as any).asanPardakhtComPort || '').trim(),
+    asanPardakhtBaudRate: Number((raw as any).asanPardakhtBaudRate) || 9600,
   };
 }
 
@@ -435,7 +458,10 @@ export async function saveCardTerminalSettings(
   };
   prefs.cardTerminalSettings = {
     enabled: Boolean(merged.enabled),
-    connectionType: merged.connectionType === 'serial-tlv' ? 'serial-tlv' : 'http',
+    connectionType:
+      merged.connectionType === 'serial-tlv' || merged.connectionType === 'asan-pardakht'
+        ? merged.connectionType
+        : 'http',
     endpointUrl: String(merged.endpointUrl || '').trim(),
     httpMethod: String(merged.httpMethod || 'POST').toUpperCase() === 'PUT' ? 'PUT' : 'POST',
     timeoutMs: Math.max(3000, Math.min(Number(merged.timeoutMs || 10000), 120000)),
@@ -451,6 +477,11 @@ export async function saveCardTerminalSettings(
     serialPortName: String(merged.serialPortName || '').trim(),
     serialBaudRate: Number(merged.serialBaudRate) || 19200,
     serialWithHandshake: Boolean(merged.serialWithHandshake),
+    asanPardakhtMode: merged.asanPardakhtMode === 'serial' ? 'serial' : 'lan',
+    asanPardakhtIp: String(merged.asanPardakhtIp || '').trim(),
+    asanPardakhtPort: Number(merged.asanPardakhtPort) || 17000,
+    asanPardakhtComPort: String(merged.asanPardakhtComPort || '').trim(),
+    asanPardakhtBaudRate: Number(merged.asanPardakhtBaudRate) || 9600,
   };
   await writePreferences(prefs);
   return prefs.cardTerminalSettings;
