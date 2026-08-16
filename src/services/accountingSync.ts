@@ -32,6 +32,7 @@ import {
   listRawMaterialCategories,
   syncAccountingPull,
   syncAccountingPush,
+  updatePurchaseInvoiceAccounting,
 } from './api';
 
 function resolveOnlineStatus(): Promise<boolean> {
@@ -215,31 +216,58 @@ export async function runAccountingSync(args: {
         syncError: null,
       });
       const lineItems = await getPurchaseInvoiceItemsByInvoiceId(draft.id);
-      const response = await createPurchaseInvoiceAccounting(
-        {
-          restaurantId,
-          supplierId: Number(draft.supplierId),
-          invoiceNumber: String(draft.invoiceNumber || `DRAFT-${draft.id}`),
-          purchaseDate:
-            String(draft.purchaseDate || '').slice(0, 10) ||
-            new Date().toISOString().slice(0, 10),
-          items: (lineItems || []).map((x) => ({
-            ...(x.rawMaterialId ? { rawMaterialId: Number(x.rawMaterialId) } : {}),
-            ...(x.finalProductId ? { finalProductId: Number(x.finalProductId) } : {}),
-            quantity: Number(x.quantity),
-            unitPrice: Number(x.unitPrice),
-            ...(x.salePrice != null ? { salePrice: Number(x.salePrice) } : {}),
-            ...(x.warehouseId ? { warehouseId: Number(x.warehouseId) } : {}),
-          })),
-          extraCosts: Number(draft.extraCosts || 0),
-          status: 'pending_approval',
-        },
-        token,
-      );
+      const invoiceNumber = String(draft.invoiceNumber || `DRAFT-${draft.id}`);
+      const purchaseDate =
+        String(draft.purchaseDate || '').slice(0, 10) ||
+        new Date().toISOString().slice(0, 10);
+      const itemsPayload = (lineItems || []).map((x) => ({
+        ...(x.rawMaterialId ? { rawMaterialId: Number(x.rawMaterialId) } : {}),
+        ...(x.finalProductId ? { finalProductId: Number(x.finalProductId) } : {}),
+        quantity: Number(x.quantity),
+        unitPrice: Number(x.unitPrice),
+        ...(x.salePrice != null ? { salePrice: Number(x.salePrice) } : {}),
+        ...(x.warehouseId ? { warehouseId: Number(x.warehouseId) } : {}),
+      }));
+
+      let syncedServerInvoiceId: number;
+      if (draft.serverInvoiceId) {
+        // این پیش‌نویس قبلاً یک بار push شده (serverInvoiceId دارد) — اگر دوباره
+        // بسازیم، یک فاکتور یتیم تکراری روی سرور می‌مونه و نگاشت محلی به آخرین
+        // کپی drift می‌کنه. به‌جاش همون فاکتور سرور رو آپدیت می‌کنیم. اگر در همین
+        // فاصله تاییدشده باشه، سرور این را با 400 رد می‌کند — آن مسیر باید از
+        // ویرایش فاکتور تاییدشده (صفحه اصلی) انجام شود، نه اینجا.
+        await updatePurchaseInvoiceAccounting(
+          Number(draft.serverInvoiceId),
+          {
+            restaurantId,
+            supplierId: Number(draft.supplierId),
+            invoiceNumber,
+            purchaseDate,
+            items: itemsPayload,
+            extraCosts: Number(draft.extraCosts || 0),
+          },
+          token,
+        );
+        syncedServerInvoiceId = Number(draft.serverInvoiceId);
+      } else {
+        const response = await createPurchaseInvoiceAccounting(
+          {
+            restaurantId,
+            supplierId: Number(draft.supplierId),
+            invoiceNumber,
+            purchaseDate,
+            items: itemsPayload,
+            extraCosts: Number(draft.extraCosts || 0),
+            status: 'pending_approval',
+          },
+          token,
+        );
+        syncedServerInvoiceId = response.invoiceId;
+      }
       await markPurchaseInvoiceSyncState(draft.id, {
         localSyncStatus: 'synced',
         syncError: null,
-        serverInvoiceId: response.invoiceId,
+        serverInvoiceId: syncedServerInvoiceId,
       });
       return 1;
     } catch (error: any) {

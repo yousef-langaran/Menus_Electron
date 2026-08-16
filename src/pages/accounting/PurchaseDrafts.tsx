@@ -23,7 +23,7 @@ import {
   updatePurchaseInvoiceDraftLocal,
 } from '../../services/accountingLocalDb';
 import { createProductLocal, getLocalCategories, getLocalProducts } from '../../services/catalogLocalDb';
-import { getMasterProductByBarcode, updateAccountingPurchaseInvoiceStatus } from '../../services/api';
+import { editApprovedPurchaseInvoice, getMasterProductByBarcode, updateAccountingPurchaseInvoiceStatus } from '../../services/api';
 import { toast } from '../../utils/toast';
 
 const SYNC_STATUS_CONFIG: Record<string, { label: string; color: 'warning' | 'success' | 'danger' | 'default' }> = {
@@ -115,6 +115,10 @@ export default function AccountingPurchaseDraftsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  /** true وقتی editingId شناسه سرور یک فاکتور APPROVED است — ذخیره باید سرور را
+   *  مستقیم صدا بزند (نه صف آفلاین)، چون سرور فاکتور اصلی را برگشت کامل و
+   *  فاکتور جدید تاییدشده صادر می‌کند. */
+  const [isEditingApprovedInvoice, setIsEditingApprovedInvoice] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [supplierId, setSupplierId] = useState('');
   const [extraCosts, setExtraCosts] = useState('0');
@@ -245,6 +249,7 @@ export default function AccountingPurchaseDraftsPage() {
   const openCreate = () => {
     setEditingId(null);
     setIsViewMode(false);
+    setIsEditingApprovedInvoice(false);
     setInvoiceNumber('');
     setSupplierId('');
     setExtraCosts('0');
@@ -258,6 +263,7 @@ export default function AccountingPurchaseDraftsPage() {
     const lines = await getPurchaseInvoiceItemsByInvoiceId(d.id);
     setEditingId(viewOnly ? null : d.id);
     setIsViewMode(viewOnly);
+    setIsEditingApprovedInvoice(false);
     setInvoiceNumber(d.invoiceNumber);
     setSupplierId(String(d.supplierId || ''));
     setExtraCosts(String(d.extraCosts || '0'));
@@ -283,6 +289,18 @@ export default function AccountingPurchaseDraftsPage() {
     );
     setScanValue('');
     setOpen(true);
+  };
+
+  /**
+   * Opens the modal to edit an APPROVED, server-synced invoice. Reuses
+   * loadInvoiceIntoModal to populate fields/items from the local mirror,
+   * then overrides editingId to the *server* invoice id (which handleSave
+   * needs for the online-only edit call) and flags the approved-edit path.
+   */
+  const openApprovedEdit = async (d: any, serverInvoiceId: number) => {
+    await loadInvoiceIntoModal(d, false);
+    setEditingId(serverInvoiceId);
+    setIsEditingApprovedInvoice(true);
   };
 
   // ── save ──────────────────────────────────────────────────────────────────
@@ -333,13 +351,38 @@ export default function AccountingPurchaseDraftsPage() {
       return;
     }
 
+    if (isEditingApprovedInvoice && !token) {
+      toast.error('برای ویرایش فاکتور تاییدشده باید آنلاین و وارد حساب باشید.');
+      return;
+    }
+
     setIsSaving(true);
     try {
       const defaultWarehouse = await getDefaultWarehouseLocal(restaurantId);
       const defaultWarehouseId = defaultWarehouse?.id as number | undefined;
       const linesWithWarehouse = lines.map((x) => ({ ...x, warehouseId: defaultWarehouseId }));
 
-      if (editingId) {
+      if (isEditingApprovedInvoice && editingId) {
+        // آنلاین-فقط: سرور فاکتور اصلی را برگشت کامل می‌زند و فاکتور جدید
+        // تاییدشده صادر می‌کند — هرگز از صف آفلاین رد نمی‌شود.
+        await editApprovedPurchaseInvoice(
+          editingId,
+          {
+            restaurantId,
+            supplierId: Number(supplierId),
+            invoiceNumber: invoiceNumber.trim(),
+            purchaseDate,
+            items: linesWithWarehouse,
+            extraCosts: Number(normalizePriceInput(extraCosts) || 0),
+          },
+          token!,
+        );
+        // مبدأ حقیقت اکنون سرور است: mirror محلی را با یک full-pull فوری همگام کن
+        // (همان الگوی دکمه «ارسال مجدد و همگام‌سازی کامل» بالای همین صفحه).
+        await resetAccountingPullTimestamp(restaurantId);
+        window.dispatchEvent(new Event('focus'));
+        toast.success('فاکتور ویرایش شد؛ فاکتور جدید صادر شد.');
+      } else if (editingId) {
         await updatePurchaseInvoiceDraftLocal({
           invoiceId: editingId,
           restaurantId,
@@ -363,8 +406,13 @@ export default function AccountingPurchaseDraftsPage() {
       }
       setOpen(false);
       await reload();
-    } catch {
-      toast.error('خطا در ذخیره‌سازی. لطفاً دوباره تلاش کنید.');
+    } catch (err: any) {
+      // برای ویرایش تاییدشده، اینترسپتور axios پیام دقیق سرور (مثلاً «فاکتوری
+      // که پرداخت دارد قابل ویرایش نیست») را قبلاً به‌صورت toast نشان داده؛
+      // اینجا فقط برای مسیر محلی toast عمومی نشان می‌دهیم تا تکراری نشود.
+      if (!isEditingApprovedInvoice || !err?.response) {
+        toast.error('خطا در ذخیره‌سازی. لطفاً دوباره تلاش کنید.');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -884,7 +932,15 @@ export default function AccountingPurchaseDraftsPage() {
                           ویرایش
                         </Button>
                       )}
-                      {(d.status === 'approved' || d.status === 'rejected') && (
+                      {d.status === 'approved' && isServerSynced && token && serverInvoiceId ? (
+                        <Button
+                          size="sm"
+                          variant="flat"
+                          onPress={() => openApprovedEdit(d, Number(serverInvoiceId))}
+                        >
+                          ویرایش
+                        </Button>
+                      ) : (d.status === 'approved' || d.status === 'rejected') && (
                         <Button
                           size="sm"
                           variant="flat"
@@ -990,7 +1046,7 @@ export default function AccountingPurchaseDraftsPage() {
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-foreground leading-tight">
-                  {isViewMode ? 'مشاهده فاکتور خرید' : editingId ? 'ویرایش پیش‌نویس' : 'ثبت پیش‌نویس خرید'}
+                  {isViewMode ? 'مشاهده فاکتور خرید' : isEditingApprovedInvoice ? 'ویرایش فاکتور تاییدشده' : editingId ? 'ویرایش پیش‌نویس' : 'ثبت پیش‌نویس خرید'}
                 </p>
                 {(items.length > 0 || runningTotal > 0) && (
                   <p className="text-xs text-default-400 mt-0.5">
@@ -1004,6 +1060,13 @@ export default function AccountingPurchaseDraftsPage() {
 
           <ModalBody className="gap-0 p-0">
             <div className="flex flex-col gap-4 p-4 sm:p-5">
+
+              {isEditingApprovedInvoice && (
+                <div className="rounded-xl border border-warning-300 bg-warning-50 p-3 text-sm text-warning-700">
+                  ذخیره تغییرات این فاکتور را دستکاری نمی‌کند: به‌صورت خودکار یک برگشت کامل از این خرید ثبت و یک فاکتور خرید جدید با مقادیر ویرایش‌شده صادر می‌شود.
+                  اگر برای این فاکتور از قبل پرداختی ثبت شده باشد، سرور این عملیات را رد می‌کند — در آن صورت از «برگشت از خرید» دستی استفاده کنید.
+                </div>
+              )}
 
               {/* ── Barcode scanner ─────────────────────────────────── */}
               {!isViewMode && (

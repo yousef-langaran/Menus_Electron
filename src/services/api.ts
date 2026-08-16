@@ -944,6 +944,36 @@ export async function createPurchaseInvoiceAccounting(
   };
 }
 
+/**
+ * Updates a DRAFT/PENDING_APPROVAL purchase invoice already on the server.
+ * Used by the offline sync push loop when a local draft that was already
+ * synced once (has a serverInvoiceId) gets edited again locally, so the
+ * re-push updates the same server record instead of creating a duplicate.
+ * The server rejects this (400) if the invoice has since been approved —
+ * that case must go through editApprovedPurchaseInvoice instead.
+ */
+export async function updatePurchaseInvoiceAccounting(
+  invoiceId: number,
+  payload: {
+    restaurantId: number;
+    supplierId?: number;
+    invoiceNumber?: string;
+    purchaseDate?: string;
+    items?: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number }>;
+    extraCosts?: number;
+    notes?: string;
+  },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.patch(
+    `/accounting/purchases/invoices/${invoiceId}`,
+    payload,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
 export async function fetchAccountingPurchaseReport(
   params: { restaurantId: number; from?: string; to?: string; supplierId?: number; fiscalYearId?: number },
   token: string,
@@ -1067,6 +1097,43 @@ export async function updateAccountingPurchaseInvoiceStatus(
     { headers: { Authorization: `Bearer ${token}` } },
   );
   return response.data as { invoiceId: number; status: string };
+}
+
+/**
+ * Edits an APPROVED purchase invoice. Server-only — never queued offline,
+ * since it must reach the same restaurant-wide accounting state the web
+ * admin sees. The server never mutates the original invoice in place: it
+ * reverses it via a full purchase return and reissues a new APPROVED
+ * invoice (see Menus_BE AccountingService.editApprovedPurchaseInvoice).
+ * Only allowed when the original invoice has zero payments recorded.
+ */
+export async function editApprovedPurchaseInvoice(
+  invoiceId: number,
+  payload: {
+    restaurantId: number;
+    supplierId?: number;
+    invoiceNumber?: string;
+    purchaseDate?: string;
+    items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number; warehouseId?: number }>;
+    extraCosts?: number;
+    vatRate?: number;
+    notes?: string;
+  },
+  token: string,
+) {
+  await apiConfigReady;
+  const response = await api.post(
+    `/accounting/purchases/invoices/${invoiceId}/edit`,
+    payload,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data as {
+    originalInvoiceId: number;
+    purchaseReturnId: number;
+    newInvoiceId: number;
+    status: string;
+    totalAmount: number;
+  };
 }
 
 // ─── دسته‌بندی هزینه ─────────────────────────────────────────────────────
