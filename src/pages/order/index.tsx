@@ -11,7 +11,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useOrderStore } from '../../store/orderStore';
 import { useOrderNavStore } from '../../store/orderNavStore';
 import {
-  createProduct, fetchOrderById, getMasterProductByBarcode, searchMasterProducts,
+  createProduct, fetchOrderById, fetchOrders, getMasterProductByBarcode, searchMasterProducts,
   getAssetBaseUrl, type MasterProduct,
 } from '../../services/api';
 import { MODULES } from '../../types';
@@ -240,30 +240,56 @@ export default function OrderPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [modalState.isOpen, cart.length]);
 
-  // پیمایش بین فاکتور قبلی/بعدی با ← / → حین ویرایش سفارش — فهرست شناسه‌ها از صفحهٔ
-  // لیست سفارشات در useOrderNavStore منتشر می‌شود چون رفتن به این صفحه (/order?edit=)
-  // آن کامپوننت را از DOM خارج می‌کند و شنوندهٔ کیبوردش دیگر وجود ندارد
+  // اگر کاربر مستقیم وارد صفحهٔ ثبت سفارش شده (بدون اینکه قبلاً از صفحهٔ لیست سفارشات
+  // بازدید کرده باشد)، useOrderNavStore هنوز خالی است — یک بار به‌صورت پس‌زمینه سفارش‌های
+  // اخیر را می‌گیریم تا میانبر ← / → همین‌جا هم فعال باشد
   useEffect(() => {
-    if (editingOrderId == null) return;
+    if (!token) return;
+    if (useOrderNavStore.getState().orderIds.length > 0) return;
+    let cancelled = false;
+    const restaurantName = user?.restaurants?.[0]?.name;
+    (async () => {
+      try {
+        const response = await fetchOrders(
+          { page: 1, limit: 100, ...(restaurantName ? { restaurantName } : {}) },
+          token,
+        );
+        if (cancelled) return;
+        const data = Array.isArray(response) ? response : Array.isArray(response?.data) ? response.data : [];
+        useOrderNavStore.getState().setOrderIds(
+          data.map((o: any) => o?.id).filter((id: any) => id != null),
+        );
+      } catch {
+        /* آفلاین یا خطای شبکه — میانبر پیمایش صرفاً غیرفعال می‌ماند */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, user?.restaurants]);
+
+  // پیمایش بین فاکتور قبلی/بعدی با ← / → — هم از صفحهٔ خالی «ثبت سفارش» (وقتی سبد خالی
+  // است، تا سفارش تازهٔ در حال تکمیل گم نشود) و هم حین ویرایش یک سفارش. فهرست شناسه‌ها
+  // از صفحهٔ لیست سفارشات در useOrderNavStore منتشر می‌شود چون رفتن به این صفحه
+  // (/order?edit=) آن کامپوننت را از DOM خارج می‌کند و شنوندهٔ کیبوردش دیگر وجود ندارد
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
       const active = document.activeElement as HTMLElement | null;
       if (active?.closest('input, textarea, [contenteditable="true"]')) return;
       if (active?.closest('[role="dialog"]')) return;
       if (active?.closest('[data-slot="select"]')) return;
+      if (editingOrderId == null && cart.length > 0) return;
       const orderIds = useOrderNavStore.getState().orderIds;
       if (orderIds.length === 0) return;
-      const currentIndex = orderIds.indexOf(editingOrderId);
-      if (currentIndex === -1) return;
+      const currentIndex = editingOrderId != null ? orderIds.indexOf(editingOrderId) : -1;
       const max = orderIds.length - 1;
       const nextIndex = e.key === 'ArrowRight' ? Math.min(currentIndex + 1, max) : Math.max(currentIndex - 1, 0);
-      if (nextIndex === currentIndex) return;
+      if (currentIndex !== -1 && nextIndex === currentIndex) return;
       e.preventDefault();
       navigate(`/order?edit=${orderIds[nextIndex]}`);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [editingOrderId, navigate]);
+  }, [editingOrderId, cart.length, navigate]);
 
   useEffect(() => {
     const onShortcut = (e: KeyboardEvent) => {
