@@ -15,6 +15,9 @@ import { ServiceJobsSyncManager } from './components/ServiceJobsSyncManager';
 import { CallerIdOverlay } from './components/CallerIdOverlay';
 import { useCallerIdStore } from './store/callerIdStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ShortcutsHelpModal } from './components/ShortcutsHelpModal';
+import { useShortcutsHelpStore } from './store/shortcutsHelpStore';
+import { NAV_SHORTCUTS } from './constants/shortcuts';
 
 // صفحات اصلی — eager (همیشه لازم هستند)
 import LoginPage from './pages/Login';
@@ -68,25 +71,38 @@ function GlobalShortcutListener() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const user = useAuthStore((s) => s.user);
+  const toggleShortcutsHelp = useShortcutsHelpStore((s) => s.toggle);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'F2') return;
       if (!user) return;
 
-      event.preventDefault();
-
-      if (pathname === '/order') {
-        window.dispatchEvent(new Event('menus-electron:reset-order-session'));
+      if (event.key === 'F1') {
+        event.preventDefault();
+        toggleShortcutsHelp();
         return;
       }
 
-      navigate('/order');
+      if (event.key === 'F2') {
+        event.preventDefault();
+        if (pathname === '/order') {
+          window.dispatchEvent(new Event('menus-electron:reset-order-session'));
+          return;
+        }
+        navigate('/order');
+        return;
+      }
+
+      const navShortcut = NAV_SHORTCUTS.find((s) => s.keys === event.key);
+      if (navShortcut) {
+        event.preventDefault();
+        navigate(navShortcut.path);
+      }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [navigate, pathname, user]);
+  }, [navigate, pathname, user, toggleShortcutsHelp]);
 
   return null;
 }
@@ -159,6 +175,7 @@ function AppRoutes() {
       <Toast.Provider placement="top start" maxVisibleToasts={4} />
       <UnauthorizedListener />
       <GlobalShortcutListener />
+      <ShortcutsHelpModal />
       <DeepLinkListener />
       <UpdateBanner />
       <OfflineOrdersSync />

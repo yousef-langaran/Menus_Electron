@@ -9,6 +9,8 @@ import {
   hasOrderRegisterAccess,
   type ElectronUser,
 } from '../lib/electronPermissions';
+import { useShortcutsHelpStore } from '../store/shortcutsHelpStore';
+import { shortcutForPath } from '../constants/shortcuts';
 
 type NavLeaf = { path: string; label: string; visible: (u: ElectronUser) => boolean };
 
@@ -46,8 +48,25 @@ function useOnlineFlag() {
   return online;
 }
 
+const SHORTCUTS_HELP_KEY = '__shortcuts_help__';
+
 function pathIsActive(pathname: string, target: string): boolean {
   return pathname === target;
+}
+
+/** برچسب آیتم منو + میانبر کیبورد صفحه (اگر موجود باشد) در سمت مقابل */
+function NavItemLabel({ item }: { item: NavLeaf }) {
+  const shortcut = shortcutForPath(item.path);
+  return (
+    <span className="flex items-center justify-between gap-4 w-full">
+      <span>{item.label}</span>
+      {shortcut ? (
+        <span className="text-[10px] font-mono text-default-400 border border-default-300 rounded px-1 py-0.5">
+          {shortcut}
+        </span>
+      ) : null}
+    </span>
+  );
 }
 
 function salesGroupActive(pathname: string): boolean {
@@ -79,6 +98,7 @@ export function ElectronMenubar() {
   const online = useOnlineFlag();
   const callHistoryCount = useCallerIdStore((s) => s.callHistory.length);
   const callerIdEnabled = useCallerIdStore((s) => s.settings?.enabled ?? false);
+  const openShortcutsHelp = useShortcutsHelpStore((s) => s.open);
 
   const salesItems: NavLeaf[] = useMemo(
     () => [
@@ -153,6 +173,7 @@ export function ElectronMenubar() {
 
   const onMenuAction = (key: string | number) => {
     const path = String(key);
+    if (path === SHORTCUTS_HELP_KEY) { openShortcutsHelp(); return; }
     if (path.startsWith('/')) navigate(path);
   };
 
@@ -208,7 +229,7 @@ export function ElectronMenubar() {
                     textValue={item.label}
                     className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
                   >
-                    {item.label}
+                    <NavItemLabel item={item} />
                   </Dropdown.Item>
                 ))}
               </Dropdown.Section>
@@ -235,7 +256,7 @@ export function ElectronMenubar() {
                     textValue={item.label}
                     className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
                   >
-                    {item.label}
+                    <NavItemLabel item={item} />
                   </Dropdown.Item>
                 ))}
               </Dropdown.Section>
@@ -263,7 +284,7 @@ export function ElectronMenubar() {
                       textValue={item.label}
                       className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
                     >
-                      {item.label}
+                      <NavItemLabel item={item} />
                     </Dropdown.Item>
                   ))}
                 </Dropdown.Section>
@@ -277,7 +298,7 @@ export function ElectronMenubar() {
                       textValue={item.label}
                       className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
                     >
-                      {item.label}
+                      <NavItemLabel item={item} />
                     </Dropdown.Item>
                   ))}
                 </Dropdown.Section>
@@ -326,7 +347,7 @@ export function ElectronMenubar() {
                       textValue={item.label}
                       className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
                     >
-                      {item.label}
+                      <NavItemLabel item={item} />
                     </Dropdown.Item>
                   ))}
                 </Dropdown.Section>
@@ -340,11 +361,21 @@ export function ElectronMenubar() {
                       textValue={item.label}
                       className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
                     >
-                      {item.label}
+                      <NavItemLabel item={item} />
                     </Dropdown.Item>
                   ))}
                 </Dropdown.Section>
               ) : null}
+              <Dropdown.Section title="راهنما">
+                <Dropdown.Item id={SHORTCUTS_HELP_KEY} textValue="راهنمای میانبرها">
+                  <span className="flex items-center justify-between gap-4 w-full">
+                    <span>راهنمای میانبرها</span>
+                    <span className="text-[10px] font-mono text-default-400 border border-default-300 rounded px-1 py-0.5">
+                      F1
+                    </span>
+                  </span>
+                </Dropdown.Item>
+              </Dropdown.Section>
             </Dropdown.Menu>
           </Dropdown.Popover>
         </Dropdown.Root>

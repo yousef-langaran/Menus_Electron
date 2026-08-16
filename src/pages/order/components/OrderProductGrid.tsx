@@ -141,6 +141,15 @@ export function OrderProductGrid({
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // اسکنر بارکد فقط باید وقتی فوکوس روی فیلد متنی/مودالی نیست فعال شود — وگرنه
+      // مثلاً تایپ شماره موبایل مشتری در مودال پرداخت و زدن Enter برای «چاپ»، به‌عنوان
+      // بارکد ناموجود تفسیر می‌شود و مودال «افزودن محصول» را به‌جای عملیات مدنظر کاربر باز می‌کند.
+      const active = document.activeElement as HTMLElement | null;
+      if (active?.closest('input, textarea, [contenteditable="true"]') || active?.closest('[role="dialog"]')) {
+        scanBufferRef.current = '';
+        scanLastKeyAtRef.current = 0;
+        return;
+      }
       const isEnter = e.key === 'Enter' || e.code === 'NumpadEnter' || (e as any).keyCode === 13;
       const now = Date.now();
       if (isEnter) {
@@ -173,6 +182,8 @@ export function OrderProductGrid({
 
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      if (active?.closest('input, textarea, [contenteditable="true"]') || active?.closest('[role="dialog"]')) return;
       const text = e.clipboardData?.getData('text/plain') || '';
       const code = normalizeBarcode(text);
       if (code.length < 3) return;
