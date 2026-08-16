@@ -8,8 +8,11 @@ import { ModalShell } from '../ui/modal-shell';
 import { useAuthStore } from '../store/authStore';
 import { toast } from '../utils/toast';
 
+type CardTerminalConnectionType = 'http' | 'serial-tlv';
+
 type CardTerminalSettings = {
   enabled: boolean;
+  connectionType: CardTerminalConnectionType;
   endpointUrl: string;
   httpMethod: 'POST' | 'PUT';
   timeoutMs: number;
@@ -24,6 +27,10 @@ type CardTerminalSettings = {
   referenceFieldPath: string;
   companyKey?: string;
   deviceIp?: string;
+  /** فقط برای connectionType=serial-tlv (کارتخوان سامان/SEP روی پورت سریال) */
+  serialPortName: string;
+  serialBaudRate: number;
+  serialWithHandshake: boolean;
 };
 
 type CardTerminalProfile = {
@@ -34,6 +41,7 @@ type CardTerminalProfile = {
 
 const DEFAULT_SETTINGS: CardTerminalSettings = {
   enabled: true,
+  connectionType: 'http',
   endpointUrl: '',
   httpMethod: 'POST',
   timeoutMs: 10000,
@@ -46,6 +54,9 @@ const DEFAULT_SETTINGS: CardTerminalSettings = {
   successFieldPath: 'success',
   messageFieldPath: 'message',
   referenceFieldPath: 'refId',
+  serialPortName: '',
+  serialBaudRate: 19200,
+  serialWithHandshake: false,
 };
 
 type CompanyPreset = {
@@ -273,6 +284,81 @@ function AdvancedFields({
   );
 }
 
+function SerialTlvFields({
+  settings,
+  onChange,
+}: {
+  settings: CardTerminalSettings;
+  onChange: (patch: Partial<CardTerminalSettings>) => void;
+}) {
+  const [ports, setPorts] = useState<Array<{ path: string; manufacturer?: string; friendlyName?: string }>>([]);
+  const [loadingPorts, setLoadingPorts] = useState(false);
+
+  const refreshPorts = useCallback(async () => {
+    if (!window.electronAPI?.scaleListPorts) return;
+    setLoadingPorts(true);
+    try {
+      setPorts(await window.electronAPI.scaleListPorts());
+    } finally {
+      setLoadingPorts(false);
+    }
+  }, []);
+
+  useEffect(() => { refreshPorts(); }, [refreshPorts]);
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-warning-300 bg-warning-50 p-3">
+        <p className="text-xs text-warning-800">
+          ⚠️ این حالت (اتصال مستقیم سریال با پروتکل TLV سامان/SEP) آزمایشی است. قبل از استفاده در
+          تراکنش واقعی، حتماً با یک مبلغ کوچک روی کارتخوان فیزیکی تست کنید.
+        </p>
+      </div>
+
+      <div className="flex gap-2 flex-wrap items-end">
+        <Select
+          label="پورت COM کارتخوان"
+          selectedKeys={settings.serialPortName ? [settings.serialPortName] : []}
+          onSelectionChange={(keys) => onChange({ serialPortName: String(Array.from(keys)[0] || '') })}
+          variant="bordered"
+          className="flex-1 min-w-[160px]"
+          placeholder={ports.length === 0 ? 'پورتی یافت نشد' : 'انتخاب پورت'}
+        >
+          {ports.map((p) => (
+            <SelectItem key={p.path} textValue={p.path}>
+              {p.path}{p.friendlyName ? ` — ${p.friendlyName}` : p.manufacturer ? ` (${p.manufacturer})` : ''}
+            </SelectItem>
+          ))}
+        </Select>
+        <Button size="sm" variant="flat" onPress={refreshPorts} isLoading={loadingPorts}>
+          بازخوانی پورت‌ها
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Input
+          type="number"
+          label="Baud Rate"
+          value={String(settings.serialBaudRate)}
+          onValueChange={(v) => onChange({ serialBaudRate: Number(v) || 19200 })}
+          variant="bordered"
+        />
+        <div className="flex items-end pb-1">
+          <div className="flex items-center justify-between w-full py-2 px-3 bg-default-50 rounded-xl border border-default-200">
+            <span className="text-sm text-default-600">With Handshake</span>
+            <Switch
+              isSelected={settings.serialWithHandshake}
+              onValueChange={(v) => onChange({ serialWithHandshake: v })}
+              aria-label="With Handshake"
+            />
+          </div>
+        </div>
+      </div>
+      <FieldHelp text='مطابق راهنمای پروتکل: 19200 baud / 8 data bits / no parity / 1 stop bit — این تنظیمات پیش‌فرض کارتخوان‌های سامان است.' />
+    </div>
+  );
+}
+
 type ModalMode = { type: 'add' } | { type: 'edit'; profile: CardTerminalProfile };
 
 export default function CardTerminalsPage() {
@@ -365,7 +451,12 @@ export default function CardTerminalsPage() {
 
   const handleModalSave = async () => {
     if (!modalName.trim()) { toast.warning('نام کارتخوان را وارد کنید.'); return; }
-    if (!modalSettings.endpointUrl?.trim()) { toast.warning('آدرس اتصال کارتخوان مشخص نیست. شرکت و IP را انتخاب کنید.'); return; }
+    if (modalSettings.connectionType === 'serial-tlv') {
+      if (!modalSettings.serialPortName?.trim()) { toast.warning('پورت COM کارتخوان انتخاب نشده است.'); return; }
+    } else if (!modalSettings.endpointUrl?.trim()) {
+      toast.warning('آدرس اتصال کارتخوان مشخص نیست. شرکت و IP را انتخاب کنید.');
+      return;
+    }
     setIsSaving(true);
     try {
       const settings: CardTerminalSettings = {
@@ -485,7 +576,20 @@ export default function CardTerminalsPage() {
                 </div>
 
                 <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm border-t border-default-100 pt-3">
-                  {companyLabel ? (
+                  {profile.settings.connectionType === 'serial-tlv' ? (
+                    <>
+                      <div className="flex gap-2 text-default-500">
+                        <span className="shrink-0">اتصال:</span>
+                        <span className="text-foreground">سریال — TLV سامان (آزمایشی)</span>
+                      </div>
+                      <div className="flex gap-2 text-default-500">
+                        <span className="shrink-0">پورت:</span>
+                        <span className="text-foreground font-mono" dir="ltr">
+                          {profile.settings.serialPortName || '—'} @ {profile.settings.serialBaudRate}
+                        </span>
+                      </div>
+                    </>
+                  ) : companyLabel ? (
                     <>
                       <div className="flex gap-2 text-default-500">
                         <span className="shrink-0">شرکت:</span>
@@ -537,7 +641,28 @@ export default function CardTerminalsPage() {
                 autoFocus
               />
 
+              <Select
+                label="نوع اتصال"
+                selectedKeys={[modalSettings.connectionType]}
+                onSelectionChange={(keys) => {
+                  const type = String(Array.from(keys)[0] || 'http') as CardTerminalConnectionType;
+                  setModalSettings((prev) => ({ ...prev, connectionType: type }));
+                }}
+                variant="bordered"
+              >
+                <SelectItem key="http">میان‌افزار شبکه (HTTP/JSON)</SelectItem>
+                <SelectItem key="serial-tlv">اتصال مستقیم سریال — پروتکل TLV سامان (آزمایشی)</SelectItem>
+              </Select>
+
+              {modalSettings.connectionType === 'serial-tlv' && (
+                <SerialTlvFields
+                  settings={modalSettings}
+                  onChange={(patch) => setModalSettings((prev) => ({ ...prev, ...patch }))}
+                />
+              )}
+
               {/* Simple Setup */}
+              {modalSettings.connectionType === 'http' && (
               <div className="rounded-xl border border-primary-200 bg-primary-50 p-4 space-y-3">
                 <p className="text-sm font-semibold text-primary-800">اتصال سریع کارتخوان</p>
                 <p className="text-xs text-primary-600">
@@ -582,6 +707,7 @@ export default function CardTerminalsPage() {
                   </div>
                 )}
               </div>
+              )}
 
               {/* Enable toggle */}
               <div className="flex justify-between items-center py-2 px-3 bg-default-50 rounded-xl border border-default-200">
@@ -593,22 +719,26 @@ export default function CardTerminalsPage() {
                 />
               </div>
 
-              {/* Advanced toggle */}
-              <Button
-                size="sm"
-                variant="flat"
-                color="default"
-                onPress={() => setShowAdvanced((v) => !v)}
-                className="w-full text-default-500"
-              >
-                {showAdvanced ? '▲ پنهان کردن تنظیمات پیشرفته' : '▼ تنظیمات پیشرفته (برای کارشناسان)'}
-              </Button>
+              {/* Advanced toggle — فقط برای حالت HTTP/JSON کاربرد دارد */}
+              {modalSettings.connectionType === 'http' && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="flat"
+                    color="default"
+                    onPress={() => setShowAdvanced((v) => !v)}
+                    className="w-full text-default-500"
+                  >
+                    {showAdvanced ? '▲ پنهان کردن تنظیمات پیشرفته' : '▼ تنظیمات پیشرفته (برای کارشناسان)'}
+                  </Button>
 
-              {showAdvanced && (
-                <AdvancedFields
-                  settings={modalSettings}
-                  onChange={(patch) => setModalSettings((prev) => ({ ...prev, ...patch }))}
-                />
+                  {showAdvanced && (
+                    <AdvancedFields
+                      settings={modalSettings}
+                      onChange={(patch) => setModalSettings((prev) => ({ ...prev, ...patch }))}
+                    />
+                  )}
+                </>
               )}
             </div>
           </ModalBody>

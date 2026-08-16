@@ -80,6 +80,7 @@ import { callerIdSerialService, setupCallerIdSerial } from './services/callerIdS
 import { callerIdHidService, setupCallerIdHid, listHidDevices } from './services/callerIdHid';
 import { getApiConfig } from './config/api';
 import { scaleService, listSerialPorts } from './services/scale';
+import { sendAmountViaSamanSerial } from './services/samanPos';
 import { setupAutoUpdater, checkForUpdates, startUpdateDownload, quitAndInstall } from './updater';
 
 /** مسیر فایل‌های asset برای هر دو حالت dev و packaged */
@@ -311,12 +312,24 @@ async function sendAmountUsingCardTerminalSettings(
   if (!settings.enabled) {
     return { success: false, error: 'کارتخوان در تنظیمات دسکتاپ غیرفعال است' };
   }
-  if (!settings.endpointUrl?.trim()) {
-    return { success: false, error: 'آدرس API کارتخوان تنظیم نشده است' };
-  }
 
   const amountToSend =
     settings.sendAmountUnit === 'rial' ? Math.round(amount * 10) : Math.round(amount);
+
+  if (settings.connectionType === 'serial-tlv') {
+    const result = await sendAmountViaSamanSerial(amountToSend, {
+      portName: settings.serialPortName,
+      baudRate: settings.serialBaudRate,
+      withHandshake: settings.serialWithHandshake,
+    });
+    return result.success
+      ? { success: true, message: 'مبلغ با موفقیت به کارتخوان ارسال شد', refId: result.rrn || result.traceNumber }
+      : { success: false, error: result.error || 'ارسال به کارتخوان ناموفق بود' };
+  }
+
+  if (!settings.endpointUrl?.trim()) {
+    return { success: false, error: 'آدرس API کارتخوان تنظیم نشده است' };
+  }
 
   const requestBody: Record<string, any> = {
     [settings.amountFieldName || 'amount']: amountToSend,
@@ -383,6 +396,7 @@ ipcMain.handle('get-card-terminal-settings', async () => {
     console.error('get-card-terminal-settings error:', error);
     return {
       enabled: false,
+      connectionType: 'http',
       endpointUrl: '',
       httpMethod: 'POST',
       timeoutMs: 10000,
@@ -395,6 +409,9 @@ ipcMain.handle('get-card-terminal-settings', async () => {
       successFieldPath: 'success',
       messageFieldPath: 'message',
       referenceFieldPath: 'refId',
+      serialPortName: '',
+      serialBaudRate: 19200,
+      serialWithHandshake: false,
     };
   }
 });

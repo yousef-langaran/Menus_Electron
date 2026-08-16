@@ -70,9 +70,12 @@ export const DEFAULT_SCALE_SETTINGS: ScaleSettings = {
   tcpPort: 8000,
 };
 export type CardTerminalHttpMethod = 'POST' | 'PUT';
+/** http = میان‌افزار JSON روی شبکه (روش فعلی)؛ serial-tlv = اتصال مستقیم به کارتخوان سامان (SEP) روی پورت سریال با پروتکل TLV */
+export type CardTerminalConnectionType = 'http' | 'serial-tlv';
 
 export interface CardTerminalSettings {
   enabled: boolean;
+  connectionType: CardTerminalConnectionType;
   endpointUrl: string;
   httpMethod: CardTerminalHttpMethod;
   timeoutMs: number;
@@ -85,6 +88,11 @@ export interface CardTerminalSettings {
   successFieldPath: string;
   messageFieldPath: string;
   referenceFieldPath: string;
+  /** فقط برای connectionType=serial-tlv */
+  serialPortName: string;
+  serialBaudRate: number;
+  /** آیا کارتخوان با تنظیم "With Handshake" فعال شده — در این حالت پس از ارسال مبلغ منتظر ACK (0x06) می‌مانیم */
+  serialWithHandshake: boolean;
 }
 
 export interface CardTerminalProfile {
@@ -117,6 +125,7 @@ const DEFAULT_RECEIPT_SETTINGS: ReceiptNumberSettings = {
 
 const DEFAULT_CARD_TERMINAL_SETTINGS: CardTerminalSettings = {
   enabled: false,
+  connectionType: 'http',
   endpointUrl: '',
   httpMethod: 'POST',
   timeoutMs: 10000,
@@ -129,6 +138,9 @@ const DEFAULT_CARD_TERMINAL_SETTINGS: CardTerminalSettings = {
   successFieldPath: 'success',
   messageFieldPath: 'message',
   referenceFieldPath: 'refId',
+  serialPortName: '',
+  serialBaudRate: 19200,
+  serialWithHandshake: false,
 };
 
 /** قالب چاپ پیش‌فرض انتخاب‌شده از سرور (کپی برای استفاده آفلاین) */
@@ -329,6 +341,7 @@ export async function loadCardTerminalSettings(): Promise<CardTerminalSettings> 
   const normalizedMethod = String((raw as any).httpMethod || 'POST').toUpperCase() === 'PUT' ? 'PUT' : 'POST';
   return {
     enabled: Boolean((raw as any).enabled),
+    connectionType: (raw as any).connectionType === 'serial-tlv' ? 'serial-tlv' : 'http',
     endpointUrl: String((raw as any).endpointUrl || '').trim(),
     httpMethod: normalizedMethod,
     timeoutMs: Number.isFinite(timeoutMs) ? Math.max(3000, Math.min(timeoutMs, 120000)) : 10000,
@@ -341,6 +354,9 @@ export async function loadCardTerminalSettings(): Promise<CardTerminalSettings> 
     successFieldPath: String((raw as any).successFieldPath || 'success').trim() || 'success',
     messageFieldPath: String((raw as any).messageFieldPath || 'message').trim() || 'message',
     referenceFieldPath: String((raw as any).referenceFieldPath || 'refId').trim() || 'refId',
+    serialPortName: String((raw as any).serialPortName || '').trim(),
+    serialBaudRate: Number((raw as any).serialBaudRate) || 19200,
+    serialWithHandshake: Boolean((raw as any).serialWithHandshake),
   };
 }
 
@@ -419,6 +435,7 @@ export async function saveCardTerminalSettings(
   };
   prefs.cardTerminalSettings = {
     enabled: Boolean(merged.enabled),
+    connectionType: merged.connectionType === 'serial-tlv' ? 'serial-tlv' : 'http',
     endpointUrl: String(merged.endpointUrl || '').trim(),
     httpMethod: String(merged.httpMethod || 'POST').toUpperCase() === 'PUT' ? 'PUT' : 'POST',
     timeoutMs: Math.max(3000, Math.min(Number(merged.timeoutMs || 10000), 120000)),
@@ -431,6 +448,9 @@ export async function saveCardTerminalSettings(
     successFieldPath: String(merged.successFieldPath || 'success').trim() || 'success',
     messageFieldPath: String(merged.messageFieldPath || 'message').trim() || 'message',
     referenceFieldPath: String(merged.referenceFieldPath || 'refId').trim() || 'refId',
+    serialPortName: String(merged.serialPortName || '').trim(),
+    serialBaudRate: Number(merged.serialBaudRate) || 19200,
+    serialWithHandshake: Boolean(merged.serialWithHandshake),
   };
   await writePreferences(prefs);
   return prefs.cardTerminalSettings;
