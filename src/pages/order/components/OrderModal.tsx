@@ -10,7 +10,7 @@ import { useOrderStore } from '../../../store/orderStore';
 import { usePrinterSettingsStore } from '../../../store/printerSettingsStore';
 import {
   getCustomerAddresses, checkUser, validateDiscountCode, getApplicableDiscountCodes,
-  getWheelPrizeVouchers, redeemWheelPrizeVoucher, getTables,
+  getWheelPrizeVouchers, redeemWheelPrizeVoucher, getTables, getCashbackWallet,
   type WheelPrizeVoucher, type PosTable,
 } from '../../../services/api';
 import { cacheTables, getCachedTables } from '../../../services/cache';
@@ -60,6 +60,8 @@ export interface OrderModalState {
   loadingAvailableDiscountCodes: boolean;
   wheelVouchers: WheelPrizeVoucher[];
   applyingVoucher: number | null;
+  cashbackBalance: number;
+  loadingCashback: boolean;
 }
 
 interface Props {
@@ -87,11 +89,11 @@ export function OrderModal({
     cart, customerPhone, serviceType, tableNumber, tableId, customerAddress, paymentMethod, notes,
     deliveryLocation, deliveryFeeOverride,
     discountType, discountCode, appliedDiscountCode, discountAmount, isSubmitting,
-    splitCash, splitCard, splitOnline,
+    cashbackRedeemAmount, splitCash, splitCard, splitOnline,
     setCustomerPhone, setServiceType, setTableNumber, setTable, setCustomerAddress,
     setDeliveryLocation, setDeliveryFeeOverride, setDeliveryFeeReason,
     setPaymentMethod, setNotes, setDiscountAmount, setDiscountType,
-    setDiscountCode, setAppliedDiscountCode,
+    setDiscountCode, setAppliedDiscountCode, setCashbackRedeemAmount,
     setSplitCash, setSplitCard, setSplitOnline, getSplitCreditAmount,
     getTotalAmount, getFinalAmount, getDiscountAmount, getVatAmount,
   } = useOrderStore();
@@ -191,6 +193,29 @@ export function OrderModal({
       .finally(() => { if (!cancelled) set({ loadingAvailableDiscountCodes: false }); });
     return () => { cancelled = true; };
   }, [state.isOpen, canUseDiscountCode, customerPhone, token]);
+
+  // موجودی کیف پول کش‌بک — مختص همین رستوران، هرگز رستوران دیگر درز نمی‌کند
+  useEffect(() => {
+    if (!state.isOpen || !state.isOnline) { set({ cashbackBalance: 0 }); return; }
+    const restaurantId = user?.restaurants?.[0]?.id;
+    if (!restaurantId) return;
+    const normalized = normalizeIranMobile(customerPhone.trim());
+    if (!isValidIranMobile(normalized)) {
+      set({ cashbackBalance: 0 });
+      if (cashbackRedeemAmount > 0) setCashbackRedeemAmount(0);
+      return;
+    }
+    let cancelled = false;
+    set({ loadingCashback: true });
+    getCashbackWallet({ restaurantId, phone: normalized }, token || undefined)
+      .then(({ balance }) => {
+        if (cancelled) return;
+        set({ cashbackBalance: balance });
+      })
+      .catch(() => { if (!cancelled) set({ cashbackBalance: 0 }); })
+      .finally(() => { if (!cancelled) set({ loadingCashback: false }); });
+    return () => { cancelled = true; };
+  }, [state.isOpen, state.isOnline, customerPhone, token, user?.restaurants]);
 
   // آدرس‌های قبلی مشتری — هم بیرون‌بر و هم ارسال با پیک.
   // فروشگاهی که پیک ندارد و خودش می‌برد از «بیرون‌بر» استفاده می‌کند و
@@ -680,6 +705,34 @@ export function OrderModal({
             )}
           </div>
 
+          {/* کیف پول کش‌بک — مختص همین رستوران، فقط با شماره مشتری معتبر نمایش داده می‌شود */}
+          {state.cashbackBalance > 0 && (
+            <div className="flex flex-col gap-2 rounded-lg border border-teal-200 bg-teal-50 p-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-teal-800">موجودی کیف پول کش‌بک مشتری</span>
+                <span className="text-sm font-bold text-teal-800">{formatPrice(state.cashbackBalance)}</span>
+              </div>
+              <div className="flex gap-2 flex-wrap items-end">
+                <Input type="text" inputMode="numeric" placeholder="چقدر استفاده شود؟"
+                  value={cashbackRedeemAmount ? formatPriceInput(String(cashbackRedeemAmount)) : ''}
+                  onValueChange={(v) => {
+                    const requested = Number(normalizePriceInput(v)) || 0;
+                    const cap = Math.min(state.cashbackBalance, getFinalAmount() + cashbackRedeemAmount);
+                    setCashbackRedeemAmount(Math.min(requested, cap));
+                  }}
+                  endContent={<span className="text-default-400 text-sm whitespace-nowrap">ریال</span>}
+                  variant="bordered" classNames={{ input: 'text-right' }} />
+                <Button size="sm" variant="flat" color="primary"
+                  onPress={() => setCashbackRedeemAmount(Math.min(state.cashbackBalance, getFinalAmount() + cashbackRedeemAmount))}>
+                  استفاده همه
+                </Button>
+                {cashbackRedeemAmount > 0 && (
+                  <Button size="sm" variant="flat" color="danger" onPress={() => setCashbackRedeemAmount(0)}>انصراف</Button>
+                )}
+              </div>
+            </div>
+          )}
+
           <Textarea label="یادداشت (اختیاری)" placeholder="یادداشت برای آشپزخانه" value={notes}
             onValueChange={setNotes} minRows={2} classNames={{ input: 'text-right' }} />
 
@@ -700,6 +753,11 @@ export function OrderModal({
             {getVatAmount() > 0 && (
               <div className="flex justify-between text-foreground">
                 <span>ارزش افزوده:</span><span>+ {formatPrice(getVatAmount())}</span>
+              </div>
+            )}
+            {cashbackRedeemAmount > 0 && (
+              <div className="flex justify-between text-teal-700">
+                <span>کش‌بک استفاده‌شده:</span><span>- {formatPrice(cashbackRedeemAmount)}</span>
               </div>
             )}
             <div className="flex justify-between font-bold text-foreground pt-2 border-t border-default-200">

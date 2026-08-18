@@ -460,6 +460,29 @@ export async function getApplicableDiscountCodes(
   }
 }
 
+/**
+ * موجودی کیف پول کش‌بک مشتری در همین رستوران — برای جست‌وجوی صندوق‌دار
+ * هنگام ورود شماره مشتری. کیف پول رستوران دیگر هرگز برنمی‌گردد.
+ */
+export async function getCashbackWallet(
+  params: { restaurantId: number; phone: string },
+  token?: string,
+): Promise<{ balance: number }> {
+  await apiConfigReady;
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  try {
+    const response = await api.get(`/customer-club/cashback/${params.restaurantId}`, {
+      params: { phone: params.phone },
+      headers,
+      skipGlobalErrorToast: true,
+    } as any);
+    return { balance: Math.max(0, Number(response.data?.balance) || 0) };
+  } catch {
+    return { balance: 0 };
+  }
+}
+
 /** اعتبارسنجی کد تخفیف و دریافت مبلغ تخفیف */
 export async function validateDiscountCode(
   params: { code: string; restaurantName: string; totalAmount: number; userPhone?: string },

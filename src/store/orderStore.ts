@@ -52,6 +52,8 @@ export interface CartSession {
     discountType: DiscountType;
     discountCode: string;
     appliedDiscountCode: AppliedDiscountCode | null;
+    /** مبلغی از کیف پول کش‌بک مشتری که برای همین سفارش خرج می‌شود (ریال) */
+    cashbackRedeemAmount: number;
     splitCash: number;
     splitCard: number;
     splitOnline: number;
@@ -78,6 +80,7 @@ function createEmptySession(id: string, label: string): CartSession {
         discountType: 'fixed',
         discountCode: '',
         appliedDiscountCode: null,
+        cashbackRedeemAmount: 0,
         splitCash: 0,
         splitCard: 0,
         splitOnline: 0,
@@ -123,11 +126,15 @@ function calcVatAmount(session: CartSession, vatRate: number | null): number {
     );
 }
 
+/**
+ * کش‌بک بعد از ارزش افزوده کسر می‌شود — یک ابزار پرداخت (اعتبار کیف پول)
+ * است نه تخفیف روی قیمت کالا، دقیقاً همان فرمول سمت سرور در orders.service.ts
+ */
 function calcFinalAmount(session: CartSession, vatRate: number | null): number {
-    return (
+    const beforeCashback =
         Math.max(0, calcTotalAmount(session) - calcDiscountAmount(session)) +
-        calcVatAmount(session, vatRate)
-    );
+        calcVatAmount(session, vatRate);
+    return Math.max(0, beforeCashback - (session.cashbackRedeemAmount || 0));
 }
 
 interface OrderState {
@@ -156,6 +163,7 @@ interface OrderState {
   discountType: DiscountType;
   discountCode: string;
   appliedDiscountCode: AppliedDiscountCode | null;
+  cashbackRedeemAmount: number;
   isSubmitting: boolean;
   splitCash: number;
   splitCard: number;
@@ -187,6 +195,7 @@ interface OrderState {
   setDiscountType: (type: DiscountType) => void;
   setDiscountCode: (code: string) => void;
   setAppliedDiscountCode: (applied: AppliedDiscountCode | null) => void;
+  setCashbackRedeemAmount: (amount: number) => void;
   setSplitCash: (amount: number) => void;
   setSplitCard: (amount: number) => void;
   setSplitOnline: (amount: number) => void;
@@ -228,7 +237,7 @@ function syncActiveFieldsFromSession(session: CartSession): Pick<OrderState,
   'cart' | 'customerPhone' | 'serviceType' | 'tableNumber' | 'tableId' | 'customerAddress' |
   'deliveryLocation' | 'deliveryFeeOverride' | 'deliveryFeeReason' |
   'paymentMethod' | 'notes' | 'discountAmount' | 'discountType' | 'discountCode' |
-  'appliedDiscountCode' | 'splitCash' | 'splitCard' | 'splitOnline'
+  'appliedDiscountCode' | 'cashbackRedeemAmount' | 'splitCash' | 'splitCard' | 'splitOnline'
 > {
   return {
     cart: session.cart,
@@ -246,6 +255,7 @@ function syncActiveFieldsFromSession(session: CartSession): Pick<OrderState,
     discountType: session.discountType,
     discountCode: session.discountCode,
     appliedDiscountCode: session.appliedDiscountCode,
+    cashbackRedeemAmount: session.cashbackRedeemAmount,
     splitCash: session.splitCash,
     splitCard: session.splitCard,
     splitOnline: session.splitOnline,
@@ -375,6 +385,7 @@ export const useOrderStore = create<OrderState>()(
         })),
         setDiscountCode: (code) => updateActive(s => ({ ...s, discountCode: (code || '').trim() })),
         setAppliedDiscountCode: (appliedDiscountCode) => updateActive(s => ({ ...s, appliedDiscountCode })),
+        setCashbackRedeemAmount: (cashbackRedeemAmount) => updateActive(s => ({ ...s, cashbackRedeemAmount: Math.max(0, cashbackRedeemAmount) })),
         setSplitCash: (splitCash) => updateActive(s => ({ ...s, splitCash: Math.max(0, splitCash) })),
         setSplitCard: (splitCard) => updateActive(s => ({ ...s, splitCard: Math.max(0, splitCard) })),
         setSplitOnline: (splitOnline) => updateActive(s => ({ ...s, splitOnline: Math.max(0, splitOnline) })),
@@ -411,6 +422,7 @@ export const useOrderStore = create<OrderState>()(
             discountType: 'fixed',
             discountCode: '',
             appliedDiscountCode: null,
+            cashbackRedeemAmount: 0,
             splitCash: 0,
             splitCard: 0,
             splitOnline: 0,
@@ -460,7 +472,7 @@ export const useOrderStore = create<OrderState>()(
             cart, customerPhone, serviceType, tableNumber, tableId, customerAddress,
             deliveryLocation, deliveryFeeOverride, deliveryFeeReason,
             paymentMethod, notes, discountType, discountCode, appliedDiscountCode,
-            splitCash, splitCard, splitOnline,
+            cashbackRedeemAmount, splitCash, splitCard, splitOnline,
           } = session;
 
           if (!token) return { success: false, error: 'لطفاً ابتدا وارد شوید' };
@@ -578,6 +590,10 @@ export const useOrderStore = create<OrderState>()(
             splitCash: splitCash > 0 ? splitCash : undefined,
             splitCard: splitCard > 0 ? splitCard : undefined,
             splitOnline: splitOnline > 0 ? splitOnline : undefined,
+            // فقط برای سفارش تازه — مسیر ویرایش سفارش این فیلد را نمی‌شناسد
+            ...(editingOrderId == null && cashbackRedeemAmount > 0
+              ? { cashbackRedeemAmount }
+              : {}),
             items: cart.map(item => ({
               productId: item.productId,
               ...(editingOrderId == null ? {

@@ -39,7 +39,7 @@ export function useOrderSubmit() {
   const { user, token } = useAuthStore();
   const {
     cart, customerPhone, serviceType, tableNumber, tableId, customerAddress,
-    paymentMethod, notes, splitCash, splitCard, splitOnline,
+    paymentMethod, notes, splitCash, splitCard, splitOnline, cashbackRedeemAmount,
     getTotalAmount, getFinalAmount, getDiscountAmount, getVatAmount,
     appliedDiscountCode, discountType,
     submitOrder, restoreDraft,
@@ -145,6 +145,7 @@ export function useOrderSubmit() {
       vatAmount: getVatAmount(),
       totalAmount: getTotalAmount(),
       finalAmount: getFinalAmount(),
+      cashbackRedeemedAmount: cashbackRedeemAmount,
       items: cart.map((item) => ({
         product: item.product,
         productName: item.product.name_fa || item.product.name,
@@ -178,6 +179,8 @@ export function useOrderSubmit() {
         discountAmount: Number(res.order?.discountAmount ?? snapshot.discountAmount ?? 0),
         vatAmount: Number(res.order?.vatAmount ?? snapshot.vatAmount ?? 0),
         finalAmount: Number(res.order?.finalAmount ?? snapshot.finalAmount ?? snapshot.totalAmount),
+        cashbackEarnedAmount: Number(res.order?.cashbackEarnedAmount ?? 0),
+        cashbackRedeemedAmount: Number(res.order?.cashbackRedeemedAmount ?? snapshot.cashbackRedeemedAmount ?? 0),
       };
       const orderKeys = res.offline
         ? [`offline-${res.orderId}`]

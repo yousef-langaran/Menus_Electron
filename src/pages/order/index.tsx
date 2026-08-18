@@ -51,6 +51,7 @@ const INITIAL_MODAL_STATE: OrderModalState = {
   cashBoxAccounts: [], selectedCashBoxId: null, selectedCashBoxName: 'صندوق',
   discountCodeError: '', availableDiscountCodes: [], loadingAvailableDiscountCodes: false,
   wheelVouchers: [], applyingVoucher: null,
+  cashbackBalance: 0, loadingCashback: false,
 };
 
 function hasPermission(user: any, module: string) {
