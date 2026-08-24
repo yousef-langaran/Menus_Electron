@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { API_BASE_URL } from './api';
+import { autoPrintNewOrder } from './autoPrintOrder';
 
 const SOCKET_NAMESPACE = '/orders';
 
@@ -61,6 +62,12 @@ export const connectOrdersSocket = (options: OrdersSocketOptions): Socket | null
   socket.on('disconnect', (reason) => {
     console.warn('[OrdersSocket] Disconnected:', reason);
   });
+
+  // به‌محض تأیید هر سفارش آنلاین جدید، مستقل از این‌که کدام صفحه سوکت را نگه
+  // داشته، دقیقاً یک بار چاپ خودکار تلاش می‌شود (اگر در تنظیمات فعال باشد).
+  // اینجا و نه در کامپوننت‌های صفحه‌ها بسته می‌شود تا با سوئیچ بین صفحات
+  // چند بار چاپ نشود یا از قلم نیفتد.
+  socket.on('orders:new', (order) => void autoPrintNewOrder(order));
 
   activeConfigKey = nextConfigKey;
 

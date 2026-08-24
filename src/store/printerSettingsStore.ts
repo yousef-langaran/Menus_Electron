@@ -20,16 +20,26 @@ export interface PrinterConfig {
 
 interface PrinterSettingsState {
   configs: Record<string, PrinterConfig>;
+  autoPrintOnNewOrder: boolean;
   setPrinterEnabled: (printer: { name: string; displayName?: string }, enabled: boolean) => void;
   updatePrinterConfig: (printerName: string, partial: Partial<PrinterConfig>) => void;
   setReceiptEnabled: (printerName: string, receiptType: ReceiptType, enabled: boolean) => void;
   setReceiptCopies: (printerName: string, receiptType: ReceiptType, copies: number) => void;
+  setAutoPrintOnNewOrder: (enabled: boolean) => void;
   getEnabledPrinters: () => PrinterConfig[];
   getPrinterReceipts: (printerName: string) => ReceiptConfig[];
   loadFromStorage: () => Promise<void>;
 }
 
 const STORAGE_KEY = 'printerConfigs';
+const AUTO_PRINT_STORAGE_KEY = 'autoPrintOnNewOrder';
+
+const readAutoPrintFromLocalStorage = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  return window.localStorage.getItem(AUTO_PRINT_STORAGE_KEY) === 'true';
+};
 
 const readFromLocalStorage = (): Record<string, PrinterConfig> => {
   if (typeof window === 'undefined') {
@@ -65,8 +75,10 @@ const persistConfigs = (configs: Record<string, PrinterConfig>) => {
 
 export const usePrinterSettingsStore = create<PrinterSettingsState>((set, get) => ({
   configs: {},
+  autoPrintOnNewOrder: false,
 
   loadFromStorage: async () => {
+    set({ autoPrintOnNewOrder: readAutoPrintFromLocalStorage() });
     if (hasElectronBridge() && window.electronAPI?.loadPrinterConfigs) {
       try {
         const remoteConfigs = await window.electronAPI.loadPrinterConfigs();
@@ -80,6 +92,17 @@ export const usePrinterSettingsStore = create<PrinterSettingsState>((set, get) =
       }
     }
     set({ configs: readFromLocalStorage() });
+  },
+
+  setAutoPrintOnNewOrder: (enabled) => {
+    set({ autoPrintOnNewOrder: enabled });
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(AUTO_PRINT_STORAGE_KEY, String(enabled));
+      } catch (error) {
+        console.error('Failed to save auto-print setting:', error);
+      }
+    }
   },
 
   setPrinterEnabled: (printer, enabled) => {

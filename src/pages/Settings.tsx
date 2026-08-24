@@ -29,10 +29,12 @@ export default function SettingsPage() {
   const [savingTemplateForPrinter, setSavingTemplateForPrinter] = useState<string | null>(null);
   const {
     configs,
+    autoPrintOnNewOrder,
     setPrinterEnabled,
     updatePrinterConfig,
     setReceiptEnabled,
     setReceiptCopies,
+    setAutoPrintOnNewOrder,
     getPrinterReceipts,
     loadFromStorage,
   } = usePrinterSettingsStore();
@@ -723,6 +725,15 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
               <Button size="sm" variant="light" color="primary" onPress={loadPrinters}>
                 بروزرسانی لیست
               </Button>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-default-200 p-3">
+              <div className="flex flex-col">
+                <span className="font-medium text-foreground">چاپ خودکار سفارش‌های آنلاین جدید</span>
+                <span className="text-sm text-default-500">
+                  به‌محض رسیدن هر سفارش آنلاین جدید، رسیدهای فعال روی پرینترهای فعال بدون نیاز به کلیک دستی چاپ می‌شوند.
+                </span>
+              </div>
+              <Switch isSelected={autoPrintOnNewOrder} onValueChange={setAutoPrintOnNewOrder} />
             </div>
             {isLoadingPrinters ? (
               <p className="text-default-500">در حال دریافت لیست پرینترها...</p>
