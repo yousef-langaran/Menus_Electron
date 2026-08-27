@@ -55,6 +55,27 @@ export default function AccountingExpensesPage() {
 
   const [rows, setRows] = useState<any[]>([]);
   const [categories, setCategories] = useState<ExpenseCategoryRow[]>([]);
+  const categoryTreeOptions = useMemo(() => {
+    const byParent = new Map<number | null, ExpenseCategoryRow[]>();
+    categories.forEach((c) => {
+      const key = c.parentCategoryId ?? null;
+      if (!byParent.has(key)) byParent.set(key, []);
+      byParent.get(key)!.push(c);
+    });
+    const options: Array<ExpenseCategoryRow & { depth: number }> = [];
+    const visited = new Set<number>();
+    const walk = (parentId: number | null, depth: number) => {
+      (byParent.get(parentId) || []).forEach((c) => {
+        if (visited.has(c.id)) return;
+        visited.add(c.id);
+        options.push({ ...c, depth });
+        walk(c.id, depth + 1);
+      });
+    };
+    walk(null, 0);
+    categories.forEach((c) => { if (!visited.has(c.id)) options.push({ ...c, depth: 0 }); });
+    return options;
+  }, [categories]);
   const [search, setSearch] = useState('');
   const [isOnline, setIsOnline] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -386,8 +407,8 @@ export default function AccountingExpensesPage() {
               onSelectionChange={(k) => setCategoryId(String(Array.from(k)[0] || ''))}
               isRequired
             >
-              {categories.map((c) => (
-                <SelectItem key={String(c.id)}>{c.name}</SelectItem>
+              {categoryTreeOptions.map((c) => (
+                <SelectItem key={String(c.id)}>{`${'— '.repeat(c.depth)}${c.name}`}</SelectItem>
               ))}
             </Select>
             <Input
@@ -436,8 +457,8 @@ export default function AccountingExpensesPage() {
               onSelectionChange={(k) => setEditCategoryId(String(Array.from(k)[0] || ''))}
               isRequired
             >
-              {categories.map((c) => (
-                <SelectItem key={String(c.id)}>{c.name}</SelectItem>
+              {categoryTreeOptions.map((c) => (
+                <SelectItem key={String(c.id)}>{`${'— '.repeat(c.depth)}${c.name}`}</SelectItem>
               ))}
             </Select>
             <Input

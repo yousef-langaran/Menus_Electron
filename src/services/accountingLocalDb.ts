@@ -1054,6 +1054,7 @@ export async function upsertPulledExpenseCategories(categories: any[]): Promise<
 export async function createExpenseCategoryLocal(input: {
   restaurantId: number;
   name: string;
+  parentCategoryId?: number | null;
 }) {
   const id = nextLocalEntityId();
   const now = new Date().toISOString();
@@ -1062,6 +1063,7 @@ export async function createExpenseCategoryLocal(input: {
     restaurantId: input.restaurantId,
     name: input.name.trim(),
     isActive: true,
+    parentCategoryId: input.parentCategoryId ?? null,
     createdAt: now,
     updatedAt: now,
   };
@@ -1082,7 +1084,7 @@ export async function createExpenseCategoryLocal(input: {
 export async function updateExpenseCategoryLocal(input: {
   id: number;
   restaurantId: number;
-  patch: Partial<{ name: string; isActive: boolean }>;
+  patch: Partial<{ name: string; isActive: boolean; parentCategoryId: number | null }>;
 }) {
   const existing = await accountingDb.expenseCategories.get(input.id);
   if (!existing) return null;

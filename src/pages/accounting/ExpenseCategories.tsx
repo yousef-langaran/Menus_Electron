@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, Modal, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
 import { Button } from '../../ui/compat-button';
 import { Input } from '../../ui/compat-input';
+import { Select, SelectItem } from '../../ui/compat-select';
 import { ModalShell } from '../../ui/modal-shell';
 import { useAuthStore } from '../../store/authStore';
 import {
@@ -22,6 +23,31 @@ import {
 } from '../../services/accountingLocalDb';
 import { toast } from '../../utils/toast';
 
+const NONE_PARENT = '__none__';
+
+/** دسته‌های تخت را به ترتیب درختی (والد قبل از فرزندانش) با فیلد depth مرتب می‌کند. */
+function sortAsTree(rows: ExpenseCategoryRow[]): Array<ExpenseCategoryRow & { depth: number }> {
+  const byParent = new Map<number | null, ExpenseCategoryRow[]>();
+  rows.forEach((r) => {
+    const key = r.parentCategoryId ?? null;
+    if (!byParent.has(key)) byParent.set(key, []);
+    byParent.get(key)!.push(r);
+  });
+  const result: Array<ExpenseCategoryRow & { depth: number }> = [];
+  const visited = new Set<number>();
+  const walk = (parentId: number | null, depth: number) => {
+    (byParent.get(parentId) || []).forEach((r) => {
+      if (visited.has(r.id)) return;
+      visited.add(r.id);
+      result.push({ ...r, depth });
+      walk(r.id, depth + 1);
+    });
+  };
+  walk(null, 0);
+  rows.forEach((r) => { if (!visited.has(r.id)) result.push({ ...r, depth: 0 }); });
+  return result;
+}
+
 export default function AccountingExpenseCategoriesPage() {
   const navigate = useNavigate();
   const { user, token } = useAuthStore();
@@ -33,11 +59,28 @@ export default function AccountingExpenseCategoriesPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newParentId, setNewParentId] = useState<string>(NONE_PARENT);
   const [saving, setSaving] = useState(false);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editRow, setEditRow] = useState<ExpenseCategoryRow | null>(null);
   const [editName, setEditName] = useState('');
+  const [editParentId, setEditParentId] = useState<string>(NONE_PARENT);
+
+  const treeRows = useMemo(() => sortAsTree(rows), [rows]);
+
+  /** گزینه‌های دستهٔ والد — هنگام ویرایش، خود دسته و نوادگانش حذف می‌شوند تا چرخه ساخته نشود. */
+  const parentOptionsFor = (excludeId: number | null) => {
+    const excluded = new Set<number>();
+    if (excludeId != null) {
+      const collectDescendants = (id: number) => {
+        excluded.add(id);
+        rows.filter((r) => Number(r.parentCategoryId) === id).forEach((r) => collectDescendants(r.id));
+      };
+      collectDescendants(excludeId);
+    }
+    return sortAsTree(rows.filter((r) => !excluded.has(r.id)));
+  };
 
   const reload = async () => {
     if (!restaurantId || !token) return;
@@ -65,16 +108,18 @@ export default function AccountingExpenseCategoriesPage() {
   const handleCreate = async () => {
     if (!restaurantId || !token || !newName.trim()) return;
     setSaving(true);
+    const parentCategoryId = newParentId === NONE_PARENT ? null : Number(newParentId);
     try {
       // optimistic: همیشه اول local ذخیره کن
-      const localRow = await createExpenseCategoryLocal({ restaurantId, name: newName.trim() });
+      const localRow = await createExpenseCategoryLocal({ restaurantId, name: newName.trim(), parentCategoryId });
       toast.success('دسته‌بندی ثبت شد');
       setNewName('');
+      setNewParentId(NONE_PARENT);
       setCreateOpen(false);
       setRows((prev) => [...prev, localRow]);
       // در background به سرور ارسال کن
       if (isOnline) {
-        createExpenseCategory({ restaurantId, name: newName.trim() }, token)
+        createExpenseCategory({ restaurantId, name: newName.trim(), parentCategoryId }, token)
           .then((serverRow) => {
             accountingDb.expenseCategories.delete(localRow.id);
             accountingDb.expenseCategories.put({ ...serverRow, restaurantId });
@@ -91,22 +136,23 @@ export default function AccountingExpenseCategoriesPage() {
   const handleEdit = async () => {
     if (!editRow || !restaurantId || !token || !editName.trim()) return;
     setSaving(true);
+    const parentCategoryId = editParentId === NONE_PARENT ? null : Number(editParentId);
     try {
       // optimistic: فوری در local و UI آپدیت کن
-      await updateExpenseCategoryLocal({ id: editRow.id, restaurantId, patch: { name: editName.trim() } });
+      await updateExpenseCategoryLocal({ id: editRow.id, restaurantId, patch: { name: editName.trim(), parentCategoryId } });
       toast.success('دسته‌بندی ویرایش شد');
-      setRows((prev) => prev.map((r) => r.id === editRow.id ? { ...r, name: editName.trim() } : r));
+      setRows((prev) => prev.map((r) => r.id === editRow.id ? { ...r, name: editName.trim(), parentCategoryId } : r));
       setEditOpen(false);
       setEditRow(null);
       if (isOnline) {
-        updateExpenseCategory(editRow.id, { name: editName.trim() }, token)
+        updateExpenseCategory(editRow.id, { restaurantId, name: editName.trim(), parentCategoryId }, token)
           .then((serverRow) => {
             accountingDb.expenseCategories.put({ ...serverRow, restaurantId });
             setRows((prev) => prev.map((r) => r.id === editRow.id ? { ...serverRow, restaurantId } : r));
           }).catch(() => {});
       }
-    } catch {
-      toast.error('خطا در ویرایش دسته‌بندی');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'خطا در ویرایش دسته‌بندی');
     } finally {
       setSaving(false);
     }
@@ -121,7 +167,7 @@ export default function AccountingExpenseCategoriesPage() {
       await updateExpenseCategoryLocal({ id: row.id, restaurantId, patch: { isActive: newActive } });
       toast.success(newActive ? 'فعال شد' : 'غیرفعال شد');
       if (isOnline) {
-        updateExpenseCategory(row.id, { isActive: newActive }, token)
+        updateExpenseCategory(row.id, { restaurantId, isActive: newActive }, token)
           .then((serverRow) => {
             accountingDb.expenseCategories.put({ ...serverRow, restaurantId });
             setRows((prev) => prev.map((r) => r.id === row.id ? { ...serverRow, restaurantId } : r));
@@ -189,6 +235,7 @@ export default function AccountingExpenseCategoriesPage() {
             color="primary"
             onPress={() => {
               setNewName('');
+              setNewParentId(NONE_PARENT);
               setCreateOpen(true);
             }}
           >
@@ -215,10 +262,11 @@ export default function AccountingExpenseCategoriesPage() {
             </p>
           )}
 
-          {rows.map((row) => (
+          {treeRows.map((row) => (
             <div
               key={row.id}
               className="bg-default-50 border border-default-200 rounded-lg p-3 text-sm flex justify-between items-center"
+              style={{ marginInlineStart: `${row.depth * 1.5}rem` }}
             >
               <div className="flex items-center gap-2">
                 <span className="font-medium">{row.name}</span>
@@ -235,6 +283,7 @@ export default function AccountingExpenseCategoriesPage() {
                   onPress={() => {
                     setEditRow(row);
                     setEditName(row.name);
+                    setEditParentId(row.parentCategoryId != null ? String(row.parentCategoryId) : NONE_PARENT);
                     setEditOpen(true);
                   }}
                 >
@@ -265,7 +314,7 @@ export default function AccountingExpenseCategoriesPage() {
       <Modal isOpen={createOpen} onOpenChange={setCreateOpen}>
         <ModalShell size="sm">
           <ModalHeader>دسته‌بندی جدید</ModalHeader>
-          <ModalBody>
+          <ModalBody className="gap-3">
             <Input
               label="نام دسته‌بندی"
               value={newName}
@@ -273,6 +322,16 @@ export default function AccountingExpenseCategoriesPage() {
               isRequired
               autoFocus
             />
+            <Select
+              label="دسته والد (اختیاری)"
+              selectedKeys={[newParentId]}
+              onSelectionChange={(k) => setNewParentId(String(Array.from(k)[0] || NONE_PARENT))}
+            >
+              <SelectItem key={NONE_PARENT}>بدون والد (دستهٔ اصلی)</SelectItem>
+              {parentOptionsFor(null).map((c) => (
+                <SelectItem key={String(c.id)}>{`${'— '.repeat(c.depth)}${c.name}`}</SelectItem>
+              ))}
+            </Select>
           </ModalBody>
           <ModalFooter>
             <Button variant="flat" onPress={() => setCreateOpen(false)}>
@@ -293,7 +352,7 @@ export default function AccountingExpenseCategoriesPage() {
       <Modal isOpen={editOpen} onOpenChange={setEditOpen}>
         <ModalShell size="sm">
           <ModalHeader>ویرایش دسته‌بندی</ModalHeader>
-          <ModalBody>
+          <ModalBody className="gap-3">
             <Input
               label="نام جدید"
               value={editName}
@@ -301,6 +360,16 @@ export default function AccountingExpenseCategoriesPage() {
               isRequired
               autoFocus
             />
+            <Select
+              label="دسته والد (اختیاری)"
+              selectedKeys={[editParentId]}
+              onSelectionChange={(k) => setEditParentId(String(Array.from(k)[0] || NONE_PARENT))}
+            >
+              <SelectItem key={NONE_PARENT}>بدون والد (دستهٔ اصلی)</SelectItem>
+              {parentOptionsFor(editRow?.id ?? null).map((c) => (
+                <SelectItem key={String(c.id)}>{`${'— '.repeat(c.depth)}${c.name}`}</SelectItem>
+              ))}
+            </Select>
           </ModalBody>
           <ModalFooter>
             <Button variant="flat" onPress={() => setEditOpen(false)}>

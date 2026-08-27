@@ -378,6 +378,7 @@ export async function runAccountingSync(args: {
   // After a full pull, reconcile deletions for entities that can be deleted from server.
   if (needsFullSync) {
     const serverWarehouseIds = new Set((pullResult.data.warehouses || []).map((r: any) => Number(r.id)));
+    const serverPurchaseInvoiceIds = new Set((pullResult.data.purchaseInvoices || []).map((r: any) => Number(r.id)));
 
     await Promise.allSettled([
       reconcileDeletedEntities(restaurantId, 'supplier',           new Set((pullResult.data.suppliers || []).map((r: any) => Number(r.id)))),
@@ -391,6 +392,20 @@ export async function runAccountingSync(args: {
         const toDelete = local.filter((w) => !serverWarehouseIds.has(Number(w.id))).map((w) => w.id);
         return toDelete.length ? accountingDb.warehouses.bulkDelete(toDelete) : Promise.resolve();
       }),
+      // فاکتورهای خرید که سرور دیگر برنمی‌گرداند (چون ویرایش و با فاکتور جدید
+      // جایگزین شده‌اند) را از Dexie محلی حذف کن — وگرنه فاکتور قدیمی برای همیشه
+      // در Electron باقی می‌ماند و کنار فاکتور جدید با همان شماره تکراری دیده می‌شود.
+      // پیش‌نویس‌های محلی که هنوز هرگز push نشده‌اند (serverInvoiceId ندارند) دست‌نخورده می‌مانند.
+      // فقط وقتی pull به سقف 1000 محدود نشده اجرا کن — وگرنه فاکتورهای واقعی
+      // خارج از این batch (رستوران‌های خیلی بزرگ) اشتباهی حذف می‌شوند.
+      (pullResult.data.purchaseInvoices || []).length < 1000
+        ? accountingDb.purchaseInvoices.where('restaurantId').equals(restaurantId).toArray().then((local) => {
+            const toDelete = local
+              .filter((inv) => inv.serverInvoiceId != null && !serverPurchaseInvoiceIds.has(Number(inv.serverInvoiceId)))
+              .map((inv) => inv.id);
+            return toDelete.length ? accountingDb.purchaseInvoices.bulkDelete(toDelete) : Promise.resolve();
+          })
+        : Promise.resolve(),
     ]);
     await setSyncMeta(lastFullSyncKey, new Date().toISOString());
   }

@@ -1165,6 +1165,7 @@ export type ExpenseCategoryRow = {
   id: number;
   name: string;
   isActive: boolean;
+  parentCategoryId?: number | null;
 };
 
 export async function listExpenseCategories(
@@ -1180,7 +1181,7 @@ export async function listExpenseCategories(
 }
 
 export async function createExpenseCategory(
-  payload: { restaurantId: number; name: string },
+  payload: { restaurantId: number; name: string; parentCategoryId?: number | null },
   token: string,
 ): Promise<ExpenseCategoryRow> {
   await apiConfigReady;
@@ -1192,7 +1193,9 @@ export async function createExpenseCategory(
 
 export async function updateExpenseCategory(
   id: number,
-  payload: { name?: string; isActive?: boolean },
+  // restaurantId اجباری است — DTO سمت سرور بدون آن با 400 رد می‌شود و همیشه silently
+  // در .catch(() => {}) صداهای caller گم می‌شد (تغییرات هرگز واقعاً sync نمی‌شدند).
+  payload: { restaurantId: number; name?: string; isActive?: boolean; parentCategoryId?: number | null },
   token: string,
 ): Promise<ExpenseCategoryRow> {
   await apiConfigReady;
