@@ -28,6 +28,7 @@ const SettingsPage = lazy(() => import('./pages/Settings'));
 const OrdersPage = lazy(() => import('./pages/Orders'));
 const OrderReturnsPage = lazy(() => import('./pages/OrderReturns'));
 const KdsPage = lazy(() => import('./pages/Kds'));
+const WaiterCallsPage = lazy(() => import('./pages/WaiterCalls'));
 const AccountingPage = lazy(() => import('./pages/Accounting'));
 const AccountingRawMaterialsPage = lazy(() => import('./pages/accounting/RawMaterials'));
 const AccountingSuppliersPage = lazy(() => import('./pages/accounting/Suppliers'));
@@ -198,6 +199,7 @@ function AppRoutes() {
                 <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/order-returns" element={<OrderReturnsPage />} />
                 <Route path="/kds" element={<KdsPage />} />
+                <Route path="/waiter-calls" element={<WaiterCallsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/products" element={<ProductsPage />} />
                 <Route path="/categories" element={<CategoriesPage />} />

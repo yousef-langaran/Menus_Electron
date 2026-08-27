@@ -22,6 +22,7 @@ export const NAV_SHORTCUTS: NavShortcut[] = [
   { keys: 'F4', path: '/products', label: 'مدیریت محصولات' },
   { keys: 'F6', path: '/categories', label: 'مدیریت دسته‌بندی‌ها' },
   { keys: 'F7', path: '/kds', label: 'نمایشگر آشپزخانه' },
+  { keys: 'F5', path: '/waiter-calls', label: 'فراخوان گارسون' },
   { keys: 'F8', path: '/order-returns', label: 'مرجوعی‌ها' },
   { keys: 'F9', path: '/settings', label: 'تنظیمات و سخت‌افزار' },
 ];

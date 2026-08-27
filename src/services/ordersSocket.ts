@@ -1,6 +1,10 @@
 import { io, Socket } from 'socket.io-client';
 import { API_BASE_URL } from './api';
 import { autoPrintNewOrder } from './autoPrintOrder';
+import {
+  handleIncomingWaiterCall,
+  handleUpdatedWaiterCall,
+} from './waiterCallNotifications';
 
 const SOCKET_NAMESPACE = '/orders';
 
@@ -68,6 +72,12 @@ export const connectOrdersSocket = (options: OrdersSocketOptions): Socket | null
   // اینجا و نه در کامپوننت‌های صفحه‌ها بسته می‌شود تا با سوئیچ بین صفحات
   // چند بار چاپ نشود یا از قلم نیفتد.
   socket.on('orders:new', (order) => void autoPrintNewOrder(order));
+
+  // فراخوان گارسون روی همین namespace می‌آید. مثل چاپ خودکار، اینجا بسته
+  // می‌شود (نه در کامپوننت صفحه‌ها) تا با سوئیچ بین صفحه‌ها نه اعلان تکراری
+  // بخورد نه از قلم بیفتد؛ صفحه‌ها فقط به رویداد DOM گوش می‌دهند.
+  socket.on('waiter-calls:new', (call) => handleIncomingWaiterCall(call));
+  socket.on('waiter-calls:updated', (call) => handleUpdatedWaiterCall(call));
 
   activeConfigKey = nextConfigKey;
 

@@ -62,8 +62,12 @@ export function OrdersSocketManager() {
   useEffect(() => {
     // سوکت زنده سفارشات فقط برای کاربری که دسترسی لیست سفارشات دارد برقرار می‌شود؛
     // در غیر این صورت هیچ اتصالی ساخته نمی‌شود.
-    const canAccessOrdersList = !!user && canAccessRoute(user, '/orders');
-    if (isOrdersPage || !canAccessOrdersList || !token || !restaurantName) {
+    // کاربری که فقط دسترسی «فراخوان گارسون» دارد هم باید سوکت زنده داشته
+    // باشد، وگرنه پیجر نرم‌افزاری برای گارسون‌های بدون دسترسی سفارش کار نمی‌کند.
+    const canUseLiveSocket =
+      !!user &&
+      (canAccessRoute(user, '/orders') || canAccessRoute(user, '/waiter-calls'));
+    if (isOrdersPage || !canUseLiveSocket || !token || !restaurantName) {
       disconnectOrdersSocket();
       restaurantKeyRef.current = null;
       return;

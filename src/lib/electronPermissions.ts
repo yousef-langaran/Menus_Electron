@@ -115,6 +115,16 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
     );
   }
 
+  // فراخوان گارسون: مجوز اختصاصی، یا همان مجوز مدیریت سفارش که گارسون‌ها
+  // معمولاً از قبل دارند (هم‌راستا با گیت بک‌اند روی `/waiter-calls`).
+  if (p === '/waiter-calls') {
+    return (
+      hasModuleAccess(user, MODULES.WAITER_CALLS, [ACTIONS.READ, ACTIONS.UPDATE, ACTIONS.MANAGE], rid) ||
+      hasModuleAccess(user, MODULES.ORDERS_MANAGEMENT, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
+      hasModuleAccess(user, MODULES.ORDERS_LIST, [ACTIONS.READ, ACTIONS.MANAGE], rid)
+    );
+  }
+
   if (p === '/products') {
     return hasModuleAccess(user, MODULES.PRODUCTS, [ACTIONS.READ, ACTIONS.CREATE, ACTIONS.UPDATE, ACTIONS.MANAGE], rid);
   }
