@@ -14,6 +14,7 @@ import {
 } from '../../services/api';
 import {
   accountingDb,
+  cancelPendingSyncOp,
   listRawMaterialCategoriesLocal,
   createRawMaterialCategoryLocal,
   updateRawMaterialCategoryLocal,
@@ -77,6 +78,9 @@ export default function AccountingRawMaterialCategoriesPage() {
             accountingDb.rawMaterialCategories.delete(localRow.id);
             accountingDb.rawMaterialCategories.put({ ...serverRow, restaurantId });
             setRows((prev) => prev.map((r) => r.id === localRow.id ? { ...serverRow, restaurantId } : r));
+            // عملیات صف‌شده برای همین رکورد را پاک کن — وگرنه سینک پس‌زمینه دوباره
+            // آن را با id موقت محلی به سرور می‌فرستد و یک دسته‌بندی تکراری واقعی می‌سازد.
+            void cancelPendingSyncOp('raw_material_category', String(localRow.id));
           }).catch(() => {});
       }
     } catch {
@@ -100,6 +104,7 @@ export default function AccountingRawMaterialCategoriesPage() {
           .then((serverRow) => {
             accountingDb.rawMaterialCategories.put({ ...serverRow, restaurantId });
             setRows((prev) => prev.map((r) => r.id === editRow.id ? { ...serverRow, restaurantId } : r));
+            void cancelPendingSyncOp('raw_material_category', String(editRow.id));
           }).catch(() => {});
       }
     } catch {
@@ -121,6 +126,7 @@ export default function AccountingRawMaterialCategoriesPage() {
           .then((serverRow) => {
             accountingDb.rawMaterialCategories.put({ ...serverRow, restaurantId });
             setRows((prev) => prev.map((r) => r.id === row.id ? { ...serverRow, restaurantId } : r));
+            void cancelPendingSyncOp('raw_material_category', String(row.id));
           }).catch(() => {});
       }
     } catch {
