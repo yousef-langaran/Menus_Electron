@@ -14,10 +14,12 @@ type LegacyVariant =
   | 'ghost'
   | undefined;
 
-export type CompatButtonProps = Omit<HeroBtn, 'variant' | 'children'> & {
+export type CompatButtonProps = Omit<HeroBtn, 'variant' | 'children' | 'disabled'> & {
   color?: LegacyColor;
   variant?: LegacyVariant;
   isLoading?: boolean;
+  /** v2-style plain prop; unioned with isDisabled before forwarding to HeroButton */
+  disabled?: boolean;
   children?: ReactNode;
 };
 
@@ -63,9 +65,9 @@ function successClassName(variant?: LegacyVariant): string {
   return '!bg-success !text-success-foreground hover:!bg-success-hover';
 }
 
-export function Button({ color, variant, isLoading, children, isDisabled, className, ...rest }: CompatButtonProps) {
+export function Button({ color, variant, isLoading, children, isDisabled, disabled: plainDisabled, className, ...rest }: CompatButtonProps) {
   const nextVariant = mapToV3Variant(color, variant);
-  const disabled = Boolean(isDisabled || isLoading);
+  const disabled = Boolean(isDisabled || plainDisabled || isLoading);
   const mergedClassName = [color === 'success' ? successClassName(variant) : '', className]
     .filter(Boolean)
     .join(' ') || undefined;
