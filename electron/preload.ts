@@ -9,7 +9,7 @@ try {
   APP_VERSION = '';
 }
 
-contextBridge.exposeInMainWorld('electronAPI', {
+const electronAPI = {
   appVersion: APP_VERSION,
   getApiConfig: () => ipcRenderer.invoke('get-api-config'),
   getAppVersion: () => ipcRenderer.invoke('app:get-version'),
@@ -139,120 +139,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   callerIdLoadHistory: () => ipcRenderer.invoke('caller-id:load-history'),
   callerIdSaveHistory: (history: any[]) => ipcRenderer.invoke('caller-id:save-history', history),
-});
+};
 
-declare global {
-  type ElectronPrintErrorCode =
-    | 'PRINT_NO_PRINTER_SELECTED'
-    | 'PRINT_PRINTER_DISCOVERY_FAILED'
-    | 'PRINT_PRINTER_NOT_FOUND'
-    | 'PRINT_PRINTER_OFFLINE'
-    | 'PRINT_JOB_DROPPED'
-    | 'PRINT_JOB_FAILED'
-    | 'PRINT_UNKNOWN_ERROR';
-  type ElectronPrintReceiptType = 'full' | 'kitchen';
-  type ElectronPrintFailureDetail = {
-    printerName: string;
-    receiptType: ElectronPrintReceiptType;
-    code: ElectronPrintErrorCode;
-  };
-  type ElectronPrintResult =
-    | { status: 'PRINT_OK'; receiptNumber: number }
-    | { status: 'PRINT_ERROR'; code: ElectronPrintErrorCode; details: ElectronPrintFailureDetail[]; receiptNumber: 0 };
-  type ElectronPrinterStatusCode = 'PRINTER_READY' | 'PRINTER_OFFLINE';
+contextBridge.exposeInMainWorld('electronAPI', electronAPI);
 
-  interface Window {
-    electronAPI: {
-      appVersion: string;
-      getApiConfig: () => Promise<{ baseURL: string; token?: string; restaurantName?: string; restaurantId?: number }>;
-      getAppVersion: () => Promise<string>;
-      checkOnline: () => Promise<boolean>;
-      openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
-      syncOrders: (token?: string) => Promise<{ success: number; failed: number; errors: string[] }>;
-      syncReturns: (token?: string) => Promise<{ success: number; failed: number; errors: string[] }>;
-      saveOfflineReturn: (
-        returnData: any,
-        token: string,
-        baseURL?: string
-      ) => Promise<{ success: boolean; returnId?: number; error?: string }>;
-      getOfflineReturns: () => Promise<any[]>;
-      printReceipt: (orderData: any, printerJobs: any[], orderKeys?: string | string[]) => Promise<ElectronPrintResult>;
-      getPrinters: () => Promise<Array<{ name: string; displayName: string; description: string; statusCode: ElectronPrinterStatusCode }>>;
-      showMessageBox: (options: any) => Promise<any>;
-      saveOfflineOrder: (
-        orderData: any,
-        token: string,
-        baseURL?: string
-      ) => Promise<{ success: boolean; orderId?: number; error?: string }>;
-      getOfflineOrders: () => Promise<any[]>;
-      generateReceiptPreview: (
-        orderData: any,
-        options?: { paperWidth?: number; margin?: number; contentWidthMm?: number; receiptType?: 'full' | 'kitchen'; layout?: any }
-      ) => Promise<{ success: boolean; html?: string; imageDataUrl?: string; error?: string }>;
-      loadUserSession: () => Promise<{ user: any; token: string; cachedAt: string } | null>;
-      saveUserSession: (data: { user: any; token: string }) => Promise<{ success: boolean; error?: string }>;
-      updateUserSessionToken: (token: string) => Promise<{ success: boolean; error?: string }>;
-      clearUserSession: () => Promise<{ success: boolean; error?: string }>;
-      loadPrinterConfigs: () => Promise<Record<string, any>>;
-      savePrinterConfigs: (configs: Record<string, any>) => Promise<{ success: boolean; error?: string }>;
-      getReceiptNumberSettings: () => Promise<{ nextNumber: number; resetPolicy: string; startNumber: number; lastResetDate: string; dailyResetTime: string }>;
-      saveReceiptNumberSettings: (settings: any) => Promise<{ success: boolean; error?: string }>;
-      getReceiptPriceDisplayUnit: () => Promise<'toman' | 'rial'>;
-      saveReceiptPriceDisplayUnit: (unit: 'toman' | 'rial') => Promise<{ success: boolean; error?: string }>;
-      getCardTerminalSettings: () => Promise<any>;
-      saveCardTerminalSettings: (settings: any) => Promise<{ success: boolean; error?: string; settings?: any }>;
-      getCardTerminalConfig: () => Promise<{ profiles: any[]; defaultProfileId: string | null }>;
-      saveCardTerminalConfig: (config: any) => Promise<{ success: boolean; error?: string; config?: any }>;
-      testCardTerminalConnection: (
-        payload: { amount?: number; restaurantId?: number; orderId?: number; terminalProfileId?: string }
-      ) => Promise<{ success: boolean; error?: string; refId?: string; message?: string }>;
-      sendAmountToCardTerminal: (payload: { amount: number; orderId?: number; restaurantId?: number; terminalProfileId?: string }) => Promise<{ success: boolean; error?: string; refId?: string }>;
-      getReceiptNumbersMap: () => Promise<Record<string, number>>;
-      assignReceiptNumberForOrder: (orderKeys: string[]) => Promise<number>;
-      cacheImage: (imageUrl: string) => Promise<{ success: boolean; url?: string; error?: string }>;
-      getCachedImage: (imageUrl: string) => Promise<{ success: boolean; url: string }>;
-      cacheImages: (imageUrls: string[]) => Promise<{ success: boolean; urls?: Record<string, string>; error?: string }>;
-      onOnlineStatusChange: (callback: (isOnline: boolean) => void) => void | (() => void);
-      checkForUpdates: () => Promise<
-        | { ok: true }
-        | { ok: false; skipped?: boolean; message: string }
-      >;
-      startUpdateDownload: () => Promise<void>;
-      quitAndInstall: () => Promise<void>;
-      onUpdateAvailable: (callback: (info: { version: string }) => void) => () => void;
-      onUpdateNotAvailable: (callback: () => void) => () => void;
-      onUpdateDownloaded: (callback: () => void) => () => void;
-      onUpdateError: (callback: (message: string) => void) => () => void;
-      getDataDir: () => Promise<{ userData: string; files: Record<string, string> }>;
-      scaleListPorts: () => Promise<Array<{ path: string; manufacturer?: string; friendlyName?: string }>>;
-      scaleLoadSettings: () => Promise<{ connectionType: 'serial' | 'tcp'; portName: string; baudRate: number; host: string; tcpPort: number } | null>;
-      scaleSaveSettings: (settings: any) => Promise<{ success: boolean; settings?: any; error?: string }>;
-      scaleConnect: (settings: any) => Promise<{ success: boolean; error?: string }>;
-      scaleDisconnect: () => Promise<{ success: boolean; error?: string }>;
-      scaleStatus: () => Promise<{ connected: boolean; latestWeight: number | null }>;
-      scaleReadWeight: () => Promise<{ success: boolean; weight?: number; error?: string }>;
-      scaleRequestWeight: () => Promise<{ success: boolean }>;
-      scaleClearWeight: () => Promise<{ success: boolean }>;
-      onScaleWeightUpdate: (callback: (weight: number) => void) => () => void;
-      getCallerIdSettings: () => Promise<any>;
-      saveCallerIdSettings: (settings: any) => Promise<{ success: boolean; settings?: any; error?: string }>;
-      getCallerIdWebhookStatus: () => Promise<{ running: boolean; port: number | null }>;
-      callerIdSerialListPorts: () => Promise<Array<{ path: string; manufacturer?: string; friendlyName?: string; pnpId?: string }>>;
-      callerIdSerialConnect: (settings: any) => Promise<{ success: boolean; error?: string }>;
-      callerIdSerialDisconnect: () => Promise<{ success: boolean; error?: string }>;
-      callerIdSerialStatus: () => Promise<{ connected: boolean }>;
-      callerIdHidListDevices: () => Promise<Array<{ vendorId: number; productId: number; manufacturer?: string; product?: string }>>;
-      callerIdHidConnect: () => Promise<{ success: boolean; error?: string }>;
-      callerIdHidDisconnect: () => Promise<{ success: boolean; error?: string }>;
-      callerIdHidStatus: () => Promise<{ connected: boolean }>;
-      onIncomingCall: (callback: (payload: { phone: string; timestamp: string }) => void) => () => void;
-      onDeepLinkOpenOrder: (callback: (url: string) => void) => () => void;
-      onCallEnded: (callback: () => void) => () => void;
-      callerIdLoadHistory: () => Promise<any[]>;
-      callerIdSaveHistory: (history: any[]) => Promise<{ success: boolean; error?: string }>;
-      getPosWarehouseId: () => Promise<number | null>;
-      savePosWarehouseId: (id: number | null) => Promise<{ success: boolean; error?: string }>;
-    };
-  }
-}
+// Single source of truth for the renderer's ambient `window.electronAPI` type
+// (see src/vite-env.d.ts). Keeping the object above unnamed-inline previously
+// forced src/vite-env.d.ts to hand-maintain a parallel, drifting copy of this
+// shape; exporting the real inferred type lets the two stay in sync.
+export type ElectronAPI = typeof electronAPI;
 
