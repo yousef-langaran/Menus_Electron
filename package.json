@@ -11,6 +11,7 @@
     "build:react": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json && node scripts/write-packaged-update-env.js",
     "preview": "vite preview",
+    "type-check": "tsc -p tsconfig.json --noEmit",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder --publish always",
     "dist:win": "npm run build && electron-builder --win --publish always",
