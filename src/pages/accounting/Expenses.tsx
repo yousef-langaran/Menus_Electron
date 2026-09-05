@@ -9,10 +9,12 @@ import { useAuthStore } from '../../store/authStore';
 import { useFiscalYearStore } from '../../store/fiscalYearStore';
 import {
   accountingDb,
+  cancelPendingSyncOp,
   createOperationalExpenseLocal,
   listExpenseCategoriesLocal,
   upsertPulledEntities,
 } from '../../services/accountingLocalDb';
+import { formatPriceInput, parseFormattedNumber } from '../../utils/money';
 import {
   listExpenseCategories,
   listFiscalYears,
@@ -176,7 +178,7 @@ export default function AccountingExpensesPage() {
   // ─── ثبت هزینه ───────────────────────────────────────────────────────────
   const handleCreate = async () => {
     if (!restaurantId || !token || !categoryId || !amount || !expenseDate) return;
-    const parsedAmount = Number(String(amount).replace(/,/g, ''));
+    const parsedAmount = parseFormattedNumber(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     setSaving(true);
     try {
@@ -184,6 +186,7 @@ export default function AccountingExpensesPage() {
       const localRow = await createOperationalExpenseLocal({
         restaurantId,
         expenseCategoryId: Number(categoryId),
+        fiscalYearId,
         expenseDate,
         amount: parsedAmount,
         description: description.trim() || undefined,
@@ -202,6 +205,10 @@ export default function AccountingExpensesPage() {
           // id سرور را جایگزین id محلی کن
           accountingDb.operationalExpenses.delete(localRow.id);
           accountingDb.operationalExpenses.put({ ...serverRow, restaurantId });
+          // عملیات صف‌شده برای همین رکورد را پاک کن — وگرنه سینک پس‌زمینه دوباره
+          // آن را (با id موقت محلی و بدون fiscalYearId) به سرور می‌فرستد و برای
+          // همیشه با خطای «requires expenseCategoryId and fiscalYearId» شکست می‌خورد.
+          void cancelPendingSyncOp('operational_expense', String(localRow.id));
           void reloadLocal();
         }).catch(() => { /* sync بعداً انجام می‌شود */ });
       }
@@ -215,7 +222,7 @@ export default function AccountingExpensesPage() {
   // ─── ویرایش هزینه ────────────────────────────────────────────────────────
   const handleEdit = async () => {
     if (!restaurantId || !token || !editingRow || !editCategoryId || !editAmount || !editExpenseDate) return;
-    const parsedAmount = Number(String(editAmount).replace(/,/g, ''));
+    const parsedAmount = parseFormattedNumber(editAmount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     setEditSaving(true);
     try {
@@ -412,12 +419,10 @@ export default function AccountingExpensesPage() {
               ))}
             </Select>
             <Input
-              type="number"
               label="مبلغ (ریال)"
-              value={amount}
-              onValueChange={setAmount}
+              value={formatPriceInput(amount)}
+              onValueChange={(v) => setAmount(v === '' ? '' : String(parseFormattedNumber(v)))}
               isRequired
-              min={1}
             />
             <ShamsiDatePicker
               label="تاریخ هزینه"
@@ -462,12 +467,10 @@ export default function AccountingExpensesPage() {
               ))}
             </Select>
             <Input
-              type="number"
               label="مبلغ (ریال)"
-              value={editAmount}
-              onValueChange={setEditAmount}
+              value={formatPriceInput(editAmount)}
+              onValueChange={(v) => setEditAmount(v === '' ? '' : String(parseFormattedNumber(v)))}
               isRequired
-              min={1}
             />
             <ShamsiDatePicker
               label="تاریخ هزینه"

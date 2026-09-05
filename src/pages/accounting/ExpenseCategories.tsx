@@ -15,6 +15,7 @@ import {
 } from '../../services/api';
 import {
   accountingDb,
+  cancelPendingSyncOp,
   listExpenseCategoriesLocal,
   createExpenseCategoryLocal,
   updateExpenseCategoryLocal,
@@ -124,6 +125,10 @@ export default function AccountingExpenseCategoriesPage() {
             accountingDb.expenseCategories.delete(localRow.id);
             accountingDb.expenseCategories.put({ ...serverRow, restaurantId });
             setRows((prev) => prev.map((r) => r.id === localRow.id ? { ...serverRow, restaurantId } : r));
+            // عملیات صف‌شده برای همین رکورد را پاک کن — وگرنه سینک پس‌زمینه دوباره
+            // آن را با id موقت محلی به سرور می‌فرستد و یک دسته‌بندی تکراری واقعی
+            // می‌سازد که قابل حذف از این صفحه هم نیست (چون UI فقط رکورد اصلی را می‌شناسد).
+            void cancelPendingSyncOp('expense_category', String(localRow.id));
           }).catch(() => {});
       }
     } catch {
@@ -149,6 +154,7 @@ export default function AccountingExpenseCategoriesPage() {
           .then((serverRow) => {
             accountingDb.expenseCategories.put({ ...serverRow, restaurantId });
             setRows((prev) => prev.map((r) => r.id === editRow.id ? { ...serverRow, restaurantId } : r));
+            void cancelPendingSyncOp('expense_category', String(editRow.id));
           }).catch(() => {});
       }
     } catch (error: any) {
@@ -171,6 +177,7 @@ export default function AccountingExpenseCategoriesPage() {
           .then((serverRow) => {
             accountingDb.expenseCategories.put({ ...serverRow, restaurantId });
             setRows((prev) => prev.map((r) => r.id === row.id ? { ...serverRow, restaurantId } : r));
+            void cancelPendingSyncOp('expense_category', String(row.id));
           }).catch(() => {});
       }
     } catch {

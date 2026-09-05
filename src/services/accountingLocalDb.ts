@@ -403,6 +403,28 @@ export async function updateOperationSyncStatus(
   });
 }
 
+/**
+ * حذف عملیات صف‌شده برای یک موجودیت که مستقیماً (بدون واسطه صف) با سرور سینک شده است —
+ * مثلاً وقتی حین آنلاین بودن، علاوه بر ثبت local، یک درخواست مستقیم به سرور هم زده شده.
+ * بدون این پاکسازی، عملیات صف‌شده دوباره توسط سینک پس‌زمینه (AccountingSyncManager) ارسال
+ * می‌شود و چون entityId آن یک id موقت محلی است، سرور یک رکورد تکراری واقعی می‌سازد
+ * (برای دسته‌بندی‌ها) یا برای همیشه با خطای اعتبارسنجی شکست می‌خورد (برای هزینه‌های عملیاتی
+ * که fiscalYearId در payload قدیمی موجود نیست).
+ */
+export async function cancelPendingSyncOp(
+  entityType: SyncEntityType,
+  entityId: string,
+): Promise<void> {
+  const ops = await accountingDb.syncOperations
+    .where('entityType')
+    .equals(entityType)
+    .filter((op) => op.entityId === entityId && op.status !== 'synced')
+    .toArray();
+  if (ops.length) {
+    await accountingDb.syncOperations.bulkDelete(ops.map((op) => op.id!).filter((id) => id !== undefined));
+  }
+}
+
 function mapCollectionName(entityType: SyncEntityType): keyof MenusAccountingDb {
   switch (entityType) {
     case 'raw_material':
@@ -1124,6 +1146,7 @@ export async function deleteExpenseCategoryLocal(input: { id: number; restaurant
 export async function createOperationalExpenseLocal(input: {
   restaurantId: number;
   expenseCategoryId: number;
+  fiscalYearId?: number | null;
   expenseDate: string; // YYYY-MM-DD
   amount: number;
   description?: string;
@@ -1134,6 +1157,7 @@ export async function createOperationalExpenseLocal(input: {
     id,
     restaurantId: input.restaurantId,
     expenseCategoryId: input.expenseCategoryId,
+    fiscalYearId: input.fiscalYearId ?? null,
     expenseDate: input.expenseDate,
     amount: Number(input.amount),
     description: input.description?.trim() || null,
