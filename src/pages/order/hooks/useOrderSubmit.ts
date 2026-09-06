@@ -12,6 +12,7 @@ import { isValidIranMobile, normalizeIranMobile } from '../../../utils/iranMobil
 import { saveReceiptNumbersToStorage, getNextReceiptNumberBrowser } from '../../../utils/receiptNumbersStorage';
 import { buildPrinterJobs, loadPrintTemplateSources } from '../../../utils/printTemplates';
 import { toast } from '../../../utils/toast';
+import { pulseCashDrawer } from '../../../utils/cashDrawer';
 
 interface SubmitOptions {
   editingOrderId: number | null;
@@ -186,6 +187,13 @@ export function useOrderSubmit() {
         ? [`offline-${res.orderId}`]
         : [String(res.orderId), res.orderNumber, orderData.orderNumber].filter(Boolean);
       runPrint(orderData, orderKeys, { printOption, selectedPrinterNames });
+
+      // فروش نقدی (کامل یا بخشی از پرداخت ترکیبی) — کشوی پول را بی‌صدا باز کن؛
+      // شکست این پالس هرگز نباید ثبت سفارش را متوقف کند (fire-and-forget).
+      const hasCashPortion = paymentMethod === 'cash' || (paymentMethod === 'mixed' && splitCash > 0);
+      if (hasCashPortion) {
+        pulseCashDrawer().catch(() => {});
+      }
 
       // Record cash transactions
       try {

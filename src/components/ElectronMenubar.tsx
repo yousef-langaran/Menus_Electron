@@ -75,7 +75,8 @@ function salesGroupActive(pathname: string): boolean {
     pathname === '/orders' ||
     pathname === '/order-returns' ||
     pathname === '/kds' ||
-    pathname === '/waiter-calls'
+    pathname === '/waiter-calls' ||
+    pathname === '/pos-shift'
   );
 }
 
@@ -123,6 +124,11 @@ export function ElectronMenubar() {
         path: '/waiter-calls',
         label: 'فراخوان گارسون',
         visible: (u) => canAccessRoute(u, '/waiter-calls'),
+      },
+      {
+        path: '/pos-shift',
+        label: 'شیفت صندوق',
+        visible: (u) => canAccessRoute(u, '/pos-shift'),
       },
     ],
     [],

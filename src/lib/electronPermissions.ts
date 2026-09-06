@@ -117,6 +117,17 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
 
   // فراخوان گارسون: مجوز اختصاصی، یا همان مجوز مدیریت سفارش که گارسون‌ها
   // معمولاً از قبل دارند (هم‌راستا با گیت بک‌اند روی `/waiter-calls`).
+  // شیفت صندوق: از همان مجوز ELECTRON_PANEL که سایر ابزارهای سخت‌افزاری/عملیاتی
+  // صندوق‌دار (تنظیمات، کارتخوان) هم‌راستا با گیت بک‌اند روی pos-shifts استفاده می‌کند.
+  if (p === '/pos-shift') {
+    return hasModuleAccess(
+      user,
+      MODULES.ELECTRON_PANEL,
+      [ACTIONS.READ, ACTIONS.CREATE, ACTIONS.UPDATE, ACTIONS.MANAGE],
+      rid,
+    );
+  }
+
   if (p === '/waiter-calls') {
     return (
       hasModuleAccess(user, MODULES.WAITER_CALLS, [ACTIONS.READ, ACTIONS.UPDATE, ACTIONS.MANAGE], rid) ||
