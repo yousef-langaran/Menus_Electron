@@ -1,4 +1,7 @@
 import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
+import { spawn } from 'child_process';
 import { BrowserWindow } from 'electron';
 import type { PrinterInfo } from 'electron';
 import {
@@ -259,6 +262,138 @@ export async function detectPrinters(): Promise<PrinterDiscoveryItem[]> {
     if (!tempWindow.isDestroyed()) {
       tempWindow.close();
     }
+  }
+}
+
+// ─── باز کردن کشوی پول (Drawer Kick) ──────────────────────────────────────
+//
+// چاپ رسید در این فایل کاملاً از طریق webContents.print روی HTML رندرشده انجام
+// می‌شود (مسیر GDI/Chromium کرومیوم) — این مسیر هیچ راهی برای عبور بایت‌های خام
+// ESC/POS به پرینتر ندارد (کرومیوم همیشه محتوا را rasterize می‌کند). برای پالس
+// واقعی کشو باید بایت‌های خام مستقیماً و بدون واسطهٔ رندر HTML به پرینتر نوشته
+// شوند — بدون افزودن یک وابستگی native جدید (که نیاز به electron-rebuild و خطر
+// شکستن بیلد نصبی دارد)، این کار با ابزارهای همیشه-موجود سیستم‌عامل انجام می‌شود:
+//   - ویندوز: یک پاور‌شل مخفی (بدون پنجره) که با Add-Type یک تایپ C# کوچک را
+//     P/Invoke می‌کند تا با winspool.drv مستقیماً یک Job با datatype «RAW» باز/
+//     بنویسد/ببندد — همان API استانداردی که تقریباً هر درایور پرینتر رسید حرارتی
+//     (ESC/POS) در ویندوز از آن پشتیبانی می‌کند.
+//   - لینوکس/مک: نوشتن بایت‌ها در یک فایل موقت و ارسال آن با `lp -o raw` (چاپ
+//     خام CUPS) — تکنیک استاندارد و مستند برای همین منظور.
+// هر دو مسیر کاملاً silent هستند (بدون دیالوگ)، هم‌راستا با الگوی چاپ بی‌صدای
+// همین فایل.
+const DRAWER_KICK_ESC_POS = Buffer.from([0x1b, 0x70, 0x00, 0x19, 0xfa]);
+
+function runHidden(command: string, args: string[], input?: Buffer): Promise<{ code: number | null; stderr: string }> {
+  return new Promise((resolve) => {
+    try {
+      const child = spawn(command, args, { windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] });
+      let stderr = '';
+      child.stderr?.on('data', (chunk) => { stderr += String(chunk); });
+      child.on('error', (err) => resolve({ code: -1, stderr: String(err?.message || err) }));
+      child.on('close', (code) => resolve({ code, stderr }));
+      if (input) child.stdin?.end(input);
+      else child.stdin?.end();
+    } catch (err: any) {
+      resolve({ code: -1, stderr: String(err?.message || err) });
+    }
+  });
+}
+
+/** اسکریپت پاورشل: P/Invoke به winspool.drv برای نوشتن بایت خام روی یک پرینتر نصب‌شدهٔ ویندوز (RAW datatype) */
+function buildWinspoolRawWriteScript(printerName: string, hexBytes: string): string {
+  const escapedPrinterName = printerName.replace(/'/g, "''");
+  return `
+$ErrorActionPreference = 'Stop'
+Add-Type -Namespace RawPrinterHelper -Name Winspool -MemberDefinition @'
+[StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
+public struct DOCINFOA {
+  [MarshalAs(UnmanagedType.LPStr)] public string pDocName;
+  [MarshalAs(UnmanagedType.LPStr)] public string pOutputFile;
+  [MarshalAs(UnmanagedType.LPStr)] public string pDataType;
+}
+[DllImport("winspool.Drv", EntryPoint="OpenPrinterA", SetLastError=true, CharSet=CharSet.Ansi, ExactSpelling=true)]
+public static extern bool OpenPrinter(string szPrinter, out IntPtr hPrinter, IntPtr pd);
+[DllImport("winspool.Drv", EntryPoint="StartDocPrinterA", SetLastError=true, CharSet=CharSet.Ansi, ExactSpelling=true)]
+public static extern bool StartDocPrinter(IntPtr hPrinter, int level, [In] ref DOCINFOA di);
+[DllImport("winspool.Drv", SetLastError=true)]
+public static extern bool StartPagePrinter(IntPtr hPrinter);
+[DllImport("winspool.Drv", SetLastError=true)]
+public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, int dwCount, out int dwWritten);
+[DllImport("winspool.Drv", SetLastError=true)]
+public static extern bool EndPagePrinter(IntPtr hPrinter);
+[DllImport("winspool.Drv", SetLastError=true)]
+public static extern bool EndDocPrinter(IntPtr hPrinter);
+[DllImport("winspool.Drv", SetLastError=true)]
+public static extern bool ClosePrinter(IntPtr hPrinter);
+'@
+
+$bytesHex = '${hexBytes}'
+$bytes = [byte[]] -split ($bytesHex -replace '..', '$0 ') | Where-Object { $_ -ne '' } | ForEach-Object { [Convert]::ToByte($_, 16) }
+$hPrinter = [IntPtr]::Zero
+if (-not [RawPrinterHelper.Winspool]::OpenPrinter('${escapedPrinterName}', [ref]$hPrinter, [IntPtr]::Zero)) {
+  Write-Error 'OpenPrinter failed'
+  exit 1
+}
+try {
+  $di = New-Object RawPrinterHelper.Winspool+DOCINFOA
+  $di.pDocName = 'Secoin Cash Drawer Kick'
+  $di.pDataType = 'RAW'
+  if (-not [RawPrinterHelper.Winspool]::StartDocPrinter($hPrinter, 1, [ref]$di)) { Write-Error 'StartDocPrinter failed'; exit 1 }
+  try {
+    if (-not [RawPrinterHelper.Winspool]::StartPagePrinter($hPrinter)) { Write-Error 'StartPagePrinter failed'; exit 1 }
+    $ptr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($bytes.Length)
+    try {
+      [System.Runtime.InteropServices.Marshal]::Copy($bytes, 0, $ptr, $bytes.Length)
+      $written = 0
+      if (-not [RawPrinterHelper.Winspool]::WritePrinter($hPrinter, $ptr, $bytes.Length, [ref]$written)) { Write-Error 'WritePrinter failed'; exit 1 }
+    } finally {
+      [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ptr)
+    }
+    [RawPrinterHelper.Winspool]::EndPagePrinter($hPrinter) | Out-Null
+  } finally {
+    [RawPrinterHelper.Winspool]::EndDocPrinter($hPrinter) | Out-Null
+  }
+} finally {
+  [RawPrinterHelper.Winspool]::ClosePrinter($hPrinter) | Out-Null
+}
+`;
+}
+
+/**
+ * پالس باز کردن کشوی پول — روی همان پرینتری که کشو به آن وصل است (اکثراً پرینتر
+ * فیش کامل). فراخوان باید silent باشد و هرگز دیالوگ سیستم‌عامل باز نکند.
+ */
+export async function openCashDrawer(printerName: string): Promise<{ success: boolean; error?: string }> {
+  if (!printerName || !printerName.trim()) {
+    return { success: false, error: 'DRAWER_NO_PRINTER_SELECTED' };
+  }
+
+  try {
+    if (process.platform === 'win32') {
+      const hex = DRAWER_KICK_ESC_POS.toString('hex');
+      const script = buildWinspoolRawWriteScript(printerName, hex);
+      const result = await runHidden('powershell.exe', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy', 'Bypass',
+        '-Command', script,
+      ]);
+      if (result.code === 0) return { success: true };
+      return { success: false, error: result.stderr?.trim() || `DRAWER_KICK_FAILED (exit ${result.code})` };
+    }
+
+    // لینوکس/مک: چاپ خام CUPS
+    const tmpFile = path.join(os.tmpdir(), `secoin-drawer-kick-${Date.now()}.bin`);
+    await fs.promises.writeFile(tmpFile, DRAWER_KICK_ESC_POS);
+    try {
+      const result = await runHidden('lp', ['-d', printerName, '-o', 'raw', tmpFile]);
+      if (result.code === 0) return { success: true };
+      return { success: false, error: result.stderr?.trim() || `DRAWER_KICK_FAILED (exit ${result.code})` };
+    } finally {
+      fs.promises.unlink(tmpFile).catch(() => {});
+    }
+  } catch (error: any) {
+    return { success: false, error: String(error?.message || error) };
   }
 }
 
