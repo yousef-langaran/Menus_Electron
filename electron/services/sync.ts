@@ -1,6 +1,12 @@
 import axios from 'axios';
 import { getOfflineOrders, markOrderAsSynced } from '../database/orders';
 import { getOfflineReturns, markReturnAsSynced } from '../database/returns';
+import {
+  getOfflineShiftActions,
+  markShiftActionSynced,
+  markShiftActionError,
+  resolveServerShiftIdForKey,
+} from '../database/posShifts';
 import { getApiConfig } from '../config/api';
 import { loadUserSession } from '../database/preferences';
 
@@ -98,6 +104,107 @@ export async function syncOfflineOrders(tokenOverride?: string) {
   });
 
   for (const r of itemResults) {
+    results.success += r.success;
+    results.failed += r.failed;
+    results.errors.push(...r.errors);
+  }
+  return results;
+}
+
+/**
+ * Sync صف آفلاین اکشن‌های شیفت صندوق (باز/بستن). برخلاف syncOfflineOrders/Returns،
+ * این‌جا یک وابستگی ترتیبی واقعی وجود دارد: «بستن» به شناسهٔ سرورِ همان شیفت نیاز
+ * دارد که فقط بعد از sync موفقِ «باز کردن» مشخص می‌شود. پس عمداً در دو مرحله
+ * (اول همهٔ open ها، بعد فقط close هایی که serverShiftId دارند) با concurrency
+ * سقف ۳ در هر مرحله اجرا می‌شود — این وابستگی فقط داخل همین صف است و ربطی به
+ * ترتیب catalog-before-accounting در src/services/syncCoordinator.ts ندارد (آن
+ * فایل دست‌نخورده مانده).
+ */
+export async function syncOfflinePosShifts(tokenOverride?: string) {
+  const actions = await getOfflineShiftActions();
+  const results = { success: 0, failed: 0, errors: [] as string[] };
+  if (actions.length === 0) return results;
+
+  const apiConfig = getApiConfig();
+  const defaultBaseURL = apiConfig.baseURL;
+  const currentSession = await loadUserSession();
+  const latestSessionToken = typeof currentSession?.token === 'string' ? currentSession.token.trim() : '';
+  const override = typeof tokenOverride === 'string' ? tokenOverride.trim() : '';
+
+  type ItemResult = { success: number; failed: number; errors: string[] };
+
+  const opens = actions.filter((a) => a.type === 'open');
+  const closes = actions.filter((a) => a.type === 'close');
+
+  const openResults = await concurrentMap(opens, 3, async (action): Promise<ItemResult> => {
+    try {
+      const targetBaseURL = override.length > 0 ? defaultBaseURL : (action.baseURL || defaultBaseURL);
+      const actionTok = typeof action.token === 'string' ? action.token.trim() : '';
+      const authToken = override || resolveAuthTokenWithoutOverride(latestSessionToken, actionTok);
+
+      const response = await axios.post(
+        `${targetBaseURL}/pos-shifts/open`,
+        { ...action.payload, restaurantId: action.restaurantId, clientShiftKey: action.clientShiftKey },
+        {
+          headers: {
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      const serverShiftId = response.data?.id;
+      await markShiftActionSynced(action.id, serverShiftId);
+      if (typeof serverShiftId === 'number') {
+        await resolveServerShiftIdForKey(action.clientShiftKey, serverShiftId);
+      }
+      return { success: 1, failed: 0, errors: [] };
+    } catch (error: any) {
+      const status = error?.response?.status;
+      const errorMsg = status === 401
+        ? `باز کردن شیفت ${action.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`
+        : `باز کردن شیفت ${action.id}: ${error.response?.data?.message || error.message || 'خطای ناشناخته'}`;
+      await markShiftActionError(action.id, errorMsg);
+      console.error(`Failed to sync pos-shift open ${action.id}:`, error);
+      return { success: 0, failed: 1, errors: [errorMsg] };
+    }
+  });
+
+  const closeResults = await concurrentMap(closes, 3, async (action): Promise<ItemResult> => {
+    // شیفت مربوطه هنوز sync نشده (بدون شناسهٔ سرور) — منتظر نوبت بعدی sync می‌ماند،
+    // نه موفق و نه شکست‌خورده.
+    if (action.serverShiftId == null) {
+      return { success: 0, failed: 0, errors: [] };
+    }
+    try {
+      const targetBaseURL = override.length > 0 ? defaultBaseURL : (action.baseURL || defaultBaseURL);
+      const actionTok = typeof action.token === 'string' ? action.token.trim() : '';
+      const authToken = override || resolveAuthTokenWithoutOverride(latestSessionToken, actionTok);
+
+      await axios.post(
+        `${targetBaseURL}/pos-shifts/${action.serverShiftId}/close`,
+        action.payload,
+        {
+          params: { restaurantId: action.restaurantId },
+          headers: {
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      await markShiftActionSynced(action.id);
+      return { success: 1, failed: 0, errors: [] };
+    } catch (error: any) {
+      const status = error?.response?.status;
+      const errorMsg = status === 401
+        ? `بستن شیفت ${action.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`
+        : `بستن شیفت ${action.id}: ${error.response?.data?.message || error.message || 'خطای ناشناخته'}`;
+      await markShiftActionError(action.id, errorMsg);
+      console.error(`Failed to sync pos-shift close ${action.id}:`, error);
+      return { success: 0, failed: 1, errors: [errorMsg] };
+    }
+  });
+
+  for (const r of [...openResults, ...closeResults]) {
     results.success += r.success;
     results.failed += r.failed;
     results.errors.push(...r.errors);

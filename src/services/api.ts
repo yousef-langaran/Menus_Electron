@@ -1934,6 +1934,126 @@ export async function completeWaiterCall(
   return response.data;
 }
 
+// ─── شیفت صندوق (باز/بستن، گزارش X/Z) ──────────────────────────────────────
+
+export type PosShiftStatus = 'open' | 'closed';
+
+export interface PosShiftRow {
+  id: number;
+  restaurantId: number;
+  clientShiftKey: string | null;
+  openedByUserId: number | null;
+  closedByUserId: number | null;
+  openingFloatAmount: number;
+  countedCashAmount: number | null;
+  expectedCashAmount: number | null;
+  varianceAmount: number | null;
+  status: PosShiftStatus;
+  openingNotes: string | null;
+  closingNotes: string | null;
+  openedAt: string;
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OpenPosShiftPayload {
+  restaurantId: number;
+  openingFloatAmount: number;
+  openingNotes?: string;
+  /** کلید idempotency برای صف آفلاین — رجوع کنید به OpenShiftDto در Menus_BE */
+  clientShiftKey?: string;
+}
+
+export interface ClosePosShiftPayload {
+  countedCashAmount: number;
+  closingNotes?: string;
+}
+
+export interface PosShiftPaymentMethodBreakdownRow {
+  paymentMethod: string;
+  salesCount: number;
+  salesAmount: number;
+  refundsCount: number;
+  refundsAmount: number;
+  netAmount: number;
+}
+
+export interface PosShiftReport {
+  shiftId: number;
+  restaurantId: number;
+  type: 'x' | 'z';
+  status: PosShiftStatus;
+  openedAt: string;
+  reportedThrough: string;
+  openingFloatAmount: number;
+  countedCashAmount: number | null;
+  expectedCashAmount: number | null;
+  varianceAmount: number | null;
+  totals: {
+    salesCount: number;
+    salesAmount: number;
+    refundsCount: number;
+    refundsAmount: number;
+    netAmount: number;
+  };
+  paymentMethodBreakdown: PosShiftPaymentMethodBreakdownRow[];
+}
+
+export async function openPosShift(payload: OpenPosShiftPayload, token: string): Promise<PosShiftRow> {
+  await apiConfigReady;
+  const response = await api.post('/pos-shifts/open', payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function closePosShift(
+  shiftId: number,
+  restaurantId: number,
+  payload: ClosePosShiftPayload,
+  token: string,
+): Promise<PosShiftRow> {
+  await apiConfigReady;
+  const response = await api.post(`/pos-shifts/${shiftId}/close`, payload, {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function getCurrentPosShift(restaurantId: number, token: string): Promise<PosShiftRow | null> {
+  await apiConfigReady;
+  const response = await api.get('/pos-shifts/current', {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data ?? null;
+}
+
+export async function listPosShifts(restaurantId: number, token: string): Promise<PosShiftRow[]> {
+  await apiConfigReady;
+  const response = await api.get('/pos-shifts', {
+    params: { restaurantId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function getPosShiftReport(
+  shiftId: number,
+  restaurantId: number,
+  type: 'x' | 'z',
+  token: string,
+): Promise<PosShiftReport> {
+  await apiConfigReady;
+  const response = await api.get(`/pos-shifts/${shiftId}/report`, {
+    params: { restaurantId, type },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
 export async function cancelWaiterCall(
   callId: number,
   restaurantId: number,

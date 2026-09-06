@@ -32,17 +32,22 @@ function loadEnv() {
 }
 loadEnv();
 import { isOnline } from './utils/network';
-import { syncOfflineOrders, syncOfflineReturns } from './services/sync';
+import { syncOfflineOrders, syncOfflineReturns, syncOfflinePosShifts } from './services/sync';
 import {
   printReceipt,
   renderReceiptPreview,
   printPreviewOptsMap,
   detectPrinters,
   PrintOperationError,
+  openCashDrawer,
 } from './services/printer';
 import { cacheImage, getCachedImagePath, cacheImages, getImageUrl } from './services/imageCache';
 import { saveOfflineOrder as dbSaveOfflineOrder, getAllOrders } from './database/orders';
 import { saveOfflineReturn as dbSaveOfflineReturn, getAllReturns } from './database/returns';
+import {
+  saveOfflineShiftAction as dbSaveOfflineShiftAction,
+  getAllShiftActions,
+} from './database/posShifts';
 import {
   loadUserSession as loadUserSessionPrefs,
   saveUserSession as saveUserSessionPrefs,
@@ -757,6 +762,43 @@ ipcMain.handle('save-offline-return', async (_event, returnData, token, baseURL)
   } catch (error) {
     console.error('Save offline return error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('open-cash-drawer', async (_event, printerName: string) => {
+  try {
+    return await openCashDrawer(printerName);
+  } catch (error) {
+    console.error('Open cash drawer error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('save-offline-pos-shift-action', async (_event, action) => {
+  try {
+    const id = await dbSaveOfflineShiftAction(action);
+    return { success: true, id };
+  } catch (error) {
+    console.error('Save offline pos-shift action error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('get-offline-pos-shift-actions', async () => {
+  try {
+    return await getAllShiftActions();
+  } catch (error) {
+    console.error('Get offline pos-shift actions error:', error);
+    return [];
+  }
+});
+
+ipcMain.handle('sync-pos-shifts', async (_event, token?: string) => {
+  try {
+    return await syncOfflinePosShifts(token);
+  } catch (error) {
+    console.error('Sync pos-shifts error:', error);
+    throw error;
   }
 });
 

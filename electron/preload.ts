@@ -17,6 +17,10 @@ const electronAPI = {
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   syncOrders: (token?: string) => ipcRenderer.invoke('sync-orders', token),
   syncReturns: (token?: string) => ipcRenderer.invoke('sync-returns', token),
+  syncPosShifts: (token?: string) => ipcRenderer.invoke('sync-pos-shifts', token),
+  openCashDrawer: (printerName: string) => ipcRenderer.invoke('open-cash-drawer', printerName),
+  saveOfflinePosShiftAction: (action: any) => ipcRenderer.invoke('save-offline-pos-shift-action', action),
+  getOfflinePosShiftActions: () => ipcRenderer.invoke('get-offline-pos-shift-actions'),
   saveOfflineReturn: (returnData: any, token: string, baseURL?: string) =>
     ipcRenderer.invoke('save-offline-return', returnData, token, baseURL),
   getOfflineReturns: () => ipcRenderer.invoke('get-offline-returns'),
