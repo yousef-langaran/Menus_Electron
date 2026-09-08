@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import { generateId } from '../storage/generateId';
 
 export interface OfflineReturn {
   id: number;
@@ -56,7 +57,7 @@ const withReturnsLock = <T>(fn: () => Promise<T>): Promise<T> => {
 export async function saveOfflineReturn(returnData: any, token: string, baseURL?: string): Promise<number> {
   return withReturnsLock(async () => {
     const returns = await readFromDisk();
-    const id = Date.now();
+    const id = generateId();
     returns.push({
       id,
       returnData,

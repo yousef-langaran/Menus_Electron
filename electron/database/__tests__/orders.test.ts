@@ -182,23 +182,15 @@ describe('concurrent writes are serialized through the internal lock', () => {
     expect(queue).toHaveLength(2);
   });
 
-  // KNOWN LIVE BUG — see final QA report for T-0013. `saveOfflineOrder` uses
-  // `Date.now()` (millisecond resolution) as the order's ID, computed AFTER
-  // the write-lock hands it its turn. The lock only serializes the
-  // read-modify-write of the file; it does NOT guarantee unique IDs. Two
-  // saves that land in the same millisecond (very plausible: two quick POS
-  // submissions, or an order + a return created back-to-back, especially on
-  // fast hardware or under test) get the SAME id. `markOrderAsSynced`/
-  // `deleteOrder` then operate on the WRONG semantics for that id:
-  // `findIndex` only ever touches the first of the two duplicates (the other
-  // is silently stuck resending forever), and `deleteOrder`'s `filter`
-  // deletes BOTH at once. Reported to the owning dev agent / tech-lead
-  // rather than fixed here (out of QA scope). `it.fails` keeps the suite
-  // green while still asserting the desired behavior — if this ever starts
-  // passing (e.g. a UUID or a lock-scoped counter replaces `Date.now()`),
-  // this test will itself fail as a signal to convert it to a normal,
-  // permanent regression test.
-  it.fails('BUG (T-0013): two saves in the same millisecond get colliding IDs', async () => {
+  // Regression test for T-0022 (previously a KNOWN LIVE BUG documented under
+  // T-0013 QA, kept green via `it.fails`). `saveOfflineOrder` now derives its
+  // id from the shared `generateId()` helper (electron/storage/generateId.ts)
+  // — a monotonic counter seeded by `Date.now()` — instead of calling
+  // `Date.now()` directly, so two saves that land in the same millisecond no
+  // longer collide, and `markOrderAsSynced`/`deleteOrder` (which key off
+  // `Array.findIndex`/`filter` by id) can no longer act ambiguously on a
+  // colliding pair.
+  it('FIXED (T-0022): two saves in the same millisecond get distinct IDs', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
     let queue: any[] = [];
     readFile.mockImplementation(async () => JSON.stringify(queue));
