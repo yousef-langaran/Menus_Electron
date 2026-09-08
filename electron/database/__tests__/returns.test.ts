@@ -174,11 +174,13 @@ describe('concurrent writes are serialized through the internal lock', () => {
     expect(queue).toHaveLength(2);
   });
 
-  // Same class of bug as electron/database/orders.ts (see T-0013 QA report):
-  // the id is `Date.now()`, computed after the lock hands out a turn, so two
-  // saves in the same millisecond collide. Kept green via `it.fails` for the
-  // same reason as the orders.ts version of this test.
-  it.fails('BUG (T-0013): two saves in the same millisecond get colliding IDs', async () => {
+  // Regression test for T-0022 (previously a KNOWN LIVE BUG documented under
+  // T-0013 QA, kept green via `it.fails`). Same fix as electron/database/
+  // orders.ts: `saveOfflineReturn` now derives its id from the shared
+  // `generateId()` helper (electron/storage/generateId.ts) instead of
+  // calling `Date.now()` directly, so two saves in the same millisecond no
+  // longer collide.
+  it('FIXED (T-0022): two saves in the same millisecond get distinct IDs', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
     let queue: any[] = [];
     readFile.mockImplementation(async () => JSON.stringify(queue));
