@@ -114,26 +114,28 @@ describe('syncCoordinator ordering guarantee', () => {
     expect(order.at(-1)).toBe('cat2-end');
   });
 
-  // ─── KNOWN LIVE BUG — see final QA report for T-0013 ──────────────────────
+  // ─── FIXED (T-0021) — regression test for the ordering race ───────────────
   //
-  // The coordinator only serializes catalog-before-accounting for whichever
-  // task was already *pending* at the moment `runQueued()` transitions
-  // `_isRunning` from false to true. Because `scheduleCatalogSync` and
-  // `scheduleAccountingSync` each independently call `runQueued()`, if
-  // `scheduleAccountingSync` happens to run first in a given synchronous turn
-  // (e.g. two listeners reacting to the same "online" event, with the
-  // accounting listener registered/invoked first) `runQueued` captures
-  // accounting as the only pending task, starts it immediately, and a
-  // same-turn `scheduleCatalogSync` call right after is left pending until
-  // the *next* cycle — i.e. catalog runs AFTER accounting has already fully
-  // completed, not before it. This violates the documented FK-race-avoidance
-  // invariant. Reported to tech-lead / the owning dev agent rather than fixed
-  // here (out of QA scope). `it.fails` keeps the suite green while still
-  // asserting the desired behavior: if this ever starts passing (i.e. someone
-  // fixes the ordering bug), this test will itself start failing as a signal
-  // to convert it to a normal, permanent regression test.
-  it.fails(
-    'BUG (T-0013): ordering guarantee is violated when accounting is scheduled a tick before catalog',
+  // Previously the coordinator only serialized catalog-before-accounting for
+  // whichever task was already *pending* at the moment `runQueued()`
+  // transitioned `_isRunning` from false to true. Because `scheduleCatalogSync`
+  // and `scheduleAccountingSync` each independently triggered `runQueued()`
+  // synchronously, if `scheduleAccountingSync` happened to run first in a
+  // given synchronous turn (e.g. two listeners reacting to the same "online"
+  // event, or two sibling mount-time useEffects, with the accounting one
+  // registered/invoked first) `runQueued` captured accounting as the only
+  // pending task, started it immediately, and a same-turn
+  // `scheduleCatalogSync` call right after was left pending until the *next*
+  // cycle — i.e. catalog ran AFTER accounting had already fully completed,
+  // not before it. This violated the documented FK-race-avoidance invariant.
+  //
+  // Fixed by deferring the actual dequeue-and-start decision in `runQueued()`
+  // to a microtask, so both scheduling calls in the same synchronous turn are
+  // guaranteed to have registered their pending task before either is ever
+  // inspected — this is a structural guarantee of the JS run-to-completion
+  // model, not a timing-dependent delay.
+  it(
+    'FIXED (T-0021): ordering guarantee holds when accounting is scheduled a tick before catalog',
     async () => {
       const acc = deferredTask('acc', order);
       const cat = deferredTask('cat', order);
