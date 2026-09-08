@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useSyncStore } from '../store/syncStore';
+import { usePosShiftStore } from '../store/posShiftStore';
 
 /**
  * پس از آنلاین شدن (رویداد مرورگر، فوکوس پنجره، یا بازهٔ زمانی)
- * سفارش‌ها و مرجوعی‌های آفلاین ذخیره‌شده را به سرور می‌فرستد.
+ * سفارش‌ها، مرجوعی‌ها و اکشن‌های آفلاین شیفت صندوق ذخیره‌شده را به سرور می‌فرستد.
  */
 export function OfflineOrdersSync() {
   const token = useAuthStore((s) => s.token);
@@ -52,6 +53,25 @@ export function OfflineOrdersSync() {
           }
           if (returnsResult?.errors?.length) errors.push(...returnsResult.errors);
           if (returnsResult?.success > 0) setLastSyncedAt(new Date().toISOString());
+        }
+
+        if (window.electronAPI.syncPosShifts) {
+          const shiftsResult = await window.electronAPI.syncPosShifts(liveToken);
+          if (shiftsResult && (shiftsResult.success > 0 || shiftsResult.failed > 0)) {
+            console.log(`[Offline pos-shifts sync:${reason}]`, shiftsResult);
+          }
+          if (shiftsResult?.errors?.length) errors.push(...shiftsResult.errors);
+          if (shiftsResult?.success > 0) {
+            setLastSyncedAt(new Date().toISOString());
+            // پس از موفقیت sync، currentShift را از سرور دوباره بخوان تا pendingSync
+            // بدون نیاز به رفرش دستی صفحه در UI پاک شود (همان الگویی که posShiftStore
+            // برای شیفتِ در انتظار سرور از قبل پیاده‌سازی کرده — رجوع کنید به loadCurrentShift).
+            const pending = usePosShiftStore.getState().currentShift;
+            const restaurantId = useAuthStore.getState().user?.restaurants?.[0]?.id;
+            if (pending?.pendingSync && restaurantId) {
+              void usePosShiftStore.getState().loadCurrentShift(restaurantId, liveToken);
+            }
+          }
         }
 
         if (errors.length > 0) {

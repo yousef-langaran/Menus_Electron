@@ -8,3 +8,11 @@ release/
 .env
 .env.local
 
+# local debug/scratch scripts and per-machine runtime state — never commit
+__diag__.js
+__diag2__.js
+__call_capture__.js
+__hid_class__.js
+menus-preferences.json
+hs_err_pid*.log
+

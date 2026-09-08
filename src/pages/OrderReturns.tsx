@@ -165,9 +165,9 @@ export default function OrderReturnsPage() {
 
       <div className="mb-4 flex gap-4 items-center">
         <Select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
+          selectedKeys={statusFilter ? [statusFilter] : []}
+          onSelectionChange={(keys) => {
+            setStatusFilter(String(Array.from(keys)[0] || 'all'));
             setCurrentPage(1);
           }}
           className="w-64"

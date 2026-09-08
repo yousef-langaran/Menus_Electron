@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { fetchOrders, updateOrderStatus } from '../services/api';
 import { connectOrdersSocket, disconnectOrdersSocket } from '../services/ordersSocket';
 import { Card, CardContent, Chip } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { toast } from '../utils/toast';
+import { useKdsAudioStore } from '../store/kdsAudioStore';
+import { playKdsAgingAlertChime, playKdsNewOrderChime } from '../utils/kdsSound';
 
 type KdsOrderItem = {
   id: number;
@@ -86,6 +88,13 @@ export default function KdsPage() {
   const [now, setNow] = useState(() => Date.now());
   const [stationFilter, setStationFilter] = useState<string | null>(null);
   const [busyOrderIds, setBusyOrderIds] = useState<Record<number, boolean>>({});
+  // آیتم‌های «بامپ‌شده» (آمادهٔ تحویل) به تفکیک سفارش — کاملاً سمت کلاینت، فقط
+  // برای هماهنگی کار در آشپزخانه؛ مستقل از وضعیت کل سفارش که هنوز whole-order است
+  const [bumpedItemIds, setBumpedItemIds] = useState<Record<number, Set<number>>>({});
+  const { muted: audioMuted, agingThresholdMinutes, setMuted: setAudioMuted, setAgingThresholdMinutes } =
+    useKdsAudioStore();
+  // شناسهٔ سفارش‌هایی که قبلاً برایشان هشدار دیرکرد پخش شده — تا هر ۱۵ ثانیه دوباره پخش نشود
+  const agingAlertedOrderIdsRef = useRef<Set<number>>(new Set());
 
   const upsertOrder = useCallback((order: KdsOrder) => {
     setOrders((prev) => {
@@ -134,6 +143,12 @@ export default function KdsPage() {
     return () => window.clearInterval(t);
   }, []);
 
+  // مرجع زنده برای mute — تا افکت سوکت به‌خاطر تغییر mute دوباره subscribe نشود
+  const audioMutedRef = useRef(audioMuted);
+  useEffect(() => {
+    audioMutedRef.current = audioMuted;
+  }, [audioMuted]);
+
   // اتصال زندهٔ سوکت — دقیقاً همان رویدادهایی که orders.gateway.ts برای هر تغییر
   // وضعیت/سفارش جدید پخش می‌کند، بدون هیچ endpoint یا event جدید
   useEffect(() => {
@@ -142,7 +157,12 @@ export default function KdsPage() {
     const socket = connectOrdersSocket({ token, restaurantName });
     if (!socket) return;
 
-    const handleNew = (order: KdsOrder) => upsertOrder(order);
+    const handleNew = (order: KdsOrder) => {
+      if (!audioMutedRef.current) {
+        playKdsNewOrderChime();
+      }
+      upsertOrder(order);
+    };
     const handleUpdated = (order: KdsOrder) => upsertOrder(order);
 
     socket.on('orders:new', handleNew);
@@ -162,6 +182,24 @@ export default function KdsPage() {
       ),
     [orders],
   );
+
+  // هشدار صوتیِ دیرکرد — وقتی سفارشی از آستانهٔ قابل‌تنظیم عبور کند، یک‌بار (نه هر تیک) پخش می‌شود
+  useEffect(() => {
+    const currentIds = new Set(orderList.map((order) => order.id));
+    agingAlertedOrderIdsRef.current.forEach((id) => {
+      if (!currentIds.has(id)) {
+        agingAlertedOrderIdsRef.current.delete(id);
+      }
+    });
+    if (audioMuted) return;
+    orderList.forEach((order) => {
+      const minutes = elapsedMinutes(order.createdAt, now);
+      if (minutes >= agingThresholdMinutes && !agingAlertedOrderIdsRef.current.has(order.id)) {
+        agingAlertedOrderIdsRef.current.add(order.id);
+        playKdsAgingAlertChime();
+      }
+    });
+  }, [orderList, now, agingThresholdMinutes, audioMuted]);
 
   const stations = useMemo(() => {
     const names = new Set<string>();
@@ -187,6 +225,18 @@ export default function KdsPage() {
     });
     return grouped;
   }, [orderList]);
+
+  const toggleItemBump = useCallback((orderId: number, itemId: number) => {
+    setBumpedItemIds((prev) => {
+      const current = new Set(prev[orderId] ?? []);
+      if (current.has(itemId)) {
+        current.delete(itemId);
+      } else {
+        current.add(itemId);
+      }
+      return { ...prev, [orderId]: current };
+    });
+  }, []);
 
   const setBusy = useCallback((orderId: number, value: boolean) => {
     setBusyOrderIds((prev) => {
@@ -232,6 +282,12 @@ export default function KdsPage() {
       });
       try {
         await updateOrderStatus(order.id, 'delivered', token || undefined);
+        setBumpedItemIds((prev) => {
+          if (!prev[order.id]) return prev;
+          const next = { ...prev };
+          delete next[order.id];
+          return next;
+        });
       } catch (error) {
         console.error('[KDS] failed to deliver order:', error);
         toast.error('تحویل سفارش ناموفق بود');
@@ -254,7 +310,30 @@ export default function KdsPage() {
   return (
     <div className="flex-1 flex flex-col min-h-0 p-4 gap-4" dir="rtl">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-bold text-foreground">نمایشگر آشپزخانه</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-bold text-foreground">نمایشگر آشپزخانه</h1>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="bordered"
+              color={audioMuted ? 'default' : 'primary'}
+              onPress={() => setAudioMuted(!audioMuted)}
+            >
+              {audioMuted ? 'صدا خاموش' : 'صدا روشن'}
+            </Button>
+            <label className="flex items-center gap-1 text-xs text-default-500">
+              آستانهٔ دیرکرد (دقیقه)
+              <input
+                type="number"
+                min={1}
+                max={180}
+                value={agingThresholdMinutes}
+                onChange={(e) => setAgingThresholdMinutes(Number(e.target.value))}
+                className="w-14 rounded border border-default-300 bg-background px-1 py-0.5 text-center text-xs"
+              />
+            </label>
+          </div>
+        </div>
         {stations.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -317,17 +396,24 @@ export default function KdsPage() {
                           {(order.items || []).map((item) => {
                             const station = categoryLabel(item);
                             const dimmed = stationFilter !== null && station !== stationFilter;
+                            const bumped = bumpedItemIds[order.id]?.has(item.id) ?? false;
                             return (
-                              <div
+                              <button
                                 key={item.id}
-                                className={`text-sm flex items-baseline gap-1 ${dimmed ? 'opacity-35' : ''}`}
+                                type="button"
+                                onClick={() => toggleItemBump(order.id, item.id)}
+                                title={bumped ? 'لغو علامت آماده' : 'علامت‌گذاری به‌عنوان آماده'}
+                                className={`text-sm flex items-baseline gap-1 text-right rounded px-1 -mx-1 hover:bg-default-100 transition-colors ${
+                                  dimmed ? 'opacity-35' : ''
+                                } ${bumped ? 'line-through text-default-400' : ''}`}
                               >
+                                <span className="font-semibold text-foreground">{bumped ? '✓' : '○'}</span>
                                 <span className="font-semibold text-foreground">{item.quantity}×</span>
                                 <span className="text-foreground">{productLabel(item)}</span>
                                 {item.itemNote && (
                                   <span className="text-xs text-default-500">({item.itemNote})</span>
                                 )}
-                              </div>
+                              </button>
                             );
                           })}
                         </div>

@@ -13,6 +13,9 @@ export type CompatInputProps = Omit<HeroInputProps, 'size' | 'variant'> & {
   variant?: 'bordered' | 'flat' | 'faded' | 'underlined' | 'primary' | 'secondary' | undefined;
   isInvalid?: boolean;
   isRequired?: boolean;
+  /** v2-style prop names; translated to native disabled/readOnly on the underlying input */
+  isDisabled?: boolean;
+  isReadOnly?: boolean;
   onValueChange?: (value: string) => void;
   startContent?: ReactNode;
   endContent?: ReactNode;
@@ -61,6 +64,8 @@ export const Input = forwardRef<HTMLInputElement, CompatInputProps>(function Inp
     errorMessage,
     isInvalid,
     isRequired,
+    isDisabled,
+    isReadOnly,
     className,
     fullWidth,
     variant,
@@ -73,6 +78,8 @@ export const Input = forwardRef<HTMLInputElement, CompatInputProps>(function Inp
     endContent,
     classNames,
     textFieldProps,
+    disabled,
+    readOnly,
     ...rest
   },
   ref,
@@ -82,6 +89,14 @@ export const Input = forwardRef<HTMLInputElement, CompatInputProps>(function Inp
   const hasAddon = startContent != null || endContent != null;
   const textFieldValueProps = pickTextFieldValueProps(value, defaultValue, onChange, onValueChange);
   const inputVariant = mapInputVariant(variant);
+  // The underlying react-aria Input/InputGroup.Input only understands the native
+  // `disabled`/`readOnly` HTML attributes (InputProps extends InputHTMLAttributes),
+  // while TextField (the aria wrapper) understands `isDisabled`/`isReadOnly`. Some
+  // v2-style callers still pass isDisabled/isReadOnly directly to this Input, so
+  // translate them to native attrs here rather than letting them fall into ...rest
+  // and get silently ignored by the DOM input.
+  const nativeDisabled = disabled ?? isDisabled;
+  const nativeReadOnly = readOnly ?? isReadOnly;
 
   const inputClass = [classNames?.input, className].filter(Boolean).join(' ') || undefined;
   const inputEl = hasAddon ? (
@@ -91,18 +106,33 @@ export const Input = forwardRef<HTMLInputElement, CompatInputProps>(function Inp
         ref={ref}
         className={`[&]:ps-2 [&]:pe-4 ${inputClass ?? ''}`}
         variant={inputVariant}
+        disabled={nativeDisabled}
+        readOnly={nativeReadOnly}
         {...rest}
       />
       {endContent ? <InputGroup.Suffix>{endContent}</InputGroup.Suffix> : null}
     </InputGroup>
   ) : (
-    <HeroInput ref={ref} className={inputClass} variant={inputVariant} {...rest} />
+    <HeroInput
+      ref={ref}
+      className={inputClass}
+      variant={inputVariant}
+      disabled={nativeDisabled}
+      readOnly={nativeReadOnly}
+      {...rest}
+    />
   );
 
   if (!hasVisibleLabel && errorMessage == null) {
-    if (Object.keys(textFieldValueProps).length > 0) {
+    if (Object.keys(textFieldValueProps).length > 0 || isDisabled != null || isReadOnly != null) {
       return (
-        <TextField fullWidth={fullWidth} {...textFieldProps} {...textFieldValueProps}>
+        <TextField
+          fullWidth={fullWidth}
+          isDisabled={isDisabled}
+          isReadOnly={isReadOnly}
+          {...textFieldProps}
+          {...textFieldValueProps}
+        >
           {inputEl}
         </TextField>
       );
@@ -115,12 +145,14 @@ export const Input = forwardRef<HTMLInputElement, CompatInputProps>(function Inp
       fullWidth={fullWidth}
       isInvalid={invalid}
       isRequired={isRequired}
+      isDisabled={isDisabled}
+      isReadOnly={isReadOnly}
       validationBehavior="aria"
       {...textFieldProps}
       {...textFieldValueProps}
     >
       {hasVisibleLabel ? (
-        <Label isInvalid={invalid} isRequired={isRequired}>
+        <Label isInvalid={invalid} isRequired={isRequired} isDisabled={isDisabled}>
           {label}
         </Label>
       ) : null}
