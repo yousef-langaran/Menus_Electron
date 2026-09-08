@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import { generateId } from '../storage/generateId';
 
 export type OfflineShiftActionType = 'open' | 'close';
 
@@ -79,7 +80,7 @@ export async function saveOfflineShiftAction(
 ): Promise<number> {
   return withShiftActionsLock(async () => {
     const actions = await readFromDisk();
-    const id = Date.now();
+    const id = generateId();
     actions.push({
       ...action,
       id,
