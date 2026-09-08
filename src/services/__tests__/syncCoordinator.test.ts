@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { scheduleCatalogSync, scheduleAccountingSync } from '../syncCoordinator';
 
 /**
@@ -158,4 +158,65 @@ describe('syncCoordinator ordering guarantee', () => {
       await flush(4);
     },
   );
+
+  // ─── RESIDUAL LIMITATION (T-0025) — cross-macrotask interleaving ─────────
+  //
+  // T-0021's fix above only guarantees ordering when both schedule*Sync
+  // calls happen in the *same synchronous turn* (see the comment block in
+  // syncCoordinator.ts). It does NOT cover AccountingSyncManager's 30s
+  // `setInterval` and CatalogSyncManager's 60s `setInterval` firing as two
+  // independent macrotasks: if the accounting interval fires first with no
+  // catalog task pending, `runQueued()` correctly starts accounting right
+  // away (there is nothing to serialize against yet); if the catalog
+  // interval then fires moments later, while accounting's task is still
+  // awaiting a real promise, catalog is left pending and only runs *after*
+  // accounting has already fully completed. This test reproduces that exact
+  // interleaving with fake timers standing in for the two independent
+  // `setInterval`s, and documents the actual (still-open) current behavior.
+  // It is expected to keep PASSING — it is a characterization test of a
+  // known, narrow, non-production-observed gap, not a claim that the
+  // ordering guarantee is absolute. Do not "fix" this test by changing its
+  // expectations without first closing the gap in syncCoordinator.ts itself
+  // (see the T-0025 comment there) and updating this test to match.
+  it('KNOWN LIMITATION (T-0025): a catalog sync whose independent timer interval fires while accounting is already in-flight still runs AFTER accounting, not before', async () => {
+    vi.useFakeTimers();
+    try {
+      const acc = deferredTask('acc', order);
+      const cat = deferredTask('cat', order);
+
+      // Simulate AccountingSyncManager's interval firing in isolation: no
+      // catalog task is pending yet, so accounting starts immediately, per
+      // its own contract — this alone is correct, expected behavior.
+      setTimeout(() => scheduleAccountingSync(acc.task), 0);
+      await vi.advanceTimersByTimeAsync(0);
+      await flush();
+      expect(order).toEqual(['acc-start']);
+
+      // Simulate CatalogSyncManager's independent interval firing a few
+      // milliseconds later, while accounting's task is still in-flight
+      // (awaiting a real, unresolved promise) — the cross-macrotask race
+      // described in T-0025.
+      setTimeout(() => scheduleCatalogSync(cat.task), 5);
+      await vi.advanceTimersByTimeAsync(5);
+      await flush();
+
+      // Catalog is now pending, but cannot preempt the accounting run that
+      // has already started — runQueued() won't re-inspect _pendingCatalog
+      // until accounting's own `finally` block re-invokes it.
+      expect(order).toEqual(['acc-start']);
+
+      acc.resolve();
+      await flush();
+      // Catalog only starts once accounting has already fully completed.
+      // This is the residual ordering violation T-0025 tracks: it is
+      // documented and scoped, not silently swallowed.
+      expect(order).toEqual(['acc-start', 'acc-end', 'cat-start']);
+
+      cat.resolve();
+      await flush();
+      expect(order.at(-1)).toBe('cat-end');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
