@@ -94,8 +94,11 @@ export default function AccountingExpenseCategoriesPage() {
     try {
       const data = await listExpenseCategories(restaurantId, token);
       setIsOnline(true);
+      // upsert فقط اضافه/بروزرسانی می‌کند؛ رکورد محلیِ هنوز سینک‌نشده حذف نمی‌شود —
+      // بعد از upsert دوباره از local می‌خوانیم تا آن رکورد (مثلاً دسته‌بندی‌ای که
+      // همین الان ثبت شده ولی هنوز push نشده) به‌جای محو شدن، در لیست بماند.
       await upsertPulledExpenseCategories(data);
-      setRows(data);
+      setRows(await listExpenseCategoriesLocal(restaurantId));
     } catch {
       setIsOnline(false);
       if (!local.length) setRows([]);

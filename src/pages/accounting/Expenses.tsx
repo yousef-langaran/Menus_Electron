@@ -121,13 +121,12 @@ export default function AccountingExpensesPage() {
     try {
       const serverRows = await listOperationalExpensesOnline(restaurantId, token, fiscalYearId);
       setIsOnline(true);
-      // سرور را در local ذخیره کن
+      // سرور را در local ذخیره کن (upsert — رکورد محلیِ هنوز سینک‌نشده حذف نمی‌شود)
       await upsertPulledEntities('operational_expense', serverRows);
-      setRows(
-        [...serverRows].sort((a, b) =>
-          String(b.expenseDate).localeCompare(String(a.expenseDate)),
-        ),
-      );
+      // از local (که شامل رکوردهای optimistic هنوز push‌نشده هم هست) دوباره بخوان —
+      // اگر مستقیماً rows را برابر serverRows بگذاریم، هزینه‌ای که همین الان ثبت
+      // شده ولی هنوز پاسخ سرور نرسیده، از لیست محو می‌شود (انگار ثبت نشده).
+      await reloadLocal();
     } catch {
       setIsOnline(false);
     }
