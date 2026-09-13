@@ -496,6 +496,14 @@ export async function validateDiscountCode(
 }
 
 // ─── گردونه شانس — ووچرهای جایزه ────────────────────────────────────────────
+//
+// گردونهٔ شانس در بک‌اند به ماژول یکپارچهٔ گیمیفیکیشن ادغام شده
+// (`/gamification/...` به‌جای `/lucky-wheel/...`) و اسمش الان «بازی‌ها»ست —
+// نه فقط گردونه (کارت خراشی، کارت مهر و... هم همین مسیر را استفاده می‌کنند.
+// نام‌ها و شکل تایپ‌ها عمداً همین‌جا (سازگاری با سرور) نگه داشته شده‌اند تا
+// OrderModal.tsx و بقیهٔ کد صندوق نیازی به تغییر نداشته باشند؛ سرور پاسخ را
+// به همین شکل قدیمی ترجمه می‌کند (نگاه کنید toLegacyVoucherShape در
+// Menus_BE/src/gamification/game-play.service.ts).
 
 export interface WheelPrizeVoucher {
   id: number;
@@ -524,7 +532,7 @@ export async function getWheelPrizeVouchers(
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   try {
-    const response = await api.get(`/lucky-wheel/restaurants/${params.restaurantId}/vouchers`, {
+    const response = await api.get(`/gamification/restaurants/${params.restaurantId}/vouchers`, {
       params: { phone: params.phone },
       headers,
       skipGlobalErrorToast: true,
@@ -546,7 +554,7 @@ export async function redeemWheelPrizeVoucher(
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   const response = await api.post(
-    `/lucky-wheel/restaurants/${params.restaurantId}/vouchers/${params.voucherId}/redeem`,
+    `/gamification/restaurants/${params.restaurantId}/vouchers/${params.voucherId}/redeem`,
     { orderId: params.orderId },
     { headers },
   );
