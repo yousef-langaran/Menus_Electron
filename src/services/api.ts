@@ -483,6 +483,72 @@ export async function getCashbackWallet(
   }
 }
 
+export interface PointsRewardOption {
+  id: number;
+  title: string;
+  pointsCost: number;
+  rewardType: 'percent_discount' | 'fixed_discount' | 'free_item_category' | 'free_specific_item';
+  discountPercent: number | null;
+  discountAmount: number | null;
+  category: { id: number; name: string } | null;
+  eligible: boolean;
+  /** فقط برای free_item_category — محصولات همان دسته برای انتخاب صندوق‌دار */
+  products?: Array<{ id: number; name: string; price: number }>;
+  /** فقط برای free_specific_item — محصول از پیش‌مشخص‌شده، بدون انتخاب */
+  product?: { id: number; name: string; price: number } | null;
+}
+
+/**
+ * موجودی امتیاز و کاتالوگ جوایز قابل‌دریافت مشتری در همین رستوران — برای
+ * جست‌وجوی صندوق‌دار هنگام ورود شماره مشتری (دقیقاً کنار کیف پول کش‌بک).
+ */
+export async function getPointsRewards(
+  params: { restaurantId: number; phone: string },
+  token?: string,
+): Promise<{ balance: number; tiers: PointsRewardOption[] }> {
+  await apiConfigReady;
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  try {
+    const response = await api.get(`/customer-club/points-rewards/${params.restaurantId}/lookup`, {
+      params: { phone: params.phone },
+      headers,
+      skipGlobalErrorToast: true,
+    } as any);
+    return {
+      balance: Math.max(0, Number(response.data?.balance) || 0),
+      tiers: Array.isArray(response.data?.tiers) ? response.data.tiers : [],
+    };
+  } catch {
+    return { balance: 0, tiers: [] };
+  }
+}
+
+/**
+ * مصرف یک جایزه از کاتالوگ برای مشتری — امتیاز کسر می‌شود و یک کد تخفیف
+ * یک‌بارمصرف برمی‌گردد که باید بلافاصله مثل هر کد تخفیف دیگر اعمال شود.
+ */
+export async function redeemPointsReward(
+  params: { restaurantId: number; phone: string; tierId: number; productId?: number },
+  token?: string,
+): Promise<{
+  discountCode: string;
+  discountType: 'percent' | 'fixed';
+  discountValue: number;
+  expiresAt: string;
+  message: string;
+}> {
+  await apiConfigReady;
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await api.post(
+    `/customer-club/points-rewards/${params.restaurantId}/redeem-by-phone`,
+    { phone: params.phone, tierId: params.tierId, productId: params.productId },
+    { headers },
+  );
+  return response.data;
+}
+
 /** اعتبارسنجی کد تخفیف و دریافت مبلغ تخفیف */
 export async function validateDiscountCode(
   params: { code: string; restaurantName: string; totalAmount: number; userPhone?: string },

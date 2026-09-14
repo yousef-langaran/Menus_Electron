@@ -11,7 +11,8 @@ import { usePrinterSettingsStore } from '../../../store/printerSettingsStore';
 import {
   getCustomerAddresses, checkUser, validateDiscountCode, getApplicableDiscountCodes,
   getWheelPrizeVouchers, redeemWheelPrizeVoucher, getTables, getCashbackWallet,
-  type WheelPrizeVoucher, type PosTable,
+  getPointsRewards, redeemPointsReward,
+  type WheelPrizeVoucher, type PosTable, type PointsRewardOption,
 } from '../../../services/api';
 import { cacheTables, getCachedTables } from '../../../services/cache';
 import { isValidIranMobile, normalizeIranMobile, sanitizeMobileInput } from '../../../utils/iranMobile';
@@ -62,6 +63,12 @@ export interface OrderModalState {
   applyingVoucher: number | null;
   cashbackBalance: number;
   loadingCashback: boolean;
+  pointsBalance: number;
+  loadingPointsRewards: boolean;
+  availableRewards: PointsRewardOption[];
+  redeemingTierId: number | null;
+  /** محصول انتخاب‌شدهٔ صندوق‌دار برای هر تیر از نوع free_item_category */
+  selectedProductByTier: Record<number, number>;
 }
 
 interface Props {
@@ -217,6 +224,25 @@ export function OrderModal({
     return () => { cancelled = true; };
   }, [state.isOpen, state.isOnline, customerPhone, token, user?.restaurants]);
 
+  // موجودی امتیاز و کاتالوگ جوایز قابل‌دریافت — مختص همین رستوران
+  const loadPointsRewards = () => {
+    const restaurantId = user?.restaurants?.[0]?.id;
+    const normalized = normalizeIranMobile(customerPhone.trim());
+    if (!state.isOpen || !state.isOnline || !restaurantId || !isValidIranMobile(normalized)) {
+      set({ pointsBalance: 0, availableRewards: [] });
+      return;
+    }
+    set({ loadingPointsRewards: true });
+    getPointsRewards({ restaurantId, phone: normalized }, token || undefined)
+      .then(({ balance, tiers }) => set({ pointsBalance: balance, availableRewards: tiers }))
+      .catch(() => set({ pointsBalance: 0, availableRewards: [] }))
+      .finally(() => set({ loadingPointsRewards: false }));
+  };
+
+  useEffect(() => {
+    loadPointsRewards();
+  }, [state.isOpen, state.isOnline, customerPhone, token, user?.restaurants]);
+
   // آدرس‌های قبلی مشتری — هم بیرون‌بر و هم ارسال با پیک.
   // فروشگاهی که پیک ندارد و خودش می‌برد از «بیرون‌بر» استفاده می‌کند و
   // به همان اندازه به آدرس آماده نیاز دارد.
@@ -301,6 +327,34 @@ export function OrderModal({
     } else if (result) {
       set({ discountCodeError: result.message || 'کد تخفیف معتبر نیست' });
       setAppliedDiscountCode(null);
+    }
+  };
+
+  const handleRedeemReward = async (tier: PointsRewardOption) => {
+    const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
+    const normalized = normalizeIranMobile(customerPhone.trim());
+    if (!restaurantId || !isValidIranMobile(normalized)) return;
+    const productId =
+      tier.rewardType === 'free_item_category' ? state.selectedProductByTier[tier.id] : undefined;
+    if (tier.rewardType === 'free_item_category' && !productId) {
+      toast.error('ابتدا محصول موردنظر را از این دسته انتخاب کنید');
+      return;
+    }
+    set({ redeemingTierId: tier.id });
+    try {
+      const result = await redeemPointsReward(
+        { restaurantId, phone: normalized, tierId: tier.id, productId },
+        token ?? undefined,
+      );
+      setDiscountType('code');
+      setDiscountCode(result.discountCode);
+      await handleApplyDiscountCode(result.discountCode);
+      toast.success(result.message || `کد تخفیف ${result.discountCode} اعمال شد`);
+      loadPointsRewards();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'خطا در دریافت جایزه');
+    } finally {
+      set({ redeemingTierId: null });
     }
   };
 
@@ -729,6 +783,59 @@ export function OrderModal({
                 {cashbackRedeemAmount > 0 && (
                   <Button size="sm" variant="flat" color="danger" onPress={() => setCashbackRedeemAmount(0)}>انصراف</Button>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* کاتالوگ جوایز امتیازی — مشتری با موجودی امتیازش می‌تواند اینجا یک جایزه بگیرد؛
+              با گرفتن جایزه، یک کد تخفیف یک‌بارمصرف ساخته و بلافاصله روی همین سفارش اعمال می‌شود */}
+          {state.pointsBalance > 0 && state.availableRewards.length > 0 && (
+            <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-amber-800">موجودی امتیاز مشتری</span>
+                <span className="text-sm font-bold text-amber-800">{state.pointsBalance.toLocaleString('fa-IR')} امتیاز</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {state.availableRewards.map((tier) => (
+                  <div key={tier.id} className="flex flex-col gap-2 rounded-md bg-white/70 border border-amber-100 p-2">
+                    <div className="flex justify-between items-center gap-2">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-foreground">{tier.title}</span>
+                        <span className="text-xs text-default-500">
+                          {tier.pointsCost.toLocaleString('fa-IR')} امتیاز
+                          {tier.rewardType === 'free_specific_item' && tier.product ? ` — ${tier.product.name}` : ''}
+                        </span>
+                      </div>
+                      <Button
+                        size="sm"
+                        color="warning"
+                        variant="flat"
+                        isDisabled={!tier.eligible || state.redeemingTierId === tier.id}
+                        onPress={() => handleRedeemReward(tier)}
+                      >
+                        {state.redeemingTierId === tier.id ? '...' : 'دریافت جایزه'}
+                      </Button>
+                    </div>
+                    {tier.rewardType === 'free_item_category' && !!tier.products?.length && (
+                      <Select
+                        label={`انتخاب محصول از ${tier.category?.name ?? 'این دسته'}`}
+                        selectedKeys={
+                          state.selectedProductByTier[tier.id] ? [String(state.selectedProductByTier[tier.id])] : []
+                        }
+                        onSelectionChange={(keys) => {
+                          const selected = Number(Array.from(keys as Set<string>)[0]);
+                          set({ selectedProductByTier: { ...state.selectedProductByTier, [tier.id]: selected } });
+                        }}
+                      >
+                        {tier.products.map((product) => (
+                          <SelectItem key={String(product.id)} value={String(product.id)}>
+                            {product.name}
+                          </SelectItem>
+                        ))}
+                      </Select>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}

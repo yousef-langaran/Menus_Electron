@@ -52,6 +52,8 @@ const INITIAL_MODAL_STATE: OrderModalState = {
   discountCodeError: '', availableDiscountCodes: [], loadingAvailableDiscountCodes: false,
   wheelVouchers: [], applyingVoucher: null,
   cashbackBalance: 0, loadingCashback: false,
+  pointsBalance: 0, loadingPointsRewards: false, availableRewards: [], redeemingTierId: null,
+  selectedProductByTier: {},
 };
 
 function hasPermission(user: any, module: string) {
