@@ -208,9 +208,11 @@ export default function AccountingExpensesPage() {
           { restaurantId, expenseCategoryId: Number(categoryId), expenseDate, amount: parsedAmount, description: description.trim() || undefined },
           token,
         ).then((serverRow) => {
-          // id سرور را جایگزین id محلی کن
+          // id سرور را جایگزین id محلی کن — سرور id را به صورت رشته برمی‌گرداند
+          // (ستون bigint)، این‌جا به number نرمالایزش می‌کنیم وگرنه primary key این
+          // رکورد در Dexie با چیزی که بقیه‌ی کد (مثلاً حذف) انتظار دارد یکی نمی‌شود.
           accountingDb.operationalExpenses.delete(localRow.id);
-          accountingDb.operationalExpenses.put({ ...serverRow, restaurantId });
+          accountingDb.operationalExpenses.put({ ...serverRow, id: Number(serverRow.id), restaurantId });
           // عملیات صف‌شده برای همین رکورد را پاک کن — وگرنه سینک پس‌زمینه دوباره
           // آن را (با id موقت محلی و بدون fiscalYearId) به سرور می‌فرستد و برای
           // همیشه با خطای «requires expenseCategoryId and fiscalYearId» شکست می‌خورد.
@@ -236,9 +238,12 @@ export default function AccountingExpensesPage() {
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     setEditSaving(true);
     try {
-      // optimistic: فوری در local آپدیت کن
+      // optimistic: فوری در local آپدیت کن (id را number نرمالایز می‌کنیم — editingRow
+      // ممکن است از pull سرور آمده باشد که id را به صورت رشته برمی‌گرداند).
+      const editId = Number(editingRow.id);
       const optimistic = {
         ...editingRow,
+        id: editId,
         expenseCategoryId: Number(editCategoryId),
         expenseDate: editExpenseDate,
         amount: parsedAmount,
@@ -253,11 +258,11 @@ export default function AccountingExpensesPage() {
       // در background به سرور ارسال کن
       if (isOnline) {
         updateOperationalExpenseOnline(
-          Number(editingRow.id),
+          editId,
           { restaurantId, expenseCategoryId: Number(editCategoryId), expenseDate: editExpenseDate, amount: parsedAmount, description: editDescription.trim() || undefined },
           token,
         ).then((serverRow) => {
-          accountingDb.operationalExpenses.put({ ...serverRow, restaurantId });
+          accountingDb.operationalExpenses.put({ ...serverRow, id: Number(serverRow.id), restaurantId });
           void reloadLocal();
         }).catch(() => { /* sync بعداً انجام می‌شود */ });
       }
@@ -273,12 +278,22 @@ export default function AccountingExpensesPage() {
     if (!restaurantId || !token) return;
     if (!window.confirm('این هزینه حذف شود؟')) return;
     const id = Number(row.id);
-    // optimistic: فوری از local حذف کن + صف‌بندی حذف برای سینک پس‌زمینه (تا اگر
-    // الان آفلاین باشیم یا درخواست مستقیم زیر شکست بخورد، حذف گم نشود و pull بعدی
-    // همان هزینه را دوباره برنگرداند).
-    await deleteOperationalExpenseLocal({ id, restaurantId });
+    // فوری از state ری‌اکت هم حذفش کن — مستقل از هر چیزی که در ادامه (Dexie/صف/سرور)
+    // پیش بیاید، ردیف باید همین الان از UI محو شود؛ دیگر منتظر reloadLocal نمی‌مانیم.
+    setRows((prev) => prev.filter((r) => Number(r.id) !== id));
     toast.success('هزینه حذف شد');
-    await reloadLocal();
+    try {
+      // optimistic: از local هم حذف کن + صف‌بندی حذف برای سینک پس‌زمینه (تا اگر
+      // الان آفلاین باشیم یا درخواست مستقیم زیر شکست بخورد، حذف گم نشود و pull بعدی
+      // همان هزینه را دوباره برنگرداند).
+      await deleteOperationalExpenseLocal({ id, restaurantId });
+      await reloadLocal();
+    } catch (e: any) {
+      console.error('[Expenses] deleteOperationalExpenseLocal failed:', e);
+      toast.error(e?.message || 'خطا در حذف محلی هزینه — لطفاً صفحه را رفرش کنید');
+      await reloadLocal();
+      return;
+    }
     // در background از سرور هم حذف کن
     if (isOnline) {
       await markPendingSyncOpsInFlight('operational_expense', String(id));

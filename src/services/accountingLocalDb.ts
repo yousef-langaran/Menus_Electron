@@ -513,6 +513,15 @@ export async function upsertPulledEntities(entityType: SyncEntityType, rows: any
   const tableName = mapCollectionName(entityType);
   const table = accountingDb.table<any, any>(tableName as string);
 
+  // موجودیت‌های این ماژول همه id از نوع Postgres bigint دارند (برای این‌که id های
+  // client-generated مثل Date.now() هم جا بشوند) — TypeORM چنین id هایی را به صورت
+  // رشته سریالایز می‌کند، در حالی‌که رکوردهای ساخته‌شده محلی (nextLocalEntityId) از
+  // نوع number هستند. اگر رشته همین‌طور در Dexie ذخیره شود، primary key آن رکورد با
+  // نسخه‌ی number‌ی که بقیه‌ی کد (مثلاً Number(row.id) در حذف) انتظار دارد یکی نیست و
+  // IndexedDB هیچ رکوردی پیدا نمی‌کند — دقیقاً همان باگ «حذف می‌کنم ولی تا رفرش نکنم
+  // از لیست نمی‌رود». همه‌ی id ها را همین‌جا، قبل از ورود به Dexie، number می‌کنیم.
+  const normalizedRows = rows.map((r) => (r && r.id != null ? { ...r, id: Number(r.id) } : r));
+
   // اگر کاربر همین الان رکوردی را حذف کرده و عملیات 'delete' آن هنوز در صف/در حال
   // ارسال است (سرور هنوز واقعاً حذفش نکرده)، این pull ممکن است همان رکوردِ قدیمی
   // را برگردانده باشد — دوباره درجش نکن. وگرنه حذف خوش‌بینانه‌ی محلی توسط همین
@@ -522,9 +531,19 @@ export async function upsertPulledEntities(entityType: SyncEntityType, rows: any
     .filter((op) => op.operationType === 'delete' && op.status !== 'synced')
     .toArray();
   const rowsToApply = pendingDeletes.length
-    ? rows.filter((r) => !pendingDeletes.some((op) => op.entityId === String(r.id)))
-    : rows;
+    ? normalizedRows.filter((r) => !pendingDeletes.some((op) => op.entityId === String(r.id)))
+    : normalizedRows;
   if (!rowsToApply.length) return;
+
+  // داده‌های قدیمی (از قبل از فیکس بالا) ممکن است هنوز با id رشته‌ای در Dexie نشسته
+  // باشند. اگر همان نسخه‌ی رشته‌ای هنوز هست، پاکش کن — وگرنه کنار نسخه‌ی number‌یِ
+  // تازه به‌عنوان یک رکورد تکراریِ همیشگی باقی می‌ماند.
+  const staleStringKeys = rowsToApply.map((r) => String(r.id));
+  const staleExisting = await table.bulkGet(staleStringKeys);
+  const staleKeysToDelete = staleStringKeys.filter((_, i) => staleExisting[i] != null);
+  if (staleKeysToDelete.length) {
+    await table.bulkDelete(staleKeysToDelete);
+  }
 
   // برای final_product: اگر سرور productId نداشت (TypeORM relation بدون @Column مستقیم
   // این فیلد را در getMany() برنمی‌گرداند)، مقدار محلی موجود را حفظ کن.
@@ -1255,11 +1274,21 @@ export async function createOperationalExpenseLocal(input: {
  * را دوباره از سرور برمی‌گرداند (رفع باگ «حذف می‌کنم ولی تا رفرش نکنم از لیست نمی‌رود»).
  */
 export async function deleteOperationalExpenseLocal(input: {
-  id: number;
+  // ممکن است رکورد قبل از فیکس bigint-as-string با id رشته‌ای در Dexie ذخیره شده
+  // باشد (سرور id ستون bigint را به صورت رشته برمی‌گرداند) — هر دو نوع را می‌پذیریم.
+  id: number | string;
   restaurantId: number;
 }): Promise<void> {
-  const entityId = String(input.id);
-  await accountingDb.operationalExpenses.delete(input.id);
+  const numericId = Number(input.id);
+  const entityId = String(numericId);
+
+  // primary key واقعیِ رکورد ممکن است number (نرمالایز‌شده) یا رشته (داده‌ی قدیمی)
+  // باشد — چون IndexedDB بین کلید عددی و رشته‌ای فرق می‌گذارد، هر دو را حذف کن؛
+  // حذفِ کلیدی که وجود ندارد بی‌خطر است (no-op). جدول تایپش number است ولی
+  // IndexedDB واقعاً هر مقداری را به‌عنوان کلید می‌پذیرد، پس cast به any لازم است.
+  await accountingDb.operationalExpenses.delete(input.id as any);
+  await accountingDb.operationalExpenses.delete(numericId);
+  await accountingDb.operationalExpenses.delete(entityId as any);
 
   // اگر رکورد هنوز یک عملیات 'create' سینک‌نشده دارد (id موقت — هیچ‌وقت روی سرور
   // وجود نداشته)، همان را لغو کن؛ نیازی به فرستادن یک 'delete' جداگانه نیست.
@@ -1283,7 +1312,7 @@ export async function deleteOperationalExpenseLocal(input: {
     entityType: 'operational_expense',
     entityId,
     operationType: 'delete',
-    payload: { id: input.id },
+    payload: { id: numericId },
     version: 1,
     clientUpdatedAt: new Date().toISOString(),
   });
