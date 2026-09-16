@@ -84,6 +84,27 @@ describe('brand footer', () => {
   });
 });
 
+describe('item line note (e.g. free-reward label)', () => {
+  // قبلاً در generateReceiptHTML، itemNote/itemOption محاسبه می‌شد ولی هیچ‌وقت
+  // در ردیف آیتم چاپ نمی‌شد — پس مثلاً برچسب «رایگان (جایزهٔ امتیازی)» یک
+  // آیتم قیمت-صفرِ جایزهٔ امتیازی روی فاکتور چاپی گم می‌شد.
+  it('renders itemNote under the item name on the built-in priced receipt', () => {
+    const html = generateReceiptHTML({
+      ...orderData,
+      items: [{ productName: 'قهوه ترک', quantity: 1, price: 0, itemNote: 'رایگان (جایزهٔ امتیازی)' }],
+    });
+    expect(html).toContain('رایگان (جایزهٔ امتیازی)');
+  });
+
+  it('falls back to itemOption when itemNote is absent (Electron cart snapshot field name)', () => {
+    const html = generateReceiptHTML({
+      ...orderData,
+      items: [{ productName: 'قهوه ترک', quantity: 1, price: 0, itemOption: 'رایگان (جایزهٔ امتیازی)' }],
+    });
+    expect(html).toContain('رایگان (جایزهٔ امتیازی)');
+  });
+});
+
 describe('generateReceiptHTMLFromLayout page geometry', () => {
   it('uses the same top-spacing reset as the built-in template', () => {
     const html = generateReceiptHTMLFromLayout(orderData, layout([callNumberBlock]), {

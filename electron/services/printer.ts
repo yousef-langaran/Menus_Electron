@@ -847,6 +847,7 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
         <tr>
           <td>
             <span class="item-name">${title}</span>
+            ${lineNote ? `<div class="item-details">${lineNote}</div>` : desc ? `<div class="item-details">${desc}</div>` : ''}
           </td>
           <td class="col-qty">${item.quantity}${item.product?.unit && item.product.unit !== 'عدد' ? ` ${item.product.unit}` : ''}</td>
           <td class="col-price">${formatPrice(+item.price* +item.quantity)}</td>
