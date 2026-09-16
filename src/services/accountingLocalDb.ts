@@ -425,6 +425,64 @@ export async function cancelPendingSyncOp(
   }
 }
 
+/**
+ * وقتی یک صفحه (مثل ثبت هزینه) علاوه بر صف‌کردن عملیات، بلافاصله هم یک درخواست
+ * مستقیم به سرور می‌زند، باید عملیات صف‌شده را قبل از شروع آن درخواست از حالت
+ * 'pending' خارج کند — وگرنه سینک پس‌زمینه (AccountingSyncManager، هر ۳۰ ثانیه یا
+ * روی رویداد focus/online) ممکن است دقیقاً در همان بازه، همان عملیات را هم پوش کند
+ * و روی سرور یک رکورد تکراری واقعی بسازد. این تابع عملیات‌های 'pending' مطابق را
+ * موقتاً به 'syncing' می‌برد تا getPendingAccountingOperations آن‌ها را انتخاب نکند.
+ */
+export async function markPendingSyncOpsInFlight(
+  entityType: SyncEntityType,
+  entityId: string,
+): Promise<void> {
+  const ops = await accountingDb.syncOperations
+    .where('entityType')
+    .equals(entityType)
+    .filter((op) => op.entityId === entityId && op.status === 'pending')
+    .toArray();
+  const now = new Date().toISOString();
+  await Promise.all(
+    ops.map((op) => accountingDb.syncOperations.update(op.id!, { status: 'syncing', updatedAt: now })),
+  );
+}
+
+/** اگر درخواست مستقیم بالا شکست خورد، عملیات صف‌شده را برای تلاش مجدد توسط سینک پس‌زمینه برگردان. */
+export async function restorePendingSyncOps(
+  entityType: SyncEntityType,
+  entityId: string,
+): Promise<void> {
+  const ops = await accountingDb.syncOperations
+    .where('entityType')
+    .equals(entityType)
+    .filter((op) => op.entityId === entityId && op.status === 'syncing')
+    .toArray();
+  const now = new Date().toISOString();
+  await Promise.all(
+    ops.map((op) => accountingDb.syncOperations.update(op.id!, { status: 'pending', updatedAt: now })),
+  );
+}
+
+/**
+ * بعد از اینکه یک عملیات 'create' که فقط از طریق صف پس‌زمینه (بدون درخواست مستقیم)
+ * سینک شده موفق شد، رکورد محلیِ با id موقت (temp، از nextLocalEntityId) را حذف کن.
+ * سرور در پاسخ push، entityId موقت خودِ کلاینت را echo می‌کند نه id واقعی سرور —
+ * پس هیچ راهی برای جایگزینی آن رکورد وجود ندارد. اگر حذفش نکنیم، pull بعدی همان
+ * چرخه، نسخه‌ی سرور را با id واقعی اضافه می‌کند و رکورد موقت هم برای همیشه کنارش
+ * باقی می‌ماند — دقیقاً همان باگِ «بعد از رفرش دوتا نشون می‌دهد».
+ */
+export async function deleteLocalTempEntity(
+  entityType: SyncEntityType,
+  entityId: string,
+): Promise<void> {
+  const tableName = mapCollectionName(entityType);
+  const table = accountingDb.table<any, any>(tableName as string);
+  const numericId = Number(entityId);
+  if (!Number.isFinite(numericId)) return;
+  await table.delete(numericId);
+}
+
 function mapCollectionName(entityType: SyncEntityType): keyof MenusAccountingDb {
   switch (entityType) {
     case 'raw_material':
@@ -455,14 +513,27 @@ export async function upsertPulledEntities(entityType: SyncEntityType, rows: any
   const tableName = mapCollectionName(entityType);
   const table = accountingDb.table<any, any>(tableName as string);
 
+  // اگر کاربر همین الان رکوردی را حذف کرده و عملیات 'delete' آن هنوز در صف/در حال
+  // ارسال است (سرور هنوز واقعاً حذفش نکرده)، این pull ممکن است همان رکوردِ قدیمی
+  // را برگردانده باشد — دوباره درجش نکن. وگرنه حذف خوش‌بینانه‌ی محلی توسط همین
+  // pull پس‌زمینه لغو می‌شود و کاربر تا رفرش بعدی دوباره همان رکورد را می‌بیند.
+  const pendingDeletes = await accountingDb.syncOperations
+    .where('entityType').equals(entityType)
+    .filter((op) => op.operationType === 'delete' && op.status !== 'synced')
+    .toArray();
+  const rowsToApply = pendingDeletes.length
+    ? rows.filter((r) => !pendingDeletes.some((op) => op.entityId === String(r.id)))
+    : rows;
+  if (!rowsToApply.length) return;
+
   // برای final_product: اگر سرور productId نداشت (TypeORM relation بدون @Column مستقیم
   // این فیلد را در getMany() برنمی‌گرداند)، مقدار محلی موجود را حفظ کن.
   if (entityType === 'final_product') {
-    const ids = rows.map((r) => r.id);
+    const ids = rowsToApply.map((r) => r.id);
     const existingArr = await table.bulkGet(ids);
     const existingMap = new Map<any, any>();
     existingArr.forEach((e: any) => { if (e) existingMap.set(e.id, e); });
-    const merged = rows.map((r) => {
+    const merged = rowsToApply.map((r) => {
       if (r.productId != null) return r;
       const local = existingMap.get(r.id);
       return local?.productId != null ? { ...r, productId: local.productId } : r;
@@ -471,7 +542,7 @@ export async function upsertPulledEntities(entityType: SyncEntityType, rows: any
     return;
   }
 
-  await table.bulkPut(rows);
+  await table.bulkPut(rowsToApply);
 }
 
 /**
@@ -1176,6 +1247,46 @@ export async function createOperationalExpenseLocal(input: {
     clientUpdatedAt: now,
   });
   return row;
+}
+
+/**
+ * حذف بهینه‌بینانه‌ی محلی + صف‌کردن حذف برای سینک پس‌زمینه — بدون این صف، یک حذفِ
+ * آفلاین یا یک درخواست مستقیمِ ناموفق برای همیشه گم می‌شد و pull بعدی همان هزینه
+ * را دوباره از سرور برمی‌گرداند (رفع باگ «حذف می‌کنم ولی تا رفرش نکنم از لیست نمی‌رود»).
+ */
+export async function deleteOperationalExpenseLocal(input: {
+  id: number;
+  restaurantId: number;
+}): Promise<void> {
+  const entityId = String(input.id);
+  await accountingDb.operationalExpenses.delete(input.id);
+
+  // اگر رکورد هنوز یک عملیات 'create' سینک‌نشده دارد (id موقت — هیچ‌وقت روی سرور
+  // وجود نداشته)، همان را لغو کن؛ نیازی به فرستادن یک 'delete' جداگانه نیست.
+  const pendingCreate = await accountingDb.syncOperations
+    .where('entityType')
+    .equals('operational_expense')
+    .filter(
+      (op) => op.entityId === entityId && op.operationType === 'create' && op.status !== 'synced',
+    )
+    .toArray();
+  if (pendingCreate.length) {
+    await accountingDb.syncOperations.bulkDelete(
+      pendingCreate.map((op) => op.id!).filter((id) => id !== undefined),
+    );
+    return;
+  }
+
+  await enqueueAccountingOperation({
+    localOpId: nextOpId(),
+    restaurantId: input.restaurantId,
+    entityType: 'operational_expense',
+    entityId,
+    operationType: 'delete',
+    payload: { id: input.id },
+    version: 1,
+    clientUpdatedAt: new Date().toISOString(),
+  });
 }
 
 export async function createPurchaseInvoiceLocal(input: {

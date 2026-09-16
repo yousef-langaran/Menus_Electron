@@ -11,7 +11,10 @@ import {
   accountingDb,
   cancelPendingSyncOp,
   createOperationalExpenseLocal,
+  deleteOperationalExpenseLocal,
   listExpenseCategoriesLocal,
+  markPendingSyncOpsInFlight,
+  restorePendingSyncOps,
   upsertPulledEntities,
 } from '../../services/accountingLocalDb';
 import { formatPriceInput, parseFormattedNumber } from '../../utils/money';
@@ -197,6 +200,10 @@ export default function AccountingExpensesPage() {
       await reloadLocal();
       // در background به سرور ارسال کن
       if (isOnline) {
+        // قبل از شروع درخواست مستقیم، عملیات صف‌شده را از حالت 'pending' خارج کن —
+        // وگرنه سینک پس‌زمینه (هر ۳۰ ثانیه یا روی focus/online) ممکن است دقیقاً در
+        // همین فاصله همین عملیات را هم پوش کند و روی سرور یک هزینه‌ی تکراری بسازد.
+        await markPendingSyncOpsInFlight('operational_expense', String(localRow.id));
         createOperationalExpenseOnline(
           { restaurantId, expenseCategoryId: Number(categoryId), expenseDate, amount: parsedAmount, description: description.trim() || undefined },
           token,
@@ -209,7 +216,11 @@ export default function AccountingExpensesPage() {
           // همیشه با خطای «requires expenseCategoryId and fiscalYearId» شکست می‌خورد.
           void cancelPendingSyncOp('operational_expense', String(localRow.id));
           void reloadLocal();
-        }).catch(() => { /* sync بعداً انجام می‌شود */ });
+        }).catch(() => {
+          // درخواست مستقیم شکست خورد — عملیات صف‌شده را برای تلاش مجدد توسط
+          // سینک پس‌زمینه به حالت 'pending' برگردان.
+          void restorePendingSyncOps('operational_expense', String(localRow.id));
+        });
       }
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'خطا در ثبت هزینه');
@@ -261,14 +272,23 @@ export default function AccountingExpensesPage() {
   const handleDelete = async (row: any) => {
     if (!restaurantId || !token) return;
     if (!window.confirm('این هزینه حذف شود؟')) return;
-    // optimistic: فوری از local حذف کن
-    await accountingDb.operationalExpenses.delete(Number(row.id));
+    const id = Number(row.id);
+    // optimistic: فوری از local حذف کن + صف‌بندی حذف برای سینک پس‌زمینه (تا اگر
+    // الان آفلاین باشیم یا درخواست مستقیم زیر شکست بخورد، حذف گم نشود و pull بعدی
+    // همان هزینه را دوباره برنگرداند).
+    await deleteOperationalExpenseLocal({ id, restaurantId });
     toast.success('هزینه حذف شد');
     await reloadLocal();
     // در background از سرور هم حذف کن
     if (isOnline) {
-      deleteOperationalExpenseOnline(Number(row.id), restaurantId, token)
-        .catch(() => { /* sync بعداً انجام می‌شود */ });
+      await markPendingSyncOpsInFlight('operational_expense', String(id));
+      deleteOperationalExpenseOnline(id, restaurantId, token)
+        .then(() => {
+          void cancelPendingSyncOp('operational_expense', String(id));
+        })
+        .catch(() => {
+          void restorePendingSyncOps('operational_expense', String(id));
+        });
     }
   };
 

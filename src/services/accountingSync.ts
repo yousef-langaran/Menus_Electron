@@ -1,5 +1,6 @@
 import {
   accountingDb,
+  deleteLocalTempEntity,
   getPendingPurchaseInvoiceDrafts,
   getPurchaseInvoiceItemsByInvoiceId,
   getPendingAccountingOperations,
@@ -184,6 +185,13 @@ export async function runAccountingSync(args: {
         if (item.status === 'synced') {
           pushed += 1;
           await updateOperationSyncStatus(local.id, 'synced', { errorMessage: undefined });
+          if (local.operationType === 'create') {
+            // سرور id واقعی خودش را در پاسخ push برنمی‌گرداند (فقط entityId موقت
+            // کلاینت را echo می‌کند)، پس رکورد محلیِ با id موقت را همین‌جا حذف کن —
+            // pull پایین همین چرخه نسخه‌ی سرور را با id واقعی دوباره می‌آورد. بدون
+            // این حذف، رکورد موقت برای همیشه کنار نسخه‌ی سرور باقی می‌ماند (تکراری).
+            await deleteLocalTempEntity(local.entityType, local.entityId);
+          }
         } else {
           pushFailed += 1;
           await updateOperationSyncStatus(local.id, 'failed', {
