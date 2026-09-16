@@ -20,6 +20,7 @@ import { toast } from '../../../utils/toast';
 import { toShamsiDate } from '../../../utils/date';
 import { useAuthStore } from '../../../store/authStore';
 import { DeliveryDestination } from './DeliveryDestination';
+import { OrderCart } from './OrderCart';
 
 const normalizePriceInput = (value: string) =>
   String(value || '')
@@ -80,6 +81,7 @@ interface Props {
   allowDirectSendAmountToCardTerminal: boolean;
   canUseCardTerminal: boolean;
   formatPrice: (price: number) => string;
+  cartItemOptions: string[];
   onSubmit: () => void;
   onSendToCardTerminal: () => void;
   onCardManualConfirm: () => void;
@@ -89,7 +91,7 @@ interface Props {
 export function OrderModal({
   state, setState, editingOrderId,
   isMobileRequired, isCardTerminalEnabled, allowDirectSendAmountToCardTerminal, canUseCardTerminal,
-  formatPrice, onSubmit, onSendToCardTerminal, onCardManualConfirm, onClose,
+  formatPrice, cartItemOptions, onSubmit, onSendToCardTerminal, onCardManualConfirm, onClose,
 }: Props) {
   const { user, token } = useAuthStore();
   const {
@@ -103,6 +105,7 @@ export function OrderModal({
     setDiscountCode, setAppliedDiscountCode, setCashbackRedeemAmount,
     setSplitCash, setSplitCard, setSplitOnline, getSplitCreditAmount,
     getTotalAmount, getFinalAmount, getDiscountAmount, getVatAmount,
+    addFreeRewardToCart,
   } = useOrderStore();
 
   const { enabledPrinters } = usePrinterSettingsStore((s) => ({
@@ -346,10 +349,21 @@ export function OrderModal({
         { restaurantId, phone: normalized, tierId: tier.id, productId },
         token ?? undefined,
       );
-      setDiscountType('code');
-      setDiscountCode(result.discountCode);
-      await handleApplyDiscountCode(result.discountCode);
-      toast.success(result.message || `کد تخفیف ${result.discountCode} اعمال شد`);
+      if (result.rewardKind === 'free_item') {
+        // برخلاف percent/fixed، این نوع جایزه دیگر کد تخفیف نمی‌سازد — خودِ
+        // محصول در سبد رایگان می‌شود (اگر بود، یکی از واحدهایش؛ اگر نبود، اضافه می‌شود)
+        addFreeRewardToCart(
+          { id: result.productId, name_fa: result.productName, name: result.productName, price: result.price },
+          tier.id,
+          result.redemptionId,
+        );
+        toast.success(result.message);
+      } else {
+        setDiscountType('code');
+        setDiscountCode(result.discountCode);
+        await handleApplyDiscountCode(result.discountCode);
+        toast.success(result.message || `کد تخفیف ${result.discountCode} اعمال شد`);
+      }
       loadPointsRewards();
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? 'خطا در دریافت جایزه');
@@ -388,7 +402,7 @@ export function OrderModal({
 
   return (
     <Modal isOpen={state.isOpen} onOpenChange={(open) => { if (!open) onClose(); }} className="order-modal">
-      <ModalShell size="lg" scrollBehavior="inside">
+      <ModalShell size="lg" scrollBehavior="inside" dialogClassName="max-w-5xl max-h-[85vh]">
         <ModalHeader className="flex flex-col gap-1 text-right">
           <h2 className="text-lg font-semibold">
             {editingOrderId != null ? `ذخیرهٔ تغییرات — فاکتور #${editingOrderId}` : 'تکمیل و ثبت سفارش'}
@@ -398,12 +412,26 @@ export function OrderModal({
           </p>
         </ModalHeader>
 
-        <ModalBody className="gap-4" onKeyDown={(e) => {
+        <ModalBody className="flex flex-row gap-4 items-start" onKeyDown={(e) => {
           if (e.key !== 'Enter') return;
           if ((e.target as HTMLElement).tagName === 'TEXTAREA') return;
           e.preventDefault();
           if (!isSubmitting && cart.length > 0 && (!isMobileRequired || customerPhone.trim())) onSubmit();
         }}>
+          {/* سبد خرید — ستون سمت راست (RTL). قابل کم/زیادکردن و حذف همین‌جا، بدون بستن مودال.
+              sticky تا وقتی فرم سمت چپ اسکرول می‌شود، سبد ثابت در دید بماند */}
+          <div className="hidden lg:flex w-[320px] shrink-0 flex-col h-[68vh] sticky top-0 self-start">
+            <OrderCart
+              cartItemOptions={cartItemOptions}
+              formatPrice={formatPrice}
+              onCheckout={() => {}}
+              isDisabled={isSubmitting}
+              editingOrderId={editingOrderId}
+              embedded
+            />
+          </div>
+
+          <div className="flex-1 min-w-0 flex flex-col gap-4">
           {/* Phone + customer */}
           <div className="flex flex-col gap-2">
             <Input
@@ -790,14 +818,14 @@ export function OrderModal({
           {/* کاتالوگ جوایز امتیازی — مشتری با موجودی امتیازش می‌تواند اینجا یک جایزه بگیرد؛
               با گرفتن جایزه، یک کد تخفیف یک‌بارمصرف ساخته و بلافاصله روی همین سفارش اعمال می‌شود */}
           {state.pointsBalance > 0 && state.availableRewards.length > 0 && (
-            <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <div className="flex flex-col gap-2 rounded-lg border border-warning-200 bg-warning-50 p-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-amber-800">موجودی امتیاز مشتری</span>
-                <span className="text-sm font-bold text-amber-800">{state.pointsBalance.toLocaleString('fa-IR')} امتیاز</span>
+                <span className="text-sm font-medium text-warning-700">موجودی امتیاز مشتری</span>
+                <span className="text-sm font-bold text-warning-700">{state.pointsBalance.toLocaleString('fa-IR')} امتیاز</span>
               </div>
               <div className="flex flex-col gap-2">
                 {state.availableRewards.map((tier) => (
-                  <div key={tier.id} className="flex flex-col gap-2 rounded-md bg-white/70 border border-amber-100 p-2">
+                  <div key={tier.id} className="flex flex-col gap-2 rounded-md bg-content2 border border-warning-100 p-2">
                     <div className="flex justify-between items-center gap-2">
                       <div className="flex flex-col">
                         <span className="text-sm font-medium text-foreground">{tier.title}</span>
@@ -906,6 +934,7 @@ export function OrderModal({
               )}
             </div>
           )}
+          </div>
         </ModalBody>
 
         <ModalFooter className="gap-2">

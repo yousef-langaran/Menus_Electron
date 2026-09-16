@@ -29,6 +29,21 @@ export interface CartItem {
     price: number;
     totalPrice: number;
     itemOption?: string;
+    /**
+     * فقط روی خطِ جایزهٔ «محصول رایگان» ست می‌شود (free_item_category/
+     * free_specific_item از کاتالوگ امتیاز) — آیدی تیر جایزه‌ای که این واحد را
+     * رایگان کرد. این خط عمداً از خط عادی/پولیِ همان محصول جداست (حتی اگر
+     * productId یکسان باشد) تا «قبلاً ۲ تا پولی داشت، یکی‌شان رایگان شد» قابل
+     * نمایش/محاسبه بماند؛ نگاه کنید addFreeRewardToCart.
+     */
+    freeRewardTierId?: number;
+    /**
+     * آیدیِ مصرف(های) بک‌اند (`PointsRewardRedemption.id`) پشتِ واحدهای این
+     * خط رایگان — طولش با quantity یکی است. لازم است تا وقتی این خط از سبد
+     * حذف می‌شود، بشود امتیازِ کسرشده را با `cancelPointsReward` برگرداند؛
+     * نگاه کنید OrderCart.tsx#handleRemoveFreeLine.
+     */
+    freeRedemptionIds?: number[];
 }
 
 type DiscountType = 'percentage' | 'fixed' | 'code';
@@ -179,7 +194,14 @@ interface OrderState {
   addToCart: (product: any) => void;
   updateCartQuantity: (productId: number, quantity: number) => void;
   updateCartItemOption: (productId: number, itemOption: string) => void;
-  removeFromCart: (productId: number) => void;
+  removeFromCart: (productId: number, freeRewardTierId?: number) => void;
+  /**
+   * اعمال جایزهٔ «محصول رایگان» روی سبد: اگر خطِ پولیِ همین محصول در سبد
+   * باشد، یکی از واحدهایش را رایگان می‌کند (خط پولی یکی کم می‌شود/حذف
+   * می‌شود)؛ اگر نبود، یک خطِ رایگانِ جدید با تعداد ۱ اضافه می‌کند. مصرف دوبارهٔ
+   * همان تیر روی همان محصول فقط تعداد خط رایگان را زیاد می‌کند.
+   */
+  addFreeRewardToCart: (product: any, freeRewardTierId: number, redemptionId: number) => void;
   setCustomerPhone: (phone: string) => void;
   setServiceType: (type: 'dine_in' | 'takeaway') => void;
   setTableNumber: (table: string) => void;
@@ -318,12 +340,14 @@ export const useOrderStore = create<OrderState>()(
         // ─── cart actions ───────────────────────────────────────────────────
         addToCart: (product) => {
           updateActive(s => {
-            const existing = s.cart.find(item => item.productId === product.id);
+            // خطِ رایگانِ همین محصول (اگر باشد) نباید با کلیک روی محصول در گرید
+            // زیاد شود — فقط addFreeRewardToCart آن را دست می‌زند.
+            const existing = s.cart.find(item => item.productId === product.id && !item.freeRewardTierId);
             if (existing) {
               return {
                 ...s,
                 cart: s.cart.map(item =>
-                  item.productId === product.id
+                  item === existing
                     ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * item.price }
                     : item
                 ),
@@ -341,9 +365,9 @@ export const useOrderStore = create<OrderState>()(
           updateActive(s => ({
             ...s,
             cart: quantity <= 0
-              ? s.cart.filter(item => item.productId !== productId)
+              ? s.cart.filter(item => !(item.productId === productId && !item.freeRewardTierId))
               : s.cart.map(item =>
-                  item.productId === productId
+                  item.productId === productId && !item.freeRewardTierId
                     ? { ...item, quantity, totalPrice: quantity * item.price }
                     : item
                 ),
@@ -354,13 +378,61 @@ export const useOrderStore = create<OrderState>()(
           updateActive(s => ({
             ...s,
             cart: s.cart.map(item =>
-              item.productId === productId ? { ...item, itemOption: itemOption || '' } : item
+              item.productId === productId && !item.freeRewardTierId ? { ...item, itemOption: itemOption || '' } : item
             ),
           }));
         },
 
-        removeFromCart: (productId) => {
-          updateActive(s => ({ ...s, cart: s.cart.filter(item => item.productId !== productId) }));
+        removeFromCart: (productId, freeRewardTierId) => {
+          updateActive(s => ({
+            ...s,
+            cart: s.cart.filter(item => !(item.productId === productId && item.freeRewardTierId === freeRewardTierId)),
+          }));
+        },
+
+        addFreeRewardToCart: (product, freeRewardTierId, redemptionId) => {
+          updateActive(s => {
+            const existingFreeLine = s.cart.find(
+              item => item.productId === product.id && item.freeRewardTierId === freeRewardTierId,
+            );
+            if (existingFreeLine) {
+              // مصرف دوبارهٔ همین جایزه روی همین محصول — فقط تعداد خط رایگان زیاد می‌شود
+              return {
+                ...s,
+                cart: s.cart.map(item => item === existingFreeLine
+                  ? {
+                      ...item,
+                      quantity: item.quantity + 1,
+                      freeRedemptionIds: [...(item.freeRedemptionIds ?? []), redemptionId],
+                    }
+                  : item),
+              };
+            }
+            const newFreeLine: CartItem = {
+              productId: product.id, product, quantity: 1, price: 0, totalPrice: 0,
+              itemOption: 'رایگان (جایزهٔ امتیازی)', freeRewardTierId, freeRedemptionIds: [redemptionId],
+            };
+            const paidLine = s.cart.find(item => item.productId === product.id && !item.freeRewardTierId);
+            if (!paidLine) {
+              return { ...s, cart: [...s.cart, newFreeLine] };
+            }
+            if (paidLine.quantity > 1) {
+              const remainingQty = paidLine.quantity - 1;
+              return {
+                ...s,
+                cart: [
+                  ...s.cart.map(item =>
+                    item === paidLine
+                      ? { ...item, quantity: remainingQty, totalPrice: remainingQty * item.price }
+                      : item
+                  ),
+                  newFreeLine,
+                ],
+              };
+            }
+            // تنها واحد پولی موجود بود — همان خط جای خود را به خط رایگان می‌دهد
+            return { ...s, cart: s.cart.map(item => item === paidLine ? newFreeLine : item) };
+          });
         },
 
         setCustomerPhone: (customerPhone) => updateActive(s => ({ ...s, customerPhone })),

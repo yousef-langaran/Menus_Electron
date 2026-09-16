@@ -529,6 +529,7 @@ export default function OrderPage() {
         allowDirectSendAmountToCardTerminal={productLoader.allowDirectSendAmountToCardTerminal}
         canUseCardTerminal={canUseCardTerminal}
         formatPrice={formatPrice}
+        cartItemOptions={productLoader.cartItemOptions}
         onSubmit={handleOrderSubmit}
         onSendToCardTerminal={handleSendToCardTerminal}
         onCardManualConfirm={async () => { setModalState((s) => ({ ...s, cardTerminalStatus: 'idle', cardTerminalError: '' })); await handleOrderSubmit(); }}

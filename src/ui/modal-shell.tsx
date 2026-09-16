@@ -16,16 +16,18 @@ const SIZE_MAP: Record<string, 'xs' | 'sm' | 'md' | 'lg' | 'full' | 'cover'> = {
 export type ModalShellProps = {
   size?: keyof typeof SIZE_MAP | (string & {});
   scrollBehavior?: 'inside' | 'outside';
+  /** برای عرض/ارتفاع سفارشی فراتر از پله‌های `size` — مثلاً `max-w-5xl max-h-[85vh]` (کلاس‌های Tailwind روی خودِ dialog اعمال می‌شوند و چون بعد از کلاس‌های اندازهٔ پیش‌فرض ادغام می‌شوند، آن‌ها را override می‌کنند) */
+  dialogClassName?: string;
   children: ReactNode;
 };
 
 /** جایگزین `ModalContent` نسخهٔ ۲: Backdrop → Container → Dialog */
-export function ModalShell({ size = 'md', scrollBehavior = 'inside', children }: ModalShellProps) {
+export function ModalShell({ size = 'md', scrollBehavior = 'inside', dialogClassName, children }: ModalShellProps) {
   const mapped = SIZE_MAP[String(size)] ?? 'md';
   return (
     <Modal.Backdrop>
       <Modal.Container size={mapped} scroll={scrollBehavior === 'outside' ? 'outside' : 'inside'}>
-        <Modal.Dialog>{children}</Modal.Dialog>
+        <Modal.Dialog className={dialogClassName}>{children}</Modal.Dialog>
       </Modal.Container>
     </Modal.Backdrop>
   );

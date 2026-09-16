@@ -525,25 +525,60 @@ export async function getPointsRewards(
 }
 
 /**
- * مصرف یک جایزه از کاتالوگ برای مشتری — امتیاز کسر می‌شود و یک کد تخفیف
- * یک‌بارمصرف برمی‌گردد که باید بلافاصله مثل هر کد تخفیف دیگر اعمال شود.
+ * مصرف یک جایزه از کاتالوگ برای مشتری — امتیاز کسر می‌شود. برای
+ * percent_discount/fixed_discount یک کد تخفیف یک‌بارمصرف برمی‌گردد (مثل هر
+ * کد تخفیف دیگر اعمال شود). برای free_item_category/free_specific_item
+ * دیگر کد تخفیف صادر نمی‌شود — caller باید خودِ محصول را در سبد رایگان کند
+ * (نگاه کنید OrderModal.tsx#handleRedeemReward).
  */
+export type RedeemPointsRewardResult =
+  | {
+      rewardKind: 'discount_code';
+      discountCode: string;
+      discountType: 'percent' | 'fixed';
+      discountValue: number;
+      expiresAt: string;
+      message: string;
+    }
+  | {
+      rewardKind: 'free_item';
+      /** برای لغو/بازگرداندن امتیاز اگر کاربر بعداً این آیتم رایگان را از سبد حذف کرد — نگاه کنید cancelPointsReward */
+      redemptionId: number;
+      productId: number;
+      productName: string;
+      price: number;
+      message: string;
+    };
+
 export async function redeemPointsReward(
   params: { restaurantId: number; phone: string; tierId: number; productId?: number },
   token?: string,
-): Promise<{
-  discountCode: string;
-  discountType: 'percent' | 'fixed';
-  discountValue: number;
-  expiresAt: string;
-  message: string;
-}> {
+): Promise<RedeemPointsRewardResult> {
   await apiConfigReady;
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   const response = await api.post(
     `/customer-club/points-rewards/${params.restaurantId}/redeem-by-phone`,
     { phone: params.phone, tierId: params.tierId, productId: params.productId },
+    { headers },
+  );
+  return response.data;
+}
+
+/**
+ * لغو یک مصرفِ «آیتم رایگان» (بدون کد تخفیف) و بازگرداندن امتیازش —
+ * وقتی صندوق‌دار اشتباهی آن را از سبد حذف می‌کند، قبل از ثبت نهایی سفارش.
+ */
+export async function cancelPointsReward(
+  params: { restaurantId: number; phone: string; redemptionId: number },
+  token?: string,
+): Promise<{ pointsRefunded: number }> {
+  await apiConfigReady;
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await api.post(
+    `/customer-club/points-rewards/${params.restaurantId}/cancel-by-phone`,
+    { phone: params.phone, redemptionId: params.redemptionId },
     { headers },
   );
   return response.data;

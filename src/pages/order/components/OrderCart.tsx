@@ -2,8 +2,11 @@ import { useRef, useState } from 'react';
 import { Button } from '../../../ui/compat-button';
 import { Input } from '../../../ui/compat-input';
 import { Textarea } from '../../../ui/compat-textarea';
-import { useOrderStore } from '../../../store/orderStore';
-import { getAssetBaseUrl } from '../../../services/api';
+import { useOrderStore, type CartItem } from '../../../store/orderStore';
+import { useAuthStore } from '../../../store/authStore';
+import { getAssetBaseUrl, cancelPointsReward } from '../../../services/api';
+import { isValidIranMobile, normalizeIranMobile } from '../../../utils/iranMobile';
+import { toast } from '../../../utils/toast';
 
 function CartItemNoteIcon({ className }: { className?: string }) {
   return (
@@ -21,28 +24,63 @@ interface Props {
   onCheckout: () => void;
   isDisabled?: boolean;
   editingOrderId: number | null;
+  /** برای نمایش داخل مودال تکمیل سفارش — تب‌های چند-سبدی و دکمهٔ ثبت داخلی را مخفی می‌کند (مودال خودش دکمهٔ ثبت دارد) */
+  embedded?: boolean;
 }
 
-export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled, editingOrderId }: Props) {
+export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled, editingOrderId, embedded }: Props) {
   const {
     sessions, activeSessionId, addSession, removeSession, switchSession,
-    cart, addToCart: _addToCart, updateCartQuantity, updateCartItemOption, removeFromCart,
+    cart, customerPhone, addToCart: _addToCart, updateCartQuantity, updateCartItemOption, removeFromCart,
     getTotalAmount,
   } = useOrderStore();
+  const { user, token } = useAuthStore();
 
   const [expandedNoteProductId, setExpandedNoteProductId] = useState<number | null>(null);
+  const [cancellingFreeLineKey, setCancellingFreeLineKey] = useState<string | null>(null);
   const notePanelRef = useRef<HTMLDivElement | null>(null);
   const openNoteSectionRef = useRef<HTMLDivElement | null>(null);
 
   const isInteractive = (e: React.MouseEvent) =>
     (e.target as HTMLElement).closest('button, input, textarea, select');
 
+  /**
+   * حذف یک خطِ «رایگان (جایزه)» از سبد باید امتیازِ کسرشده‌اش را هم برگرداند —
+   * وگرنه صندوق‌دار با یک کلیک اشتباه، امتیاز مشتری را برای همیشه از دست
+   * می‌دهد بدون این‌که آیتمی هم تحویل داده باشد. اول لغو در بک‌اند (که یک
+   * ردیف مثبت جبرانی در دفتر کل امتیاز ثبت می‌کند)، بعد حذف از سبد — اگر لغو
+   * fail شود، از سبد هم حذف نمی‌کنیم تا این خط گم نشود و صندوق‌دار بتواند
+   * دوباره تلاش کند.
+   */
+  const handleRemoveFreeLine = async (item: CartItem, rowKey: string) => {
+    const redemptionIds = item.freeRedemptionIds ?? [];
+    const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
+    const normalized = normalizeIranMobile(customerPhone.trim());
+    if (redemptionIds.length > 0 && restaurantId && isValidIranMobile(normalized)) {
+      setCancellingFreeLineKey(rowKey);
+      try {
+        await Promise.all(
+          redemptionIds.map((redemptionId) =>
+            cancelPointsReward({ restaurantId, phone: normalized, redemptionId }, token ?? undefined),
+          ),
+        );
+        toast.success('امتیاز این جایزه به مشتری بازگردانده شد');
+      } catch (err: any) {
+        toast.error(err?.response?.data?.message ?? 'خطا در بازگرداندن امتیاز — دوباره تلاش کنید');
+        setCancellingFreeLineKey(null);
+        return;
+      }
+      setCancellingFreeLineKey(null);
+    }
+    removeFromCart(item.productId, item.freeRewardTierId);
+  };
+
   return (
-    <div className="flex flex-col gap-2 overflow-hidden min-h-0 h-[calc(100vh_-120px)]">
+    <div className={`flex flex-col gap-2 overflow-hidden min-h-0 ${embedded ? 'h-full' : 'h-[calc(100vh_-120px)]'}`}>
       <div className="flex-1 overflow-hidden min-h-0 rounded-xl border border-default-200 bg-content1">
         <div className="overflow-y-auto h-full p-2 sm:p-3">
-          {/* Session tabs — hidden in edit mode */}
-          {editingOrderId == null && <div className="flex items-center gap-1 mb-2 flex-wrap">
+          {/* Session tabs — hidden in edit mode و داخل مودال (سوییچ سبد وسط چک‌اوت گمراه‌کننده است) */}
+          {editingOrderId == null && !embedded && <div className="flex items-center gap-1 mb-2 flex-wrap">
             {sessions.map((session) => {
               const isActive = session.id === activeSessionId;
               const itemCount = session.cart.reduce((n, i) => n + i.quantity, 0);
@@ -96,16 +134,39 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
           ) : (
             <div className="flex flex-col gap-1.5">
               {cart.map((item) => {
+                const isFree = item.freeRewardTierId != null;
+                const rowKey = `${item.productId}:${item.freeRewardTierId ?? 'paid'}`;
                 const noteValue = String(item.itemOption ?? '');
-                const isNoteOpen = expandedNoteProductId === item.productId;
-                const notePreview = noteValue.trim();
+                const isNoteOpen = expandedNoteProductId === item.productId && !isFree;
+                const notePreview = isFree ? '' : noteValue.trim();
                 const appendOption = (opt: string) => {
                   const current = String(item.itemOption ?? '').trim();
                   updateCartItemOption(item.productId, current + (current ? '، ' : '') + opt);
                 };
+                if (isFree) {
+                  return (
+                    <div key={rowKey} className="flex items-center justify-between gap-2 rounded-lg border border-success-200 bg-success-50 p-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="shrink-0 rounded-full bg-success-100 px-2 py-0.5 text-[10px] font-bold text-success-700">رایگان (جایزه)</span>
+                        <span className="truncate text-sm font-medium text-foreground">
+                          {item.quantity > 1 ? `${item.quantity}× ` : ''}{item.product.name_fa || item.product.name}
+                        </span>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <span className="text-xs font-semibold tabular-nums text-success-700">{formatPrice(0)}</span>
+                        <Button size="sm" color="danger" variant="light" isIconOnly className="h-7 min-h-7 w-7 min-w-7 text-sm"
+                          isLoading={cancellingFreeLineKey === rowKey}
+                          isDisabled={cancellingFreeLineKey != null && cancellingFreeLineKey !== rowKey}
+                          onPress={() => handleRemoveFreeLine(item, rowKey)}>
+                          ×
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
                 return (
                   <div
-                    key={item.productId}
+                    key={rowKey}
                     className="flex flex-col gap-2 rounded-lg border border-default-200 bg-content1 p-2"
                     onClick={(e) => { if (isInteractive(e)) return; updateCartQuantity(item.productId, item.quantity + 1); }}
                     onContextMenu={(e) => { e.preventDefault(); if (isInteractive(e)) return; updateCartQuantity(item.productId, item.quantity - 1); }}
@@ -231,13 +292,15 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
         </div>
       </div>
 
-      <Button
-        color="primary" size="md" className="w-full font-semibold min-h-10"
-        onPress={onCheckout}
-        isDisabled={isDisabled || cart.length === 0}
-      >
-        {editingOrderId != null ? 'ذخیرهٔ فاکتور' : 'ثبت سفارش'}
-      </Button>
+      {!embedded && (
+        <Button
+          color="primary" size="md" className="w-full font-semibold min-h-10"
+          onPress={onCheckout}
+          isDisabled={isDisabled || cart.length === 0}
+        >
+          {editingOrderId != null ? 'ذخیرهٔ فاکتور' : 'ثبت سفارش'}
+        </Button>
+      )}
     </div>
   );
 }
