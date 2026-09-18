@@ -78,13 +78,13 @@ function SyncBadge({ status, error }: { status: LocalProduct['_syncStatus']; err
   if (status === 'synced') return null;
   if (status === 'pending_create' || status === 'pending_update') {
     return (
-      <span className="text-xs bg-warning-100 text-warning-700 border border-warning-300 px-2 py-0.5 rounded-full">
+      <span className="text-xs bg-warning-soft text-warning-soft-foreground border border-warning/40 px-2 py-0.5 rounded-full">
         در انتظار سینک
       </span>
     );
   }
   return (
-    <span className="text-xs bg-danger-100 text-danger-700 border border-danger-300 px-2 py-0.5 rounded-full" title={error ?? ''}>
+    <span className="text-xs bg-danger-soft text-danger-soft-foreground border border-danger/40 px-2 py-0.5 rounded-full" title={error ?? ''}>
       خطای سینک
     </span>
   );
@@ -410,11 +410,11 @@ export default function ProductsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-default-100">
-      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm flex items-center justify-between">
+    <div className="min-h-screen bg-background">
+      <header className="shrink-0 bg-surface border-b border-border px-4 py-3 shadow-sm flex items-center justify-between">
         <h1 className="text-lg sm:text-xl font-bold">مدیریت محصولات</h1>
         {!isOnline && (
-          <span className="text-xs bg-warning-100 text-warning-700 border border-warning-300 px-2 py-1 rounded-full">
+          <span className="text-xs bg-warning-soft text-warning-soft-foreground border border-warning/40 px-2 py-1 rounded-full">
             آفلاین — تغییرات ذخیره می‌شوند
           </span>
         )}
@@ -429,7 +429,7 @@ export default function ProductsPage() {
               value={search}
               onValueChange={handleSearchChange}
             />
-            <div className="text-xs text-default-500 flex items-center">
+            <div className="text-xs text-muted flex items-center">
               اسکن بارکد از هر جای صفحه فعال است.
             </div>
           </CardContent>
@@ -469,7 +469,7 @@ export default function ProductsPage() {
                   </Button>
                 )}
                 {hasActiveFilters && (
-                  <span className="text-xs text-default-400">{total} نتیجه از {allProducts.length} محصول</span>
+                  <span className="text-xs text-muted">{total} نتیجه از {allProducts.length} محصول</span>
                 )}
               </div>
             </div>
@@ -515,11 +515,11 @@ export default function ProductsPage() {
                 className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors cursor-pointer
                   ${filterHasError
                     ? 'bg-[var(--danger-soft)] border-[var(--danger)] text-[var(--danger-soft-foreground)] font-medium'
-                    : 'border-[var(--border)] text-default-500 hover:bg-[var(--accent-soft-hover)]'
+                    : 'border-[var(--border)] text-muted hover:bg-[var(--accent-soft-hover)]'
                   }`}
               >
                 <span className={`w-3 h-3 rounded-sm border flex-shrink-0 flex items-center justify-center
-                  ${filterHasError ? 'bg-[var(--danger)] border-[var(--danger)]' : 'border-default-400'}`}
+                  ${filterHasError ? 'bg-[var(--danger)] border-[var(--danger)]' : 'border-border-tertiary'}`}
                 >
                   {filterHasError && (
                     <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
@@ -536,14 +536,14 @@ export default function ProductsPage() {
         <Card>
           <CardContent className="space-y-2">
             {loading ? (
-              <p className="text-default-500">در حال بارگذاری...</p>
+              <p className="text-muted">در حال بارگذاری...</p>
             ) : products.length === 0 ? (
-              <p className="text-default-500">محصولی یافت نشد.</p>
+              <p className="text-muted">محصولی یافت نشد.</p>
             ) : (
               products.map((p) => (
                 <div
                   key={p.id}
-                  className={`rounded-lg border p-3 space-y-2 ${p._syncStatus === 'failed' ? 'border-danger-300 bg-danger-50/40' : 'border-default-200'}`}
+                  className={`rounded-lg border p-3 space-y-2 ${p._syncStatus === 'failed' ? 'border-danger/40 bg-danger-soft/40' : 'border-border'}`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="space-y-1 flex-1 min-w-0">
@@ -551,7 +551,7 @@ export default function ProductsPage() {
                         {p.name_fa || p.name}
                         <SyncBadge status={p._syncStatus} error={p._syncError} />
                       </div>
-                      <div className="text-xs text-default-500 flex items-center flex-wrap gap-x-2">
+                      <div className="text-xs text-muted flex items-center flex-wrap gap-x-2">
                         <span>بارکد: {p.barcode || '—'} | قیمت: {p.price.toLocaleString('fa-IR')} | {p.unit || 'عدد'}</span>
                         {(() => { const cat = categories.find((c) => c.id === p.category_id); return cat ? <span>{cat.name_fa || cat.name}</span> : null; })()}
                         {(() => {
@@ -561,14 +561,14 @@ export default function ProductsPage() {
                           return (
                             <span
                               title={defined ? 'موجودی محصول نهایی' : 'موجودی تعریف‌نشده — این محصول هنوز به کالای حسابداری وصل نشده'}
-                              className={isLow ? 'text-danger-600 font-medium' : ''}
+                              className={isLow ? 'text-danger font-medium' : ''}
                             >
                               موجودی: {defined ? Number(stock).toLocaleString('fa-IR') : '—'}
                             </span>
                           );
                         })()}
                         {p.useScaleForWeight && (
-                          <span className="inline-flex items-center gap-1 text-xs bg-primary-50 text-primary-700 border border-primary-200 px-1.5 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 text-xs bg-accent-soft text-accent-soft-foreground border border-accent/30 px-1.5 py-0.5 rounded-full">
                             ترازو
                           </span>
                         )}
@@ -589,7 +589,7 @@ export default function ProductsPage() {
                     </div>
                   </div>
                   {p._syncStatus === 'failed' && p._syncError && (
-                    <p className="text-xs text-danger-700 bg-danger-100 border border-danger-200 rounded px-2 py-1">
+                    <p className="text-xs text-danger-soft-foreground bg-danger-soft border border-danger/30 rounded px-2 py-1">
                       دلیل خطا: {p._syncError}
                     </p>
                   )}
@@ -601,7 +601,7 @@ export default function ProductsPage() {
 
         {total > 0 && !loading && (
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-default-400">
+            <span className="text-xs text-muted">
               {totalPages > 1 ? `صفحه ${page} از ${totalPages} — ` : ''}{total} محصول
             </span>
             {totalPages > 1 && (
@@ -616,7 +616,7 @@ export default function ProductsPage() {
                   }, [])
                   .map((p, i) =>
                     p === '…' ? (
-                      <span key={`e-${i}`} className="px-1 text-default-400 text-sm">…</span>
+                      <span key={`e-${i}`} className="px-1 text-muted text-sm">…</span>
                     ) : (
                       <Button
                         key={p}
@@ -697,13 +697,13 @@ export default function ProductsPage() {
               ))}
             </Select>
             {SCALE_UNITS.includes(form.unit) && (
-              <div className="md:col-span-2 flex items-center gap-2 rounded-lg border border-default-200 bg-default-50 px-3 py-2">
+              <div className="md:col-span-2 flex items-center gap-2 rounded-lg border border-border bg-default-soft px-3 py-2">
                 <input
                   type="checkbox"
                   id="useScaleForWeight"
                   checked={form.useScaleForWeight}
                   onChange={(e) => setForm((f) => ({ ...f, useScaleForWeight: e.target.checked }))}
-                  className="w-4 h-4 accent-primary cursor-pointer"
+                  className="w-4 h-4 accent-accent cursor-pointer"
                 />
                 <label htmlFor="useScaleForWeight" className="text-sm cursor-pointer select-none">
                   وزن از ترازو خوانده شود (هنگام انتخاب این محصول در فاکتور)

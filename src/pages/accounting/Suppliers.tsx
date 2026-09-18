@@ -48,11 +48,11 @@ export default function AccountingSuppliersPage() {
   }, [rows, search]);
 
   return (
-    <div className="min-h-screen bg-default-100 p-6 space-y-4">
+    <div className="min-h-screen bg-background p-6 space-y-4">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold">تامین‌کنندگان</h1>
-          <span className={`text-xs rounded-full px-2 py-0.5 font-medium ${isOnline ? 'bg-success-100 text-success-700' : 'bg-default-200 text-default-500'}`}>
+          <span className={`text-xs rounded-full px-2 py-0.5 font-medium ${isOnline ? 'bg-success-soft text-success-soft-foreground' : 'bg-default text-muted'}`}>
             {isOnline ? '● آنلاین' : '○ در انتظار اتصال'}
           </span>
         </div>
@@ -82,7 +82,7 @@ export default function AccountingSuppliersPage() {
       </div>
 
       {!isOnline && (
-        <div className="bg-warning-50 border border-warning-200 rounded-lg p-3 text-sm text-warning-700">
+        <div className="bg-warning-soft border border-warning/30 rounded-lg p-3 text-sm text-warning-soft-foreground">
           اتصال به سرور برقرار نیست — تغییرات ذخیره می‌شوند و پس از برقراری اتصال همگام‌سازی خواهند شد.
         </div>
       )}
@@ -91,10 +91,10 @@ export default function AccountingSuppliersPage() {
         <CardContent className="gap-3">
           <Input placeholder="جستجو (نام/تلفن)" value={search} onValueChange={setSearch} />
           {filtered.length === 0 && (
-            <p className="text-center text-sm text-default-500 py-4">تامین‌کننده‌ای ثبت نشده است.</p>
+            <p className="text-center text-sm text-muted py-4">تامین‌کننده‌ای ثبت نشده است.</p>
           )}
           {filtered.map((s) => (
-            <div key={s.id} className="text-sm bg-default-50 border border-default-200 rounded-lg p-3 flex justify-between items-center">
+            <div key={s.id} className="text-sm bg-default-soft border border-border rounded-lg p-3 flex justify-between items-center">
               <span className="font-medium">{s.name}{s.phone ? ` (${s.phone})` : ''}</span>
               <div className="flex gap-1">
                 <Button size="sm" variant="flat" onPress={() => { setEditId(s.id); setName(s.name); setPhone(s.phone || ''); setEditOpen(true); }}>ویرایش</Button>

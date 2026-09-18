@@ -671,13 +671,13 @@ export default function AccountingPurchaseDraftsPage() {
   // ── render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-default-100 p-4 space-y-4" dir="rtl">
+    <div className="min-h-screen bg-background p-4 space-y-4" dir="rtl">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold text-foreground">پیش‌نویس‌های خرید</h1>
           {isSyncing && (
-            <span className="inline-flex items-center gap-1 text-xs text-default-400">
+            <span className="inline-flex items-center gap-1 text-xs text-muted">
               <Spinner size="sm" color="current" />
               همگام‌سازی...
             </span>
@@ -793,7 +793,7 @@ export default function AccountingPurchaseDraftsPage() {
               />
             </div>
             {hasActiveFilters && (
-              <p className="text-xs text-default-400">
+              <p className="text-xs text-muted">
                 {filteredDrafts.length} نتیجه از {drafts.length} فاکتور
               </p>
             )}
@@ -805,26 +805,26 @@ export default function AccountingPurchaseDraftsPage() {
       {isLoading ? (
         <div className="flex flex-col gap-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-xl bg-default-200 h-20 animate-pulse" />
+            <div key={i} className="rounded-xl bg-default h-20 animate-pulse" />
           ))}
         </div>
       ) : drafts.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
-            <div className="w-14 h-14 rounded-full bg-default-200 flex items-center justify-center">
-              <svg className="w-7 h-7 text-default-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-14 h-14 rounded-full bg-default flex items-center justify-center">
+              <svg className="w-7 h-7 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <p className="text-default-500 text-sm">هیچ پیش‌نویس خریدی ثبت نشده است</p>
+            <p className="text-muted text-sm">هیچ پیش‌نویس خریدی ثبت نشده است</p>
             <Button color="primary" onPress={openCreate}>ثبت اولین پیش‌نویس</Button>
           </CardContent>
         </Card>
       ) : filteredDrafts.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
-            <p className="text-default-500 text-sm">هیچ فاکتوری با این فیلترها یافت نشد</p>
+            <p className="text-muted text-sm">هیچ فاکتوری با این فیلترها یافت نشد</p>
             <Button size="sm" variant="flat" onPress={clearFilters}>پاک کردن فیلترها</Button>
           </CardContent>
         </Card>
@@ -855,7 +855,7 @@ export default function AccountingPurchaseDraftsPage() {
                           </Chip>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-default-500 flex-wrap">
+                      <div className="flex items-center gap-3 text-xs text-muted flex-wrap">
                         <span>{supplierName}</span>
                         {d.purchaseDate && <span>{toJalali(d.purchaseDate)}</span>}
                         {d.totalAmount > 0 && (
@@ -973,7 +973,7 @@ export default function AccountingPurchaseDraftsPage() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between gap-2 pt-1">
-              <span className="text-xs text-default-400">
+              <span className="text-xs text-muted">
                 صفحه {page} از {totalPages} — {filteredDrafts.length} فاکتور
               </span>
               <div className="flex items-center gap-1">
@@ -994,7 +994,7 @@ export default function AccountingPurchaseDraftsPage() {
                   }, [])
                   .map((p, i) =>
                     p === '…' ? (
-                      <span key={`ellipsis-${i}`} className="px-1 text-default-400 text-sm">…</span>
+                      <span key={`ellipsis-${i}`} className="px-1 text-muted text-sm">…</span>
                     ) : (
                       <Button
                         key={p}
@@ -1028,18 +1028,18 @@ export default function AccountingPurchaseDraftsPage() {
           <ModalHeader>
             <div className="flex items-center gap-3 w-full">
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                isViewMode ? 'bg-default-100' : editingId ? 'bg-warning-100' : 'bg-primary-100'
+                isViewMode ? 'bg-default-soft' : editingId ? 'bg-warning-soft' : 'bg-accent-soft'
               }`}>
                 {isViewMode ? (
-                  <svg className="w-5 h-5 text-default-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 ) : editingId ? (
-                  <svg className="w-5 h-5 text-warning-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                 ) : (
-                  <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                 )}
@@ -1049,9 +1049,9 @@ export default function AccountingPurchaseDraftsPage() {
                   {isViewMode ? 'مشاهده فاکتور خرید' : isEditingApprovedInvoice ? 'ویرایش فاکتور تاییدشده' : editingId ? 'ویرایش پیش‌نویس' : 'ثبت پیش‌نویس خرید'}
                 </p>
                 {(items.length > 0 || runningTotal > 0) && (
-                  <p className="text-xs text-default-400 mt-0.5">
+                  <p className="text-xs text-muted mt-0.5">
                     {items.length} قلم
-                    {runningTotal > 0 && <> · <span className="text-primary font-medium">{formatCurrency(runningTotal)}</span></>}
+                    {runningTotal > 0 && <> · <span className="text-accent font-medium">{formatCurrency(runningTotal)}</span></>}
                   </p>
                 )}
               </div>
@@ -1062,7 +1062,7 @@ export default function AccountingPurchaseDraftsPage() {
             <div className="flex flex-col gap-4 p-4 sm:p-5">
 
               {isEditingApprovedInvoice && (
-                <div className="rounded-xl border border-warning-300 bg-warning-50 p-3 text-sm text-warning-700">
+                <div className="rounded-xl border border-warning/40 bg-warning-soft p-3 text-sm text-warning-soft-foreground">
                   ذخیره تغییرات این فاکتور را دستکاری نمی‌کند: به‌صورت خودکار یک برگشت کامل از این خرید ثبت و یک فاکتور خرید جدید با مقادیر ویرایش‌شده صادر می‌شود.
                   اگر برای این فاکتور از قبل پرداختی ثبت شده باشد، سرور این عملیات را رد می‌کند — در آن صورت از «برگشت از خرید» دستی استفاده کنید.
                 </div>
@@ -1070,14 +1070,14 @@ export default function AccountingPurchaseDraftsPage() {
 
               {/* ── Barcode scanner ─────────────────────────────────── */}
               {!isViewMode && (
-                <div className="relative rounded-2xl border-2 border-primary/30 bg-gradient-to-l from-primary-50/80 to-primary-100/40 p-3 sm:p-4">
+                <div className="relative rounded-2xl border-2 border-accent/30 bg-gradient-to-l from-accent-soft/80 to-accent-soft/40 p-3 sm:p-4">
                   <div className="flex items-center gap-2 mb-2.5">
                     <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-60" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-accent" />
                     </span>
-                    <span className="text-xs font-semibold text-primary-700">اسکنر بارکد آماده است</span>
-                    <span className="mr-auto text-xs text-primary-400 hidden sm:inline">Enter = افزودن</span>
+                    <span className="text-xs font-semibold text-accent-soft-foreground">اسکنر بارکد آماده است</span>
+                    <span className="mr-auto text-xs text-accent/80 hidden sm:inline">Enter = افزودن</span>
                   </div>
                   <Input
                     ref={barcodeRef}
@@ -1087,7 +1087,7 @@ export default function AccountingPurchaseDraftsPage() {
                     onKeyDown={handleScanKeyDown}
                     placeholder="بارکد کالا را اسکن یا تایپ کنید..."
                     startContent={
-                      <svg className="w-5 h-5 text-primary-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-accent/80 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5v14M8 5v14M12 5v14M16 5v10M20 5v14" />
                       </svg>
                     }
@@ -1096,8 +1096,8 @@ export default function AccountingPurchaseDraftsPage() {
               )}
 
               {/* ── Invoice info ─────────────────────────────────────── */}
-              <div className="rounded-2xl border border-default-200 bg-default-50/60 p-4">
-                <p className="text-xs font-semibold text-default-500 uppercase tracking-wide mb-3">اطلاعات فاکتور</p>
+              <div className="rounded-2xl border border-border bg-default-soft/60 p-4">
+                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-3">اطلاعات فاکتور</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Input
                     label="شماره فاکتور"
@@ -1106,7 +1106,7 @@ export default function AccountingPurchaseDraftsPage() {
                     isRequired
                     isReadOnly={isViewMode}
                     startContent={
-                      <span className="text-default-400 text-sm">#</span>
+                      <span className="text-muted text-sm">#</span>
                     }
                   />
                   {isViewMode ? (
@@ -1140,7 +1140,7 @@ export default function AccountingPurchaseDraftsPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-foreground">اقلام خرید</span>
                     {items.length > 0 && (
-                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-accent text-accent-foreground text-[10px] font-bold">
                         {items.length}
                       </span>
                     )}
@@ -1149,7 +1149,7 @@ export default function AccountingPurchaseDraftsPage() {
                     <button
                       type="button"
                       onMouseDown={(e) => { e.preventDefault(); setItems((prev) => [...prev, emptyItem()]); }}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-600 cursor-pointer transition-colors duration-150"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent cursor-pointer transition-colors duration-150"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -1161,13 +1161,13 @@ export default function AccountingPurchaseDraftsPage() {
 
                 {/* Warning: no products synced */}
                 {hasNoProducts && (
-                  <div className="rounded-xl border border-warning-200 bg-warning-50 p-3 flex gap-2.5">
-                    <svg className="w-5 h-5 text-warning-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="rounded-xl border border-warning/30 bg-warning-soft p-3 flex gap-2.5">
+                    <svg className="w-5 h-5 text-warning shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     <div>
-                      <p className="text-warning-700 text-sm font-medium">هیچ کالایی یافت نشد</p>
-                      <p className="text-warning-600 text-xs mt-0.5">محصولات را با سرور همگام‌سازی کنید یا از بارکد استفاده کنید</p>
+                      <p className="text-warning-soft-foreground text-sm font-medium">هیچ کالایی یافت نشد</p>
+                      <p className="text-warning text-xs mt-0.5">محصولات را با سرور همگام‌سازی کنید یا از بارکد استفاده کنید</p>
                     </div>
                   </div>
                 )}
@@ -1177,18 +1177,18 @@ export default function AccountingPurchaseDraftsPage() {
                   <button
                     type="button"
                     onMouseDown={(e) => { e.preventDefault(); setItems((prev) => [...prev, emptyItem()]); }}
-                    className="w-full rounded-2xl border-2 border-dashed border-default-200 hover:border-primary/40 hover:bg-primary-50/30 bg-default-50 py-8 px-4 text-center cursor-pointer transition-all duration-200 group"
+                    className="w-full rounded-2xl border-2 border-dashed border-border hover:border-accent/40 hover:bg-accent-soft/30 bg-default-soft py-8 px-4 text-center cursor-pointer transition-all duration-200 group"
                   >
-                    <svg className="w-8 h-8 mx-auto text-default-300 group-hover:text-primary/40 mb-2 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-8 h-8 mx-auto text-muted group-hover:text-accent/40 mb-2 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5v14M8 5v14M12 5v14M16 5v10M20 5v14" />
                     </svg>
-                    <p className="text-default-500 text-sm font-medium">بارکد اسکن کنید یا اینجا کلیک کنید</p>
-                    <p className="text-default-400 text-xs mt-0.5">برای افزودن اولین قلم</p>
+                    <p className="text-muted text-sm font-medium">بارکد اسکن کنید یا اینجا کلیک کنید</p>
+                    <p className="text-muted text-xs mt-0.5">برای افزودن اولین قلم</p>
                   </button>
                 )}
 
                 {items.length === 0 && isViewMode && (
-                  <p className="text-default-400 text-sm text-center py-6">این فاکتور قلمی ندارد</p>
+                  <p className="text-muted text-sm text-center py-6">این فاکتور قلمی ندارد</p>
                 )}
 
                 {/* Item rows */}
@@ -1213,59 +1213,59 @@ export default function AccountingPurchaseDraftsPage() {
                         key={idx}
                         className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
                           flashIdx === idx
-                            ? 'border-primary/50 shadow-[0_0_0_3px_theme(colors.primary.DEFAULT/0.12)]'
-                            : 'border-default-200 hover:border-default-300'
+                            ? 'border-accent/50 shadow-[0_0_0_3px_theme(colors.primary.DEFAULT/0.12)]'
+                            : 'border-border hover:border-border-secondary'
                         }`}
                       >
                         {/* Item header row */}
                         <div className={`flex items-center gap-2 px-3 py-2 ${
-                          flashIdx === idx ? 'bg-primary-50' : 'bg-default-100/80'
+                          flashIdx === idx ? 'bg-accent-soft' : 'bg-default-soft/80'
                         }`}>
                           {/* Index badge */}
-                          <span className="w-5 h-5 rounded-full bg-default-200 text-default-500 text-[10px] font-bold flex items-center justify-center shrink-0">
+                          <span className="w-5 h-5 rounded-full bg-default text-muted text-[10px] font-bold flex items-center justify-center shrink-0">
                             {idx + 1}
                           </span>
 
                           {/* Type toggle — pill-in-track (iOS style) */}
                           {!isViewMode && (
-                            <div className="flex rounded-full bg-default-200 p-0.5 gap-0.5 shrink-0">
+                            <div className="flex rounded-full bg-default p-0.5 gap-0.5 shrink-0">
                               <button
                                 type="button"
                                 className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all duration-200 cursor-pointer ${
                                   !isFinalProduct
                                     ? 'bg-white text-orange-600 shadow-sm'
-                                    : 'text-default-500 hover:text-default-700'
+                                    : 'text-muted hover:text-foreground/80'
                                 }`}
                                 onMouseDown={(e) => {
                                   e.preventDefault();
                                   if (isFinalProduct) updateItem(idx, { type: 'raw_material', menuProductId: '', finalProductId: '' });
                                 }}
                               >
-                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${!isFinalProduct ? 'bg-orange-400' : 'bg-default-400'}`} />
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${!isFinalProduct ? 'bg-orange-400' : 'bg-default-hover'}`} />
                                 ماده اولیه
                               </button>
                               <button
                                 type="button"
                                 className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all duration-200 cursor-pointer ${
                                   isFinalProduct
-                                    ? 'bg-white text-primary shadow-sm'
-                                    : 'text-default-500 hover:text-default-700'
+                                    ? 'bg-white text-accent shadow-sm'
+                                    : 'text-muted hover:text-foreground/80'
                                 }`}
                                 onMouseDown={(e) => {
                                   e.preventDefault();
                                   if (!isFinalProduct) updateItem(idx, { type: 'final_product', rawMaterialId: '' });
                                 }}
                               >
-                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isFinalProduct ? 'bg-primary' : 'bg-default-400'}`} />
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isFinalProduct ? 'bg-accent' : 'bg-default-hover'}`} />
                                 محصول
                               </button>
                             </div>
                           )}
                           {isViewMode && (
                             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                              isFinalProduct ? 'bg-primary-100 text-primary-700' : 'bg-orange-100 text-orange-700'
+                              isFinalProduct ? 'bg-accent-soft text-accent-soft-foreground' : 'bg-orange-100 text-orange-700'
                             }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${isFinalProduct ? 'bg-primary' : 'bg-orange-400'}`} />
+                              <span className={`w-1.5 h-1.5 rounded-full ${isFinalProduct ? 'bg-accent' : 'bg-orange-400'}`} />
                               {isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}
                             </span>
                           )}
@@ -1285,7 +1285,7 @@ export default function AccountingPurchaseDraftsPage() {
                                   e.preventDefault();
                                   setItems((prev) => prev.filter((_, i) => i !== idx));
                                 }}
-                                className="w-6 h-6 rounded-lg flex items-center justify-center text-default-400 hover:text-danger hover:bg-danger-50 transition-colors duration-150 cursor-pointer"
+                                className="w-6 h-6 rounded-lg flex items-center justify-center text-muted hover:text-danger hover:bg-danger-soft transition-colors duration-150 cursor-pointer"
                                 aria-label="حذف آیتم"
                               >
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1301,11 +1301,11 @@ export default function AccountingPurchaseDraftsPage() {
                           {/* Product / material selector */}
                           {isViewMode ? (
                             <div className="flex items-center gap-2 py-1">
-                              <span className="text-xs text-default-400">{isFinalProduct ? 'محصول:' : 'ماده اولیه:'}</span>
+                              <span className="text-xs text-muted">{isFinalProduct ? 'محصول:' : 'ماده اولیه:'}</span>
                               <span className="text-sm font-medium text-foreground">{viewLabel}</span>
                             </div>
                           ) : activeOptions.length === 0 ? (
-                            <p className="text-xs text-default-400 py-1">
+                            <p className="text-xs text-muted py-1">
                               {isFinalProduct ? 'هیچ محصولی یافت نشد' : 'هیچ ماده اولیه‌ای ثبت نشده'}
                             </p>
                           ) : (
@@ -1343,7 +1343,7 @@ export default function AccountingPurchaseDraftsPage() {
                               label="قیمت کل"
                               value={formatPriceInput(line.totalPrice)}
                               onValueChange={(v) => updateItem(idx, { totalPrice: normalizePriceInput(v) })}
-                              endContent={<span className="text-default-400 text-xs">ریال</span>}
+                              endContent={<span className="text-muted text-xs">ریال</span>}
                               isReadOnly={isViewMode}
                             />
                             <Input
@@ -1353,14 +1353,14 @@ export default function AccountingPurchaseDraftsPage() {
                               placeholder="اختیاری"
                               value={formatPriceInput(line.salePrice)}
                               onValueChange={(v) => updateItem(idx, { salePrice: normalizePriceInput(v) })}
-                              endContent={<span className="text-default-400 text-xs">ریال</span>}
+                              endContent={<span className="text-muted text-xs">ریال</span>}
                               isReadOnly={isViewMode}
                             />
                           </div>
 
                           {/* Unit price hint */}
                           {unitPriceForLine > 0 && lineQty > 1 && (
-                            <p className="text-[11px] text-default-400 flex items-center gap-1">
+                            <p className="text-[11px] text-muted flex items-center gap-1">
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
@@ -1378,7 +1378,7 @@ export default function AccountingPurchaseDraftsPage() {
                   <button
                     type="button"
                     onMouseDown={(e) => { e.preventDefault(); setItems((prev) => [...prev, emptyItem()]); }}
-                    className="mt-2.5 w-full rounded-xl border border-dashed border-default-200 hover:border-primary/40 hover:bg-primary-50/20 py-2 text-xs font-medium text-default-400 hover:text-primary flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer"
+                    className="mt-2.5 w-full rounded-xl border border-dashed border-border hover:border-accent/40 hover:bg-accent-soft/20 py-2 text-xs font-medium text-muted hover:text-accent flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -1389,8 +1389,8 @@ export default function AccountingPurchaseDraftsPage() {
               </div>
 
               {/* ── Summary ──────────────────────────────────────────── */}
-              <div className="rounded-2xl border border-default-200 bg-default-50/60 p-4">
-                <p className="text-xs font-semibold text-default-500 uppercase tracking-wide mb-3">خلاصه فاکتور</p>
+              <div className="rounded-2xl border border-border bg-default-soft/60 p-4">
+                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-3">خلاصه فاکتور</p>
                 <div className="flex items-end gap-3">
                   <div className="flex-1">
                     <Input
@@ -1399,13 +1399,13 @@ export default function AccountingPurchaseDraftsPage() {
                       label="هزینه جانبی"
                       value={formatPriceInput(extraCosts)}
                       onValueChange={(v) => setExtraCosts(normalizePriceInput(v))}
-                      endContent={<span className="text-default-400 text-sm">ریال</span>}
+                      endContent={<span className="text-muted text-sm">ریال</span>}
                       isReadOnly={isViewMode}
                     />
                   </div>
-                  <div className="flex-1 rounded-xl bg-gradient-to-l from-primary-100 to-primary-50 border border-primary/20 px-4 py-3 text-left">
-                    <p className="text-xs text-primary-600 font-medium mb-0.5">جمع کل فاکتور</p>
-                    <p className="font-bold text-primary text-xl tabular-nums">{formatCurrency(runningTotal)}</p>
+                  <div className="flex-1 rounded-xl bg-gradient-to-l from-accent-soft to-accent-soft border border-accent/20 px-4 py-3 text-left">
+                    <p className="text-xs text-accent font-medium mb-0.5">جمع کل فاکتور</p>
+                    <p className="font-bold text-accent text-xl tabular-nums">{formatCurrency(runningTotal)}</p>
                   </div>
                 </div>
               </div>
@@ -1414,10 +1414,10 @@ export default function AccountingPurchaseDraftsPage() {
           </ModalBody>
 
           {/* ── Footer ───────────────────────────────────────────────── */}
-          <ModalFooter className="border-t border-default-100">
+          <ModalFooter className="border-t border-border">
             <div className="flex items-center gap-3 w-full">
               {!isViewMode && items.length > 0 && (
-                <span className="text-xs text-default-400 mr-auto">
+                <span className="text-xs text-muted mr-auto">
                   {items.length} قلم · {formatCurrency(runningTotal)}
                 </span>
               )}
@@ -1453,7 +1453,7 @@ export default function AccountingPurchaseDraftsPage() {
           <ModalHeader>افزودن محصول جدید</ModalHeader>
           <ModalBody className="gap-3">
             {isCheckingMasterProduct && (
-              <div className="flex items-center justify-center gap-2 text-default-500 text-sm py-2">
+              <div className="flex items-center justify-center gap-2 text-muted text-sm py-2">
                 <Spinner size="sm" />
                 <span>در حال جستجو در محصولات پایه...</span>
               </div>
@@ -1467,7 +1467,7 @@ export default function AccountingPurchaseDraftsPage() {
               isRequired
             />
             {categories.length === 0 ? (
-              <p className="text-warning-600 text-xs">
+              <p className="text-warning text-xs">
                 هیچ دسته‌بندی‌ای یافت نشد — ابتدا از بخش محصولات یک دسته‌بندی بسازید یا با سرور همگام‌سازی کنید.
               </p>
             ) : (
@@ -1491,7 +1491,7 @@ export default function AccountingPurchaseDraftsPage() {
                 onValueChange={(v) => setAddProductPurchasePrice(normalizePriceInput(v))}
                 isDisabled={isCheckingMasterProduct}
                 endContent={
-                  <span className="text-default-400 text-sm whitespace-nowrap">ریال</span>
+                  <span className="text-muted text-sm whitespace-nowrap">ریال</span>
                 }
               />
               <Input
@@ -1502,7 +1502,7 @@ export default function AccountingPurchaseDraftsPage() {
                 onValueChange={(v) => setAddProductSalePrice(normalizePriceInput(v))}
                 isDisabled={isCheckingMasterProduct}
                 endContent={
-                  <span className="text-default-400 text-sm whitespace-nowrap">ریال</span>
+                  <span className="text-muted text-sm whitespace-nowrap">ریال</span>
                 }
               />
             </div>

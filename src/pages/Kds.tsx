@@ -302,7 +302,7 @@ export default function KdsPage() {
   if (!restaurantName) {
     return (
       <div className="flex-1 flex items-center justify-center p-8" dir="rtl">
-        <p className="text-default-500">رستوران متصل یافت نشد.</p>
+        <p className="text-muted">رستوران متصل یافت نشد.</p>
       </div>
     );
   }
@@ -321,7 +321,7 @@ export default function KdsPage() {
             >
               {audioMuted ? 'صدا خاموش' : 'صدا روشن'}
             </Button>
-            <label className="flex items-center gap-1 text-xs text-default-500">
+            <label className="flex items-center gap-1 text-xs text-muted">
               آستانهٔ دیرکرد (دقیقه)
               <input
                 type="number"
@@ -329,7 +329,7 @@ export default function KdsPage() {
                 max={180}
                 value={agingThresholdMinutes}
                 onChange={(e) => setAgingThresholdMinutes(Number(e.target.value))}
-                className="w-14 rounded border border-default-300 bg-background px-1 py-0.5 text-center text-xs"
+                className="w-14 rounded border border-border-secondary bg-background px-1 py-0.5 text-center text-xs"
               />
             </label>
           </div>
@@ -361,26 +361,26 @@ export default function KdsPage() {
 
       {loading && orderList.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-default-500 text-sm animate-pulse">در حال بارگذاری...</p>
+          <p className="text-muted text-sm animate-pulse">در حال بارگذاری...</p>
         </div>
       ) : (
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-3 gap-4 overflow-hidden">
           {BOARD_STATUSES.map((status) => (
-            <div key={status} className="flex flex-col min-h-0 bg-default-50 rounded-xl border border-default-200">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-default-200">
+            <div key={status} className="flex flex-col min-h-0 bg-default-soft rounded-xl border border-border">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                 <h2 className="font-semibold text-foreground">{COLUMN_LABELS[status]}</h2>
                 <Chip size="sm" variant="soft">{columns[status].length}</Chip>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3">
                 {columns[status].length === 0 && (
-                  <p className="text-default-400 text-sm text-center py-6">سفارشی نیست</p>
+                  <p className="text-muted text-sm text-center py-6">سفارشی نیست</p>
                 )}
                 {columns[status].map((order) => {
                   const minutes = elapsedMinutes(order.createdAt, now);
                   const tone = elapsedTone(minutes);
                   const busy = !!busyOrderIds[order.id];
                   return (
-                    <Card key={order.id} className="border border-default-200">
+                    <Card key={order.id} className="border border-border">
                       <CardContent className="p-3 flex flex-col gap-2">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-bold text-foreground">#{order.orderNumber}</span>
@@ -388,7 +388,7 @@ export default function KdsPage() {
                             {minutes} دقیقه
                           </Chip>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-default-500">
+                        <div className="flex items-center gap-2 text-xs text-muted">
                           <span>{SERVICE_TYPE_LABELS[order.serviceType || ''] || order.serviceType}</span>
                           {order.tableNumber && <span>· میز {order.tableNumber}</span>}
                         </div>
@@ -403,15 +403,15 @@ export default function KdsPage() {
                                 type="button"
                                 onClick={() => toggleItemBump(order.id, item.id)}
                                 title={bumped ? 'لغو علامت آماده' : 'علامت‌گذاری به‌عنوان آماده'}
-                                className={`text-sm flex items-baseline gap-1 text-right rounded px-1 -mx-1 hover:bg-default-100 transition-colors ${
+                                className={`text-sm flex items-baseline gap-1 text-right rounded px-1 -mx-1 hover:bg-default-soft transition-colors ${
                                   dimmed ? 'opacity-35' : ''
-                                } ${bumped ? 'line-through text-default-400' : ''}`}
+                                } ${bumped ? 'line-through text-muted' : ''}`}
                               >
                                 <span className="font-semibold text-foreground">{bumped ? '✓' : '○'}</span>
                                 <span className="font-semibold text-foreground">{item.quantity}×</span>
                                 <span className="text-foreground">{productLabel(item)}</span>
                                 {item.itemNote && (
-                                  <span className="text-xs text-default-500">({item.itemNote})</span>
+                                  <span className="text-xs text-muted">({item.itemNote})</span>
                                 )}
                               </button>
                             );

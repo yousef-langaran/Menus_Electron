@@ -86,7 +86,7 @@ export default function CallHistoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-default-100 p-4 space-y-4">
+    <div className="min-h-screen bg-background p-4 space-y-4">
       <div className="max-w-2xl mx-auto space-y-4">
 
         {/* Header */}
@@ -99,7 +99,7 @@ export default function CallHistoryPage() {
           </Button>
           <div>
             <h1 className="text-xl font-bold">تاریخچه تماس‌ها</h1>
-            <p className="text-xs text-default-500">{callHistory.length} تماس ذخیره‌شده</p>
+            <p className="text-xs text-muted">{callHistory.length} تماس ذخیره‌شده</p>
           </div>
         </div>
 
@@ -111,14 +111,14 @@ export default function CallHistoryPage() {
               value={search}
               onValueChange={setSearch}
               startContent={
-                <svg className="w-4 h-4 text-default-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
                 </svg>
               }
               endContent={
                 search ? (
-                  <button onClick={() => setSearch('')} className="text-default-400 hover:text-default-600">
+                  <button onClick={() => setSearch('')} className="text-muted hover:text-foreground/70">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -144,7 +144,7 @@ export default function CallHistoryPage() {
                 ))}
               </div>
 
-              <div className="w-px bg-default-200 self-stretch hidden sm:block" />
+              <div className="w-px bg-default self-stretch hidden sm:block" />
 
               {/* date filter */}
               <div className="flex gap-1.5 flex-wrap">
@@ -164,7 +164,7 @@ export default function CallHistoryPage() {
             </div>
 
             {filtered.length !== callHistory.length && (
-              <p className="text-xs text-default-400">
+              <p className="text-xs text-muted">
                 نمایش {filtered.length} از {callHistory.length} تماس
               </p>
             )}
@@ -173,7 +173,7 @@ export default function CallHistoryPage() {
 
         {/* Empty state — no calls at all */}
         {callHistory.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-default-400">
+          <div className="flex flex-col items-center justify-center py-20 text-muted">
             <svg className="w-16 h-16 mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                 d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36
@@ -188,7 +188,7 @@ export default function CallHistoryPage() {
 
         {/* Empty state — filter has no results */}
         {callHistory.length > 0 && filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-default-400">
+          <div className="flex flex-col items-center justify-center py-16 text-muted">
             <svg className="w-12 h-12 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                 d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
@@ -212,24 +212,24 @@ export default function CallHistoryPage() {
                 return (
                   <div
                     key={`${call.phone}-${call.timestamp}-${idx}`}
-                    className="rounded-xl border border-default-200 bg-default-50 p-3 flex items-center gap-3"
+                    className="rounded-xl border border-border bg-default-soft p-3 flex items-center gap-3"
                   >
                     {/* Avatar */}
                     <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold
                       ${isKnown
-                        ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
-                        : 'bg-default-200 text-default-500'}`}>
+                        ? 'bg-accent-soft text-accent-soft-foreground dark:bg-accent/40 dark:text-accent/70'
+                        : 'bg-default text-muted'}`}>
                       {displayName ? displayName[0] : '📞'}
                     </div>
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-default-900 text-sm tracking-wider">
+                        <span className="font-bold text-foreground text-sm tracking-wider">
                           {formatPhone(call.phone)}
                         </span>
                         {isKnown && displayName && (
-                          <span className="text-xs text-primary-600 dark:text-primary-400 font-medium truncate">
+                          <span className="text-xs text-accent dark:text-accent/80 font-medium truncate">
                             {displayName}
                           </span>
                         )}
@@ -239,9 +239,9 @@ export default function CallHistoryPage() {
                           </Chip>
                         )}
                       </div>
-                      <p className="text-xs text-default-400 mt-0.5">{formatDateTime(call.timestamp)}</p>
+                      <p className="text-xs text-muted mt-0.5">{formatDateTime(call.timestamp)}</p>
                       {isKnown && call.lookupResult && (
-                        <p className="text-xs text-default-400 mt-0.5">
+                        <p className="text-xs text-muted mt-0.5">
                           {call.lookupResult.totalOrders} سفارش
                           {call.lookupResult.totalSpent > 0 && ` · ${formatCurrency(call.lookupResult.totalSpent)}`}
                         </p>

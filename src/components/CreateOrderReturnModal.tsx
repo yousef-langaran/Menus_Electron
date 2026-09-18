@@ -233,15 +233,15 @@ export default function CreateOrderReturnModal({
   return (
     <Modal isOpen={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <ModalShell size="lg">
-      <ModalHeader className="border-b border-default-200 pb-3">
+      <ModalHeader className="border-b border-border pb-3">
         <div className="flex w-full items-center justify-between gap-3" dir="rtl">
           <div className="flex flex-col">
             <span className="text-lg font-bold text-foreground">ثبت مرجوعی</span>
-            <span className="text-sm text-default-500">
+            <span className="text-sm text-muted">
               سفارش #{order?.orderNumber || order?.id}
             </span>
           </div>
-          <div className="rounded-full bg-warning-100 px-3 py-1 text-xs font-medium text-warning-700">
+          <div className="rounded-full bg-warning-soft px-3 py-1 text-xs font-medium text-warning-soft-foreground">
             مرجوعی جزئی
           </div>
         </div>
@@ -249,18 +249,18 @@ export default function CreateOrderReturnModal({
       <ModalBody className="py-4">
         <div className="space-y-4" dir="rtl">
           {isOffline && (
-            <div className="rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3 text-warning-700">
+            <div className="rounded-2xl border border-warning/30 bg-warning-soft px-4 py-3 text-warning-soft-foreground">
               حالت آفلاین — مرجوعی ذخیره می‌شود و پس از اتصال به اینترنت به‌صورت خودکار ارسال می‌شود. تعداد قابل مرجوع ممکن است دقیق نباشد.
             </div>
           )}
 
           {error && (
-            <div className="rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3 text-danger-700">
+            <div className="rounded-2xl border border-danger/30 bg-danger-soft px-4 py-3 text-danger-soft-foreground">
               {error}
             </div>
           )}
 
-          <div className="rounded-2xl border border-default-200 bg-default-50 p-4">
+          <div className="rounded-2xl border border-border bg-default-soft p-4">
             <label className="mb-2 block text-sm font-medium text-foreground">دلیل مرجوعی</label>
             <Select
               selectedKeys={[reason]}
@@ -280,10 +280,10 @@ export default function CreateOrderReturnModal({
             </Select>
           </div>
 
-          <div className="rounded-2xl border border-default-200 bg-content1 p-4">
+          <div className="rounded-2xl border border-border bg-surface p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <label className="block text-sm font-medium text-foreground">آیتم‌های مرجوعی</label>
-              <span className="text-xs text-default-500">فقط تعداد قابل مرجوع فعال است</span>
+              <span className="text-xs text-muted">فقط تعداد قابل مرجوع فعال است</span>
             </div>
             {initializing ? (
               <div className="py-6 text-center text-gray-500">در حال بررسی اقلام قابل مرجوعی...</div>
@@ -298,7 +298,7 @@ export default function CreateOrderReturnModal({
                 return (
                   <div
                     key={idx}
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-default-200 bg-default-50 p-4"
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-default-soft p-4"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-foreground">
@@ -315,7 +315,7 @@ export default function CreateOrderReturnModal({
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
-                      <label className="text-xs font-medium text-default-600">تعداد مرجوعی</label>
+                      <label className="text-xs font-medium text-foreground/70">تعداد مرجوعی</label>
                       <input
                         type="number"
                         min="0"
@@ -325,7 +325,7 @@ export default function CreateOrderReturnModal({
                           handleQuantityChange(orderItem.product.id, parseInt(e.target.value) || 0)
                         }
                         disabled={remainingQuantity <= 0}
-                        className="w-24 rounded-xl border border-default-300 bg-white px-3 py-2 text-center outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:bg-default-100"
+                        className="w-24 rounded-xl border border-border-secondary bg-white px-3 py-2 text-center outline-none transition focus:border-accent disabled:cursor-not-allowed disabled:bg-default-soft"
                       />
                     </div>
                   </div>
@@ -335,26 +335,26 @@ export default function CreateOrderReturnModal({
             )}
           </div>
 
-          <div className="rounded-2xl border border-default-200 bg-default-50 p-4">
+          <div className="rounded-2xl border border-border bg-default-soft p-4">
             <label className="mb-2 block text-sm font-medium text-foreground">یادداشت (اختیاری)</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full rounded-2xl border border-default-300 bg-white px-3 py-3 outline-none transition focus:border-primary"
+              className="w-full rounded-2xl border border-border-secondary bg-white px-3 py-3 outline-none transition focus:border-accent"
               rows={3}
               placeholder="توضیحات اضافی..."
             />
           </div>
 
-          <div className="rounded-2xl border border-success-200 bg-success-50 p-4">
-            <p className="text-sm text-success-700">جمع مرجوعی انتخاب‌شده</p>
-            <p className="mt-1 text-lg font-bold text-success-800">
+          <div className="rounded-2xl border border-success/30 bg-success-soft p-4">
+            <p className="text-sm text-success-soft-foreground">جمع مرجوعی انتخاب‌شده</p>
+            <p className="mt-1 text-lg font-bold text-success-soft-foreground">
               مبلغ کل مرجوعی: {new Intl.NumberFormat('fa-IR').format(totalReturnAmount)} ریال
             </p>
           </div>
         </div>
       </ModalBody>
-      <ModalFooter className="border-t border-default-200 pt-3">
+      <ModalFooter className="border-t border-border pt-3">
         <div className="flex w-full flex-row-reverse gap-2" dir="rtl">
           <Button onClick={handleSubmit} isDisabled={loading || initializing} color="primary">
             {loading ? 'در حال ثبت...' : 'ثبت مرجوعی'}

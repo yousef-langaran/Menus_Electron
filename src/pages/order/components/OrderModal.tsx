@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { LockKeyhole, Wallet as WalletIcon, Sparkles, Truck, ShoppingBag, UserRound } from 'lucide-react';
 import { Button } from '../../../ui/compat-button';
 import { Input } from '../../../ui/compat-input';
 import { Select, SelectItem } from '../../../ui/compat-select';
@@ -118,6 +119,7 @@ export function OrderModal({
   const selectableTables = tables.filter((t) => t.isActive !== false && t.status !== 'out_of_service');
   const isElectronWithPrinters = typeof window !== 'undefined' && Boolean(window.electronAPI) && enabledPrinters.length > 0;
   const canUseDiscountCode = Boolean(customerPhone.trim()) && state.isOnline;
+  const showCashBoxSelector = state.cashBoxAccounts.length > 1 && (paymentMethod === 'cash' || paymentMethod === 'mixed' || paymentMethod === 'credit');
 
   const set = (patch: Partial<OrderModalState>) => setState((s) => ({ ...s, ...patch }));
 
@@ -404,10 +406,13 @@ export function OrderModal({
     <Modal isOpen={state.isOpen} onOpenChange={(open) => { if (!open) onClose(); }} className="order-modal">
       <ModalShell size="lg" scrollBehavior="inside" dialogClassName="max-w-5xl max-h-[85vh]">
         <ModalHeader className="flex flex-col gap-1 text-right">
-          <h2 className="text-lg font-semibold">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft text-accent-soft-foreground">
+              <LockKeyhole className="h-4 w-4" aria-hidden />
+            </span>
             {editingOrderId != null ? `ذخیرهٔ تغییرات — فاکتور #${editingOrderId}` : 'تکمیل و ثبت سفارش'}
           </h2>
-          <p className="text-sm text-default-500 font-normal">
+          <p className="text-sm text-muted font-normal">
             {editingOrderId != null ? 'پس از تأیید، فاکتور روی سرور به‌روز می‌شود.' : 'شماره موبایل را وارد کنید و Enter بزنید برای ثبت سریع'}
           </p>
         </ModalHeader>
@@ -461,8 +466,8 @@ export function OrderModal({
             )}
 
             {(state.userExists === true || state.showCustomerNameFields) && (
-              <div className="flex flex-col gap-2 p-3 rounded-lg bg-default-50 border border-default-200">
-                <span className="text-default-700 text-sm font-medium">نام مشتری (اختیاری)</span>
+              <div className="flex flex-col gap-2 p-3 rounded-lg bg-default-soft border border-border">
+                <span className="text-foreground/80 text-sm font-medium">نام مشتری (اختیاری)</span>
                 <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
                   <Input placeholder="نام" value={state.customerFirstNameInput}
                     onValueChange={(v) => set({ customerFirstNameInput: v })}
@@ -475,8 +480,8 @@ export function OrderModal({
             )}
 
             {state.userExists === false && (
-              <div className="flex flex-col gap-3 p-3 rounded-lg bg-warning-50 border border-warning-200">
-                <span className="text-warning-700 text-sm font-medium">مشتری جدید</span>
+              <div className="flex flex-col gap-3 p-3 rounded-lg bg-warning-soft border border-warning/30">
+                <span className="text-warning-soft-foreground text-sm font-medium">مشتری جدید</span>
                 <Button size="sm" color="primary" isDisabled={state.showCustomerNameFields}
                   onPress={() => set({ showCustomerNameFields: true })}>
                   {state.showCustomerNameFields ? 'نام مشتری را وارد کنید' : 'افزودن به مشتریان'}
@@ -486,10 +491,10 @@ export function OrderModal({
 
             {/* Wheel vouchers */}
             {state.wheelVouchers.length > 0 && (
-              <div className="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3" dir="rtl">
+              <div className="flex flex-col gap-2 rounded-xl border border-warning/30 bg-warning-soft p-3" dir="rtl">
                 <div className="flex items-center gap-2 mb-1">
                   <span style={{ fontSize: 18 }}>🎡</span>
-                  <span className="text-sm font-bold text-amber-800">جوایز گردونه شانس ({state.wheelVouchers.length})</span>
+                  <span className="text-sm font-bold text-warning-soft-foreground">جوایز گردونه شانس ({state.wheelVouchers.length})</span>
                 </div>
                 {state.wheelVouchers.map((v) => {
                   const prizeLabel = v.prizeType === 'discount_percent' ? `${v.prizeData?.percent ?? 0}٪ تخفیف`
@@ -497,14 +502,14 @@ export function OrderModal({
                     : v.prizeType === 'free_product' ? `کالای رایگان: ${v.prizeData?.productName ?? ''}`
                     : `${v.prizeData?.points ?? 0} امتیاز`;
                   return (
-                    <div key={v.id} className="flex items-center justify-between gap-2 rounded-lg bg-white border border-amber-200 px-3 py-2">
+                    <div key={v.id} className="flex items-center justify-between gap-2 rounded-lg bg-surface border border-warning/20 px-3 py-2">
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-semibold text-amber-900">{prizeLabel}</span>
-                        {v.expiresAt && <span className="text-xs text-amber-600">انقضا: {toShamsiDate(v.expiresAt)}</span>}
+                        <span className="text-sm font-semibold text-foreground">{prizeLabel}</span>
+                        {v.expiresAt && <span className="text-xs text-warning">انقضا: {toShamsiDate(v.expiresAt)}</span>}
                       </div>
                       <Button size="sm" color="warning" isLoading={state.applyingVoucher === v.id}
                         onPress={() => handleApplyWheelVoucher(v)}
-                        className="shrink-0 font-bold text-white bg-amber-500 hover:bg-amber-600">
+                        className="shrink-0 font-bold">
                         اعمال
                       </Button>
                     </div>
@@ -515,23 +520,43 @@ export function OrderModal({
           </div>
 
           {/* Service type */}
-          <Select label="نوع سفارش" selectedKeys={[serviceType]}
-            onSelectionChange={(keys) => {
-              const v = Array.from(keys)[0] as 'dine_in' | 'takeaway' | 'delivery';
-              if (v) {
-                setServiceType(v);
-                setTableNumber('');
-                setCustomerAddress('');
-                setDeliveryLocation(null);
-                setDeliveryFeeOverride(null);
-                setDeliveryFeeReason('');
-                set({ customerAddresses: [], selectedAddressId: null });
-              }
-            }} variant="bordered">
-            <SelectItem key="dine_in" textValue="داخل سالن">داخل سالن</SelectItem>
-            <SelectItem key="takeaway" textValue="بیرون‌بر">بیرون‌بر</SelectItem>
-            <SelectItem key="delivery" textValue="ارسال با پیک">ارسال با پیک</SelectItem>
-          </Select>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-foreground">نوع سفارش</span>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { key: 'delivery', label: 'ارسال', icon: Truck },
+                { key: 'takeaway', label: 'بیرون‌بر', icon: ShoppingBag },
+                { key: 'dine_in', label: 'حضوری', icon: UserRound },
+              ] as const).map(({ key, label, icon: Icon }) => {
+                const isActive = serviceType === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setServiceType(key);
+                      setTableNumber('');
+                      setCustomerAddress('');
+                      setDeliveryLocation(null);
+                      setDeliveryFeeOverride(null);
+                      setDeliveryFeeReason('');
+                      set({ customerAddresses: [], selectedAddressId: null });
+                    }}
+                    aria-pressed={isActive}
+                    className={[
+                      'flex flex-col items-center justify-center gap-1 rounded-xl border py-2.5 text-xs font-semibold transition',
+                      isActive
+                        ? 'border-accent bg-accent text-accent-foreground shadow-sm'
+                        : 'border-border bg-surface text-foreground/80 hover:border-accent/50 hover:bg-default-soft',
+                    ].join(' ')}
+                  >
+                    <Icon className="h-5 w-5" aria-hidden />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {serviceType === 'delivery' && (
             <DeliveryDestination
@@ -568,21 +593,21 @@ export function OrderModal({
                         aria-pressed={selected}
                         className={`rounded-lg border px-2 py-2 text-sm transition-colors ${
                           selected
-                            ? 'border-primary bg-primary/10 font-semibold'
+                            ? 'border-accent bg-accent/10 font-semibold'
                             : occupied
                               ? 'border-danger/40 bg-danger/5'
-                              : 'border-default-200 hover:border-default-300'
+                              : 'border-border hover:border-border-secondary'
                         }`}
                       >
                         <span className="block truncate">{table.name}</span>
-                        <span className="block text-[10px] text-default-500">
+                        <span className="block text-[10px] text-muted">
                           {occupied ? 'اشغال' : table.status === 'reserved' ? 'رزرو' : `${table.capacity} نفره`}
                         </span>
                       </button>
                     );
                   })}
                 </div>
-                <span className="text-xs text-default-500">
+                <span className="text-xs text-muted">
                   انتخاب میز اختیاری است؛ میز اشغال هم برای سفارش تکمیلی قابل انتخاب است.
                 </span>
               </div>
@@ -593,7 +618,7 @@ export function OrderModal({
           ) : serviceType === 'takeaway' ? (
             <div className="flex flex-col gap-2">
               <span className="text-sm font-medium text-foreground">آدرس</span>
-              {state.loadingAddresses && <p className="text-default-500 text-sm">در حال بارگذاری آدرس‌ها...</p>}
+              {state.loadingAddresses && <p className="text-muted text-sm">در حال بارگذاری آدرس‌ها...</p>}
               {!state.loadingAddresses && state.customerAddresses.length > 0 && (
                 <div className="flex flex-col gap-2">
                   {state.customerAddresses.map((addr) => (
@@ -616,37 +641,40 @@ export function OrderModal({
             </div>
           ) : null}
 
-          {/* Payment method */}
-          <Select label="روش پرداخت" selectedKeys={[paymentMethod]}
-            onSelectionChange={(keys) => {
-              const v = Array.from(keys)[0];
-              if (v) {
-                setPaymentMethod(v as any);
-                if (v !== 'card') set({ cardTerminalStatus: 'idle', cardTerminalError: '', cardTerminalRefId: '' });
-              }
-            }} variant="bordered">
-            <SelectItem key="cash" textValue="نقد">نقد</SelectItem>
-            <SelectItem key="card" textValue="کارت">کارت</SelectItem>
-            <SelectItem key="online" textValue="آنلاین">آنلاین</SelectItem>
-            <SelectItem key="mixed" textValue="ترکیبی">ترکیبی</SelectItem>
-            <SelectItem key="credit" textValue="اعتباری (نسیه)">اعتباری (نسیه)</SelectItem>
-          </Select>
+          {/* Payment method + Cash box — دو ستونه وقتی صندوق قابل انتخاب است */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className={showCashBoxSelector ? '' : 'col-span-2'}>
+              <Select label="روش پرداخت" selectedKeys={[paymentMethod]}
+                onSelectionChange={(keys) => {
+                  const v = Array.from(keys)[0];
+                  if (v) {
+                    setPaymentMethod(v as any);
+                    if (v !== 'card') set({ cardTerminalStatus: 'idle', cardTerminalError: '', cardTerminalRefId: '' });
+                  }
+                }} variant="bordered" fullWidth>
+                <SelectItem key="cash" textValue="نقد">نقد</SelectItem>
+                <SelectItem key="card" textValue="کارت">کارت</SelectItem>
+                <SelectItem key="online" textValue="آنلاین">آنلاین</SelectItem>
+                <SelectItem key="mixed" textValue="ترکیبی">ترکیبی</SelectItem>
+                <SelectItem key="credit" textValue="اعتباری (نسیه)">اعتباری (نسیه)</SelectItem>
+              </Select>
+            </div>
 
-          {/* Cash box selector */}
-          {state.cashBoxAccounts.length > 1 && (paymentMethod === 'cash' || paymentMethod === 'mixed' || paymentMethod === 'credit') && (
-            <Select label="صندوق" selectedKeys={state.selectedCashBoxId ? [String(state.selectedCashBoxId)] : []}
-              onSelectionChange={(keys) => {
-                const id = Number(Array.from(keys)[0]);
-                const acc = state.cashBoxAccounts.find((a) => a.id === id);
-                if (acc) set({ selectedCashBoxId: acc.id, selectedCashBoxName: acc.name || 'صندوق' });
-              }} variant="bordered" size="sm">
-              {state.cashBoxAccounts.map((acc) => <SelectItem key={String(acc.id)}>{acc.name}</SelectItem>)}
-            </Select>
-          )}
+            {showCashBoxSelector && (
+              <Select label="صندوق" selectedKeys={state.selectedCashBoxId ? [String(state.selectedCashBoxId)] : []}
+                onSelectionChange={(keys) => {
+                  const id = Number(Array.from(keys)[0]);
+                  const acc = state.cashBoxAccounts.find((a) => a.id === id);
+                  if (acc) set({ selectedCashBoxId: acc.id, selectedCashBoxName: acc.name || 'صندوق' });
+                }} variant="bordered" size="sm" fullWidth>
+                {state.cashBoxAccounts.map((acc) => <SelectItem key={String(acc.id)}>{acc.name}</SelectItem>)}
+              </Select>
+            )}
+          </div>
 
           {/* Mixed payment */}
           {(paymentMethod === 'mixed' || paymentMethod === 'credit') && (
-            <div className={`rounded-lg border p-3 flex flex-col gap-3 ${paymentMethod === 'credit' ? 'border-warning-200 bg-warning-50' : 'border-default-200 bg-default-50'}`}>
+            <div className={`rounded-lg border p-3 flex flex-col gap-3 ${paymentMethod === 'credit' ? 'border-warning/30 bg-warning-soft' : 'border-border bg-default-soft'}`}>
               <p className="text-sm font-semibold text-foreground">تقسیم پرداخت{paymentMethod === 'credit' ? ' — نسیه' : ''}</p>
               <div className="grid grid-cols-3 gap-2">
                 {[['نقد', splitCash, setSplitCash], ['کارت', splitCard, setSplitCard], ['آنلاین', splitOnline, setSplitOnline]].map(([label, val, setter]) => (
@@ -657,22 +685,22 @@ export function OrderModal({
                     classNames={{ input: 'text-center' }} />
                 ))}
               </div>
-              <div className={`rounded-lg p-2.5 text-sm flex flex-col gap-1 ${paidNow > finalAmt ? 'bg-danger-100 border border-danger-300' : 'bg-white border border-default-200'}`}>
+              <div className={`rounded-lg p-2.5 text-sm flex flex-col gap-1 ${paidNow > finalAmt ? 'bg-danger-soft border border-danger/40' : 'bg-surface border border-border'}`}>
                 {paidNow > 0 && (
-                  <div className="flex justify-between text-default-600">
+                  <div className="flex justify-between text-foreground/70">
                     <span>پرداخت‌شده</span>
-                    <span className="text-success-700 font-semibold">{formatPrice(paidNow)}</span>
+                    <span className="text-success-soft-foreground font-semibold">{formatPrice(paidNow)}</span>
                   </div>
                 )}
                 {paymentMethod === 'credit' ? (
                   <div className="flex justify-between font-semibold">
-                    <span className={getSplitCreditAmount() > 0 ? 'text-danger' : 'text-success-700'}>
+                    <span className={getSplitCreditAmount() > 0 ? 'text-danger' : 'text-success-soft-foreground'}>
                       {getSplitCreditAmount() > 0 ? 'اعتباری (نسیه)' : 'کل پرداخت شد ✓'}
                     </span>
-                    <span className={getSplitCreditAmount() > 0 ? 'text-danger' : 'text-success-700'}>{formatPrice(getSplitCreditAmount())}</span>
+                    <span className={getSplitCreditAmount() > 0 ? 'text-danger' : 'text-success-soft-foreground'}>{formatPrice(getSplitCreditAmount())}</span>
                   </div>
                 ) : (
-                  <div className={`flex justify-between font-semibold ${paidNow > finalAmt ? 'text-danger' : Math.max(0, finalAmt - paidNow) > 0 ? 'text-warning-700' : 'text-success-700'}`}>
+                  <div className={`flex justify-between font-semibold ${paidNow > finalAmt ? 'text-danger' : Math.max(0, finalAmt - paidNow) > 0 ? 'text-warning-soft-foreground' : 'text-success-soft-foreground'}`}>
                     <span>{paidNow > finalAmt ? '⚠ بیشتر از مبلغ' : Math.max(0, finalAmt - paidNow) > 0 ? 'نسیه (اعتباری)' : '✓ کامل پرداخت شد'}</span>
                     <span>{formatPrice(paidNow > finalAmt ? paidNow - finalAmt : Math.max(0, finalAmt - paidNow))}</span>
                   </div>
@@ -683,7 +711,7 @@ export function OrderModal({
 
           {/* Card terminal */}
           {paymentMethod === 'card' && isCardTerminalEnabled && canUseCardTerminal && allowDirectSendAmountToCardTerminal && (
-            <div className="rounded-xl border border-default-200 bg-default-50 p-3 flex flex-col gap-3 text-sm">
+            <div className="rounded-xl border border-border bg-default-soft p-3 flex flex-col gap-3 text-sm">
               <p className="font-medium text-foreground">پرداخت کارتخوان</p>
               {state.cardTerminalProfiles.length > 1 && state.cardTerminalStatus === 'idle' && (
                 <Select size="sm" label="انتخاب کارتخوان"
@@ -699,20 +727,20 @@ export function OrderModal({
                 </Button>
               )}
               {state.cardTerminalStatus === 'sending' && (
-                <div className="flex items-center gap-2 text-primary-700 py-1">
+                <div className="flex items-center gap-2 text-accent-soft-foreground py-1">
                   <span className="animate-spin text-base">⏳</span>
                   <span>در حال ارتباط با کارتخوان — لطفاً کارت بکشید...</span>
                 </div>
               )}
               {state.cardTerminalStatus === 'approved' && (
-                <div className="flex items-center gap-2 text-success-700 py-1">
+                <div className="flex items-center gap-2 text-success-soft-foreground py-1">
                   <span className="text-base">✅</span>
-                  <span>کارتخوان تأیید کرد، در حال ثبت سفارش...{state.cardTerminalRefId && <span className="text-xs text-default-500 mr-2">(Ref: {state.cardTerminalRefId})</span>}</span>
+                  <span>کارتخوان تأیید کرد، در حال ثبت سفارش...{state.cardTerminalRefId && <span className="text-xs text-muted mr-2">(Ref: {state.cardTerminalRefId})</span>}</span>
                 </div>
               )}
               {state.cardTerminalStatus === 'failed' && (
                 <div className="flex flex-col gap-2">
-                  <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-danger-700 text-xs">
+                  <div className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-danger-soft-foreground text-xs">
                     ⚠ {state.cardTerminalError || 'کارتخوان جواب نداد یا خطا رخ داد.'}
                   </div>
                   <div className="flex gap-2 flex-wrap">
@@ -741,14 +769,14 @@ export function OrderModal({
               <div className="flex flex-col gap-2">
                 {!appliedDiscountCode && state.availableDiscountCodes.length > 0 && (
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-xs text-default-500 font-medium">کدهای تخفیف این مشتری</span>
+                    <span className="text-xs text-muted font-medium">کدهای تخفیف این مشتری</span>
                     <div className="flex flex-wrap gap-1.5">
                       {state.availableDiscountCodes.map((dc) => (
                         <button key={dc.id} type="button"
-                          className={`flex flex-col items-start rounded-lg border px-2.5 py-1.5 text-right transition cursor-pointer ${discountCode.toUpperCase() === dc.code.toUpperCase() ? 'border-primary bg-primary/10 text-primary' : 'border-default-200 bg-default-50 hover:border-primary text-foreground'}`}
+                          className={`flex flex-col items-start rounded-lg border px-2.5 py-1.5 text-right transition cursor-pointer ${discountCode.toUpperCase() === dc.code.toUpperCase() ? 'border-accent bg-accent/10 text-accent' : 'border-border bg-default-soft hover:border-accent text-foreground'}`}
                           onClick={async () => { setDiscountCode(dc.code); set({ discountCodeError: '' }); setAppliedDiscountCode(null); await handleApplyDiscountCode(dc.code); }}>
                           <span className="font-mono font-bold text-xs tracking-wider">{dc.code}</span>
-                          <span className="text-xs mt-0.5 text-default-500">
+                          <span className="text-xs mt-0.5 text-muted">
                             {dc.type === 'percentage' ? `${dc.value}٪` : formatPrice(dc.value)} تخفیف
                           </span>
                         </button>
@@ -780,19 +808,22 @@ export function OrderModal({
                   placeholder={discountType === 'percentage' ? 'مثال: 10' : 'مثال: 50,000'}
                   value={discountType === 'fixed' ? (discountAmount ? formatPriceInput(String(discountAmount)) : '') : (discountAmount ? String(discountAmount) : '')}
                   onValueChange={(v) => setDiscountAmount(discountType === 'fixed' ? (Number(normalizePriceInput(v)) || 0) : (Number(v) || 0))}
-                  endContent={discountType === 'fixed' ? <span className="text-default-400 text-sm whitespace-nowrap">ریال</span> : undefined}
+                  endContent={discountType === 'fixed' ? <span className="text-muted text-sm whitespace-nowrap">ریال</span> : undefined}
                   variant="bordered" classNames={{ input: 'text-right' }} />
-                {getDiscountAmount() > 0 && <small className="text-default-500">مبلغ تخفیف: {formatPrice(getDiscountAmount())}</small>}
+                {getDiscountAmount() > 0 && <small className="text-muted">مبلغ تخفیف: {formatPrice(getDiscountAmount())}</small>}
               </>
             )}
           </div>
 
           {/* کیف پول کش‌بک — مختص همین رستوران، فقط با شماره مشتری معتبر نمایش داده می‌شود */}
           {state.cashbackBalance > 0 && (
-            <div className="flex flex-col gap-2 rounded-lg border border-teal-200 bg-teal-50 p-3">
+            <div className="flex flex-col gap-2 rounded-lg border border-success/30 bg-success-soft p-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-teal-800">موجودی کیف پول کش‌بک مشتری</span>
-                <span className="text-sm font-bold text-teal-800">{formatPrice(state.cashbackBalance)}</span>
+                <span className="flex items-center gap-1.5 text-sm font-medium text-success-soft-foreground">
+                  <WalletIcon className="h-4 w-4" aria-hidden />
+                  موجودی کیف پول کش‌بک مشتری
+                </span>
+                <span className="text-sm font-bold text-success-soft-foreground">{formatPrice(state.cashbackBalance)}</span>
               </div>
               <div className="flex gap-2 flex-wrap items-end">
                 <Input type="text" inputMode="numeric" placeholder="چقدر استفاده شود؟"
@@ -802,7 +833,7 @@ export function OrderModal({
                     const cap = Math.min(state.cashbackBalance, getFinalAmount() + cashbackRedeemAmount);
                     setCashbackRedeemAmount(Math.min(requested, cap));
                   }}
-                  endContent={<span className="text-default-400 text-sm whitespace-nowrap">ریال</span>}
+                  endContent={<span className="text-muted text-sm whitespace-nowrap">ریال</span>}
                   variant="bordered" classNames={{ input: 'text-right' }} />
                 <Button size="sm" variant="flat" color="primary"
                   onPress={() => setCashbackRedeemAmount(Math.min(state.cashbackBalance, getFinalAmount() + cashbackRedeemAmount))}>
@@ -818,18 +849,18 @@ export function OrderModal({
           {/* کاتالوگ جوایز امتیازی — مشتری با موجودی امتیازش می‌تواند اینجا یک جایزه بگیرد؛
               با گرفتن جایزه، یک کد تخفیف یک‌بارمصرف ساخته و بلافاصله روی همین سفارش اعمال می‌شود */}
           {state.pointsBalance > 0 && state.availableRewards.length > 0 && (
-            <div className="flex flex-col gap-2 rounded-lg border border-warning-200 bg-warning-50 p-3">
+            <div className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning-soft p-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-warning-700">موجودی امتیاز مشتری</span>
-                <span className="text-sm font-bold text-warning-700">{state.pointsBalance.toLocaleString('fa-IR')} امتیاز</span>
+                <span className="text-sm font-medium text-warning-soft-foreground">موجودی امتیاز مشتری</span>
+                <span className="text-sm font-bold text-warning-soft-foreground">{state.pointsBalance.toLocaleString('fa-IR')} امتیاز</span>
               </div>
               <div className="flex flex-col gap-2">
                 {state.availableRewards.map((tier) => (
-                  <div key={tier.id} className="flex flex-col gap-2 rounded-md bg-content2 border border-warning-100 p-2">
+                  <div key={tier.id} className="flex flex-col gap-2 rounded-md bg-surface-secondary border border-warning/20 p-2">
                     <div className="flex justify-between items-center gap-2">
                       <div className="flex flex-col">
                         <span className="text-sm font-medium text-foreground">{tier.title}</span>
-                        <span className="text-xs text-default-500">
+                        <span className="text-xs text-muted">
                           {tier.pointsCost.toLocaleString('fa-IR')} امتیاز
                           {tier.rewardType === 'free_specific_item' && tier.product ? ` — ${tier.product.name}` : ''}
                         </span>
@@ -871,33 +902,35 @@ export function OrderModal({
           <Textarea label="یادداشت (اختیاری)" placeholder="یادداشت برای آشپزخانه" value={notes}
             onValueChange={setNotes} minRows={2} classNames={{ input: 'text-right' }} />
 
-          {/* Summary */}
-          <div className="rounded-lg bg-default-100 p-4 space-y-2">
-            <div className="flex justify-between text-foreground">
-              <span>جمع کل:</span><span>{formatPrice(getTotalAmount())}</span>
+          {/* Summary — عمداً همه‌چیز سمت چپ (justify-end) نه دو سر ردیف، طبق درخواست */}
+          <div className="rounded-xl border border-border bg-surface p-4 space-y-2">
+            <div className="flex justify-end gap-3 text-sm text-muted">
+              <span>جمع کل</span><span className="tabular-nums text-foreground/80">{formatPrice(getTotalAmount())}</span>
             </div>
             {discountType === 'code' && appliedDiscountCode ? (
-              <div className="flex justify-between text-foreground">
-                <span>کد تخفیف ({appliedDiscountCode.code}):</span><span>- {formatPrice(appliedDiscountCode.discountAmount)}</span>
+              <div className="flex justify-end gap-3 text-sm text-muted">
+                <span>کد تخفیف ({appliedDiscountCode.code})</span><span className="tabular-nums">- {formatPrice(appliedDiscountCode.discountAmount)}</span>
               </div>
             ) : getDiscountAmount() > 0 ? (
-              <div className="flex justify-between text-foreground">
-                <span>تخفیف:</span><span>- {formatPrice(getDiscountAmount())}</span>
+              <div className="flex justify-end gap-3 text-sm text-muted">
+                <span>تخفیف</span><span className="tabular-nums">- {formatPrice(getDiscountAmount())}</span>
               </div>
             ) : null}
             {getVatAmount() > 0 && (
-              <div className="flex justify-between text-foreground">
-                <span>ارزش افزوده:</span><span>+ {formatPrice(getVatAmount())}</span>
+              <div className="flex justify-end gap-3 text-sm text-muted">
+                <span>ارزش افزوده</span><span className="tabular-nums">+ {formatPrice(getVatAmount())}</span>
               </div>
             )}
             {cashbackRedeemAmount > 0 && (
-              <div className="flex justify-between text-teal-700">
-                <span>کش‌بک استفاده‌شده:</span><span>- {formatPrice(cashbackRedeemAmount)}</span>
+              <div className="flex justify-end gap-3 text-sm text-success-soft-foreground">
+                <span>کش‌بک استفاده‌شده</span><span className="tabular-nums">- {formatPrice(cashbackRedeemAmount)}</span>
               </div>
             )}
-            <div className="flex justify-between font-bold text-foreground pt-2 border-t border-default-200">
-              <span>مبلغ نهایی:</span>
-              <span>{discountType === 'code' && !appliedDiscountCode && discountCode.trim() ? '— (کد را ثبت کنید)' : formatPrice(getFinalAmount())}</span>
+            <div className="flex items-center justify-end gap-3 rounded-lg bg-success-soft px-3 py-2.5 mt-1">
+              <span className="text-sm font-medium text-success-soft-foreground">قابل پرداخت</span>
+              <span className="text-lg font-bold tabular-nums text-success-soft-foreground">
+                {discountType === 'code' && !appliedDiscountCode && discountCode.trim() ? '— (کد را ثبت کنید)' : formatPrice(getFinalAmount())}
+              </span>
             </div>
           </div>
 
@@ -943,11 +976,13 @@ export function OrderModal({
             انصراف
           </Button>
           {!(paymentMethod === 'card' && isCardTerminalEnabled && canUseCardTerminal && allowDirectSendAmountToCardTerminal && state.cardTerminalStatus !== 'failed') && (
-            <Button color="primary" onPress={onSubmit} isLoading={isSubmitting}
+            <Button color="primary" onPress={onSubmit} isLoading={isSubmitting} className="gap-2 font-semibold"
               isDisabled={cart.length === 0 || state.cardTerminalStatus === 'sending' || state.cardTerminalStatus === 'approved'}>
+              <Sparkles className="h-4 w-4" aria-hidden />
               {isSubmitting
                 ? (editingOrderId != null ? 'در حال ذخیره...' : 'در حال ثبت...')
                 : (editingOrderId != null ? 'ذخیرهٔ فاکتور' : 'ثبت نهایی')}
+              <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-[10px] font-mono">Enter</span>
             </Button>
           )}
         </ModalFooter>

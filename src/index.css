@@ -125,27 +125,92 @@ html.dark .app-loading-screen {
   color: var(--foreground);
 }
 
-/* تم برند هوش‌منو: اکسنت و موفقیت روی توکن‌های HeroUI (دکمهٔ primary، Chip، فوکوس) */
+/*
+ * تم برند «سکه»: پالت پرمیوم POS دسکتاپ.
+ * روی توکن‌های خودِ HeroUI بازنویسی می‌شود (--background/--surface/--accent/...) تا هر
+ * کامپوننت HeroUI/compat-* (Button, Input, Modal, Chip, Toast, ...) خودکار هم‌تم شود
+ * بدون لمس هر کامپوننت به‌صورت جداگانه.
+ */
 @layer base {
   :root,
   .light,
   .default,
   [data-theme='light'],
   [data-theme='default'] {
-    --accent: oklch(0.46 0.13 254);
+    --background: oklch(0.975 0.003 260);
+    --surface: oklch(1 0 0);
+    --surface-secondary: oklch(0.965 0.004 260);
+    --surface-tertiary: oklch(0.94 0.006 260);
+    --border: oklch(0.9 0.006 260);
+    --separator: oklch(0.92 0.005 260);
+
+    --accent: oklch(0.5 0.16 258);
     --accent-foreground: var(--snow);
-    --success: oklch(0.58 0.11 168);
+    --success: oklch(0.64 0.15 155);
     --success-foreground: var(--snow);
     --focus: var(--accent);
+
+    /* فیلدهای فرم (Input/Select/Textarea) — هم‌راستا با --surface تعریف می‌شوند
+       چون پیش‌فرض HeroUI برای آن‌ها مستقل از --surface است. عرض بوردر پیش‌فرض HeroUI
+       صفر است (به shadow متکی است) که در تم دارک ما shadow هم شفاف است، پس فیلدها
+       بدون این override هیچ مرز قابل‌دیدنی نداشتند. توجه: کامپوننت‌های compat-* همیشه
+       variant="secondary" می‌فرستند که پس‌زمینه‌اش را از --default (نه --field-background)
+       می‌گیرد، پس --default هم باید با همین پالت هم‌راستا شود */
+    --field-background: var(--surface);
+    --field-foreground: var(--foreground);
+    --field-border: var(--border);
+    --field-border-width: 1px;
+    --segment: var(--surface-secondary);
+    --default: var(--surface-secondary);
+    --default-foreground: var(--foreground);
+
+    /* پالت چرخشی برای نشان دسته‌بندی‌ها — بر اساس ترتیب، نه نام کسب‌وکار */
+    --cat-1: oklch(0.58 0.19 288); /* بنفش */
+    --cat-2: oklch(0.62 0.15 155); /* سبز */
+    --cat-3: oklch(0.68 0.16 45); /* نارنجی */
+    --cat-4: oklch(0.62 0.19 355); /* صورتی */
+    --cat-5: oklch(0.55 0.16 258); /* آبی */
+    --cat-6: oklch(0.55 0.14 290); /* بنفش-آبی */
   }
 
   .dark,
   [data-theme='dark'] {
-    --accent: oklch(0.58 0.14 254);
+    /* مقادیر هگز مستقیم و ثابت (نه oklch محاسبه‌شده) — عمداً، چون این‌ها برای match
+       دقیق با رنگ‌های عکس مرجع صندوق تنظیم شده‌اند و باید همان‌طور که چشم دیده ثابت بمانند */
+    --background: #0b0e14;
+    --foreground: var(--snow);
+
+    --surface: #141922;
+    --surface-secondary: #1b212c;
+    --surface-tertiary: #232b38;
+
+    --overlay: #141922;
+
+    --border: #242b3a;
+    --separator: #1e2530;
+    --border-secondary: #2e3648;
+
+    --accent: oklch(0.6 0.17 258);
     --accent-foreground: var(--snow);
-    --success: oklch(0.62 0.1 168);
-    --success-foreground: var(--snow);
+    --success: oklch(0.68 0.16 155);
+    --success-foreground: oklch(0.15 0.02 155);
     --focus: var(--accent);
+
+    /* فیلدهای فرم — کمی روشن‌تر از کارت اطراف تا به‌عنوان قابل‌ویرایش دیده شوند،
+       با بوردر واضح‌تر از بوردر پیش‌فرض کارت‌ها */
+    --field-background: var(--surface-secondary);
+    --field-foreground: var(--foreground);
+    --field-border: var(--border-secondary);
+    --segment: var(--surface-secondary);
+    --default: var(--surface-secondary);
+    --default-foreground: var(--foreground);
+
+    --cat-1: oklch(0.68 0.18 288);
+    --cat-2: oklch(0.72 0.15 155);
+    --cat-3: oklch(0.74 0.15 45);
+    --cat-4: oklch(0.7 0.19 355);
+    --cat-5: oklch(0.68 0.16 258);
+    --cat-6: oklch(0.66 0.14 290);
   }
 }
 

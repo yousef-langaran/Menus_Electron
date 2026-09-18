@@ -101,7 +101,7 @@ export default function AccountingRawMaterialsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-default-100 p-6 space-y-4">
+    <div className="min-h-screen bg-background p-6 space-y-4">
       {/* هدر */}
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-bold">مواد اولیه</h1>
@@ -129,7 +129,7 @@ export default function AccountingRawMaterialsPage() {
 
       {/* هشدار دسته‌بندی */}
       {categories.length === 0 && (
-        <div className="bg-warning-50 border border-warning-200 rounded-lg p-3 text-sm text-warning-700">
+        <div className="bg-warning-soft border border-warning/30 rounded-lg p-3 text-sm text-warning-soft-foreground">
           ⚠️ هنوز دسته‌بندی مواد اولیه تعریف نشده. برای ثبت دسته‌بندی روی «دسته‌بندی‌ها» کلیک کنید.
         </div>
       )}
@@ -140,7 +140,7 @@ export default function AccountingRawMaterialsPage() {
           <Input placeholder="جستجو (نام/بارکد)" value={search} onValueChange={setSearch} />
 
           {filtered.length === 0 && (
-            <p className="text-center text-sm text-default-500 py-6">
+            <p className="text-center text-sm text-muted py-6">
               ماده اولیه‌ای ثبت نشده است.
             </p>
           )}
@@ -148,21 +148,21 @@ export default function AccountingRawMaterialsPage() {
           {filtered.map((m) => (
             <div
               key={m.id}
-              className="text-sm bg-default-50 border border-default-200 rounded-lg p-3 flex justify-between items-center"
+              className="text-sm bg-default-soft border border-border rounded-lg p-3 flex justify-between items-center"
             >
               <div className="space-y-0.5">
                 <div className="font-medium">{m.name}</div>
-                <div className="text-xs text-default-400 flex gap-2">
+                <div className="text-xs text-muted flex gap-2">
                   <span>موجودی: {m.currentStock}</span>
                   <span>حداقل: {m.minStock}</span>
                   <span>واحد: {m.unit || '—'}</span>
                   {catName(m.rawMaterialCategoryId) && (
-                    <span className="text-primary-600">
+                    <span className="text-accent">
                       دسته: {catName(m.rawMaterialCategoryId)}
                     </span>
                   )}
                   {!m.rawMaterialCategoryId && (
-                    <span className="text-warning-500">بدون دسته</span>
+                    <span className="text-warning">بدون دسته</span>
                   )}
                 </div>
               </div>

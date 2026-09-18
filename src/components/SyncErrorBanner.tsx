@@ -35,22 +35,22 @@ export function SyncErrorBanner() {
     <>
       <div className="flex flex-col">
         {subscriptionWarning && (
-          <div className="bg-danger-50 border-b border-danger-200 px-4 py-2 text-sm text-danger-800 text-center font-medium">
+          <div className="bg-danger-soft border-b border-danger/30 px-4 py-2 text-sm text-danger-soft-foreground text-center font-medium">
             ⚠️ {subscriptionWarning}
           </div>
         )}
         {syncMessage && (
-          <div className="bg-warning-50 border-b border-warning-200 px-4 py-2 flex items-center justify-between gap-3 text-sm text-warning-800">
+          <div className="bg-warning-soft border-b border-warning/30 px-4 py-2 flex items-center justify-between gap-3 text-sm text-warning-soft-foreground">
             <div className="flex items-center gap-2">
               <span>⚠️</span>
               <span>{syncMessage}</span>
-              <span className="text-warning-600 text-xs">— با اتصال به اینترنت خودکار همگام‌سازی می‌شود</span>
+              <span className="text-warning text-xs">— با اتصال به اینترنت خودکار همگام‌سازی می‌شود</span>
               {failedOps > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onPress={() => setDetailsOpen(true)}
-                  className="h-auto min-h-0 px-1 py-0 text-xs underline text-warning-700 hover:text-warning-900 font-medium"
+                  className="h-auto min-h-0 px-1 py-0 text-xs underline text-warning-soft-foreground hover:text-warning-soft-foreground font-medium"
                 >
                   جزئیات
                 </Button>
@@ -61,7 +61,7 @@ export function SyncErrorBanner() {
               size="sm"
               isIconOnly
               onPress={() => setLastError(null)}
-              className="text-warning-600 hover:text-warning-900 text-lg leading-none"
+              className="text-warning hover:text-warning-soft-foreground text-lg leading-none"
               aria-label="بستن"
             >
               ×

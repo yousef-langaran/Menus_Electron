@@ -117,7 +117,7 @@ export default function CashAccountsPage() {
   const totalBalance = summary.reduce((sum, s) => sum + s.balance, 0);
 
   return (
-    <div className="min-h-screen bg-default-100 p-4 space-y-4">
+    <div className="min-h-screen bg-background p-4 space-y-4">
       {/* هدر */}
       <div className="flex flex-wrap justify-between items-center gap-2">
         <h1 className="text-xl font-bold text-foreground">صندوق و حساب‌های دریافت</h1>
@@ -133,26 +133,26 @@ export default function CashAccountsPage() {
           <Card
             key={s.accountType}
             isPressable
-            className={`cursor-pointer border-2 transition-all ${filterAccount === s.accountType ? 'border-primary-500' : 'border-transparent'}`}
+            className={`cursor-pointer border-2 transition-all ${filterAccount === s.accountType ? 'border-accent' : 'border-transparent'}`}
             onPress={() => setFilterAccount(filterAccount === s.accountType ? 'all' : s.accountType)}
           >
             <CardContent className="p-3 text-center space-y-1">
-              <div className="text-xs text-default-500">{s.accountName}</div>
-              <div className={`text-lg font-bold ${s.balance >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+              <div className="text-xs text-muted">{s.accountName}</div>
+              <div className={`text-lg font-bold ${s.balance >= 0 ? 'text-success' : 'text-danger'}`}>
                 {Number(Math.abs(s.balance)).toLocaleString('fa-IR')}
               </div>
-              <div className="text-xs text-default-400">ریال · {Number(s.txCount).toLocaleString('fa-IR')} تراکنش</div>
+              <div className="text-xs text-muted">ریال · {Number(s.txCount).toLocaleString('fa-IR')} تراکنش</div>
             </CardContent>
           </Card>
         ))}
         {/* جمع کل */}
-        <Card className="border-2 border-default-300 bg-default-50">
+        <Card className="border-2 border-border-secondary bg-default-soft">
           <CardContent className="p-3 text-center space-y-1">
-            <div className="text-xs text-default-500">جمع کل</div>
-            <div className={`text-lg font-bold ${totalBalance >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+            <div className="text-xs text-muted">جمع کل</div>
+            <div className={`text-lg font-bold ${totalBalance >= 0 ? 'text-success' : 'text-danger'}`}>
               {Number(Math.abs(totalBalance)).toLocaleString('fa-IR')}
             </div>
-            <div className="text-xs text-default-400">ریال</div>
+            <div className="text-xs text-muted">ریال</div>
           </CardContent>
         </Card>
       </div>
@@ -200,49 +200,49 @@ export default function CashAccountsPage() {
             {filterAccount !== 'all' && (
               <div className="text-sm font-medium">
                 مانده {summary.find((s) => s.accountType === filterAccount)?.accountName}:
-                <span className="font-bold text-primary mr-1">
+                <span className="font-bold text-accent mr-1">
                   {Number(summary.find((s) => s.accountType === filterAccount)?.balance ?? 0).toLocaleString('fa-IR')} ریال
                 </span>
               </div>
             )}
           </div>
 
-          {loading && <p className="text-center text-sm text-default-400 py-6 animate-pulse">در حال بارگذاری...</p>}
+          {loading && <p className="text-center text-sm text-muted py-6 animate-pulse">در حال بارگذاری...</p>}
           {!loading && transactions.length === 0 && (
-            <p className="text-center text-sm text-default-500 py-8">هنوز تراکنشی ثبت نشده است.</p>
+            <p className="text-center text-sm text-muted py-8">هنوز تراکنشی ثبت نشده است.</p>
           )}
 
           {!loading && transactions.map((tx) => (
-            <div key={tx.id} className="bg-default-50 border border-default-200 rounded-lg p-3 text-sm">
+            <div key={tx.id} className="bg-default-soft border border-border rounded-lg p-3 text-sm">
               <div className="flex justify-between items-start gap-2">
                 <div className="space-y-0.5 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="bg-default-200 text-default-700 text-xs px-1.5 py-0.5 rounded">
+                    <span className="bg-default text-foreground/80 text-xs px-1.5 py-0.5 rounded">
                       {accountTypeLabel(tx.accountType)}
                     </span>
-                    <span className="text-xs text-default-500">
+                    <span className="text-xs text-muted">
                       {TRANSACTION_TYPE_LABELS[tx.transactionType] || tx.transactionType}
                     </span>
                   </div>
                   {tx.orderNumber && (
-                    <div className="text-xs text-default-500">فاکتور: {tx.orderNumber}</div>
+                    <div className="text-xs text-muted">فاکتور: {tx.orderNumber}</div>
                   )}
                   {tx.customerPhone && (
-                    <div className="text-xs text-default-500">مشتری: {tx.customerPhone}</div>
+                    <div className="text-xs text-muted">مشتری: {tx.customerPhone}</div>
                   )}
                   {tx.referenceCode && (
-                    <div className="text-xs text-default-400">کد پیگیری: {tx.referenceCode}</div>
+                    <div className="text-xs text-muted">کد پیگیری: {tx.referenceCode}</div>
                   )}
                   {tx.description && (
-                    <div className="text-xs text-default-600">{tx.description}</div>
+                    <div className="text-xs text-foreground/70">{tx.description}</div>
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
-                  <div className={`font-bold text-base ${tx.amount >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+                  <div className={`font-bold text-base ${tx.amount >= 0 ? 'text-success' : 'text-danger'}`}>
                     {formatAmount(tx.amount)} ریال
                   </div>
-                  <div className="text-xs text-default-400">{toShamsiDate(tx.date)}</div>
-                  <div className="text-xs text-default-300">{toShamsiTime(tx.createdAt)}</div>
+                  <div className="text-xs text-muted">{toShamsiDate(tx.date)}</div>
+                  <div className="text-xs text-muted">{toShamsiTime(tx.createdAt)}</div>
                 </div>
               </div>
             </div>

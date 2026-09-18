@@ -101,10 +101,10 @@ export default function ServiceJobsPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden" dir="rtl">
       {/* Header */}
-      <div className="shrink-0 border-b border-default-200 bg-content1 px-4 py-3 flex items-center gap-3 flex-wrap">
+      <div className="shrink-0 border-b border-border bg-surface px-4 py-3 flex items-center gap-3 flex-wrap">
         <h1 className="font-bold text-base shrink-0">پرونده‌های خدمت</h1>
         {pendingCount.pendingCount + pendingCount.failedCount > 0 && (
-          <span className={`text-xs px-2 py-0.5 rounded-full ${pendingCount.failedCount > 0 ? 'bg-danger-100 text-danger-700' : 'bg-warning-100 text-warning-700'}`}>
+          <span className={`text-xs px-2 py-0.5 rounded-full ${pendingCount.failedCount > 0 ? 'bg-danger-soft text-danger-soft-foreground' : 'bg-warning-soft text-warning-soft-foreground'}`}>
             {pendingCount.failedCount > 0 ? `${pendingCount.failedCount} ناموفق` : `${pendingCount.pendingCount} در صف سینک`}
           </span>
         )}
@@ -121,14 +121,14 @@ export default function ServiceJobsPage() {
 
       {/* Board tabs */}
       {boards.length > 1 && (
-        <div className="shrink-0 bg-content1 border-b border-default-200 px-3 overflow-x-auto">
+        <div className="shrink-0 bg-surface border-b border-border px-3 overflow-x-auto">
           <div className="flex gap-1 py-2 min-w-max">
             {boards.map((b) => (
               <button
                 key={b.id}
                 onClick={() => setSelectedBoardId(b.id)}
                 className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  selectedBoardId === b.id ? 'bg-primary-500 text-white' : 'text-default-600 hover:bg-default-100'
+                  selectedBoardId === b.id ? 'bg-accent text-white' : 'text-foreground/70 hover:bg-default-soft'
                 }`}
               >
                 {b.icon ? `${b.icon} ` : ''}{b.name}
@@ -139,11 +139,11 @@ export default function ServiceJobsPage() {
       )}
 
       {/* Kanban */}
-      <div className="flex-1 overflow-auto bg-default-50 p-4">
+      <div className="flex-1 overflow-auto bg-default-soft p-4">
         {isLoading ? (
-          <p className="text-sm text-default-400 text-center py-16">در حال بارگذاری…</p>
+          <p className="text-sm text-muted text-center py-16">در حال بارگذاری…</p>
         ) : boards.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-default-400 text-center">
+          <div className="flex flex-col items-center justify-center py-16 text-muted text-center">
             <p className="font-medium text-sm">هنوز بوردی تعریف نشده</p>
             <p className="text-xs mt-1">ابتدا از پنل وب یک بورد خدمت ایجاد کنید</p>
           </div>

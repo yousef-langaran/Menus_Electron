@@ -265,7 +265,7 @@ export default function AccountingPurchaseReturnsPage() {
 
   // ─── رندر ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-default-100 p-4 space-y-4" dir="rtl">
+    <div className="min-h-screen bg-background p-4 space-y-4" dir="rtl">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -291,7 +291,7 @@ export default function AccountingPurchaseReturnsPage() {
       </div>
 
       {!isOnline && (
-        <div className="rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3 text-warning-700 text-sm">
+        <div className="rounded-2xl border border-warning/30 bg-warning-soft px-4 py-3 text-warning-soft-foreground text-sm">
           اتصال به سرور برقرار نیست — تغییرات ذخیره می‌شوند و پس از برقراری اتصال همگام‌سازی خواهند شد.
         </div>
       )}
@@ -304,13 +304,13 @@ export default function AccountingPurchaseReturnsPage() {
       ) : returns.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
-            <div className="w-14 h-14 rounded-full bg-default-200 flex items-center justify-center">
-              <svg className="w-7 h-7 text-default-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-14 h-14 rounded-full bg-default flex items-center justify-center">
+              <svg className="w-7 h-7 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                   d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
               </svg>
             </div>
-            <p className="text-default-500 text-sm">هیچ مرجوعی خریدی ثبت نشده است</p>
+            <p className="text-muted text-sm">هیچ مرجوعی خریدی ثبت نشده است</p>
             {isOnline && (
               <Button color="primary" onPress={() => { resetCreateForm(); setCreateOpen(true); }}>
                 ثبت اولین مرجوعی
@@ -343,7 +343,7 @@ export default function AccountingPurchaseReturnsPage() {
                           <Chip.Label>{cfg.label}</Chip.Label>
                         </Chip>
                       </div>
-                      <div className="flex flex-wrap gap-3 text-xs text-default-500">
+                      <div className="flex flex-wrap gap-3 text-xs text-muted">
                         <span>فاکتور: #{invoiceNumber}</span>
                         <span>{supplierName}</span>
                         {ret.returnDate && <span>{toJalali(ret.returnDate)}</span>}
@@ -354,7 +354,7 @@ export default function AccountingPurchaseReturnsPage() {
                         )}
                       </div>
                       {ret.notes && (
-                        <p className="text-xs text-default-400 truncate">{ret.notes}</p>
+                        <p className="text-xs text-muted truncate">{ret.notes}</p>
                       )}
                     </div>
                     {isDraft && isOnline && (
@@ -393,7 +393,7 @@ export default function AccountingPurchaseReturnsPage() {
           <ModalHeader>ثبت برگشت از خرید</ModalHeader>
           <ModalBody className="gap-4" dir="rtl">
             {approvedInvoices.length === 0 ? (
-              <div className="rounded-2xl border border-warning-200 bg-warning-50 p-4 text-warning-700 text-sm">
+              <div className="rounded-2xl border border-warning/30 bg-warning-soft p-4 text-warning-soft-foreground text-sm">
                 فاکتور تایید‌شده‌ای یافت نشد. ابتدا یک فاکتور خرید را تایید کنید.
               </div>
             ) : (
@@ -433,17 +433,17 @@ export default function AccountingPurchaseReturnsPage() {
                   </div>
 
                   {!selectedInvoiceId && (
-                    <p className="text-xs text-default-400 py-2">ابتدا فاکتور را انتخاب کنید</p>
+                    <p className="text-xs text-muted py-2">ابتدا فاکتور را انتخاب کنید</p>
                   )}
 
                   {returnItems.map((item, idx) => (
                     <div
                       key={idx}
-                      className="rounded-xl bg-default-100 border border-default-200 p-3 space-y-2"
+                      className="rounded-xl bg-default-soft border border-border p-3 space-y-2"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-foreground">{item.name}</span>
-                        <span className="text-xs text-default-400">حداکثر: {item.maxQty}</span>
+                        <span className="text-xs text-muted">حداکثر: {item.maxQty}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <Input
@@ -464,7 +464,7 @@ export default function AccountingPurchaseReturnsPage() {
                           label="قیمت واحد"
                           value={new Intl.NumberFormat('en-US').format(Number(normalizePriceInput(item.unitPrice) || 0))}
                           onValueChange={(v) => updateReturnItem(idx, { unitPrice: normalizePriceInput(v) })}
-                          endContent={<span className="text-default-400 text-xs whitespace-nowrap">ریال</span>}
+                          endContent={<span className="text-muted text-xs whitespace-nowrap">ریال</span>}
                         />
                       </div>
                     </div>
@@ -472,9 +472,9 @@ export default function AccountingPurchaseReturnsPage() {
                 </div>
 
                 {totalAmount > 0 && (
-                  <div className="rounded-2xl bg-success-50 border border-success-200 px-4 py-3">
-                    <span className="text-sm text-success-700">جمع مرجوعی: </span>
-                    <span className="font-bold text-success-800">{formatCurrency(totalAmount)}</span>
+                  <div className="rounded-2xl bg-success-soft border border-success/30 px-4 py-3">
+                    <span className="text-sm text-success-soft-foreground">جمع مرجوعی: </span>
+                    <span className="font-bold text-success-soft-foreground">{formatCurrency(totalAmount)}</span>
                   </div>
                 )}
               </>

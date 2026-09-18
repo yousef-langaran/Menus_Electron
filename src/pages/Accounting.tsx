@@ -38,18 +38,18 @@ export default function AccountingPage() {
   }, [restaurantId, token, setSelectedFiscalYear]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-default-100">
-      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm">
+    <div className="min-h-screen flex flex-col bg-background">
+      <header className="shrink-0 bg-surface border-b border-border px-4 py-3 shadow-sm">
         <h1 className="text-lg sm:text-xl font-bold text-foreground">حسابداری</h1>
       </header>
 
       <div className="p-6 max-w-5xl mx-auto w-full space-y-4">
         <Card>
           <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-            <div className="bg-default-100 rounded-lg p-2">عملیات صف: {pendingOps}</div>
-            <div className="bg-default-100 rounded-lg p-2">ناموفق: {failedOps}</div>
-            <div className="bg-default-100 rounded-lg p-2">در حال سینک: {isSyncing ? 'بله' : 'خیر'}</div>
-            <div className="bg-default-100 rounded-lg p-2">
+            <div className="bg-default-soft rounded-lg p-2">عملیات صف: {pendingOps}</div>
+            <div className="bg-default-soft rounded-lg p-2">ناموفق: {failedOps}</div>
+            <div className="bg-default-soft rounded-lg p-2">در حال سینک: {isSyncing ? 'بله' : 'خیر'}</div>
+            <div className="bg-default-soft rounded-lg p-2">
               آخرین سینک: {lastSyncedAt ? toShamsiDateTime(lastSyncedAt) : '—'}
             </div>
           </CardContent>
@@ -95,7 +95,7 @@ export default function AccountingPage() {
             <Card>
               <CardContent className="gap-2">
                 <h3 className="font-semibold">مواد اولیه</h3>
-                <p className="text-sm text-default-500">ثبت، جستجو و ویرایش مواد اولیه</p>
+                <p className="text-sm text-muted">ثبت، جستجو و ویرایش مواد اولیه</p>
                 <Button color="primary" onPress={() => navigate('/accounting/raw-materials')}>ورود</Button>
               </CardContent>
             </Card>
@@ -104,7 +104,7 @@ export default function AccountingPage() {
             <Card>
               <CardContent className="gap-2">
                 <h3 className="font-semibold">دسته‌بندی مواد اولیه</h3>
-                <p className="text-sm text-default-500">تعریف و ویرایش دسته‌بندی مواد اولیه</p>
+                <p className="text-sm text-muted">تعریف و ویرایش دسته‌بندی مواد اولیه</p>
                 <Button color="secondary" onPress={() => navigate('/accounting/raw-material-categories')}>ورود</Button>
               </CardContent>
             </Card>
@@ -113,7 +113,7 @@ export default function AccountingPage() {
             <Card>
               <CardContent className="gap-2">
                 <h3 className="font-semibold">تامین‌کنندگان</h3>
-                <p className="text-sm text-default-500">ثبت، جستجو و ویرایش تامین‌کننده</p>
+                <p className="text-sm text-muted">ثبت، جستجو و ویرایش تامین‌کننده</p>
                 <Button color="primary" onPress={() => navigate('/accounting/suppliers')}>ورود</Button>
               </CardContent>
             </Card>
@@ -122,7 +122,7 @@ export default function AccountingPage() {
             <Card>
               <CardContent className="gap-2">
                 <h3 className="font-semibold">فاکتورهای خرید</h3>
-                <p className="text-sm text-default-500">ثبت پیش‌نویس، مشاهده و تایید فاکتورهای خرید</p>
+                <p className="text-sm text-muted">ثبت پیش‌نویس، مشاهده و تایید فاکتورهای خرید</p>
                 <Button color="primary" onPress={() => navigate('/accounting/purchase-drafts')}>ورود</Button>
               </CardContent>
             </Card>
@@ -131,7 +131,7 @@ export default function AccountingPage() {
             <Card>
               <CardContent className="gap-2">
                 <h3 className="font-semibold">ثبت هزینه</h3>
-                <p className="text-sm text-default-500">ثبت هزینه‌های عملیاتی با دسته‌بندی</p>
+                <p className="text-sm text-muted">ثبت هزینه‌های عملیاتی با دسته‌بندی</p>
                 <Button color="primary" onPress={() => navigate('/accounting/expenses')}>ورود</Button>
               </CardContent>
             </Card>
@@ -140,7 +140,7 @@ export default function AccountingPage() {
             <Card>
               <CardContent className="gap-2">
                 <h3 className="font-semibold">دسته‌بندی هزینه‌ها</h3>
-                <p className="text-sm text-default-500">تعریف، ویرایش و غیرفعال‌سازی دسته‌بندی هزینه</p>
+                <p className="text-sm text-muted">تعریف، ویرایش و غیرفعال‌سازی دسته‌بندی هزینه</p>
                 <Button color="secondary" onPress={() => navigate('/accounting/expense-categories')}>ورود</Button>
               </CardContent>
             </Card>
@@ -149,7 +149,7 @@ export default function AccountingPage() {
             <Card>
               <CardContent className="gap-2">
                 <h3 className="font-semibold">صندوق و حساب‌ها</h3>
-                <p className="text-sm text-default-500">موجودی صندوق، کارتخوان و آنلاین — دریافت وجه نقدی و کارتی</p>
+                <p className="text-sm text-muted">موجودی صندوق، کارتخوان و آنلاین — دریافت وجه نقدی و کارتی</p>
                 <Button color="primary" onPress={() => navigate('/accounting/cash-accounts')}>ورود</Button>
               </CardContent>
             </Card>

@@ -34,13 +34,13 @@ function SyncBadge({ status }: { status: LocalCategory['_syncStatus'] }) {
   if (status === 'synced') return null;
   if (status === 'pending_create' || status === 'pending_update') {
     return (
-      <span className="text-xs bg-warning-100 text-warning-700 border border-warning-300 px-2 py-0.5 rounded-full">
+      <span className="text-xs bg-warning-soft text-warning-soft-foreground border border-warning/40 px-2 py-0.5 rounded-full">
         در انتظار سینک
       </span>
     );
   }
   return (
-    <span className="text-xs bg-danger-100 text-danger-700 border border-danger-300 px-2 py-0.5 rounded-full">
+    <span className="text-xs bg-danger-soft text-danger-soft-foreground border border-danger/40 px-2 py-0.5 rounded-full">
       خطای سینک
     </span>
   );
@@ -181,11 +181,11 @@ export default function CategoriesPage() {
   }, [rows, search]);
 
   return (
-    <div className="min-h-screen bg-default-100">
-      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm flex items-center justify-between">
+    <div className="min-h-screen bg-background">
+      <header className="shrink-0 bg-surface border-b border-border px-4 py-3 shadow-sm flex items-center justify-between">
         <h1 className="text-lg sm:text-xl font-bold">مدیریت دسته‌بندی‌ها</h1>
         {!isOnline && (
-          <span className="text-xs bg-warning-100 text-warning-700 border border-warning-300 px-2 py-1 rounded-full">
+          <span className="text-xs bg-warning-soft text-warning-soft-foreground border border-warning/40 px-2 py-1 rounded-full">
             آفلاین — تغییرات ذخیره می‌شوند
           </span>
         )}
@@ -200,24 +200,24 @@ export default function CategoriesPage() {
         <Card>
           <CardContent className="space-y-2">
             {loading ? (
-              <p className="text-default-500">در حال بارگذاری...</p>
+              <p className="text-muted">در حال بارگذاری...</p>
             ) : filtered.length === 0 ? (
-              <p className="text-default-500">دسته‌بندی‌ای یافت نشد.</p>
+              <p className="text-muted">دسته‌بندی‌ای یافت نشد.</p>
             ) : (
               filtered.map((c) => (
-                <div key={c.id} className="rounded-lg border border-default-200 p-3 space-y-1">
+                <div key={c.id} className="rounded-lg border border-border p-3 space-y-1">
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
                       <div className="font-semibold flex items-center gap-2">
                         {c.name_fa || c.name}
                         {c.hasVat && (
-                          <span className="text-xs bg-warning-100 text-warning-700 border border-warning-300 px-2 py-0.5 rounded-full">
+                          <span className="text-xs bg-warning-soft text-warning-soft-foreground border border-warning/40 px-2 py-0.5 rounded-full">
                             ارزش افزوده
                           </span>
                         )}
                         <SyncBadge status={c._syncStatus} />
                       </div>
-                      <div className="text-xs text-default-500">{c.description || '—'}</div>
+                      <div className="text-xs text-muted">{c.description || '—'}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       {c._syncStatus === 'failed' && (
@@ -237,7 +237,7 @@ export default function CategoriesPage() {
                     </div>
                   </div>
                   {c._syncStatus === 'failed' && c._syncError && (
-                    <p className="text-xs text-danger-600 bg-danger-50 border border-danger-200 rounded px-2 py-1">
+                    <p className="text-xs text-danger bg-danger-soft border border-danger/30 rounded px-2 py-1">
                       {c._syncError}
                     </p>
                   )}
@@ -254,14 +254,14 @@ export default function CategoriesPage() {
             <Input label="نام فارسی" value={form.name_fa} onValueChange={(v) => setForm((f) => ({ ...f, name_fa: v }))} />
             <Input label="نام انگلیسی (اختیاری)" value={form.name} onValueChange={(v) => setForm((f) => ({ ...f, name: v }))} />
             <Input label="توضیحات (اختیاری)" value={form.description} onValueChange={(v) => setForm((f) => ({ ...f, description: v }))} />
-            <div className="rounded-lg border border-default-200 p-3 space-y-1">
+            <div className="rounded-lg border border-border p-3 space-y-1">
               <SwitchCompat
                 isSelected={form.hasVat}
                 onValueChange={(v) => setForm((f) => ({ ...f, hasVat: v }))}
               >
                 مشمول مالیات بر ارزش افزوده
               </SwitchCompat>
-              <p className="text-xs text-default-500">
+              <p className="text-xs text-muted">
                 قیمت نمایشی محصولات این دسته تغییر نمی‌کند؛ مبلغ ارزش افزوده فقط هنگام تسویه
                 زیر ردیف تخفیف در فیش نوشته و به مبلغ قابل پرداخت اضافه می‌شود.
               </p>

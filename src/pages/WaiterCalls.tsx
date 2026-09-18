@@ -133,12 +133,12 @@ export default function WaiterCallsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-default-100 p-4 space-y-4">
+    <div className="min-h-screen bg-background p-4 space-y-4">
       <div className="max-w-5xl mx-auto space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-xl font-bold">فراخوان گارسون</h1>
-            <p className="text-xs text-default-500">
+            <p className="text-xs text-muted">
               درخواست‌های مشتری از روی QR میز — بدون دستگاه پیجر
             </p>
           </div>
@@ -156,13 +156,13 @@ export default function WaiterCallsPage() {
 
         {isLoading ? (
           <Card>
-            <CardContent className="py-10 text-center text-default-500">
+            <CardContent className="py-10 text-center text-muted">
               در حال بارگذاری…
             </CardContent>
           </Card>
         ) : active.length === 0 ? (
           <Card>
-            <CardContent className="py-10 text-center text-default-500">
+            <CardContent className="py-10 text-center text-muted">
               در حال حاضر درخواست بازی وجود ندارد.
             </CardContent>
           </Card>
@@ -172,12 +172,12 @@ export default function WaiterCallsPage() {
               const waiting = minutesSince(call.createdAt);
               const urgent = call.status === 'pending' && waiting >= 5;
               return (
-                <Card key={call.id} className={urgent ? 'border border-danger-400' : undefined}>
+                <Card key={call.id} className={urgent ? 'border border-danger/60' : undefined}>
                   <CardContent className="gap-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="font-bold text-lg">میز {call.tableName}</p>
-                        <p className="text-xs text-default-500">
+                        <p className="text-xs text-muted">
                           {call.typeLabel || WAITER_CALL_TYPE_LABELS[call.type]}
                         </p>
                       </div>
@@ -187,10 +187,10 @@ export default function WaiterCallsPage() {
                     </div>
 
                     {call.note ? (
-                      <p className="text-sm bg-default-200 rounded-lg px-3 py-2">{call.note}</p>
+                      <p className="text-sm bg-default rounded-lg px-3 py-2">{call.note}</p>
                     ) : null}
 
-                    <div className="flex items-center justify-between text-xs text-default-500">
+                    <div className="flex items-center justify-between text-xs text-muted">
                       <span>ثبت: {toShamsiTime(call.createdAt)}</span>
                       <span className={urgent ? 'text-danger font-medium' : undefined}>
                         {waiting.toLocaleString('fa-IR')} دقیقه در انتظار
@@ -239,25 +239,25 @@ export default function WaiterCallsPage() {
         {history.length > 0 && (
           <Card>
             <CardContent className="gap-0 p-0">
-              <p className="px-4 py-3 text-sm font-semibold border-b border-default-200">
+              <p className="px-4 py-3 text-sm font-semibold border-b border-border">
                 آخرین فراخوان‌ها
               </p>
               {history.map((call) => (
                 <div
                   key={call.id}
-                  className="flex items-center gap-3 px-4 py-2 border-b border-default-100 text-sm flex-wrap"
+                  className="flex items-center gap-3 px-4 py-2 border-b border-border text-sm flex-wrap"
                 >
                   <span className="font-medium">میز {call.tableName}</span>
-                  <span className="text-default-500">
+                  <span className="text-muted">
                     {call.typeLabel || WAITER_CALL_TYPE_LABELS[call.type]}
                   </span>
                   <Chip size="sm" color={STATUS_COLORS[call.status]} variant="soft">
                     {WAITER_CALL_STATUS_LABELS[call.status]}
                   </Chip>
                   {call.acceptedByName ? (
-                    <span className="text-xs text-default-500">{call.acceptedByName}</span>
+                    <span className="text-xs text-muted">{call.acceptedByName}</span>
                   ) : null}
-                  <span className="text-xs text-default-400 ms-auto">
+                  <span className="text-xs text-muted ms-auto">
                     {toShamsiTime(call.createdAt)}
                   </span>
                 </div>

@@ -78,7 +78,7 @@ export default function KardexReportPage() {
   }, [restaurantId, itemId, itemType, token]);
 
   return (
-    <div className="min-h-screen bg-default-100 p-4 space-y-4" dir="rtl">
+    <div className="min-h-screen bg-background p-4 space-y-4" dir="rtl">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-foreground">گزارش کاردکس کالا</h1>
         <Button variant="flat" size="sm" onPress={() => navigate('/accounting')}>بازگشت</Button>
@@ -86,15 +86,15 @@ export default function KardexReportPage() {
 
       <Card>
         <CardContent className="py-4 px-4 space-y-3">
-          <p className="text-xs text-default-400">
+          <p className="text-xs text-muted">
             تاریخچهٔ کامل ورود/خروج یک کالا — برای کالای نهایی، قیمت خرید و قیمت فروشِ ثبت‌شده در هر فاکتور خرید هم نشان داده می‌شود تا مشخص شود کدام فاکتور باعث تغییر (یا صفر شدن) قیمت فروش شده است.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="flex rounded-full bg-default-200 p-0.5 gap-0.5 self-start sm:col-span-1">
+            <div className="flex rounded-full bg-default p-0.5 gap-0.5 self-start sm:col-span-1">
               <button
                 type="button"
                 className={`flex-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                  itemType === 'final_product' ? 'bg-white text-primary shadow-sm' : 'text-default-500 hover:text-default-700'
+                  itemType === 'final_product' ? 'bg-white text-accent shadow-sm' : 'text-muted hover:text-foreground/80'
                 }`}
                 onClick={() => { setItemType('final_product'); setItemId(null); setReport(null); setHasSearched(false); }}
               >
@@ -103,7 +103,7 @@ export default function KardexReportPage() {
               <button
                 type="button"
                 className={`flex-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                  itemType === 'raw_material' ? 'bg-white text-orange-600 shadow-sm' : 'text-default-500 hover:text-default-700'
+                  itemType === 'raw_material' ? 'bg-white text-orange-600 shadow-sm' : 'text-muted hover:text-foreground/80'
                 }`}
                 onClick={() => { setItemType('raw_material'); setItemId(null); setReport(null); setHasSearched(false); }}
               >
@@ -138,7 +138,7 @@ export default function KardexReportPage() {
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div>
                 <p className="font-semibold text-foreground">{report.item.name}</p>
-                <p className="text-xs text-default-400">
+                <p className="text-xs text-muted">
                   موجودی فعلی: {formatQty(report.item.currentStock)} {report.item.unit || ''}
                 </p>
               </div>
@@ -146,12 +146,12 @@ export default function KardexReportPage() {
             </div>
 
             {report.rows.length === 0 ? (
-              <p className="text-default-400 text-sm text-center py-8">برای این کالا هنوز رویدادی ثبت نشده است</p>
+              <p className="text-muted text-sm text-center py-8">برای این کالا هنوز رویدادی ثبت نشده است</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-default-200 text-default-500">
+                    <tr className="border-b border-border text-muted">
                       <th className="text-right py-2 px-2 font-medium">تاریخ</th>
                       <th className="text-right py-2 px-2 font-medium">رویداد</th>
                       <th className="text-center py-2 px-2 font-medium">مقدار</th>
@@ -174,11 +174,11 @@ export default function KardexReportPage() {
                       return (
                         <tr
                           key={row.id}
-                          className={`border-b border-default-100 ${zeroSalePriceWarning ? 'bg-danger-50' : ''}`}
+                          className={`border-b border-border ${zeroSalePriceWarning ? 'bg-danger-soft' : ''}`}
                         >
-                          <td className="py-2 px-2 text-default-500 whitespace-nowrap">{toShamsiDateTime(row.date)}</td>
+                          <td className="py-2 px-2 text-muted whitespace-nowrap">{toShamsiDateTime(row.date)}</td>
                           <td className="py-2 px-2">
-                            <span className={`inline-flex items-center gap-1 ${row.isIncrease ? 'text-success-600' : 'text-danger-600'}`}>
+                            <span className={`inline-flex items-center gap-1 ${row.isIncrease ? 'text-success' : 'text-danger'}`}>
                               {row.isIncrease ? '▲' : '▼'} {MOVEMENT_LABELS[row.movementType] || row.movementType}
                             </span>
                           </td>
@@ -186,11 +186,11 @@ export default function KardexReportPage() {
                             {row.isIncrease ? '+' : '-'}{formatQty(row.quantity)}
                           </td>
                           <td className="py-2 px-2 text-center tabular-nums font-medium">{formatQty(row.balanceAfter)}</td>
-                          <td className="py-2 px-2 text-default-500">{row.invoiceNumber || '—'}</td>
+                          <td className="py-2 px-2 text-muted">{row.invoiceNumber || '—'}</td>
                           {itemType === 'final_product' && (
                             <>
                               <td className="py-2 px-2 text-center tabular-nums">{formatCurrency(row.unitPrice)}</td>
-                              <td className={`py-2 px-2 text-center tabular-nums ${zeroSalePriceWarning ? 'text-danger-600 font-bold' : ''}`}>
+                              <td className={`py-2 px-2 text-center tabular-nums ${zeroSalePriceWarning ? 'text-danger font-bold' : ''}`}>
                                 {row.salePrice == null ? '—' : formatCurrency(row.salePrice)}
                               </td>
                             </>

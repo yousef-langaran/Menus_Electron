@@ -66,7 +66,7 @@ export function AddJobItemModal({ isOpen, onClose, onSave, editItem }: Props) {
                 key={t.value}
                 onClick={() => setItemType(t.value)}
                 className={`flex-1 py-1.5 rounded-xl text-sm border transition-colors ${
-                  itemType === t.value ? 'bg-primary-500 text-white border-primary-500' : 'border-default-200 text-default-600 hover:border-primary-300'
+                  itemType === t.value ? 'bg-accent text-white border-accent' : 'border-border text-foreground/70 hover:border-accent/40'
                 }`}
               >
                 {t.label}
@@ -82,8 +82,8 @@ export function AddJobItemModal({ isOpen, onClose, onSave, editItem }: Props) {
               onValueChange={(v) => setUnitPrice(v === '' ? '' : String(parseFormattedNumber(v)))}
             />
           </div>
-          <div className="flex justify-between items-center px-3 py-2 bg-default-100 rounded-xl text-sm">
-            <span className="text-default-500">جمع این قلم:</span>
+          <div className="flex justify-between items-center px-3 py-2 bg-default-soft rounded-xl text-sm">
+            <span className="text-muted">جمع این قلم:</span>
             <span className="font-bold font-mono">{lineTotal.toLocaleString('fa-IR')} ریال</span>
           </div>
           {itemType === 'product' && (

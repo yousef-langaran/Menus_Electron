@@ -111,17 +111,17 @@ export function SyncFailedOpsModal({ isOpen, onClose }: Props) {
         </ModalHeader>
         <ModalBody>
           {loading ? (
-            <p className="text-sm text-default-500 text-center py-6">در حال بارگذاری...</p>
+            <p className="text-sm text-muted text-center py-6">در حال بارگذاری...</p>
           ) : ops.length === 0 ? (
-            <p className="text-sm text-success-600 text-center py-6">هیچ عملیات ناموفقی وجود ندارد.</p>
+            <p className="text-sm text-success text-center py-6">هیچ عملیات ناموفقی وجود ندارد.</p>
           ) : (
             <div className="flex flex-col gap-2">
-              <p className="text-xs text-default-500 mb-1">
+              <p className="text-xs text-muted mb-1">
                 {ops.length} عملیات ناموفق — با اتصال به اینترنت و کلیک «تلاش مجدد» ارسال می‌شوند.
               </p>
-              <div className="rounded-lg border border-default-200 overflow-hidden">
+              <div className="rounded-lg border border-border overflow-hidden">
                 <table className="w-full text-sm text-right">
-                  <thead className="bg-default-100 text-default-600 text-xs">
+                  <thead className="bg-default-soft text-foreground/70 text-xs">
                     <tr>
                       <th className="px-3 py-2 font-medium">نوع موجودیت</th>
                       <th className="px-3 py-2 font-medium">عملیات</th>
@@ -135,7 +135,7 @@ export function SyncFailedOpsModal({ isOpen, onClose }: Props) {
                     {ops.map((op, idx) => (
                       <tr
                         key={op.id ?? idx}
-                        className="border-t border-default-100 hover:bg-default-50"
+                        className="border-t border-border hover:bg-default-soft"
                       >
                         <td className="px-3 py-2 whitespace-nowrap">
                           {ENTITY_LABELS[op.entityType] ?? op.entityType}
@@ -144,22 +144,22 @@ export function SyncFailedOpsModal({ isOpen, onClose }: Props) {
                           <span
                             className={
                               op.operationType === 'delete'
-                                ? 'text-danger-600'
+                                ? 'text-danger'
                                 : op.operationType === 'create'
-                                  ? 'text-success-600'
-                                  : 'text-warning-700'
+                                  ? 'text-success'
+                                  : 'text-warning-soft-foreground'
                             }
                           >
                             {OP_LABELS[op.operationType] ?? op.operationType}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-center">{op.retryCount ?? 0}</td>
-                        <td className="px-3 py-2 text-danger-700 max-w-[220px]">
+                        <td className="px-3 py-2 text-danger-soft-foreground max-w-[220px]">
                           <span className="line-clamp-2 text-xs" title={op.errorMessage}>
                             {op.errorMessage || '—'}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-xs text-default-400 whitespace-nowrap">
+                        <td className="px-3 py-2 text-xs text-muted whitespace-nowrap">
                           {op.updatedAt ? toShamsiDateTime(op.updatedAt) : '—'}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">

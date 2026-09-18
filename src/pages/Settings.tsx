@@ -8,6 +8,7 @@ import { SwitchCompat as Switch } from '../ui/compat-switch';
 import { useAuthStore } from '../store/authStore';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
 import { useThemeStore } from '../store/themeStore';
+import { useCatalogDisplayStore } from '../store/catalogDisplayStore';
 import { getReceiptNumberSettingsFromServer, getPrintTemplates, type PrintTemplateItem, WEB_PANEL_URL } from '../services/api';
 import { printTemplateKey, resolveTemplateForPrinter } from '../utils/printTemplates';
 import { useSyncStore } from '../store/syncStore';
@@ -39,6 +40,7 @@ export default function SettingsPage() {
     loadFromStorage,
   } = usePrinterSettingsStore();
   const { theme, setTheme } = useThemeStore();
+  const { showProductImages, setShowProductImages } = useCatalogDisplayStore();
 const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string, string> } | null>(null);
   const {
     isOnline: accountingOnline,
@@ -591,25 +593,25 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-default-100">
-      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm">
+    <div className="min-h-screen flex flex-col bg-background">
+      <header className="shrink-0 bg-surface border-b border-border px-4 py-3 shadow-sm">
         <h1 className="text-lg sm:text-xl font-bold text-foreground">تنظیمات</h1>
       </header>
 
       <div className="flex-1 overflow-auto p-6 max-w-3xl mx-auto w-full space-y-6">
         <Card>
           <CardContent className="gap-3">
-            <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">اطلاعات کاربر</h2>
-            <div className="flex justify-between py-2 border-b border-default-200">
-              <span className="text-default-500">نام:</span>
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">اطلاعات کاربر</h2>
+            <div className="flex justify-between py-2 border-b border-border">
+              <span className="text-muted">نام:</span>
               <span>{user?.firstName} {user?.lastName}</span>
             </div>
-            <div className="flex justify-between py-2 border-b border-default-200">
-              <span className="text-default-500">موبایل:</span>
+            <div className="flex justify-between py-2 border-b border-border">
+              <span className="text-muted">موبایل:</span>
               <span>{user?.mobile}</span>
             </div>
             <div className="flex justify-between py-2">
-              <span className="text-default-500">رستوران:</span>
+              <span className="text-muted">رستوران:</span>
               <span>{user?.restaurants?.[0]?.name || 'تعیین نشده'}</span>
             </div>
           </CardContent>
@@ -618,8 +620,8 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
 
         <Card>
           <CardContent className="gap-3">
-            <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">پنل وب</h2>
-            <p className="text-sm text-default-500">
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">پنل وب</h2>
+            <p className="text-sm text-muted">
               برای دسترسی به گزارش‌ها و تنظیمات کامل، پنل مدیریت وب را در مرورگر باز کنید.
             </p>
             <Button color="primary" onPress={handleOpenWebPanel} className="w-full">
@@ -631,8 +633,8 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
         {window.electronAPI?.saveCardTerminalConfig && (
           <Card>
             <CardContent className="gap-3">
-              <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">کارتخوان‌ها</h2>
-              <p className="text-sm text-default-500">
+              <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">کارتخوان‌ها</h2>
+              <p className="text-sm text-muted">
                 مدیریت، افزودن و ویرایش کارتخوان‌ها از صفحه اختصاصی انجام می‌شود.
               </p>
               <Button variant="flat" color="primary" size="sm" onPress={() => navigate('/card-terminals')}>
@@ -644,13 +646,24 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
 
         <Card>
           <CardContent className="gap-3">
-            <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">ظاهر</h2>
-            <div className="flex justify-between items-center py-2">
-              <span className="text-default-500">حالت تاریک (دارک)</span>
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">ظاهر</h2>
+            <div className="flex justify-between items-center py-2 border-b border-border">
+              <span className="text-muted">حالت تاریک (دارک)</span>
               <Switch
                 isSelected={theme === 'dark'}
                 onValueChange={(isDark) => setTheme(isDark ? 'dark' : 'light')}
                 aria-label="حالت تاریک"
+              />
+            </div>
+            <div className="flex justify-between items-center py-2">
+              <div className="flex flex-col">
+                <span className="text-foreground">نمایش عکس محصولات</span>
+                <span className="text-muted text-xs">در گرید ثبت سفارش و سبد خرید — غیرفعال کردن، صفحه را فشرده‌تر و سریع‌تر می‌کند.</span>
+              </div>
+              <Switch
+                isSelected={showProductImages}
+                onValueChange={setShowProductImages}
+                aria-label="نمایش عکس محصولات"
               />
             </div>
           </CardContent>
@@ -658,9 +671,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
 
         <Card>
           <CardContent className="gap-3">
-            <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">وضعیت اتصال</h2>
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">وضعیت اتصال</h2>
             <div className="flex justify-between items-center py-2">
-              <span className="text-default-500">وضعیت:</span>
+              <span className="text-muted">وضعیت:</span>
               <span className={isOnline ? 'text-success font-bold' : 'text-danger font-bold'}>
                 {isOnline ? 'آنلاین' : 'آفلاین'}
               </span>
@@ -670,18 +683,18 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
 
         <Card>
           <CardContent className="gap-3">
-            <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">همگام‌سازی</h2>
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">همگام‌سازی</h2>
             <Button color="primary" onPress={handleSync} className="w-full">
               همگام‌سازی سفارشات آفلاین
             </Button>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="rounded-lg bg-default-100 p-2">آنلاین: {accountingOnline ? 'بله' : 'خیر'}</div>
-              <div className="rounded-lg bg-default-100 p-2">در حال سینک: {accountingSyncing ? 'بله' : 'خیر'}</div>
-              <div className="rounded-lg bg-default-100 p-2">عملیات صف: {accountingPendingOps}</div>
-              <div className="rounded-lg bg-default-100 p-2">ناموفق: {accountingFailedOps}</div>
+              <div className="rounded-lg bg-default-soft p-2">آنلاین: {accountingOnline ? 'بله' : 'خیر'}</div>
+              <div className="rounded-lg bg-default-soft p-2">در حال سینک: {accountingSyncing ? 'بله' : 'خیر'}</div>
+              <div className="rounded-lg bg-default-soft p-2">عملیات صف: {accountingPendingOps}</div>
+              <div className="rounded-lg bg-default-soft p-2">ناموفق: {accountingFailedOps}</div>
             </div>
             {accountingLastSyncedAt ? (
-              <p className="text-xs text-default-500">
+              <p className="text-xs text-muted">
                 آخرین سینک حسابداری: {new Date(accountingLastSyncedAt).toLocaleString('fa-IR')}
               </p>
             ) : null}
@@ -694,8 +707,8 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
         {window.electronAPI?.checkForUpdates && (
           <Card>
             <CardContent className="gap-3">
-              <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">بروزرسانی برنامه</h2>
-              <p className="text-default-500 text-sm">در صورت وجود نسخه جدید، بنر بروزرسانی در بالای صفحه نمایش داده می‌شود.</p>
+              <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">بروزرسانی برنامه</h2>
+              <p className="text-muted text-sm">در صورت وجود نسخه جدید، بنر بروزرسانی در بالای صفحه نمایش داده می‌شود.</p>
               <Button
                 color="primary"
                 variant="flat"
@@ -721,24 +734,24 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
         <Card>
           <CardContent className="gap-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-foreground border-b-2 border-primary pb-2">تنظیمات پرینتر</h2>
+              <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">تنظیمات پرینتر</h2>
               <Button size="sm" variant="light" color="primary" onPress={loadPrinters}>
                 بروزرسانی لیست
               </Button>
             </div>
-            <div className="flex items-center justify-between rounded-lg border border-default-200 p-3">
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
               <div className="flex flex-col">
                 <span className="font-medium text-foreground">چاپ خودکار سفارش‌های آنلاین جدید</span>
-                <span className="text-sm text-default-500">
+                <span className="text-sm text-muted">
                   به‌محض رسیدن هر سفارش آنلاین جدید، رسیدهای فعال روی پرینترهای فعال بدون نیاز به کلیک دستی چاپ می‌شوند.
                 </span>
               </div>
               <Switch isSelected={autoPrintOnNewOrder} onValueChange={setAutoPrintOnNewOrder} />
             </div>
             {isLoadingPrinters ? (
-              <p className="text-default-500">در حال دریافت لیست پرینترها...</p>
+              <p className="text-muted">در حال دریافت لیست پرینترها...</p>
             ) : availablePrinters.length === 0 ? (
-              <p className="text-default-500">هیچ پرینتری یافت نشد.</p>
+              <p className="text-muted">هیچ پرینتری یافت نشد.</p>
             ) : (
               <div className="flex flex-col gap-4">
                 {availablePrinters.map((printer) => {
@@ -754,7 +767,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                     : defaultTemplate;
                   const templateValue = effectiveTemplate ? String(effectiveTemplate.id) : 'none';
                   return (
-                    <Card key={printer.name} className="shadow-sm border border-default-200">
+                    <Card key={printer.name} className="shadow-sm border border-border">
                       <CardContent className="gap-4">
                         <div className="flex flex-col gap-1">
                           <Checkbox
@@ -765,13 +778,13 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                             {printer.displayName || printer.name}
                           </Checkbox>
                           {printer.description && (
-                            <p className="text-sm text-default-500 mr-6">{printer.description}</p>
+                            <p className="text-sm text-muted mr-6">{printer.description}</p>
                           )}
                         </div>
                         {isEnabled && (
-                          <div className="flex flex-col gap-4 pr-6 border-t border-default-200 pt-4">
+                          <div className="flex flex-col gap-4 pr-6 border-t border-border pt-4">
                             {loadingTemplates ? (
-                              <p className="text-sm text-default-500">در حال بارگذاری قالب‌ها...</p>
+                              <p className="text-sm text-muted">در حال بارگذاری قالب‌ها...</p>
                             ) : (
                               <Select
                                 label="قالب چاپ این پرینتر"
@@ -796,7 +809,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                               </Select>
                             )}
                             {!loadingTemplates && (
-                              <p className="text-xs text-default-500 -mt-2">
+                              <p className="text-xs text-muted -mt-2">
                                 قالب پایهٔ این پرینتر؛ هر رسید می‌تواند در بخش «نوع رسید» قالب متفاوت خودش را داشته باشد.
                               </p>
                             )}
@@ -832,10 +845,10 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                 size="sm"
                               />
                             </div>
-                            <div className="border-t border-default-200 pt-4 space-y-3">
+                            <div className="border-t border-border pt-4 space-y-3">
                               <h3 className="text-sm font-medium text-foreground">نوع رسید</h3>
                               <div className="flex flex-col gap-3">
-                                <div className="flex flex-col gap-3 p-3 rounded-lg bg-default-50 border border-default-200">
+                                <div className="flex flex-col gap-3 p-3 rounded-lg bg-default-soft border border-border">
                                   <div className="flex flex-wrap items-center gap-3">
                                     <Checkbox
                                       isSelected={fullReceipt?.enabled ?? true}
@@ -881,13 +894,13 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                           </SelectItem>
                                         ))}
                                       </Select>
-                                      <p className="text-xs text-default-500">
+                                      <p className="text-xs text-muted">
                                         الان با «{effectiveReceiptTemplateName(printer.name, 'full')}» چاپ می‌شود
                                       </p>
                                     </div>
                                   )}
                                 </div>
-                                <div className="flex flex-col gap-3 p-3 rounded-lg bg-default-50 border border-default-200">
+                                <div className="flex flex-col gap-3 p-3 rounded-lg bg-default-soft border border-border">
                                   <div className="flex flex-wrap items-center gap-3">
                                     <Checkbox
                                       isSelected={kitchenReceipt?.enabled ?? false}
@@ -933,7 +946,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                           </SelectItem>
                                         ))}
                                       </Select>
-                                      <p className="text-xs text-default-500">
+                                      <p className="text-xs text-muted">
                                         الان با «{effectiveReceiptTemplateName(printer.name, 'kitchen')}» چاپ می‌شود
                                       </p>
                                     </div>
@@ -949,7 +962,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                 })}
               </div>
             )}
-            <p className="text-default-500 text-sm">
+            <p className="text-muted text-sm">
               برای هر پرینتر می‌توانید قالب چاپ و نوع/تعداد رسید را جداگانه تنظیم کنید. اگر از یک پرینتر دو فیش می‌گیرید، برای هرکدام در بخش «نوع رسید» قالب دلخواه خودش را انتخاب کنید؛ در غیر این صورت هر دو با قالب پایهٔ پرینتر چاپ می‌شوند. این تنظیمات برای چاپ خودکار رسید هنگام ثبت سفارش استفاده می‌شود.
             </p>
           </CardContent>
@@ -958,20 +971,20 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
         {/* مسیر ذخیره‌سازی داده‌ها */}
         <Card>
           <CardContent className="flex flex-col gap-3">
-            <h3 className="font-semibold text-default-700 text-sm">مسیر ذخیره‌سازی داده‌های برنامه</h3>
+            <h3 className="font-semibold text-foreground/80 text-sm">مسیر ذخیره‌سازی داده‌های برنامه</h3>
             {dataDir ? (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-col gap-1">
-                  <span className="text-default-500 text-xs">پوشه داده‌ها (userData):</span>
-                  <code dir="ltr" className="block text-xs bg-default-100 px-2 py-1.5 rounded-lg break-all text-default-700 select-all">
+                  <span className="text-muted text-xs">پوشه داده‌ها (userData):</span>
+                  <code dir="ltr" className="block text-xs bg-default-soft px-2 py-1.5 rounded-lg break-all text-foreground/80 select-all">
                     {dataDir.userData}
                   </code>
                 </div>
                 <div className="flex flex-col gap-2 mt-1">
                   {Object.entries(dataDir.files).map(([label, filePath]) => (
                     <div key={label} className="flex flex-col gap-0.5">
-                      <span className="text-default-500 text-xs">{label}:</span>
-                      <code dir="ltr" className="block text-xs bg-default-100 px-2 py-1.5 rounded-lg break-all text-default-500 select-all">
+                      <span className="text-muted text-xs">{label}:</span>
+                      <code dir="ltr" className="block text-xs bg-default-soft px-2 py-1.5 rounded-lg break-all text-muted select-all">
                         {filePath}
                       </code>
                     </div>
@@ -979,7 +992,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                 </div>
               </div>
             ) : (
-              <p className="text-default-400 text-xs">در حال بارگذاری...</p>
+              <p className="text-muted text-xs">در حال بارگذاری...</p>
             )}
           </CardContent>
         </Card>
@@ -987,9 +1000,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
         {window.electronAPI?.scaleLoadSettings && canManageHw && (
           <Card>
             <CardContent className="gap-3">
-              <div className="flex items-center justify-between border-b-2 border-primary pb-2">
+              <div className="flex items-center justify-between border-b-2 border-accent pb-2">
                 <h2 className="text-lg font-semibold text-foreground">اتصال ترازو</h2>
-                <span className={`text-xs px-2 py-1 rounded-full font-medium ${scaleConnected ? 'bg-success-100 text-success-700' : 'bg-default-100 text-default-500'}`}>
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${scaleConnected ? 'bg-success-soft text-success-soft-foreground' : 'bg-default-soft text-muted'}`}>
                   {scaleConnected ? 'متصل' : 'قطع'}
                 </span>
               </div>
@@ -1077,7 +1090,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                 )}
               </div>
 
-              <p className="text-xs text-default-400">
+              <p className="text-xs text-muted">
                 پس از تنظیم، دکمه «اتصال و تست» را بزنید. اگر موفق شد ترازو آماده استفاده در فاکتور است.
               </p>
             </CardContent>
@@ -1093,7 +1106,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="font-semibold text-foreground">شناسایی تماس‌گیرنده (Caller ID)</h2>
-                    <p className="text-xs text-default-400 mt-0.5">
+                    <p className="text-xs text-muted mt-0.5">
                       هنگام تماس ورودی، اطلاعات مشتری و سوابق سفارش نمایش داده می‌شود.
                     </p>
                   </div>
@@ -1101,7 +1114,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                 </div>
 
                 {callerIdEnabled && (
-                  <div className="flex flex-col gap-4 border-t border-default-200 pt-3">
+                  <div className="flex flex-col gap-4 border-t border-border pt-3">
 
                     {/* mode selector */}
                     <Tabs
@@ -1134,16 +1147,16 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                           description="اگر خالی باشد همه درخواست‌ها پذیرفته می‌شوند" />
                         <div className="flex items-center gap-2">
                           <span className={`w-2 h-2 rounded-full ${callerIdWebhookRunning ? 'bg-green-500' : 'bg-gray-400'}`} />
-                          <span className="text-xs text-default-500">
+                          <span className="text-xs text-muted">
                             {callerIdWebhookRunning ? `webhook فعال روی پورت ${callerIdPort}` : 'webhook غیرفعال'}
                           </span>
                         </div>
-                        <div className="rounded-xl bg-default-100 p-3 text-xs text-default-500 flex flex-col gap-1">
-                          <p className="font-semibold text-default-600">نحوه اتصال VOIP / FXO Gateway</p>
-                          <code className="bg-default-200 rounded px-1.5 py-0.5 font-mono text-default-700 break-all">
+                        <div className="rounded-xl bg-default-soft p-3 text-xs text-muted flex flex-col gap-1">
+                          <p className="font-semibold text-foreground/70">نحوه اتصال VOIP / FXO Gateway</p>
+                          <code className="bg-default rounded px-1.5 py-0.5 font-mono text-foreground/80 break-all">
                             POST http://127.0.0.1:{callerIdPort}/call
                           </code>
-                          <code className="bg-default-200 rounded px-1.5 py-0.5 font-mono text-default-700">
+                          <code className="bg-default rounded px-1.5 py-0.5 font-mono text-foreground/80">
                             {`{"${callerIdPhoneField || 'caller'}": "09123456789"}`}
                           </code>
                         </div>
@@ -1153,7 +1166,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                     {/* ─── USB/Serial mode ─── */}
                     {callerIdMode === 'serial' && (
                       <div className="flex flex-col gap-3">
-                        <p className="text-xs text-default-500">
+                        <p className="text-xs text-muted">
                           دستگاه‌های USB Caller ID موجود در بازار (جعبه تلفن با USB) را انتخاب کنید.
                           پس از وصل کردن USB، پورت‌ها را رفرش کنید.
                         </p>
@@ -1210,7 +1223,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
 
                         <div className="flex items-center gap-2">
                           <span className={`w-2 h-2 rounded-full ${callerIdSerialConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
-                          <span className="text-xs text-default-500">
+                          <span className="text-xs text-muted">
                             {callerIdSerialConnected ? `متصل روی ${callerIdSerialPort}` : 'قطع'}
                           </span>
                         </div>
@@ -1228,8 +1241,8 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                           )}
                         </div>
 
-                        <div className="rounded-xl bg-default-100 p-3 text-xs text-default-500 flex flex-col gap-1.5">
-                          <p className="font-semibold text-default-600">دستگاه‌های USB سازگار</p>
+                        <div className="rounded-xl bg-default-soft p-3 text-xs text-muted flex flex-col gap-1.5">
+                          <p className="font-semibold text-foreground/70">دستگاه‌های USB سازگار</p>
                           <p>اکثر جعبه‌های Caller ID موجود در بازار ایران با فرمت «خودکار» کار می‌کنند.</p>
                           <p>اگر دستگاه شما از نوع مودم USB است (AT commands)، گزینه «مودم AT» را انتخاب کنید.</p>
                           <p>در صورت اتصال، هر تماس ورودی را با تست واقعی بررسی کنید.</p>
@@ -1242,8 +1255,8 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                       <div className="flex flex-col gap-3">
                         <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-xs flex flex-col gap-1.5">
                           <p className="font-semibold text-blue-700 dark:text-blue-300">📞 T-Line TK-202UH</p>
-                          <p className="text-default-600">دستگاه USB Caller ID مدل TK-202UH تیلداکیش</p>
-                          <p className="text-default-500">
+                          <p className="text-foreground/70">دستگاه USB Caller ID مدل TK-202UH تیلداکیش</p>
+                          <p className="text-muted">
                             قبل از اتصال، مطمئن شوید درایور <strong>WinUSB</strong> از طریق <strong>Zadig</strong> روی این دستگاه نصب شده باشد.
                             (منوی Options → List All Devices → T-Line TK-202UH → WinUSB → Replace Driver)
                           </p>
@@ -1252,13 +1265,13 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                         <div className="flex items-center gap-3 flex-wrap">
                           <div className="flex items-center gap-2">
                             <span className={`w-2.5 h-2.5 rounded-full ${callerIdHidDeviceFound ? 'bg-green-500' : 'bg-gray-400'}`} />
-                            <span className="text-xs text-default-500">
+                            <span className="text-xs text-muted">
                               {callerIdHidDeviceFound ? 'دستگاه پیدا شد' : 'دستگاه یافت نشد'}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className={`w-2.5 h-2.5 rounded-full ${callerIdHidConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                            <span className="text-xs text-default-500">
+                            <span className="text-xs text-muted">
                               {callerIdHidConnected ? 'در حال پایش تماس‌ها' : 'قطع'}
                             </span>
                           </div>
@@ -1281,8 +1294,8 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                           )}
                         </div>
 
-                        <div className="rounded-xl bg-default-100 p-3 text-xs text-default-500 flex flex-col gap-1.5">
-                          <p className="font-semibold text-default-600">راهنمای نصب Zadig</p>
+                        <div className="rounded-xl bg-default-soft p-3 text-xs text-muted flex flex-col gap-1.5">
+                          <p className="font-semibold text-foreground/70">راهنمای نصب Zadig</p>
                           <ol className="list-decimal list-inside flex flex-col gap-0.5 pr-1">
                             <li>دستگاه TK-202UH را به USB وصل کنید</li>
                             <li>Zadig را از <strong>zadig.akeo.ie</strong> دانلود و اجرا کنید</li>
@@ -1296,12 +1309,12 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                     )}
 
                     {/* ─── تنظیمات عمومی ─── */}
-                    <div className="flex flex-col gap-2 border-t border-default-200 pt-3">
+                    <div className="flex flex-col gap-2 border-t border-border pt-3">
                       <Input label="مدت نمایش اعلان (ثانیه)" value={callerIdDuration} onValueChange={setCallerIdDuration}
                         placeholder="30" variant="bordered" size="sm" className="w-44" />
                       <div className="flex items-center gap-2">
                         <Switch isSelected={callerIdSound} onValueChange={setCallerIdSound} size="sm" aria-label="پخش صدا" />
-                        <span className="text-sm text-default-600">پخش صدای زنگ هنگام تماس ورودی</span>
+                        <span className="text-sm text-foreground/70">پخش صدای زنگ هنگام تماس ورودی</span>
                       </div>
                     </div>
                   </div>
@@ -1319,7 +1332,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
           <Card>
             <CardContent>
               <h3 className="font-semibold mb-3">انبار پایانه POS</h3>
-              <p className="text-sm text-default-500 mb-3">
+              <p className="text-sm text-muted mb-3">
                 موجودی فروش از این انبار کسر می‌شود. اگر تنظیم نشود، انبار پیش‌فرض استفاده می‌شود.
               </p>
               <Select

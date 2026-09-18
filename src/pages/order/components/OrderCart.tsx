@@ -1,9 +1,13 @@
 import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { Button } from '../../../ui/compat-button';
 import { Input } from '../../../ui/compat-input';
 import { Textarea } from '../../../ui/compat-textarea';
 import { useOrderStore, type CartItem } from '../../../store/orderStore';
 import { useAuthStore } from '../../../store/authStore';
+import { useOrderNavStore } from '../../../store/orderNavStore';
+import { useCatalogDisplayStore } from '../../../store/catalogDisplayStore';
 import { getAssetBaseUrl, cancelPointsReward } from '../../../services/api';
 import { isValidIranMobile, normalizeIranMobile } from '../../../utils/iranMobile';
 import { toast } from '../../../utils/toast';
@@ -35,6 +39,25 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
     getTotalAmount,
   } = useOrderStore();
   const { user, token } = useAuthStore();
+  const navigate = useNavigate();
+  const orderIds = useOrderNavStore((s) => s.orderIds);
+  const showProductImages = useCatalogDisplayStore((s) => s.showProductImages);
+
+  /** پیمایش بین فاکتور قبلی/بعدی — ایندکس‌گذاری دقیقاً مثل میانبر ← / → در pages/order/index.tsx
+      تا این دو مسیر همیشه هم‌خوان بمانند. برخلاف میانبر کیبورد (که برای جلوگیری از فشار اشتباه
+      وقتی سبد پر است کاملاً غیرفعال می‌شود)، این دکمه‌ها کلیک عمدی صندوق‌دار هستند — پس به‌جای
+      غیرفعال‌کردن کامل، فقط قبل از رفتن با سبد پر تأیید می‌گیرند (همان الگوی resetSession) */
+  const currentOrderIndex = editingOrderId != null ? orderIds.indexOf(editingOrderId) : -1;
+  const goToOrder = (direction: 'prev' | 'next') => {
+    if (orderIds.length === 0) return;
+    const max = orderIds.length - 1;
+    const nextIndex = direction === 'next' ? Math.min(currentOrderIndex + 1, max) : Math.max(currentOrderIndex - 1, 0);
+    if (currentOrderIndex !== -1 && nextIndex === currentOrderIndex) return;
+    if (editingOrderId == null && cart.length > 0 && !window.confirm('سبد خرید فعلی ذخیره نشده — رفتن به فاکتور دیگر آن را پاک می‌کند. ادامه می‌دهید؟')) return;
+    navigate(`/order?edit=${orderIds[nextIndex]}`);
+  };
+  const canGoPrev = orderIds.length > 0 && currentOrderIndex !== 0;
+  const canGoNext = orderIds.length > 0 && currentOrderIndex !== orderIds.length - 1;
 
   const [expandedNoteProductId, setExpandedNoteProductId] = useState<number | null>(null);
   const [cancellingFreeLineKey, setCancellingFreeLineKey] = useState<string | null>(null);
@@ -77,7 +100,7 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
 
   return (
     <div className={`flex flex-col gap-2 overflow-hidden min-h-0 ${embedded ? 'h-full' : 'h-[calc(100vh_-120px)]'}`}>
-      <div className="flex-1 overflow-hidden min-h-0 rounded-xl border border-default-200 bg-content1">
+      <div className="flex-1 overflow-hidden min-h-0 rounded-xl border border-border bg-surface">
         <div className="overflow-y-auto h-full p-2 sm:p-3">
           {/* Session tabs — hidden in edit mode و داخل مودال (سوییچ سبد وسط چک‌اوت گمراه‌کننده است) */}
           {editingOrderId == null && !embedded && <div className="flex items-center gap-1 mb-2 flex-wrap">
@@ -92,15 +115,15 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
                     className={[
                       'flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
                       isActive
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'bg-default-100 text-default-600 hover:bg-default-200',
+                        ? 'bg-accent text-accent-foreground shadow-sm'
+                        : 'bg-default-soft text-foreground/70 hover:bg-default',
                     ].join(' ')}
                   >
                     {session.label}
                     {itemCount > 0 && (
                       <span className={[
                         'inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold',
-                        isActive ? 'bg-white/30 text-primary-foreground' : 'bg-primary text-white',
+                        isActive ? 'bg-white/30 text-accent-foreground' : 'bg-accent text-white',
                       ].join(' ')}>
                         {itemCount}
                       </span>
@@ -119,7 +142,7 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
             })}
             {sessions.length < 3 && (
               <button type="button" onClick={addSession}
-                className="flex items-center gap-0.5 rounded-md px-2 py-1 text-xs text-default-500 hover:bg-default-100 hover:text-default-800 transition-colors"
+                className="flex items-center gap-0.5 rounded-md px-2 py-1 text-xs text-muted hover:bg-default-soft hover:text-foreground/90 transition-colors"
                 title="سبد خرید جدید">
                 <span className="text-base leading-none">+</span>
                 <span>سبد جدید</span>
@@ -127,10 +150,34 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
             )}
           </div>}
 
-          <h2 className="text-sm font-semibold text-foreground mb-2">سبد خرید</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold text-foreground">سبد خرید</h2>
+            {!embedded && (
+              <div className="flex items-center gap-0.5">
+                <Button
+                  size="sm" isIconOnly variant="flat"
+                  className="h-5 min-h-5 w-5 min-w-5 text-muted"
+                  isDisabled={!canGoPrev}
+                  onPress={() => goToOrder('prev')}
+                  aria-label="سفارش قبلی"
+                >
+                  <ChevronRight className="h-3 w-3" aria-hidden />
+                </Button>
+                <Button
+                  size="sm" isIconOnly variant="flat"
+                  className="h-5 min-h-5 w-5 min-w-5 text-muted"
+                  isDisabled={!canGoNext}
+                  onPress={() => goToOrder('next')}
+                  aria-label="سفارش بعدی"
+                >
+                  <ChevronLeft className="h-3 w-3" aria-hidden />
+                </Button>
+              </div>
+            )}
+          </div>
 
           {cart.length === 0 ? (
-            <p className="text-default-500 text-sm py-4 text-center">سبد خرید خالی است</p>
+            <p className="text-muted text-sm py-4 text-center">سبد خرید خالی است</p>
           ) : (
             <div className="flex flex-col gap-1.5">
               {cart.map((item) => {
@@ -145,15 +192,15 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
                 };
                 if (isFree) {
                   return (
-                    <div key={rowKey} className="flex items-center justify-between gap-2 rounded-lg border border-success-200 bg-success-50 p-2">
+                    <div key={rowKey} className="flex items-center justify-between gap-2 rounded-lg border border-success/30 bg-success-soft p-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="shrink-0 rounded-full bg-success-100 px-2 py-0.5 text-[10px] font-bold text-success-700">رایگان (جایزه)</span>
+                        <span className="shrink-0 rounded-full bg-success-soft px-2 py-0.5 text-[10px] font-bold text-success-soft-foreground">رایگان (جایزه)</span>
                         <span className="truncate text-sm font-medium text-foreground">
                           {item.quantity > 1 ? `${item.quantity}× ` : ''}{item.product.name_fa || item.product.name}
                         </span>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
-                        <span className="text-xs font-semibold tabular-nums text-success-700">{formatPrice(0)}</span>
+                        <span className="text-xs font-semibold tabular-nums text-success-soft-foreground">{formatPrice(0)}</span>
                         <Button size="sm" color="danger" variant="light" isIconOnly className="h-7 min-h-7 w-7 min-w-7 text-sm"
                           isLoading={cancellingFreeLineKey === rowKey}
                           isDisabled={cancellingFreeLineKey != null && cancellingFreeLineKey !== rowKey}
@@ -167,13 +214,13 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
                 return (
                   <div
                     key={rowKey}
-                    className="flex flex-col gap-2 rounded-lg border border-default-200 bg-content1 p-2"
+                    className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-2"
                     onClick={(e) => { if (isInteractive(e)) return; updateCartQuantity(item.productId, item.quantity + 1); }}
                     onContextMenu={(e) => { e.preventDefault(); if (isInteractive(e)) return; updateCartQuantity(item.productId, item.quantity - 1); }}
                     onAuxClick={(e) => { if (e.button !== 1) return; if (isInteractive(e)) return; removeFromCart(item.productId); }}
                   >
                     <div className="flex w-full items-start gap-2">
-                      {item.product.multiMedia?.url ? (
+                      {showProductImages && item.product.multiMedia?.url ? (
                         <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md">
                           <img src={`${getAssetBaseUrl()}${item.product.multiMedia.url}`} alt="" className="h-full w-full object-cover" />
                         </div>
@@ -183,7 +230,7 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
                           {item.product.name_fa || item.product.name}
                         </span>
                         {notePreview ? (
-                          <p className="mt-1 text-right text-xs leading-relaxed text-default-600 break-words whitespace-pre-wrap">{notePreview}</p>
+                          <p className="mt-1 text-right text-xs leading-relaxed text-foreground/70 break-words whitespace-pre-wrap">{notePreview}</p>
                         ) : null}
                       </div>
                     </div>
@@ -196,7 +243,7 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
                             −
                           </Button>
                           {item.product?.unit && item.product.unit !== 'عدد' && (
-                            <span className="text-xs text-default-400 leading-none">{item.product.unit}</span>
+                            <span className="text-xs text-muted leading-none">{item.product.unit}</span>
                           )}
                           <Input
                             type="number" min={0.1} step={0.1} size="sm"
@@ -224,7 +271,7 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
 
                         <Button
                           size="sm" isIconOnly variant="flat"
-                          className={`h-6 min-h-6 w-6 min-w-6 shrink-0 ${notePreview || isNoteOpen ? 'text-primary' : 'text-default-400'}`}
+                          className={`h-6 min-h-6 w-6 min-w-6 shrink-0 ${notePreview || isNoteOpen ? 'text-accent' : 'text-muted'}`}
                           onPress={() => setExpandedNoteProductId((id) => (id === item.productId ? null : item.productId))}
                           title={notePreview ? 'ویرایش توضیحات' : 'توضیحات'}
                           aria-label={notePreview ? 'ویرایش توضیحات' : 'افزودن توضیحات'}
@@ -244,7 +291,7 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
                       </div>
 
                       {isNoteOpen && (
-                        <div ref={notePanelRef} className="w-full rounded-md border border-default-200 bg-default-100 p-1.5 space-y-1.5">
+                        <div ref={notePanelRef} className="w-full rounded-md border border-border bg-default-soft p-1.5 space-y-1.5">
                           {cartItemOptions.length > 0 && (
                             <div className="flex flex-wrap gap-0.5">
                               {cartItemOptions.map((opt) => (
@@ -279,9 +326,9 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
               })}
 
               {/* Total */}
-              <div className="sticky bottom-0 z-[1] -mx-2 mt-3 border-t border-default-200 bg-content1/95 px-2 pt-3 pb-0.5 backdrop-blur-sm sm:-mx-3 sm:px-3">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-default-200 bg-default-100 px-3 py-2.5 shadow-sm">
-                  <span className="text-sm font-medium text-default-600">جمع کل</span>
+              <div className="sticky bottom-0 z-[1] -mx-2 mt-3 border-t border-border bg-surface/95 px-2 pt-3 pb-0.5 backdrop-blur-sm sm:-mx-3 sm:px-3">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-default-soft px-3 py-2.5 shadow-sm">
+                  <span className="text-sm font-medium text-foreground/70">جمع کل</span>
                   <span className="text-base font-bold tabular-nums tracking-tight text-foreground">
                     {formatPrice(getTotalAmount())}
                   </span>

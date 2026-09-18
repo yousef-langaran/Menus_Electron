@@ -129,7 +129,7 @@ export default function LoginPage() {
 
   if (isOutdated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-default-100 p-4 sm:p-6" dir="rtl">
+      <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6" dir="rtl">
         <Card className="w-full max-w-md shadow-lg">
           <CardHeader className="flex flex-col items-center gap-3 pt-8 pb-0">
             <img
@@ -140,13 +140,13 @@ export default function LoginPage() {
             />
             <div className="text-center">
               <CardTitle className="text-xl font-semibold text-danger">نیاز به به‌روزرسانی</CardTitle>
-              <CardDescription className="mt-1.5 text-default-500">
+              <CardDescription className="mt-1.5 text-muted">
                 نسخه نرم‌افزار شما قدیمی است. برای ادامه، لطفاً برنامه را به‌روزرسانی کنید.
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-5 px-6 pb-8 pt-6 sm:px-8">
-            <div className="rounded-lg bg-default-100 p-3 text-center text-sm text-default-600">
+            <div className="rounded-lg bg-default-soft p-3 text-center text-sm text-foreground/70">
               {currentVersion && (
                 <div>نسخه فعلی: <span className="font-medium">{currentVersion}</span></div>
               )}
@@ -163,7 +163,7 @@ export default function LoginPage() {
               className="w-full font-semibold">
               {isUpdating ? 'در حال دریافت به‌روزرسانی...' : 'دریافت و نصب به‌روزرسانی'}
             </Button>
-            <p className="text-center text-xs text-default-400">
+            <p className="text-center text-xs text-muted">
               تا زمان به‌روزرسانی، امکان ورود به برنامه وجود ندارد.
             </p>
           </CardContent>
@@ -173,7 +173,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-default-100 p-4 sm:p-6" dir="rtl">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6" dir="rtl">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="flex flex-col items-center gap-3 pt-8 pb-0">
           <img
@@ -184,7 +184,7 @@ export default function LoginPage() {
           />
           <div className="text-center">
             <CardTitle className="text-xl font-semibold">ورود به برنامه</CardTitle>
-            <CardDescription className="mt-1.5 text-default-500">
+            <CardDescription className="mt-1.5 text-muted">
               مدیریت سفارش و منوی دیجیتال رستوران
             </CardDescription>
           </div>

@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Button } from '../../../ui/compat-button';
 import { getAssetBaseUrl } from '../../../services/api';
 import { normalizeNameFa, smartSearchMatch } from '../../../utils/persian';
+import { useCatalogDisplayStore } from '../../../store/catalogDisplayStore';
 
 const normalizeBarcode = (value: string) =>
   String(value || '')
@@ -13,6 +13,27 @@ const normalizeBarcode = (value: string) =>
     .trim();
 
 const MAX_THUMB_RETRIES = 3;
+
+/** Generic "no photo" glyph — deliberately not food/retail-specific since a product
+ * here might be a pizza, a haircut service, or a laptop. */
+function ImagePlaceholderIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <path d="M21 15l-5-5L5 21" />
+    </svg>
+  );
+}
+
+function ImagePlaceholder() {
+  return (
+    <div className="w-full h-full flex items-center justify-center text-muted bg-default-soft">
+      <ImagePlaceholderIcon className="w-6 h-6 sm:w-8 sm:h-8" />
+    </div>
+  );
+}
 
 /**
  * Product-card photo with automatic retry-with-backoff on load failure. Restaurant
@@ -35,13 +56,7 @@ function ProductThumb({ src, alt }: { src: string; alt: string }) {
     if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
   }, []);
 
-  if (failed) {
-    return (
-      <div className="w-full h-full flex items-center justify-center text-default-300 text-[10px]">
-        بدون تصویر
-      </div>
-    );
-  }
+  if (failed) return <ImagePlaceholder />;
 
   const bustedSrc = attempt === 0 ? src : `${src}${src.includes('?') ? '&' : '?'}_r=${attempt}`;
 
@@ -61,6 +76,28 @@ function ProductThumb({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+/**
+ * Category accent dots — purely positional/deterministic (hash of the category's own
+ * name → a fixed generic palette), never tied to a specific business type or category
+ * name. Any dataset (food, retail, services…) gets the same visual variety for free.
+ */
+const CATEGORY_ACCENTS = [
+  'oklch(0.62 0.19 25)',
+  'oklch(0.68 0.16 55)',
+  'oklch(0.75 0.15 95)',
+  'oklch(0.62 0.14 145)',
+  'oklch(0.62 0.11 175)',
+  'oklch(0.58 0.14 254)',
+  'oklch(0.55 0.18 300)',
+  'oklch(0.62 0.19 340)',
+];
+
+function categoryAccent(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return CATEGORY_ACCENTS[hash % CATEGORY_ACCENTS.length];
+}
+
 interface Props {
   products: any[];
   categories: string[];
@@ -78,6 +115,7 @@ export function OrderProductGrid({
   onProductClick, onBarcodeAdd, formatPrice, staffCartUnitPrice,
   orderEditLoading, isLoading,
 }: Props) {
+  const showProductImages = useCatalogDisplayStore((s) => s.showProductImages);
   const [selectedCategory, setSelectedCategory] = useState('');
   const productGridRef = useRef<HTMLDivElement>(null);
   const [colCount, setColCount] = useState(4);
@@ -95,19 +133,43 @@ export function OrderProductGrid({
     return categoryMatch && searchMatch;
   }), [products, selectedCategory, searchTerm]);
 
+  // تعداد واقعی محصولات هر دسته — از خودِ داده محاسبه می‌شود (هیچ دسته/شمارشی Hard-Code نیست)
+  const categoryCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of products) {
+      const name = p.category?.name_fa;
+      if (!name) continue;
+      map.set(name, (map.get(name) || 0) + 1);
+    }
+    return map;
+  }, [products]);
+
   useEffect(() => {
     const el = productGridRef.current;
     if (!el) return;
     // Hysteresis around the breakpoints: once a column count is picked, the width has
     // to move well past the boundary before switching away from it again. Without this,
-    // a width sitting right at 640/768px can flip-flop on every ResizeObserver tick (e.g.
-    // scrollbar show/hide, sub-pixel layout jitter) — each flip reshuffles every row and
-    // remounts every product card/photo, which looks like photos randomly blinking out.
+    // a width sitting right at a boundary can flip-flop on every ResizeObserver tick
+    // (e.g. scrollbar show/hide, sub-pixel layout jitter) — each flip reshuffles every
+    // row and remounts every product card/photo, which looks like photos randomly
+    // blinking out.
     const HYSTERESIS = 24;
+    // [minWidth, columns] — ordered ascending; widen this table (not the density of any
+    // one card) to add more columns on larger screens.
+    const BREAKPOINTS: [number, number][] = [
+      [0, 2], [480, 3], [640, 4], [860, 5], [1080, 6],
+    ];
+    const colsForWidth = (w: number) => {
+      let cols = BREAKPOINTS[0][1];
+      for (const [minWidth, c] of BREAKPOINTS) if (w >= minWidth) cols = c;
+      return cols;
+    };
     const calc = (w: number, current: number) => {
-      if (current === 2) return w < 640 + HYSTERESIS ? 2 : w < 768 ? 3 : 4;
-      if (current === 3) return w < 640 ? 2 : w < 768 + HYSTERESIS ? 3 : 4;
-      return w < 640 ? 2 : w < 768 - HYSTERESIS ? 3 : 4;
+      const up = colsForWidth(w);
+      const down = colsForWidth(Math.max(0, w - HYSTERESIS));
+      // فقط وقتی از current فاصله بگیرد تغییر کن (پایین‌ترِ دو گزینه به‌عنوان مرز پایداری)
+      if (up === current || down === current) return current;
+      return up;
     };
     const update = (w: number) => setColCount((prev) => {
       const next = calc(w, prev);
@@ -130,9 +192,9 @@ export function OrderProductGrid({
   const virtualizer = useVirtualizer({
     count: productRows.length,
     getScrollElement: () => productGridRef.current,
-    // Card height is now fixed (image slot + text slot), so this matches exactly —
-    // no post-mount remeasurement/reflow that could momentarily misplace rows.
-    estimateSize: () => 104,
+    // Rough guess only — card height varies with column width (image is aspect-ratio
+    // based), so `measureElement` below corrects it after mount.
+    estimateSize: () => 168,
     overscan: 5,
     measureElement: (el) => el.getBoundingClientRect().height,
   });
@@ -202,12 +264,20 @@ export function OrderProductGrid({
       {/* Product grid */}
       <div ref={productGridRef} className="w-full flex-1 min-h-0 overflow-y-scroll p-2 sm:p-3 min-w-0 relative">
         {orderEditLoading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-content1/80 text-default-600 text-sm">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-surface/80 text-foreground/70 text-sm">
             در حال بارگذاری فاکتور...
           </div>
         )}
         {isLoading ? (
-          <div className="flex items-center justify-center py-12 text-default-500">در حال بارگذاری...</div>
+          <div className="flex items-center justify-center py-12 text-muted">در حال بارگذاری...</div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-1 py-16 text-muted text-sm text-center">
+            {searchTerm
+              ? <p>نتیجه‌ای برای «{searchTerm}» یافت نشد</p>
+              : selectedCategory
+                ? <p>محصولی در این دسته وجود ندارد</p>
+                : <p>هنوز محصولی ثبت نشده است</p>}
+          </div>
         ) : (
           <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
             {virtualizer.getVirtualItems().map((virtualRow) => (
@@ -220,34 +290,41 @@ export function OrderProductGrid({
                   transform: `translateY(${virtualRow.start}px)`,
                   display: 'grid',
                   gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
-                  gap: '0.5rem', paddingBottom: '0.5rem',
+                  gap: '0.625rem', paddingBottom: '0.625rem',
                 }}
               >
                 {productRows[virtualRow.index].map((product) => (
                   <button
                     key={product.id}
                     type="button"
-                    className="flex rounded-lg border border-default-200 bg-content1 text-start overflow-hidden outline-none transition hover:border-primary hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-content1 p-0 cursor-pointer"
+                    className="group flex flex-col rounded-xl border border-border bg-surface text-start overflow-hidden outline-none transition hover:border-accent hover:shadow-md focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface p-0 cursor-pointer"
                     onClick={() => onProductClick(product)}
                   >
-                    {/* Fixed-height slot for every card (with or without a photo) so row
-                        height never depends on content — keeps the virtualizer's row
-                        offsets stable and prevents rows from overlapping/hiding images. */}
-                    {product.multiMedia?.url && (
-                    <div className="w-10 h-10 sm:h-14 sm:w-14 shrink-0 bg-default-100">
-                        <ProductThumb
-                          src={`${assetBase}${product.multiMedia.url}`}
-                          alt={product.name_fa || product.name}
-                        />
-                    </div>
+                    {/* Fixed aspect-ratio slot for every card (with or without a photo) so row
+                        height only depends on column width — keeps the virtualizer's row
+                        offsets stable and prevents rows from overlapping/hiding images.
+                        قابل غیرفعال‌سازی از تنظیمات (نمایش عکس محصولات) برای فشرده‌تر/سریع‌تر شدن گرید. */}
+                    {showProductImages && (
+                      <div className="relative w-full aspect-[4/3] shrink-0 bg-default-soft overflow-hidden">
+                        {product.multiMedia?.url ? (
+                          <ProductThumb
+                            src={`${assetBase}${product.multiMedia.url}`}
+                            alt={product.name_fa || product.name}
+                          />
+                        ) : (
+                          <ImagePlaceholder />
+                        )}
+                      </div>
                     )}
-                    <div className="px-1.5 py-1 text-right h-14 overflow-hidden">
-                      <span className="font-semibold text-foreground text-[11px] leading-tight line-clamp-2 block">
+                    <div className="flex flex-1 flex-col gap-1 px-2 py-1.5 text-right min-h-0">
+                      <span className="font-semibold text-foreground text-xs sm:text-sm leading-tight line-clamp-2 min-h-[2.4em]">
                         {product.name_fa || product.name}
                       </span>
-                      <span className="text-primary text-[11px] mt-0.5 block tabular-nums">
-                        {formatPrice(staffCartUnitPrice(product))}
-                      </span>
+                      <div className="mt-auto flex items-center justify-end pt-0.5">
+                        <span className="text-accent text-sm sm:text-base font-bold tabular-nums">
+                          {formatPrice(staffCartUnitPrice(product))}
+                        </span>
+                      </div>
                     </div>
                   </button>
                 ))}
@@ -257,29 +334,63 @@ export function OrderProductGrid({
         )}
       </div>
 
-      {/* Category sidebar */}
-      <aside className="w-52 flex-shrink-0 border-r border-default-200 p-4 flex flex-col gap-2 overflow-y-auto">
-        <span className="mb-1 w-full text-right text-sm font-semibold text-foreground">دسته‌بندی‌ها</span>
-        <Button
-          size="sm" fullWidth
-          variant={selectedCategory === '' ? 'solid' : 'bordered'}
-          color="primary"
-          className="h-auto min-h-8 max-w-full justify-start py-2 text-right"
-          onPress={() => setSelectedCategory('')}
-        >
-          همه
-        </Button>
-        {categories.map((cat) => (
-          <Button
-            key={cat} size="sm" fullWidth
-            variant={selectedCategory === cat ? 'solid' : 'bordered'}
-            color="primary"
-            className="h-auto min-h-8 max-w-full justify-start whitespace-normal py-2 text-right leading-snug"
-            onPress={() => setSelectedCategory(cat)}
+      {/* Category sidebar — سمت چپ لیست محصولات، بر اساس دادهٔ سرور: بدون هیچ دسته/آیکون Hard-Code شده.
+          نقطهٔ رنگی هر ردیف صرفاً برای تمایز بصری است و از هش نام دسته ساخته می‌شود. */}
+      <aside className="w-56 flex-shrink-0 border-s border-border p-3 flex flex-col overflow-y-auto bg-surface">
+        <span className="mb-2 w-full text-right text-sm font-semibold text-foreground px-1 pb-2 border-b border-border">دسته‌بندی‌ها</span>
+        <div className="flex flex-col divide-y divide-border">
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('')}
+            className={[
+              'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2.5 text-right text-sm transition',
+              selectedCategory === ''
+                ? 'bg-accent text-accent-foreground font-semibold shadow-sm'
+                : 'text-foreground/80 hover:bg-default-soft',
+            ].join(' ')}
           >
-            {cat}
-          </Button>
-        ))}
+            <span>همه</span>
+            <span className={[
+              'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
+              selectedCategory === '' ? 'bg-white/25' : 'bg-default-soft text-muted',
+            ].join(' ')}>
+              {products.length}
+            </span>
+          </button>
+          {categories.length === 0 ? (
+            <p className="px-2.5 py-2 text-xs text-muted">هنوز دسته‌بندی‌ای ایجاد نشده است</p>
+          ) : categories.map((cat) => {
+            const isActive = selectedCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
+                className={[
+                  'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2.5 text-right text-sm transition',
+                  isActive
+                    ? 'bg-accent text-accent-foreground font-semibold shadow-sm'
+                    : 'text-foreground/80 hover:bg-default-soft',
+                ].join(' ')}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <span
+                    aria-hidden
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: isActive ? 'currentColor' : categoryAccent(cat) }}
+                  />
+                  <span className="truncate leading-snug whitespace-normal">{cat}</span>
+                </span>
+                <span className={[
+                  'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
+                  isActive ? 'bg-white/25' : 'bg-default-soft text-muted',
+                ].join(' ')}>
+                  {categoryCounts.get(cat) ?? 0}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </aside>
     </div>
   );

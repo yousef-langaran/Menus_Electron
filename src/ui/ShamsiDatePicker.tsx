@@ -56,7 +56,7 @@ export function ShamsiDatePicker({
         {/* ─── Input Field ─── */}
         <DateField.Group
           fullWidth
-          className="flex items-center w-full rounded-xl bg-default-100 hover:bg-default-200 transition-colors px-3 gap-1 data-[focus-within]:bg-default-100 data-[focus-within]:outline-2 data-[focus-within]:outline-primary/50 data-[focus-within]:outline"
+          className="flex items-center w-full rounded-xl bg-default-soft hover:bg-default transition-colors px-3 gap-1 data-[focus-within]:bg-default-soft data-[focus-within]:outline-2 data-[focus-within]:outline-accent/50 data-[focus-within]:outline"
           style={{
             minHeight: size === 'lg' ? '56px' : size === 'sm' ? '36px' : '44px',
             direction: 'ltr',
@@ -66,19 +66,19 @@ export function ShamsiDatePicker({
             {(segment) => (
               <DateField.Segment
                 segment={segment}
-                className="rounded px-0.5 focus:bg-primary/10 focus:outline-none"
+                className="rounded px-0.5 focus:bg-accent/10 focus:outline-none"
               />
             )}
           </DateField.Input>
           <DateField.Suffix className="flex items-center shrink-0">
-            <DatePicker.Trigger className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-default-300 transition-colors text-default-500 cursor-pointer">
+            <DatePicker.Trigger className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-default transition-colors text-muted cursor-pointer">
               <DatePicker.TriggerIndicator />
             </DatePicker.Trigger>
           </DateField.Suffix>
         </DateField.Group>
 
         {/* ─── Calendar Popover ─── */}
-        <DatePicker.Popover className="z-[9999] rounded-2xl shadow-xl border border-default-200 bg-background p-0 overflow-hidden">
+        <DatePicker.Popover className="z-[9999] rounded-2xl shadow-xl border border-border bg-background p-0 overflow-hidden">
           <Calendar
             aria-label={label}
             className="w-[300px] p-4"
@@ -87,15 +87,15 @@ export function ShamsiDatePicker({
             <Calendar.Header className="flex items-center justify-between mb-3">
               <Calendar.NavButton
                 slot="next"
-                className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-default-100 transition-colors text-default-600 cursor-pointer"
+                className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-default-soft transition-colors text-foreground/70 cursor-pointer"
               />
-              <Calendar.YearPickerTrigger className="flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-default-100 transition-colors cursor-pointer">
+              <Calendar.YearPickerTrigger className="flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-default-soft transition-colors cursor-pointer">
                 <Calendar.YearPickerTriggerHeading className="text-sm font-bold text-foreground" />
-                <Calendar.YearPickerTriggerIndicator className="text-default-500 text-xs" />
+                <Calendar.YearPickerTriggerIndicator className="text-muted text-xs" />
               </Calendar.YearPickerTrigger>
               <Calendar.NavButton
                 slot="previous"
-                className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-default-100 transition-colors text-default-600 cursor-pointer"
+                className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-default-soft transition-colors text-foreground/70 cursor-pointer"
               />
             </Calendar.Header>
 
@@ -103,7 +103,7 @@ export function ShamsiDatePicker({
             <Calendar.Grid className="w-full border-collapse">
               <Calendar.GridHeader>
                 {(day) => (
-                  <Calendar.HeaderCell className="text-xs font-semibold text-default-400 text-center w-9 h-8 pb-1">
+                  <Calendar.HeaderCell className="text-xs font-semibold text-muted text-center w-9 h-8 pb-1">
                     {DAY_ABBR[day] ?? day}
                   </Calendar.HeaderCell>
                 )}
@@ -113,10 +113,10 @@ export function ShamsiDatePicker({
                   <Calendar.Cell
                     date={date}
                     className="w-9 h-9 rounded-lg text-sm text-center cursor-pointer transition-colors
-                      hover:bg-default-100
-                      data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground data-[selected=true]:font-semibold
-                      data-[today=true]:font-bold data-[today=true]:text-primary
-                      data-[outside-month=true]:text-default-300
+                      hover:bg-default-soft
+                      data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[selected=true]:font-semibold
+                      data-[today=true]:font-bold data-[today=true]:text-accent
+                      data-[outside-month=true]:text-muted
                       data-[disabled=true]:opacity-40 data-[disabled=true]:cursor-not-allowed"
                   />
                 )}
@@ -129,8 +129,8 @@ export function ShamsiDatePicker({
                 {({ year }) => (
                   <Calendar.YearPickerCell
                     year={year}
-                    className="px-2 py-1 rounded-lg text-sm text-center cursor-pointer hover:bg-default-100 transition-colors
-                      data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground data-[selected=true]:font-semibold"
+                    className="px-2 py-1 rounded-lg text-sm text-center cursor-pointer hover:bg-default-soft transition-colors
+                      data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[selected=true]:font-semibold"
                   />
                 )}
               </Calendar.YearPickerGridBody>

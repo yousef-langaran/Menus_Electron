@@ -166,9 +166,9 @@ export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restau
 
           <div className="space-y-1">
             <Input label="شماره موبایل مشتری" value={customerPhone} onValueChange={setCustomerPhone} dir="ltr" />
-            {pendingLookup && <p className="text-xs text-default-400 px-1">در حال بررسی…</p>}
+            {pendingLookup && <p className="text-xs text-muted px-1">در حال بررسی…</p>}
             {!pendingLookup && lookupResult?.found && (
-              <p className="text-xs text-success-600 px-1">✓ مشتری: {lookupResult.name}</p>
+              <p className="text-xs text-success px-1">✓ مشتری: {lookupResult.name}</p>
             )}
           </div>
 

@@ -187,7 +187,7 @@ function AppRoutes() {
       <OrdersSocketManager />
       <CallerIdManager />
       <CallerIdOverlay />
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-default-100" dir="rtl"><p className="text-default-500 text-sm animate-pulse">در حال بارگذاری...</p></div>}>
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background" dir="rtl"><p className="text-muted text-sm animate-pulse">در حال بارگذاری...</p></div>}>
         <Routes>
           <Route
             path="/login"

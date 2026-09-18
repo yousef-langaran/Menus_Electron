@@ -203,7 +203,7 @@ interface OrderState {
    */
   addFreeRewardToCart: (product: any, freeRewardTierId: number, redemptionId: number) => void;
   setCustomerPhone: (phone: string) => void;
-  setServiceType: (type: 'dine_in' | 'takeaway') => void;
+  setServiceType: (type: 'dine_in' | 'takeaway' | 'delivery') => void;
   setTableNumber: (table: string) => void;
   /** انتخاب میز از فهرست میزهای رستوران — نام میز هم همگام می‌شود */
   setTable: (table: { id: number; name: string } | null) => void;

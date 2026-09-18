@@ -186,7 +186,7 @@ function buildEndpointUrl(companyKey: string, ip: string): string {
 }
 
 function FieldHelp({ text }: { text: string }) {
-  return <p className="text-xs text-default-400 mt-0.5">{text}</p>;
+  return <p className="text-xs text-muted mt-0.5">{text}</p>;
 }
 
 function AdvancedFields({
@@ -197,8 +197,8 @@ function AdvancedFields({
   onChange: (patch: Partial<CardTerminalSettings>) => void;
 }) {
   return (
-    <div className="space-y-4 border-t border-default-200 pt-4">
-      <p className="text-xs font-medium text-default-500">تنظیمات پیشرفته</p>
+    <div className="space-y-4 border-t border-border pt-4">
+      <p className="text-xs font-medium text-muted">تنظیمات پیشرفته</p>
 
       <div className="space-y-1">
         <Input
@@ -253,8 +253,8 @@ function AdvancedFields({
         </div>
       </div>
 
-      <fieldset className="border border-default-200 rounded-xl p-3 space-y-3">
-        <legend className="text-xs font-medium text-default-600 px-1">نام فیلدهای درخواست (Request Body)</legend>
+      <fieldset className="border border-border rounded-xl p-3 space-y-3">
+        <legend className="text-xs font-medium text-foreground/70 px-1">نام فیلدهای درخواست (Request Body)</legend>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Input label="کلید مبلغ" placeholder="amount" value={settings.amountFieldName}
             onValueChange={(v) => onChange({ amountFieldName: v })} variant="bordered" />
@@ -265,8 +265,8 @@ function AdvancedFields({
         </div>
       </fieldset>
 
-      <fieldset className="border border-default-200 rounded-xl p-3 space-y-3">
-        <legend className="text-xs font-medium text-default-600 px-1">احراز هویت (اختیاری)</legend>
+      <fieldset className="border border-border rounded-xl p-3 space-y-3">
+        <legend className="text-xs font-medium text-foreground/70 px-1">احراز هویت (اختیاری)</legend>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input label="نام هدر" placeholder="Authorization" value={settings.authHeaderName}
             onValueChange={(v) => onChange({ authHeaderName: v })} variant="bordered" />
@@ -275,8 +275,8 @@ function AdvancedFields({
         </div>
       </fieldset>
 
-      <fieldset className="border border-default-200 rounded-xl p-3 space-y-3">
-        <legend className="text-xs font-medium text-default-600 px-1">مسیر فیلدها در پاسخ (Response)</legend>
+      <fieldset className="border border-border rounded-xl p-3 space-y-3">
+        <legend className="text-xs font-medium text-foreground/70 px-1">مسیر فیلدها در پاسخ (Response)</legend>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1">
             <Input label="تأیید موفقیت" placeholder="success" value={settings.successFieldPath}
@@ -320,8 +320,8 @@ function SerialTlvFields({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-warning-300 bg-warning-50 p-3">
-        <p className="text-xs text-warning-800">
+      <div className="rounded-xl border border-warning/40 bg-warning-soft p-3">
+        <p className="text-xs text-warning-soft-foreground">
           ⚠️ این حالت (اتصال مستقیم سریال با پروتکل TLV سامان/SEP) آزمایشی است. قبل از استفاده در
           تراکنش واقعی، حتماً با یک مبلغ کوچک روی کارتخوان فیزیکی تست کنید.
         </p>
@@ -356,8 +356,8 @@ function SerialTlvFields({
           variant="bordered"
         />
         <div className="flex items-end pb-1">
-          <div className="flex items-center justify-between w-full py-2 px-3 bg-default-50 rounded-xl border border-default-200">
-            <span className="text-sm text-default-600">With Handshake</span>
+          <div className="flex items-center justify-between w-full py-2 px-3 bg-default-soft rounded-xl border border-border">
+            <span className="text-sm text-foreground/70">With Handshake</span>
             <Switch
               isSelected={settings.serialWithHandshake}
               onValueChange={(v) => onChange({ serialWithHandshake: v })}
@@ -397,8 +397,8 @@ function AsanPardakhtFields({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-warning-300 bg-warning-50 p-3">
-        <p className="text-xs text-warning-800">
+      <div className="rounded-xl border border-warning/40 bg-warning-soft p-3">
+        <p className="text-xs text-warning-soft-foreground">
           ⚠️ اتصال مستقیم به SDK آسان‌پرداخت (PosInterface.dll) است. کد موفقیت/شکست تراکنش تأیید
           نهایی نشده — قبل از استفاده در تراکنش واقعی حتماً با یک مبلغ کوچک روی کارتخوان فیزیکی تست کنید.
         </p>
@@ -633,8 +633,8 @@ export default function CardTerminalsPage() {
   const isSupported = !!window.electronAPI?.saveCardTerminalConfig;
 
   return (
-    <div className="min-h-screen flex flex-col bg-default-100">
-      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm flex items-center justify-between">
+    <div className="min-h-screen flex flex-col bg-background">
+      <header className="shrink-0 bg-surface border-b border-border px-4 py-3 shadow-sm flex items-center justify-between">
         <h1 className="text-lg font-bold text-foreground">مدیریت کارتخوان‌ها</h1>
         {isSupported && (
           <Button color="primary" size="sm" onPress={openAdd}>+ افزودن کارتخوان</Button>
@@ -644,13 +644,13 @@ export default function CardTerminalsPage() {
       <div className="flex-1 overflow-auto p-4 max-w-4xl mx-auto w-full space-y-4">
         {!isSupported && (
           <Card><CardContent>
-            <p className="text-default-500 text-sm text-center py-4">این قابلیت فقط در محیط Electron در دسترس است.</p>
+            <p className="text-muted text-sm text-center py-4">این قابلیت فقط در محیط Electron در دسترس است.</p>
           </CardContent></Card>
         )}
 
         {isSupported && profiles.length === 0 && (
           <Card><CardContent>
-            <div className="flex flex-col items-center gap-3 py-10 text-default-400">
+            <div className="flex flex-col items-center gap-3 py-10 text-muted">
               <span className="text-4xl">🖥️</span>
               <p className="text-sm">هنوز کارتخوانی تعریف نشده است.</p>
               <Button color="primary" size="sm" onPress={openAdd}>افزودن اولین کارتخوان</Button>
@@ -691,14 +691,14 @@ export default function CardTerminalsPage() {
                   </div>
                 </div>
 
-                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm border-t border-default-100 pt-3">
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm border-t border-border pt-3">
                   {profile.settings.connectionType === 'serial-tlv' ? (
                     <>
-                      <div className="flex gap-2 text-default-500">
+                      <div className="flex gap-2 text-muted">
                         <span className="shrink-0">اتصال:</span>
                         <span className="text-foreground">سریال — TLV سامان (آزمایشی)</span>
                       </div>
-                      <div className="flex gap-2 text-default-500">
+                      <div className="flex gap-2 text-muted">
                         <span className="shrink-0">پورت:</span>
                         <span className="text-foreground font-mono" dir="ltr">
                           {profile.settings.serialPortName || '—'} @ {profile.settings.serialBaudRate}
@@ -707,11 +707,11 @@ export default function CardTerminalsPage() {
                     </>
                   ) : profile.settings.connectionType === 'asan-pardakht' ? (
                     <>
-                      <div className="flex gap-2 text-default-500">
+                      <div className="flex gap-2 text-muted">
                         <span className="shrink-0">اتصال:</span>
                         <span className="text-foreground">آسان‌پرداخت — {profile.settings.asanPardakhtMode === 'serial' ? 'سریال' : 'شبکه'}</span>
                       </div>
-                      <div className="flex gap-2 text-default-500">
+                      <div className="flex gap-2 text-muted">
                         <span className="shrink-0">{profile.settings.asanPardakhtMode === 'serial' ? 'پورت:' : 'آدرس:'}</span>
                         <span className="text-foreground font-mono" dir="ltr">
                           {profile.settings.asanPardakhtMode === 'serial'
@@ -722,11 +722,11 @@ export default function CardTerminalsPage() {
                     </>
                   ) : companyLabel ? (
                     <>
-                      <div className="flex gap-2 text-default-500">
+                      <div className="flex gap-2 text-muted">
                         <span className="shrink-0">شرکت:</span>
                         <span className="text-foreground">{companyLabel}</span>
                       </div>
-                      <div className="flex gap-2 text-default-500">
+                      <div className="flex gap-2 text-muted">
                         <span className="shrink-0">IP دستگاه:</span>
                         <span className="text-foreground font-mono" dir="ltr">
                           {profile.settings.deviceIp || 'localhost'}
@@ -734,14 +734,14 @@ export default function CardTerminalsPage() {
                       </div>
                     </>
                   ) : (
-                    <div className="flex gap-2 text-default-500 col-span-2">
+                    <div className="flex gap-2 text-muted col-span-2">
                       <span className="shrink-0">آدرس:</span>
                       <span className="text-foreground truncate font-mono text-xs" dir="ltr">
                         {profile.settings.endpointUrl || '—'}
                       </span>
                     </div>
                   )}
-                  <div className="flex gap-2 text-default-500">
+                  <div className="flex gap-2 text-muted">
                     <span className="shrink-0">واحد مبلغ:</span>
                     <span className="text-foreground">
                       {profile.settings.sendAmountUnit === 'toman' ? 'ریال' : 'ریال'}
@@ -757,7 +757,7 @@ export default function CardTerminalsPage() {
       {/* Add / Edit Modal */}
       <Modal isOpen={!!modal} onOpenChange={(open) => !open && closeModal()}>
         <ModalShell size="2xl" scrollBehavior="inside">
-          <ModalHeader className="border-b border-default-200 pb-3">
+          <ModalHeader className="border-b border-border pb-3">
             <span className="text-lg font-bold">
               {modal?.type === 'add' ? 'افزودن کارتخوان جدید' : 'ویرایش کارتخوان'}
             </span>
@@ -802,9 +802,9 @@ export default function CardTerminalsPage() {
 
               {/* Simple Setup */}
               {modalSettings.connectionType === 'http' && (
-              <div className="rounded-xl border border-primary-200 bg-primary-50 p-4 space-y-3">
-                <p className="text-sm font-semibold text-primary-800">اتصال سریع کارتخوان</p>
-                <p className="text-xs text-primary-600">
+              <div className="rounded-xl border border-accent/30 bg-accent-soft p-4 space-y-3">
+                <p className="text-sm font-semibold text-accent-soft-foreground">اتصال سریع کارتخوان</p>
+                <p className="text-xs text-accent">
                   شرکت کارتخوان خود را انتخاب کنید و آدرس IP دستگاه را وارد کنید. بقیه تنظیمات خودکار پر می‌شوند.
                 </p>
 
@@ -833,13 +833,13 @@ export default function CardTerminalsPage() {
                       variant="bordered"
                       dir="ltr"
                     />
-                    <p className="text-xs text-primary-600">
+                    <p className="text-xs text-accent">
                       اگر نرم‌افزار کارتخوان روی همین کامپیوتر است، <span dir="ltr" className="font-mono">localhost</span> را بگذارید.
                       اگر روی کامپیوتر دیگری در شبکه است، IP آن را وارد کنید (مثلاً <span dir="ltr" className="font-mono">192.168.1.10</span>).
                     </p>
-                    <div className="rounded-lg bg-white border border-primary-200 px-3 py-2 flex items-center gap-2">
-                      <span className="text-xs text-default-500 shrink-0">آدرس اتصال:</span>
-                      <span className="text-xs font-mono text-primary-700 break-all" dir="ltr">
+                    <div className="rounded-lg bg-white border border-accent/30 px-3 py-2 flex items-center gap-2">
+                      <span className="text-xs text-muted shrink-0">آدرس اتصال:</span>
+                      <span className="text-xs font-mono text-accent-soft-foreground break-all" dir="ltr">
                         {modalSettings.endpointUrl || '—'}
                       </span>
                     </div>
@@ -849,8 +849,8 @@ export default function CardTerminalsPage() {
               )}
 
               {/* Enable toggle */}
-              <div className="flex justify-between items-center py-2 px-3 bg-default-50 rounded-xl border border-default-200">
-                <span className="text-sm text-default-600">فعال‌سازی این کارتخوان</span>
+              <div className="flex justify-between items-center py-2 px-3 bg-default-soft rounded-xl border border-border">
+                <span className="text-sm text-foreground/70">فعال‌سازی این کارتخوان</span>
                 <Switch
                   isSelected={modalSettings.enabled}
                   onValueChange={(v) => setModalSettings((prev) => ({ ...prev, enabled: v }))}
@@ -866,7 +866,7 @@ export default function CardTerminalsPage() {
                     variant="flat"
                     color="default"
                     onPress={() => setShowAdvanced((v) => !v)}
-                    className="w-full text-default-500"
+                    className="w-full text-muted"
                   >
                     {showAdvanced ? '▲ پنهان کردن تنظیمات پیشرفته' : '▼ تنظیمات پیشرفته (برای کارشناسان)'}
                   </Button>
@@ -881,7 +881,7 @@ export default function CardTerminalsPage() {
               )}
             </div>
           </ModalBody>
-          <ModalFooter className="border-t border-default-200 pt-3">
+          <ModalFooter className="border-t border-border pt-3">
             <div className="flex gap-2 flex-row-reverse w-full">
               <Button color="primary" onPress={handleModalSave} isLoading={isSaving}>ذخیره</Button>
               <Button variant="outline" onPress={closeModal} isDisabled={isSaving}>انصراف</Button>
@@ -893,16 +893,16 @@ export default function CardTerminalsPage() {
       {/* Delete Confirmation Modal */}
       <Modal isOpen={!!deleteTargetId} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
         <ModalShell size="sm">
-          <ModalHeader className="border-b border-default-200 pb-3">
+          <ModalHeader className="border-b border-border pb-3">
             <span className="font-bold">حذف کارتخوان</span>
           </ModalHeader>
           <ModalBody className="py-4">
-            <p className="text-sm text-default-600" dir="rtl">
+            <p className="text-sm text-foreground/70" dir="rtl">
               آیا از حذف «{profiles.find((p) => p.id === deleteTargetId)?.name}» مطمئن هستید؟
               این عملیات قابل بازگشت نیست.
             </p>
           </ModalBody>
-          <ModalFooter className="border-t border-default-200 pt-3">
+          <ModalFooter className="border-t border-border pt-3">
             <div className="flex gap-2 flex-row-reverse w-full">
               <Button color="danger" onPress={() => deleteTargetId && handleDelete(deleteTargetId)}>حذف</Button>
               <Button variant="outline" onPress={() => setDeleteTargetId(null)}>انصراف</Button>

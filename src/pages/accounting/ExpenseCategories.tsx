@@ -223,15 +223,15 @@ export default function AccountingExpenseCategoriesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-default-100 p-6 space-y-4">
+    <div className="min-h-screen bg-background p-6 space-y-4">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold">دسته‌بندی هزینه‌ها</h1>
           <span
             className={`text-xs rounded-full px-2 py-0.5 font-medium ${
               isOnline
-                ? 'bg-success-100 text-success-700'
-                : 'bg-default-200 text-default-500'
+                ? 'bg-success-soft text-success-soft-foreground'
+                : 'bg-default text-muted'
             }`}
           >
             {isOnline ? '● آنلاین' : '○ آفلاین'}
@@ -255,7 +255,7 @@ export default function AccountingExpenseCategoriesPage() {
       </div>
 
       {!isOnline && (
-        <div className="bg-warning-50 border border-warning-200 rounded-lg p-3 text-sm text-warning-700">
+        <div className="bg-warning-soft border border-warning/30 rounded-lg p-3 text-sm text-warning-soft-foreground">
           اتصال به سرور برقرار نیست — تغییرات ذخیره می‌شوند و پس از برقراری اتصال همگام‌سازی خواهند شد.
         </div>
       )}
@@ -263,11 +263,11 @@ export default function AccountingExpenseCategoriesPage() {
       <Card>
         <CardContent className="gap-3">
           {loading && (
-            <p className="text-center text-sm text-default-500 py-6 animate-pulse">در حال بارگذاری...</p>
+            <p className="text-center text-sm text-muted py-6 animate-pulse">در حال بارگذاری...</p>
           )}
 
           {!loading && rows.length === 0 && (
-            <p className="text-center text-sm text-default-500 py-6">
+            <p className="text-center text-sm text-muted py-6">
               هنوز دسته‌بندی تعریف نشده است.
             </p>
           )}
@@ -275,13 +275,13 @@ export default function AccountingExpenseCategoriesPage() {
           {treeRows.map((row) => (
             <div
               key={row.id}
-              className="bg-default-50 border border-default-200 rounded-lg p-3 text-sm flex justify-between items-center"
+              className="bg-default-soft border border-border rounded-lg p-3 text-sm flex justify-between items-center"
               style={{ marginInlineStart: `${row.depth * 1.5}rem` }}
             >
               <div className="flex items-center gap-2">
                 <span className="font-medium">{row.name}</span>
                 {!row.isActive && (
-                  <span className="text-xs bg-default-200 text-default-500 rounded px-1.5 py-0.5">
+                  <span className="text-xs bg-default text-muted rounded px-1.5 py-0.5">
                     غیرفعال
                   </span>
                 )}

@@ -309,7 +309,7 @@ export default function AccountingExpensesPage() {
 
   // ─── UI ──────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-default-100 p-6 space-y-4">
+    <div className="min-h-screen bg-background p-6 space-y-4">
 
       {/* هدر */}
       <div className="flex justify-between items-center">
@@ -318,8 +318,8 @@ export default function AccountingExpensesPage() {
           <span
             className={`text-xs rounded-full px-2 py-0.5 font-medium ${
               isOnline
-                ? 'bg-success-100 text-success-700'
-                : 'bg-default-200 text-default-500'
+                ? 'bg-success-soft text-success-soft-foreground'
+                : 'bg-default text-muted'
             }`}
           >
             {isOnline ? '● آنلاین' : '○ آفلاین'}
@@ -336,7 +336,7 @@ export default function AccountingExpensesPage() {
 
       {/* هشدار: دسته تعریف نشده */}
       {categories.length === 0 && (
-        <div className="bg-warning-50 border border-warning-200 rounded-lg p-3 text-sm text-warning-700 flex items-center justify-between gap-3">
+        <div className="bg-warning-soft border border-warning/30 rounded-lg p-3 text-sm text-warning-soft-foreground flex items-center justify-between gap-3">
           <span>⚠️ هنوز دسته‌بندی هزینه تعریف نشده است.</span>
           <Button
             size="sm"
@@ -351,7 +351,7 @@ export default function AccountingExpensesPage() {
 
       {/* هشدار: سال مالی انتخاب نشده */}
       {isOnline && !fiscalYearId && (
-        <div className="bg-default-100 border border-default-200 rounded-lg p-3 text-sm text-default-600">
+        <div className="bg-default-soft border border-border rounded-lg p-3 text-sm text-foreground/70">
           ℹ️ سال مالی انتخاب نشده — لیست بر اساس سال مالی فعال سرور نمایش داده می‌شود.
         </div>
       )}
@@ -372,13 +372,13 @@ export default function AccountingExpensesPage() {
           </div>
 
           {loading && (
-            <p className="text-center text-sm text-default-400 py-6 animate-pulse">
+            <p className="text-center text-sm text-muted py-6 animate-pulse">
               در حال بارگذاری...
             </p>
           )}
 
           {!loading && filtered.length === 0 && (
-            <p className="text-center text-sm text-default-500 py-6">
+            <p className="text-center text-sm text-muted py-6">
               هزینه‌ای ثبت نشده است.
             </p>
           )}
@@ -386,22 +386,22 @@ export default function AccountingExpensesPage() {
           {!loading && filtered.map((e) => (
             <div
               key={e.id}
-              className="bg-default-50 border border-default-200 rounded-lg p-3 text-sm"
+              className="bg-default-soft border border-border rounded-lg p-3 text-sm"
             >
               <div className="flex justify-between items-start gap-2">
                 <div className="space-y-1 min-w-0">
                   <div className="font-semibold text-foreground">
                     {formatAmount(e.amount)} ریال
                   </div>
-                  <div className="text-default-500 text-xs">
+                  <div className="text-muted text-xs">
                     دسته: {categoryName(e)}
                   </div>
                   {e.description && (
-                    <div className="text-default-600 text-xs truncate">{e.description}</div>
+                    <div className="text-foreground/70 text-xs truncate">{e.description}</div>
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  <div className="text-xs text-default-400 whitespace-nowrap">
+                  <div className="text-xs text-muted whitespace-nowrap">
                     {toShamsiDate(String(e.expenseDate || '').slice(0, 10))}
                   </div>
                   {isOnline && (

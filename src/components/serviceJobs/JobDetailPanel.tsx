@@ -201,26 +201,26 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
       <ModalShell size="3xl">
         <ModalHeader>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-xs text-default-400">{localJob.jobNumber ?? '(در صف ثبت)'}</span>
+            <span className="font-mono text-xs text-muted">{localJob.jobNumber ?? '(در صف ثبت)'}</span>
             <span className="font-bold">{localJob.title}</span>
             {status && (
               <span className="text-xs px-2 py-1 rounded-lg font-medium" style={status.color ? { backgroundColor: status.color + '22', color: status.color } : undefined}>
                 {status.label}
               </span>
             )}
-            {opState.hasFailed && <span className="text-xs px-2 py-1 rounded-lg bg-danger-100 text-danger-700">خطای سینک</span>}
-            {opState.hasPending && !opState.hasFailed && <span className="text-xs px-2 py-1 rounded-lg bg-warning-100 text-warning-700">در صف سینک</span>}
+            {opState.hasFailed && <span className="text-xs px-2 py-1 rounded-lg bg-danger-soft text-danger-soft-foreground">خطای سینک</span>}
+            {opState.hasPending && !opState.hasFailed && <span className="text-xs px-2 py-1 rounded-lg bg-warning-soft text-warning-soft-foreground">در صف سینک</span>}
           </div>
         </ModalHeader>
         <ModalBody className="space-y-4">
           {opState.hasFailed && opState.errors.length > 0 && (
-            <div className="text-xs text-danger-600 bg-danger-50 border border-danger-200 rounded-lg px-3 py-2">
+            <div className="text-xs text-danger bg-danger-soft border border-danger/30 rounded-lg px-3 py-2">
               {opState.errors.join(' — ')}
             </div>
           )}
 
           {/* اطلاعات اصلی */}
-          <div className="border border-default-200 rounded-xl p-4 space-y-3">
+          <div className="border border-border rounded-xl p-4 space-y-3">
             {isEditing ? (
               <div className="space-y-3">
                 <Input label="عنوان" value={editTitle} onValueChange={setEditTitle} />
@@ -262,10 +262,10 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
                     {localJob.estimatedAmount > 0 && <InfoRow label="تخمین" value={`${localJob.estimatedAmount.toLocaleString('fa-IR')} ریال`} />}
                     {localJob.salesInvoiceId && <InfoRow label="فاکتور" value={`#${localJob.salesInvoiceId}`} />}
                   </div>
-                  <button onClick={startEdit} className="text-default-400 hover:text-primary-500 text-sm px-2 py-1 rounded-lg">ویرایش</button>
+                  <button onClick={startEdit} className="text-muted hover:text-accent text-sm px-2 py-1 rounded-lg">ویرایش</button>
                 </div>
                 {localJob.formData && Object.keys(localJob.formData).length > 0 && (
-                  <div className="pt-2 border-t border-default-100 grid grid-cols-2 gap-2 text-sm">
+                  <div className="pt-2 border-t border-border grid grid-cols-2 gap-2 text-sm">
                     {board.formFields.filter((f) => localJob.formData?.[f.key] !== undefined).map((f) => (
                       <InfoRow key={f.key} label={f.label} value={String(localJob.formData![f.key])} />
                     ))}
@@ -276,7 +276,7 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
           </div>
 
           {/* اقلام */}
-          <div className="border border-default-200 rounded-xl p-4 space-y-3">
+          <div className="border border-border rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sm">اقلام پرونده</h3>
               {!localJob.salesInvoiceId && (
@@ -284,19 +284,19 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
               )}
             </div>
             {items.length === 0 ? (
-              <p className="text-sm text-default-400 text-center py-4">قلمی ثبت نشده</p>
+              <p className="text-sm text-muted text-center py-4">قلمی ثبت نشده</p>
             ) : (
-              <div className="divide-y divide-default-100">
+              <div className="divide-y divide-border">
                 {items.map((item) => (
                   <div key={item.id} className="flex items-center justify-between py-2 text-sm">
                     <div className="min-w-0 flex-1">
                       <p>{item.description}</p>
-                      <p className="text-xs text-default-400">{item.quantity} × {item.unitPrice.toLocaleString('fa-IR')} = {item.lineTotal.toLocaleString('fa-IR')} ریال</p>
+                      <p className="text-xs text-muted">{item.quantity} × {item.unitPrice.toLocaleString('fa-IR')} = {item.lineTotal.toLocaleString('fa-IR')} ریال</p>
                     </div>
                     {!localJob.salesInvoiceId && (
                       <div className="flex gap-2 flex-shrink-0">
-                        <button onClick={() => { setEditItem(item); addItemModal.onOpen(); }} className="text-default-400 hover:text-primary-500 text-xs">ویرایش</button>
-                        <button onClick={() => handleRemoveItem(item)} className="text-default-400 hover:text-danger-500 text-xs">حذف</button>
+                        <button onClick={() => { setEditItem(item); addItemModal.onOpen(); }} className="text-muted hover:text-accent text-xs">ویرایش</button>
+                        <button onClick={() => handleRemoveItem(item)} className="text-muted hover:text-danger text-xs">حذف</button>
                       </div>
                     )}
                   </div>
@@ -313,13 +313,13 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
                   <Button size="sm" color="primary" onPress={issueInvoiceModal.onOpen}>صدور فاکتور فروش</Button>
                 </div>
               ) : (
-                <p className="text-xs text-warning-600 text-left">صدور فاکتور نیاز به اتصال اینترنت دارد</p>
+                <p className="text-xs text-warning text-left">صدور فاکتور نیاز به اتصال اینترنت دارد</p>
               )
             )}
           </div>
 
           {/* پیوست‌ها */}
-          <div className="border border-default-200 rounded-xl p-4 space-y-3">
+          <div className="border border-border rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sm">پیوست‌ها {remoteExtra && `(${remoteExtra.attachments.length})`}</h3>
               {isOnline && localJob.id > 0 ? (
@@ -328,21 +328,21 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
                   <Button size="sm" variant="flat" onPress={() => fileInputRef.current?.click()} isLoading={isUploading}>افزودن فایل</Button>
                 </>
               ) : (
-                <span className="text-xs text-warning-600">نیاز به اتصال اینترنت</span>
+                <span className="text-xs text-warning">نیاز به اتصال اینترنت</span>
               )}
             </div>
             {isLoadingRemote ? (
-              <p className="text-sm text-default-400 text-center py-2">در حال بارگذاری…</p>
+              <p className="text-sm text-muted text-center py-2">در حال بارگذاری…</p>
             ) : !remoteExtra ? (
-              <p className="text-sm text-default-400 text-center py-2">فقط آنلاین قابل مشاهده</p>
+              <p className="text-sm text-muted text-center py-2">فقط آنلاین قابل مشاهده</p>
             ) : remoteExtra.attachments.length === 0 ? (
-              <p className="text-sm text-default-400 text-center py-2">فایلی پیوست نشده</p>
+              <p className="text-sm text-muted text-center py-2">فایلی پیوست نشده</p>
             ) : (
               <div className="space-y-1">
                 {remoteExtra.attachments.map((att: any) => (
                   <div key={att.id} className="text-sm flex justify-between">
                     <span>{att.originalName ?? 'فایل'}</span>
-                    <span className="text-xs text-default-400">{new Date(att.createdAt).toLocaleDateString('fa-IR')}</span>
+                    <span className="text-xs text-muted">{new Date(att.createdAt).toLocaleDateString('fa-IR')}</span>
                   </div>
                 ))}
               </div>
@@ -350,18 +350,18 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
           </div>
 
           {/* تاریخچه */}
-          <div className="border border-default-200 rounded-xl p-4 space-y-2">
+          <div className="border border-border rounded-xl p-4 space-y-2">
             <h3 className="font-semibold text-sm">تاریخچه فعالیت‌ها</h3>
             {!remoteExtra ? (
-              <p className="text-sm text-default-400 text-center py-2">فقط آنلاین قابل مشاهده</p>
+              <p className="text-sm text-muted text-center py-2">فقط آنلاین قابل مشاهده</p>
             ) : remoteExtra.activities.length === 0 ? (
-              <p className="text-sm text-default-400 text-center py-2">فعالیتی ثبت نشده</p>
+              <p className="text-sm text-muted text-center py-2">فعالیتی ثبت نشده</p>
             ) : (
               <div className="space-y-1.5 text-sm">
                 {remoteExtra.activities.map((act: any) => (
-                  <div key={act.id} className="flex justify-between text-default-600">
+                  <div key={act.id} className="flex justify-between text-foreground/70">
                     <span>{act.note || act.type}</span>
-                    <span className="text-xs text-default-400">{new Date(act.createdAt).toLocaleDateString('fa-IR')}</span>
+                    <span className="text-xs text-muted">{new Date(act.createdAt).toLocaleDateString('fa-IR')}</span>
                   </div>
                 ))}
               </div>
@@ -393,8 +393,8 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
   return (
     <div className="flex gap-1.5 min-w-0">
-      <span className="text-default-400 flex-shrink-0">{label}:</span>
-      <span className="text-default-800 truncate">{value}</span>
+      <span className="text-muted flex-shrink-0">{label}:</span>
+      <span className="text-foreground/90 truncate">{value}</span>
     </div>
   );
 }

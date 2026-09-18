@@ -212,16 +212,16 @@ export function DeliveryDestination({
             endContent={searching ? <Spinner size="sm" /> : null}
           />
           {results.length > 0 && (
-            <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-52 overflow-y-auto rounded-lg border border-default-200 bg-content1 shadow-lg">
+            <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-52 overflow-y-auto rounded-lg border border-border bg-surface shadow-lg">
               {results.map((item, idx) => (
                 <button
                   key={idx}
                   type="button"
-                  className="w-full px-3 py-2 text-right text-sm hover:bg-default-100"
+                  className="w-full px-3 py-2 text-right text-sm hover:bg-default-soft"
                   onClick={() => pickSearchResult(item)}
                 >
                   <div className="font-medium">{item.title}</div>
-                  <div className="text-xs text-default-500">{item.address}</div>
+                  <div className="text-xs text-muted">{item.address}</div>
                 </button>
               ))}
             </div>
@@ -241,9 +241,9 @@ export function DeliveryDestination({
 
       {/* نتیجهٔ استعلام */}
       {online && location && (
-        <div className="rounded-lg border border-default-200 p-2.5">
+        <div className="rounded-lg border border-border p-2.5">
           {quoting && (
-            <div className="flex items-center gap-2 text-sm text-default-500">
+            <div className="flex items-center gap-2 text-sm text-muted">
               <Spinner size="sm" />
               محاسبهٔ کرایه…
             </div>
@@ -253,7 +253,7 @@ export function DeliveryDestination({
               <span className="font-medium">
                 کرایه: {fa(Math.round(quote.fee / 10))} تومان
               </span>
-              <div className="flex items-center gap-2 text-xs text-default-500">
+              <div className="flex items-center gap-2 text-xs text-muted">
                 <span>{fa(Math.round(quote.distanceM / 100) / 10)} کیلومتر</span>
                 <Chip
                   size="sm"
@@ -270,8 +270,8 @@ export function DeliveryDestination({
 
       {/* کرایهٔ دستی — مسیر خروج، هرگز مانع ثبت سفارش نیست */}
       {needsManualFee && (
-        <div className="flex flex-col gap-1.5 rounded-lg border border-warning-200 bg-warning-50 p-2.5">
-          <span className="text-xs text-warning-700">
+        <div className="flex flex-col gap-1.5 rounded-lg border border-warning/30 bg-warning-soft p-2.5">
+          <span className="text-xs text-warning-soft-foreground">
             {!online
               ? 'در حالت آفلاین کرایه محاسبه نمی‌شود — مبلغ را دستی وارد کنید.'
               : !location
@@ -290,7 +290,7 @@ export function DeliveryDestination({
       )}
 
       {customerPhone.trim().length === 0 && (
-        <span className="text-xs text-default-400">
+        <span className="text-xs text-muted">
           با وارد کردن شمارهٔ مشتری، آدرس‌های قبلی‌اش پیشنهاد می‌شود.
         </span>
       )}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button, Chip, Dropdown, Separator } from '@heroui/react';
+import { ShoppingCart, LayoutGrid, Wallet, ClipboardList, SlidersHorizontal, ChevronDown, LogOut, UserRound } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useCallerIdStore } from '../store/callerIdStore';
 import { useSyncStore } from '../store/syncStore';
@@ -61,7 +62,7 @@ function NavItemLabel({ item }: { item: NavLeaf }) {
     <span className="flex items-center justify-between gap-4 w-full">
       <span>{item.label}</span>
       {shortcut ? (
-        <span className="text-[10px] font-mono text-default-400 border border-default-300 rounded px-1 py-0.5">
+        <span className="text-[10px] font-mono text-muted border border-border-secondary rounded px-1 py-0.5">
           {shortcut}
         </span>
       ) : null}
@@ -193,11 +194,11 @@ export function ElectronMenubar() {
   const accountingRest = accountingVis.filter((i) => i.path !== '/accounting');
 
   const menuBtnClass = (active: boolean) =>
-    `min-h-9 h-9 px-3 text-sm font-medium ${active ? 'bg-default-200 dark:bg-default-100/20' : ''}`;
+    `min-h-9 h-9 px-3 rounded-lg text-sm font-medium gap-1.5 ${active ? 'bg-accent-soft text-accent-soft-foreground' : 'text-foreground/80 hover:bg-default-soft'}`;
 
   return (
     <header
-      className="shrink-0 z-40 flex flex-wrap items-center gap-1 border-b border-default-300 bg-[#e8e8e8] px-2 py-1 shadow-sm dark:border-default-100 dark:bg-zinc-900"
+      className="shrink-0 z-40 flex flex-wrap items-center gap-1 border-b border-border bg-surface px-3 py-1.5 shadow-sm"
       role="navigation"
       aria-label="منوی اصلی برنامه"
     >
@@ -226,9 +227,10 @@ export function ElectronMenubar() {
             size="sm"
             className={menuBtnClass(salesGroupActive(pathname))}
           >
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-1.5">
+              <ShoppingCart className="h-4 w-4" aria-hidden />
               سفارش و فروش
-              <span className="text-[10px] opacity-60">▾</span>
+              <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
             </span>
           </Dropdown.Trigger>
           <Dropdown.Popover>
@@ -239,7 +241,7 @@ export function ElectronMenubar() {
                     key={item.path}
                     id={item.path}
                     textValue={item.label}
-                    className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
+                    className={pathIsActive(pathname, item.path) ? 'bg-accent-soft' : undefined}
                   >
                     <NavItemLabel item={item} />
                   </Dropdown.Item>
@@ -253,9 +255,10 @@ export function ElectronMenubar() {
       {catalogVis.length > 0 ? (
         <Dropdown.Root>
           <Dropdown.Trigger variant="ghost" size="sm" className={menuBtnClass(catalogGroupActive(pathname))}>
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-1.5">
+              <LayoutGrid className="h-4 w-4" aria-hidden />
               کاتالوگ
-              <span className="text-[10px] opacity-60">▾</span>
+              <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
             </span>
           </Dropdown.Trigger>
           <Dropdown.Popover>
@@ -266,7 +269,7 @@ export function ElectronMenubar() {
                     key={item.path}
                     id={item.path}
                     textValue={item.label}
-                    className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
+                    className={pathIsActive(pathname, item.path) ? 'bg-accent-soft' : undefined}
                   >
                     <NavItemLabel item={item} />
                   </Dropdown.Item>
@@ -280,9 +283,10 @@ export function ElectronMenubar() {
       {accountingVis.length > 0 ? (
         <Dropdown.Root>
           <Dropdown.Trigger variant="ghost" size="sm" className={menuBtnClass(accountingGroupActive(pathname))}>
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-1.5">
+              <Wallet className="h-4 w-4" aria-hidden />
               حسابداری
-              <span className="text-[10px] opacity-60">▾</span>
+              <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
             </span>
           </Dropdown.Trigger>
           <Dropdown.Popover>
@@ -294,7 +298,7 @@ export function ElectronMenubar() {
                       key={item.path}
                       id={item.path}
                       textValue={item.label}
-                      className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
+                      className={pathIsActive(pathname, item.path) ? 'bg-accent-soft' : undefined}
                     >
                       <NavItemLabel item={item} />
                     </Dropdown.Item>
@@ -308,7 +312,7 @@ export function ElectronMenubar() {
                       key={item.path}
                       id={item.path}
                       textValue={item.label}
-                      className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
+                      className={pathIsActive(pathname, item.path) ? 'bg-accent-soft' : undefined}
                     >
                       <NavItemLabel item={item} />
                     </Dropdown.Item>
@@ -327,7 +331,10 @@ export function ElectronMenubar() {
           onPress={() => navigate('/service-jobs')}
           className={menuBtnClass(serviceJobsActive(pathname))}
         >
-          پرونده خدمات
+          <span className="inline-flex items-center gap-1.5">
+            <ClipboardList className="h-4 w-4" aria-hidden />
+            پرونده خدمات
+          </span>
         </Button>
       ) : null}
 
@@ -338,14 +345,15 @@ export function ElectronMenubar() {
             size="sm"
             className={menuBtnClass(systemVis.some((i) => pathname === i.path || pathname.startsWith(i.path + '/')))}
           >
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-1.5">
+              <SlidersHorizontal className="h-4 w-4" aria-hidden />
               سیستم
               {callHistoryCount > 0 && (
-                <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1 leading-none">
+                <span className="bg-danger text-danger-foreground text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1 leading-none">
                   {callHistoryCount}
                 </span>
               )}
-              <span className="text-[10px] opacity-60">▾</span>
+              <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
             </span>
           </Dropdown.Trigger>
           <Dropdown.Popover>
@@ -357,7 +365,7 @@ export function ElectronMenubar() {
                       key={item.path}
                       id={item.path}
                       textValue={item.label}
-                      className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
+                      className={pathIsActive(pathname, item.path) ? 'bg-accent-soft' : undefined}
                     >
                       <NavItemLabel item={item} />
                     </Dropdown.Item>
@@ -371,7 +379,7 @@ export function ElectronMenubar() {
                       key={item.path}
                       id={item.path}
                       textValue={item.label}
-                      className={pathIsActive(pathname, item.path) ? 'bg-primary-50' : undefined}
+                      className={pathIsActive(pathname, item.path) ? 'bg-accent-soft' : undefined}
                     >
                       <NavItemLabel item={item} />
                     </Dropdown.Item>
@@ -382,7 +390,7 @@ export function ElectronMenubar() {
                 <Dropdown.Item id={SHORTCUTS_HELP_KEY} textValue="راهنمای میانبرها">
                   <span className="flex items-center justify-between gap-4 w-full">
                     <span>راهنمای میانبرها</span>
-                    <span className="text-[10px] font-mono text-default-400 border border-default-300 rounded px-1 py-0.5">
+                    <span className="text-[10px] font-mono text-muted border border-border-secondary rounded px-1 py-0.5">
                       F1
                     </span>
                   </span>
@@ -402,16 +410,20 @@ export function ElectronMenubar() {
           </Chip>
         ) : null}
         <Chip size="sm" variant="soft" color="default" className="max-w-[160px] truncate text-xs">
-          {userLabel}
+          <span className="inline-flex items-center gap-1">
+            <UserRound className="h-3.5 w-3.5" aria-hidden />
+            {userLabel}
+          </span>
         </Chip>
         <Button
           size="sm"
           variant="danger-soft"
-          className="min-h-9 h-9 font-medium"
+          className="min-h-9 h-9 rounded-lg font-medium gap-1.5"
           onPress={() => {
             void logout().then(() => navigate('/login', { replace: true }));
           }}
         >
+          <LogOut className="h-4 w-4" aria-hidden />
           خروج
         </Button>
       </div>

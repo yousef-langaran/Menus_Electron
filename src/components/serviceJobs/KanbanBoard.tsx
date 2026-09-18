@@ -18,7 +18,7 @@ const CATEGORY_BG: Record<string, string> = {
   intake: 'bg-sky-50 dark:bg-sky-950/20',
   in_progress: 'bg-amber-50 dark:bg-amber-950/20',
   done: 'bg-emerald-50 dark:bg-emerald-950/20',
-  cancelled: 'bg-default-100',
+  cancelled: 'bg-default-soft',
 };
 
 function KanbanColumn({
@@ -41,19 +41,19 @@ function KanbanColumn({
 
   return (
     <div
-      className={`flex-shrink-0 w-72 flex flex-col rounded-2xl border border-default-200 ${CATEGORY_BG[status.category] ?? 'bg-default-50'} transition-colors ${isOver ? 'ring-2 ring-primary-400' : ''}`}
+      className={`flex-shrink-0 w-72 flex flex-col rounded-2xl border border-border ${CATEGORY_BG[status.category] ?? 'bg-default-soft'} transition-colors ${isOver ? 'ring-2 ring-accent' : ''}`}
       style={status.color ? { borderColor: status.color } : undefined}
     >
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <div className="flex items-center gap-2 min-w-0">
           {status.color && <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />}
-          <span className="font-semibold text-sm text-default-700 truncate">{status.label}</span>
-          <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${wipExceeded ? 'bg-danger-100 text-danger-600' : 'bg-default-200/80 text-default-500'}`}>
+          <span className="font-semibold text-sm text-foreground/80 truncate">{status.label}</span>
+          <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${wipExceeded ? 'bg-danger-soft text-danger' : 'bg-default/80 text-muted'}`}>
             {jobs.length}{status.wipLimit !== null ? `/${status.wipLimit}` : ''}
           </span>
         </div>
         {canCreate && (
-          <button onClick={() => onAddJob(status.id)} className="text-default-400 hover:text-primary-500 transition-colors p-0.5 rounded text-lg leading-none" title="افزودن پرونده">
+          <button onClick={() => onAddJob(status.id)} className="text-muted hover:text-accent transition-colors p-0.5 rounded text-lg leading-none" title="افزودن پرونده">
             +
           </button>
         )}
@@ -66,7 +66,7 @@ function KanbanColumn({
           ))}
         </SortableContext>
         {jobs.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-8 text-default-300">
+          <div className="flex flex-col items-center justify-center py-8 text-muted">
             <span className="text-xs">خالی</span>
           </div>
         )}
@@ -132,7 +132,7 @@ export function KanbanBoard({ statuses, jobs, opStates, onJobClick, onJobMove, o
           />
         ))}
         {sortedStatuses.length === 0 && (
-          <div className="flex flex-col items-center justify-center w-full py-20 text-default-400">
+          <div className="flex flex-col items-center justify-center w-full py-20 text-muted">
             <p className="text-sm">هنوز وضعیتی تعریف نشده</p>
           </div>
         )}

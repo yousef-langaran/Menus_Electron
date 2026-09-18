@@ -10,6 +10,7 @@ import { Panel, Group, Separator } from 'react-resizable-panels';
 import { useAuthStore } from '../../store/authStore';
 import { useOrderStore } from '../../store/orderStore';
 import { useOrderNavStore } from '../../store/orderNavStore';
+import { useSyncStore } from '../../store/syncStore';
 import {
   createProduct, fetchOrderById, fetchOrders, getMasterProductByBarcode, searchMasterProducts,
   getAssetBaseUrl, type MasterProduct,
@@ -22,6 +23,7 @@ import { useOrderSubmit } from './hooks/useOrderSubmit';
 import { OrderProductGrid } from './components/OrderProductGrid';
 import { OrderCart } from './components/OrderCart';
 import { OrderModal, type OrderModalState } from './components/OrderModal';
+import { OrderQuickActionsRail } from './components/OrderQuickActionsRail';
 
 const PRODUCT_UNITS = [
   'عدد', 'کیلوگرم', 'گرم', 'لیتر', 'میلی‌لیتر',
@@ -67,9 +69,10 @@ export default function OrderPage() {
   const { user, token } = useAuthStore();
   const {
     cart, isSubmitting, clearCart, restoreDraft,
-    setCustomerPhone, setCustomerAddress,
+    setCustomerPhone, setCustomerAddress, setServiceType,
     submitOrder,
   } = useOrderStore();
+  const isOnline = useSyncStore((s) => s.isOnline);
 
   const editParam = searchParams.get('edit');
   const parsedEditId = editParam != null ? Number(editParam) : NaN;
@@ -78,6 +81,7 @@ export default function OrderPage() {
   // Hooks
   const productLoader = useProductLoader();
   const { handleSubmit, playScanBeep, formatPrice } = useOrderSubmit();
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
@@ -323,6 +327,16 @@ export default function OrderPage() {
 
   const staffCartUnitPrice = (product: any) => Number(product?.price || 0);
 
+  // نوار اکشن سریع — هر دکمه به یک مسیر/حالت واقعی همین صفحه وصل است
+  const handleQuickSale = () => resetSession();
+  const handleTableOrder = () => { setServiceType('dine_in'); setModalState((s) => ({ ...s, isOpen: true })); };
+  const handleCustomerOrder = () => { setServiceType('takeaway'); setModalState((s) => ({ ...s, isOpen: true })); };
+  const handlePreInvoice = () => {
+    if (cart.length === 0) { toast.error('سبد خرید خالی است'); return; }
+    setModalState((s) => ({ ...s, isOpen: true }));
+  };
+  const handleQuickSearch = () => searchInputRef.current?.focus();
+
   const openScaleModal = async (product: any) => {
     setScaleModalProduct(product); setScaleWeight(null); setScaleError(''); setScaleModalOpen(true); setScaleReading(true);
     try {
@@ -451,15 +465,16 @@ export default function OrderPage() {
   };
 
   return (
-    <div onClick={() => setSearchTerm('')} className="flex flex-col flex-1 min-h-0 bg-default-100">
+    <div onClick={() => setSearchTerm('')} className="flex flex-col flex-1 min-h-0 bg-background">
       {/* Header */}
-      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+      <header className="shrink-0 bg-surface border-b border-border px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
         <div className="flex flex-wrap items-center gap-3 min-w-0 flex-1">
           <h1 className="text-lg sm:text-xl font-bold text-foreground whitespace-nowrap">
             {editingOrderId != null ? `ویرایش فاکتور #${editingOrderId}` : 'ثبت سفارش'}
           </h1>
           <Input
-            placeholder="جستجوی محصول..."
+            ref={searchInputRef}
+            placeholder="جستجوی محصول... Ctrl+K"
             value={searchTerm}
             onValueChange={(value) => setSearchTerm(value)}
             variant="bordered"
@@ -473,51 +488,62 @@ export default function OrderPage() {
 
       {/* Access warnings */}
       {productLoader.isScaleIntegrationEnabled && !canUseScale && (
-        <div className="px-6 py-3 bg-warning-50 text-warning-700 border-b border-warning-200 text-center" role="alert">
+        <div className="px-6 py-3 bg-warning-soft text-warning-soft-foreground border-b border-warning/30 text-center" role="alert">
           اتصال ترازو برای این کاربر غیرفعال است.
         </div>
       )}
       {productLoader.isCardTerminalEnabled && !canUseCardTerminal && (
-        <div className="px-6 py-3 bg-warning-50 text-warning-700 border-b border-warning-200 text-center" role="alert">
+        <div className="px-6 py-3 bg-warning-soft text-warning-soft-foreground border-b border-warning/30 text-center" role="alert">
           دسترسی کارتخوان برای این کاربر غیرفعال است.
         </div>
       )}
 
-      {/* Main layout */}
-      <Group className="pt-2 min-h-0">
-        {/* Mixing an unconstrained percentage panel with a pixel-constrained sibling
-            (cart's minSize/maxSize below are px) left this panel with no defaultSize
-            hint — react-resizable-panels couldn't reconcile the two on first layout
-            and collapsed it to ~0 width instead of the intended leftover space. An
-            explicit defaultSize + minSize makes the initial layout deterministic. */}
-        <Panel defaultSize="70%" minSize="40%">
-          <Card className="overflow-hidden flex flex-col min-h-0 h-[calc(100vh_-120px)]">
-            <CardContent className="flex-1 min-h-0 overflow-hidden flex flex-row gap-0 p-0">
-              <OrderProductGrid
-                products={productLoader.products}
-                categories={productLoader.categories}
-                searchTerm={searchTerm}
-                onProductClick={handleProductClick}
-                onBarcodeAdd={handleBarcodeAdd}
-                formatPrice={formatPrice}
-                staffCartUnitPrice={staffCartUnitPrice}
-                orderEditLoading={orderEditLoading}
-                isLoading={productLoader.isLoading}
-              />
-            </CardContent>
-          </Card>
-        </Panel>
-        <Separator className="px-2" />
-        <Panel defaultSize={420} maxSize={500} minSize={350}>
-          <OrderCart
-            cartItemOptions={productLoader.cartItemOptions}
-            formatPrice={formatPrice}
-            onCheckout={() => setModalState((s) => ({ ...s, isOpen: true }))}
-            isDisabled={orderEditLoading || Boolean(orderEditError && editingOrderId != null)}
-            editingOrderId={editingOrderId}
-          />
-        </Panel>
-      </Group>
+      {/* Main layout — راست‌به‌چپ: سبد سفارش (تمرکز اول صندوق‌دار) ← دسته/محصولات ← نوار اکشن سریع */}
+      <div className="flex flex-row flex-1 min-h-0 pt-2">
+        {/*<OrderQuickActionsRail*/}
+        {/*  online={isOnline}*/}
+        {/*  cartHasItems={cart.length > 0}*/}
+        {/*  onQuickSale={handleQuickSale}*/}
+        {/*  onTableOrder={handleTableOrder}*/}
+        {/*  onPreInvoice={handlePreInvoice}*/}
+        {/*  onCustomerOrder={handleCustomerOrder}*/}
+        {/*  onQuickSearch={handleQuickSearch}*/}
+        {/*/>*/}
+        <Group className="flex-1 min-h-0">
+          {/* Mixing an unconstrained percentage panel with a pixel-constrained sibling
+              (cart's minSize/maxSize below are px) left this panel with no defaultSize
+              hint — react-resizable-panels couldn't reconcile the two on first layout
+              and collapsed it to ~0 width instead of the intended leftover space. An
+              explicit defaultSize + minSize makes the initial layout deterministic. */}
+          <Panel defaultSize="70%" minSize="40%">
+            <Card className="overflow-hidden flex flex-col min-h-0 h-[calc(100vh_-120px)]">
+              <CardContent className="flex-1 min-h-0 overflow-hidden flex flex-row gap-0 p-0">
+                <OrderProductGrid
+                  products={productLoader.products}
+                  categories={productLoader.categories}
+                  searchTerm={searchTerm}
+                  onProductClick={handleProductClick}
+                  onBarcodeAdd={handleBarcodeAdd}
+                  formatPrice={formatPrice}
+                  staffCartUnitPrice={staffCartUnitPrice}
+                  orderEditLoading={orderEditLoading}
+                  isLoading={productLoader.isLoading}
+                />
+              </CardContent>
+            </Card>
+          </Panel>
+          <Separator className="px-2" />
+          <Panel defaultSize={420} maxSize={500} minSize={350}>
+            <OrderCart
+              cartItemOptions={productLoader.cartItemOptions}
+              formatPrice={formatPrice}
+              onCheckout={() => setModalState((s) => ({ ...s, isOpen: true }))}
+              isDisabled={orderEditLoading || Boolean(orderEditError && editingOrderId != null)}
+              editingOrderId={editingOrderId}
+            />
+          </Panel>
+        </Group>
+      </div>
 
       {/* Order modal */}
       <OrderModal
@@ -541,7 +567,7 @@ export default function OrderPage() {
         <ModalShell size="lg">
           <ModalHeader>افزودن محصول جدید با بارکد</ModalHeader>
           <ModalBody className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {isCheckingMasterProduct && <p className="text-default-500 text-sm text-center col-span-2 py-1">در حال جستجو در محصولات پایه...</p>}
+            {isCheckingMasterProduct && <p className="text-muted text-sm text-center col-span-2 py-1">در حال جستجو در محصولات پایه...</p>}
             <Input label="بارکد" value={newProductForm.barcode} readOnly onValueChange={(v) => setNewProductForm((f) => ({ ...f, barcode: v }))} />
             <NameAutocomplete
               value={newProductForm.name_fa} autoFocus={!isCheckingMasterProduct} isDisabled={isCheckingMasterProduct}
@@ -586,12 +612,12 @@ export default function OrderPage() {
           <ModalBody className="text-center space-y-4 py-4">
             {scaleModalProduct && <p className="font-semibold text-foreground">{scaleModalProduct.name_fa || scaleModalProduct.name}</p>}
             {scaleReading ? (
-              <div className="flex flex-col items-center gap-2 text-default-500">
-                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <div className="flex flex-col items-center gap-2 text-muted">
+                <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                 <span className="text-sm">در حال خواندن وزن...</span>
               </div>
             ) : scaleError ? (
-              <div className="text-danger-600 text-sm space-y-2">
+              <div className="text-danger text-sm space-y-2">
                 <p>{scaleError}</p>
                 <Button size="sm" variant="flat" onPress={async () => {
                   setScaleError(''); setScaleReading(true);
@@ -607,12 +633,12 @@ export default function OrderPage() {
               </div>
             ) : scaleWeight != null ? (
               <div className="space-y-1">
-                <p className="text-4xl font-bold text-primary tabular-nums">
+                <p className="text-4xl font-bold text-accent tabular-nums">
                   {scaleModalProduct?.unit === 'گرم'
                     ? `${Math.round(scaleWeight * 1000).toLocaleString('fa-IR')} گرم`
                     : `${scaleWeight.toFixed(3)} کیلوگرم`}
                 </p>
-                <p className="text-sm text-default-500">
+                <p className="text-sm text-muted">
                   مبلغ: {formatPrice(staffCartUnitPrice(scaleModalProduct) * (scaleModalProduct?.unit === 'گرم' ? Math.round(scaleWeight * 1000) : scaleWeight))}
                 </p>
               </div>

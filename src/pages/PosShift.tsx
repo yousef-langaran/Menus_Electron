@@ -33,7 +33,7 @@ function ReportView({ report }: { report: PosShiftReport }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="border-b border-default-300">
+            <tr className="border-b border-border-secondary">
               <th className="text-right py-1">روش پرداخت</th>
               <th className="text-right py-1">فروش</th>
               <th className="text-right py-1">مرجوعی</th>
@@ -42,7 +42,7 @@ function ReportView({ report }: { report: PosShiftReport }) {
           </thead>
           <tbody>
             {report.paymentMethodBreakdown.map((row) => (
-              <tr key={row.paymentMethod} className="border-b border-default-200">
+              <tr key={row.paymentMethod} className="border-b border-border">
                 <td className="py-1">{row.paymentMethod}</td>
                 <td className="py-1">{formatAmount(row.salesAmount)}</td>
                 <td className="py-1">{formatAmount(row.refundsAmount)}</td>
@@ -51,7 +51,7 @@ function ReportView({ report }: { report: PosShiftReport }) {
             ))}
             {report.paymentMethodBreakdown.length === 0 && (
               <tr>
-                <td colSpan={4} className="py-3 text-center text-default-500">
+                <td colSpan={4} className="py-3 text-center text-muted">
                   تراکنشی در این شیفت ثبت نشده است
                 </td>
               </tr>
@@ -60,13 +60,13 @@ function ReportView({ report }: { report: PosShiftReport }) {
         </table>
       </div>
       {report.type === 'z' && (
-        <div className="grid grid-cols-2 gap-2 text-sm border-t border-default-300 pt-3">
+        <div className="grid grid-cols-2 gap-2 text-sm border-t border-border-secondary pt-3">
           <div>ته‌صندوق اولیه: <strong>{formatAmount(report.openingFloatAmount)}</strong></div>
           <div>مبلغ مورد انتظار: <strong>{formatAmount(report.expectedCashAmount)}</strong></div>
           <div>مبلغ شمارش‌شده: <strong>{formatAmount(report.countedCashAmount)}</strong></div>
           <div>
             مغایرت:{' '}
-            <strong className={Number(report.varianceAmount) < 0 ? 'text-danger-600' : 'text-success-600'}>
+            <strong className={Number(report.varianceAmount) < 0 ? 'text-danger' : 'text-success'}>
               {formatAmount(report.varianceAmount)}
             </strong>
           </div>
@@ -168,7 +168,7 @@ export default function PosShiftPage() {
   };
 
   return (
-    <div className="min-h-screen bg-default-100 p-4 space-y-4" dir="rtl">
+    <div className="min-h-screen bg-background p-4 space-y-4" dir="rtl">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold">شیفت صندوق</h1>
         <Button variant="flat" color="secondary" onPress={handleOpenDrawer} isDisabled={drawerBusy}>
@@ -177,7 +177,7 @@ export default function PosShiftPage() {
       </div>
 
       {error && (
-        <div className="bg-danger-50 border border-danger-200 text-danger-800 rounded-lg p-3 flex items-center justify-between text-sm">
+        <div className="bg-danger-soft border border-danger/30 text-danger-soft-foreground rounded-lg p-3 flex items-center justify-between text-sm">
           <span>{error}</span>
           <Button variant="light" size="sm" onPress={clearError}>بستن</Button>
         </div>
@@ -234,7 +234,7 @@ export default function PosShiftPage() {
                   {currentShift.varianceAmount != null && (
                     <div className="col-span-2">
                       مغایرت:{' '}
-                      <strong className={currentShift.varianceAmount < 0 ? 'text-danger-600' : 'text-success-600'}>
+                      <strong className={currentShift.varianceAmount < 0 ? 'text-danger' : 'text-success'}>
                         {formatAmount(currentShift.varianceAmount)}
                       </strong>
                     </div>
@@ -250,7 +250,7 @@ export default function PosShiftPage() {
             )}
 
             {currentShift.status === 'open' && showCloseForm && (
-              <div className="space-y-3 border-t border-default-300 pt-3">
+              <div className="space-y-3 border-t border-border-secondary pt-3">
                 <Input
                   label="مبلغ نقد شمارش‌شده (ریال)"
                   value={countedCashAmount}
@@ -286,7 +286,7 @@ export default function PosShiftPage() {
         </Card>
       )}
 
-      {reportLoading && <div className="text-center text-default-500 text-sm">در حال دریافت گزارش...</div>}
+      {reportLoading && <div className="text-center text-muted text-sm">در حال دریافت گزارش...</div>}
 
       {report && !reportLoading && (
         <Card>

@@ -793,15 +793,15 @@ export default function OrdersPage() {
 
   const renderOnlineOrders = () => {
     if (onlineLoading) {
-      return <div className="py-12 text-center text-default-500">در حال بارگذاری...</div>;
+      return <div className="py-12 text-center text-muted">در حال بارگذاری...</div>;
     }
     if (!onlineOrders.length) {
-      return <div className="py-12 text-center text-default-500">سفارشی برای نمایش وجود ندارد.</div>;
+      return <div className="py-12 text-center text-muted">سفارشی برای نمایش وجود ندارد.</div>;
     }
     return (
       <div className="flex flex-col gap-4">
         {onlineOrders.map((order: any) => (
-          <Card key={order.id} className="shadow-sm border border-default-200">
+          <Card key={order.id} className="shadow-sm border border-border">
             <CardContent className="gap-3">
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <h3 className="font-semibold text-foreground">سفارش #{order.orderNumber || order.id}</h3>
@@ -825,7 +825,7 @@ export default function OrdersPage() {
               </div>
               {order.paymentMethod === 'credit' && (
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-warning-600 font-medium">
+                  <span className="text-xs text-warning font-medium">
                     نسیه: مانده {Number(Math.max(0, (order.finalAmount ?? order.totalAmount ?? 0) - (order.creditPaidAmount ?? 0))).toLocaleString('fa-IR')} ریال
                   </span>
                   {((order.finalAmount ?? order.totalAmount ?? 0) - (order.creditPaidAmount ?? 0)) > 0 && (
@@ -848,7 +848,7 @@ export default function OrdersPage() {
                 </div>
               )}
               {order.notes && (
-                <p className="text-default-500 text-sm"><strong>یادداشت:</strong> {order.notes}</p>
+                <p className="text-muted text-sm"><strong>یادداشت:</strong> {order.notes}</p>
               )}
               {order.items?.length > 0 && (
                 <ul className="list-disc list-inside text-sm text-foreground">
@@ -859,7 +859,7 @@ export default function OrdersPage() {
                   ))}
                 </ul>
               )}
-              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-default-200">
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
                 <Button
                   size="sm"
                   variant="flat"
@@ -897,8 +897,8 @@ export default function OrdersPage() {
           </Card>
         ))}
         {onlineMeta.total > 0 && (
-          <div className="flex flex-col gap-3 border-t border-default-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-default-500 text-center sm:text-right">
+          <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-muted text-center sm:text-right">
               نمایش {onlineMeta.offset + 1} تا {Math.min(onlineMeta.offset + onlineMeta.limit, onlineMeta.total)} از {onlineMeta.total} سفارش
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -928,7 +928,7 @@ export default function OrdersPage() {
                 >
                   قبلی
                 </Button>
-                <span className="text-sm text-default-500 whitespace-nowrap">
+                <span className="text-sm text-muted whitespace-nowrap">
                   {onlineMeta.page} / {onlineMeta.totalPages}
                 </span>
                 <Button
@@ -949,15 +949,15 @@ export default function OrdersPage() {
 
   const renderOfflineOrders = () => {
     if (offlineLoading) {
-      return <div className="py-12 text-center text-default-500">در حال بارگذاری سفارشات آفلاین...</div>;
+      return <div className="py-12 text-center text-muted">در حال بارگذاری سفارشات آفلاین...</div>;
     }
     if (!offlineOrders.length) {
-      return <div className="py-12 text-center text-default-500">سفارشی در حافظه آفلاین وجود ندارد.</div>;
+      return <div className="py-12 text-center text-muted">سفارشی در حافظه آفلاین وجود ندارد.</div>;
     }
     return (
       <div className="flex flex-col gap-4">
         {offlineOrders.map((order: any) => (
-          <Card key={order.id} className="shadow-sm border border-default-200 bg-warning-50/30">
+          <Card key={order.id} className="shadow-sm border border-border bg-warning-soft/30">
             <CardContent className="gap-3">
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <h3 className="font-semibold text-foreground">سفارش آفلاین #{order.id}</h3>
@@ -975,7 +975,7 @@ export default function OrdersPage() {
                 <div>تاریخ ثبت: {formatDate(order.createdAt)}</div>
               </div>
               {order.orderData?.notes && (
-                <p className="text-default-500 text-sm"><strong>یادداشت:</strong> {order.orderData.notes}</p>
+                <p className="text-muted text-sm"><strong>یادداشت:</strong> {order.orderData.notes}</p>
               )}
               {order.orderData?.items?.length > 0 && (
                 <ul className="list-disc list-inside text-sm text-foreground">
@@ -986,10 +986,10 @@ export default function OrdersPage() {
                   ))}
                 </ul>
               )}
-              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-default-200">
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
                 <Button size="sm" variant="flat" onPress={() => handlePreviewOrder(order, true)}>پیش‌نمایش رسید</Button>
                 <Button size="sm" variant="flat" color="primary" onPress={() => openReprintModal(order, true)} isDisabled={!canPrint}>چاپ مجدد</Button>
-                <span className="text-default-500 text-sm">این سفارش به محض اتصال ارسال می‌شود.</span>
+                <span className="text-muted text-sm">این سفارش به محض اتصال ارسال می‌شود.</span>
               </div>
             </CardContent>
           </Card>
@@ -999,8 +999,8 @@ export default function OrdersPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-default-100">
-      <header className="shrink-0 bg-content1 border-b border-default-200 px-4 py-3 shadow-sm">
+    <div className="min-h-screen flex flex-col bg-background">
+      <header className="shrink-0 bg-surface border-b border-border px-4 py-3 shadow-sm">
         <h1 className="text-lg sm:text-xl font-bold text-foreground">لیست سفارشات</h1>
       </header>
 
@@ -1015,7 +1015,7 @@ export default function OrdersPage() {
             </div>
 
             {!isOnline && offlineOrders.length > 0 && (
-              <p className="text-default-500 text-sm">
+              <p className="text-muted text-sm">
                 {offlineOrders.length} سفارش در صف ارسال قرار دارد و پس از اتصال به اینترنت به صورت خودکار ارسال می‌شود.
               </p>
             )}
@@ -1042,7 +1042,7 @@ export default function OrdersPage() {
                 </Select>
                 <Button size="sm" variant="flat" onPress={() => void loadOnlineOrders()}>بروزرسانی</Button>
                 {onlineOrders.length > 0 && (
-                  <p className="text-xs text-default-500 w-full sm:w-auto">
+                  <p className="text-xs text-muted w-full sm:w-auto">
                     میانبر: ← و → برای رفتن به سفارش قبلی/بعدی در همین صفحه و باز کردن ویرایش فاکتور
                   </p>
                 )}
@@ -1066,13 +1066,13 @@ export default function OrdersPage() {
                   <>
                     <h2 className="text-lg font-semibold text-foreground mt-4">
                       آخرین سفارشات بارگذاری‌شده
-                      <span className="text-sm font-normal text-default-500 mr-2">(نمایش کش — ممکن است به‌روز نباشند)</span>
+                      <span className="text-sm font-normal text-muted mr-2">(نمایش کش — ممکن است به‌روز نباشند)</span>
                     </h2>
                     {renderOnlineOrders()}
                   </>
                 )}
                 {offlineOrders.length === 0 && onlineOrders.length === 0 && (
-                  <div className="py-12 text-center text-default-500">
+                  <div className="py-12 text-center text-muted">
                     سفارشی برای نمایش وجود ندارد.
                   </div>
                 )}
@@ -1091,7 +1091,7 @@ export default function OrdersPage() {
             </div>
             {enabledPrinters.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 w-full">
-                <span className="text-sm text-default-500">پیش‌نمایش با تنظیمات پرینتر:</span>
+                <span className="text-sm text-muted">پیش‌نمایش با تنظیمات پرینتر:</span>
                 <Select
                   size="sm"
                   className="max-w-56"
@@ -1114,7 +1114,7 @@ export default function OrdersPage() {
           </ModalHeader>
           <ModalBody>
             {previewLoading ? (
-              <div className="py-12 text-center text-default-500">در حال آماده‌سازی پیش‌نمایش...</div>
+              <div className="py-12 text-center text-muted">در حال آماده‌سازی پیش‌نمایش...</div>
             ) : previewImage ? (
               <img src={previewImage} alt="receipt-preview" className="max-w-full h-auto mx-auto" />
             ) : (
@@ -1131,7 +1131,7 @@ export default function OrdersPage() {
         <ModalShell size="md">
           <ModalHeader>چاپ مجدد – انتخاب پرینتر</ModalHeader>
           <ModalBody className="gap-3">
-            <p className="text-sm text-default-500">
+            <p className="text-sm text-muted">
               با کدام پرینتر چاپ مجدد انجام شود؟
             </p>
             {reprintOrder && (
@@ -1188,13 +1188,13 @@ export default function OrdersPage() {
           <ModalHeader>دریافت پرداخت نسیه</ModalHeader>
           <ModalBody className="gap-4">
             {creditPayOrder && (
-              <div className="bg-default-50 border border-default-200 rounded-lg p-3 text-sm space-y-1">
+              <div className="bg-default-soft border border-border rounded-lg p-3 text-sm space-y-1">
                 <div className="font-semibold">فاکتور: {creditPayOrder.orderNumber || `#${creditPayOrder.id}`}</div>
-                <div className="text-default-500">مشتری: {creditPayOrder.customerPhone || '—'}</div>
-                <div className="text-default-500">
+                <div className="text-muted">مشتری: {creditPayOrder.customerPhone || '—'}</div>
+                <div className="text-muted">
                   مبلغ کل: {Number(creditPayOrder.finalAmount ?? creditPayOrder.totalAmount ?? 0).toLocaleString('fa-IR')} ریال
                 </div>
-                <div className="text-warning-600 font-medium">
+                <div className="text-warning font-medium">
                   مانده: {Number(Math.max(0,(creditPayOrder.finalAmount ?? creditPayOrder.totalAmount ?? 0) - (creditPayOrder.creditPaidAmount ?? 0))).toLocaleString('fa-IR')} ریال
                 </div>
               </div>

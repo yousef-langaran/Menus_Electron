@@ -124,7 +124,7 @@ export function ItemPicker({
         }}
         endContent={
           <svg
-            className={`w-4 h-4 shrink-0 text-default-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 shrink-0 text-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
             fill="none" stroke="currentColor" viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -148,7 +148,7 @@ export function ItemPicker({
           >
             <div className="overflow-y-auto" style={{ maxHeight: '260px' }}>
               {visible.length === 0 ? (
-                <p className="px-4 py-5 text-center text-sm text-default-400">موردی یافت نشد</p>
+                <p className="px-4 py-5 text-center text-sm text-muted">موردی یافت نشد</p>
               ) : (
                 visible.map((opt) => {
                   const isSelected = opt.id === value;
@@ -175,7 +175,7 @@ export function ItemPicker({
               )}
             </div>
             {totalMatches > visible.length && (
-              <p className="border-t border-[var(--separator)] px-4 py-2 text-xs text-default-400">
+              <p className="border-t border-[var(--separator)] px-4 py-2 text-xs text-muted">
                 نمایش {visible.length} از {totalMatches} — برای یافتن دقیق‌تر جستجو کنید
               </p>
             )}
