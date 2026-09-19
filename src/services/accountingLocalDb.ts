@@ -695,6 +695,12 @@ export async function reconcileDeletedEntities(
     .map((r) => r.id);
 
   if (idsToDelete.length) {
+    // لاگ تشخیصی موقت — برای ردیابی گزارش «هزینه‌ها یهو از پنل ویندوز محو می‌شوند»
+    // (سرور آن‌ها را دارد ولی پس از هر full sync پاک می‌شوند). بعد از رفع قطعی حذف شود.
+    console.warn(
+      `[reconcile] deleting ${idsToDelete.length} local "${entityType}" row(s) not present in server batch`,
+      { restaurantId, deletedIds: idsToDelete, localCount: localRows.length, serverCount: serverIds.size },
+    );
     await table.bulkDelete(idsToDelete);
   }
   return idsToDelete.length;

@@ -402,6 +402,19 @@ export async function runAccountingSync(args: {
     const serverWarehouseIds = new Set((pullResult.data.warehouses || []).map((r: any) => Number(r.id)));
     const serverPurchaseInvoiceIds = new Set((pullResult.data.purchaseInvoices || []).map((r: any) => Number(r.id)));
 
+    // لاگ تشخیصی موقت — همراه با لاگ داخل reconcileDeletedEntities، برای فهمیدن اینکه
+    // آیا سقف PULL_LIMIT واقعاً رد شده یا حذف هزینه‌ها دلیل دیگری دارد.
+    console.info('[acct-sync] full sync batch sizes', {
+      restaurantId,
+      pullLimit: PULL_LIMIT,
+      operationalExpenses: (pullResult.data.operationalExpenses || []).length,
+      suppliers: (pullResult.data.suppliers || []).length,
+      rawMaterials: (pullResult.data.rawMaterials || []).length,
+      finalProducts: (pullResult.data.finalProducts || []).length,
+      cashBankAccounts: (pullResult.data.cashBankAccounts || []).length,
+      recipes: (pullResult.data.recipes || []).length,
+    });
+
     const suppliersBatch = pullResult.data.suppliers || [];
     const rawMaterialsBatch = pullResult.data.rawMaterials || [];
     const finalProductsBatch = pullResult.data.finalProducts || [];
