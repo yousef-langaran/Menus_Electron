@@ -339,7 +339,13 @@ export async function runAccountingSync(args: {
     Date.now() - new Date(lastFullSync).getTime() > MS_4H;
   const effectiveSince = needsFullSync ? undefined : (since || undefined);
 
-  const pullResult = await syncAccountingPull(restaurantId, token, effectiveSince, 1000);
+  // هر موجودیت جداگانه با همین سقف از سرور کش می‌شود (getChangedRows، مرتب‌شده
+  // بر اساس updatedAt صعودی) — اگر تعداد رکوردهای واقعی یک موجودیت برای این
+  // رستوران از این سقف بیشتر باشد، جدیدترین رکوردها (که دیرتر updatedAt خورده‌اند)
+  // از این batch جا می‌مانند. رکنسایل زیر باید فقط وقتی روی چنین موجودیتی اجرا شود
+  // که batch آن کامل بوده، وگرنه رکوردهای واقعی و جدید را به اشتباه حذف می‌کند.
+  const PULL_LIMIT = 1000;
+  const pullResult = await syncAccountingPull(restaurantId, token, effectiveSince, PULL_LIMIT);
 
   // Use null sentinel to distinguish "API failed" from "genuinely empty list"
   const [expenseCategoriesFromServer, rawMaterialCategoriesFromServer] = await Promise.all([
@@ -388,13 +394,35 @@ export async function runAccountingSync(args: {
     const serverWarehouseIds = new Set((pullResult.data.warehouses || []).map((r: any) => Number(r.id)));
     const serverPurchaseInvoiceIds = new Set((pullResult.data.purchaseInvoices || []).map((r: any) => Number(r.id)));
 
+    const suppliersBatch = pullResult.data.suppliers || [];
+    const rawMaterialsBatch = pullResult.data.rawMaterials || [];
+    const finalProductsBatch = pullResult.data.finalProducts || [];
+    const cashBankAccountsBatch = pullResult.data.cashBankAccounts || [];
+    const recipesBatch = pullResult.data.recipes || [];
+    const operationalExpensesBatch = pullResult.data.operationalExpenses || [];
+
     await Promise.allSettled([
-      reconcileDeletedEntities(restaurantId, 'supplier',           new Set((pullResult.data.suppliers || []).map((r: any) => Number(r.id)))),
-      reconcileDeletedEntities(restaurantId, 'raw_material',       new Set((pullResult.data.rawMaterials || []).map((r: any) => Number(r.id)))),
-      reconcileDeletedEntities(restaurantId, 'final_product',      new Set((pullResult.data.finalProducts || []).map((r: any) => Number(r.id)))),
-      reconcileDeletedEntities(restaurantId, 'cash_bank_account',  new Set((pullResult.data.cashBankAccounts || []).map((r: any) => Number(r.id)))),
-      reconcileDeletedEntities(restaurantId, 'recipe_item',        new Set((pullResult.data.recipes || []).map((r: any) => Number(r.id)))),
-      reconcileDeletedEntities(restaurantId, 'operational_expense', new Set((pullResult.data.operationalExpenses || []).map((r: any) => Number(r.id)))),
+      // فقط وقتی pull به سقف PULL_LIMIT محدود نشده اجرا کن — وگرنه رکوردهای
+      // واقعی خارج از این batch (رستوران‌های با حجم بالا) اشتباهی حذف می‌شوند
+      // (همان باگی که برای purchaseInvoices پایین‌تر قبلاً رفع شده بود).
+      suppliersBatch.length < PULL_LIMIT
+        ? reconcileDeletedEntities(restaurantId, 'supplier', new Set(suppliersBatch.map((r: any) => Number(r.id))))
+        : Promise.resolve(),
+      rawMaterialsBatch.length < PULL_LIMIT
+        ? reconcileDeletedEntities(restaurantId, 'raw_material', new Set(rawMaterialsBatch.map((r: any) => Number(r.id))))
+        : Promise.resolve(),
+      finalProductsBatch.length < PULL_LIMIT
+        ? reconcileDeletedEntities(restaurantId, 'final_product', new Set(finalProductsBatch.map((r: any) => Number(r.id))))
+        : Promise.resolve(),
+      cashBankAccountsBatch.length < PULL_LIMIT
+        ? reconcileDeletedEntities(restaurantId, 'cash_bank_account', new Set(cashBankAccountsBatch.map((r: any) => Number(r.id))))
+        : Promise.resolve(),
+      recipesBatch.length < PULL_LIMIT
+        ? reconcileDeletedEntities(restaurantId, 'recipe_item', new Set(recipesBatch.map((r: any) => Number(r.id))))
+        : Promise.resolve(),
+      operationalExpensesBatch.length < PULL_LIMIT
+        ? reconcileDeletedEntities(restaurantId, 'operational_expense', new Set(operationalExpensesBatch.map((r: any) => Number(r.id))))
+        : Promise.resolve(),
       // Warehouses are read-only pulled entities — reconcile inline.
       accountingDb.warehouses.where('restaurantId').equals(restaurantId).toArray().then((local) => {
         const toDelete = local.filter((w) => !serverWarehouseIds.has(Number(w.id))).map((w) => w.id);
@@ -406,7 +434,7 @@ export async function runAccountingSync(args: {
       // پیش‌نویس‌های محلی که هنوز هرگز push نشده‌اند (serverInvoiceId ندارند) دست‌نخورده می‌مانند.
       // فقط وقتی pull به سقف 1000 محدود نشده اجرا کن — وگرنه فاکتورهای واقعی
       // خارج از این batch (رستوران‌های خیلی بزرگ) اشتباهی حذف می‌شوند.
-      (pullResult.data.purchaseInvoices || []).length < 1000
+      (pullResult.data.purchaseInvoices || []).length < PULL_LIMIT
         ? accountingDb.purchaseInvoices.where('restaurantId').equals(restaurantId).toArray().then((local) => {
             const toDelete = local
               .filter((inv) => inv.serverInvoiceId != null && !serverPurchaseInvoiceIds.has(Number(inv.serverInvoiceId)))
