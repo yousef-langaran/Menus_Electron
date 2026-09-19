@@ -52,7 +52,12 @@ export default function AccountingRawMaterialCategoriesPage() {
       const data = await listRawMaterialCategories(restaurantId, token);
       setIsOnline(true);
       await upsertPulledRawMaterialCategories(data);
-      setRows(data);
+      // دسته‌بندی‌هایی که هنوز فقط محلی‌اند (صف sync پس‌زمینه هنوز push نکرده) را از
+      // لیست سرور جا نینداز — وگرنه هر بار این صفحه دوباره باز/رفرش می‌شود، قبل از
+      // تکمیل سینک، دسته‌بندی تازه ثبت‌شده از UI ناپدید می‌شود انگار اصلاً ثبت نشده.
+      const serverIds = new Set(data.map((r) => Number(r.id)));
+      const localOnly = local.filter((r) => !serverIds.has(Number(r.id)));
+      setRows([...data, ...localOnly]);
     } catch {
       setIsOnline(false);
       if (!local.length) setRows([]);

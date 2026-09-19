@@ -152,6 +152,14 @@ export async function runAccountingSync(args: {
   const allPendingOps = await getPendingAccountingOperations(restaurantId, 200);
   // عملیاتی که بیش از MAX_RETRY بار تلاش شده و همچنان failed است را کنار بگذار
   const pendingOps = allPendingOps.filter((op) => Number(op.retryCount || 0) <= MAX_RETRY);
+  // موجودیت‌های وابسته (raw_material → raw_material_category، operational_expense →
+  // expense_category) روی سرور با همان id موقتِ کلاینت ذخیره می‌شوند (rawUpsertSyncEntity)،
+  // پس اگر عملیات فرزند قبل از والد push شود، به یک id دسته‌بندی که هنوز روی سرور وجود
+  // ندارد اشاره می‌کند و با خطای FK برای همیشه failed می‌ماند. ترتیب واکشی pendingOps از
+  // Dexie ([restaurantId+status] با anyOf روی چند status) تضمینی برای حفظ ترتیب ایجاد
+  // نمی‌دهد (مثلاً اگر یکی pending و دیگری failed باشد)، پس اینجا صریحاً بر اساس زمان
+  // ایجاد مرتب می‌کنیم — چون دسته‌بندی همیشه قبل از رکوردی که به آن اشاره می‌کند ساخته شده.
+  pendingOps.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   let pushed = 0;
   let pushFailed = 0;
   let draftPurchaseSynced = 0;
