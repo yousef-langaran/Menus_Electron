@@ -131,8 +131,15 @@ export default function AccountingExpensesPage() {
     try {
       const serverRows = await listOperationalExpensesOnline(restaurantId, token, fiscalYearId);
       setIsOnline(true);
+      // OperationalExpense فقط رابطه‌ی restaurant (FK) دارد، نه ستون مسطح
+      // restaurantId — و این endpoint (بر خلاف getChangedRows در سینک پس‌زمینه)
+      // رابطه‌ی restaurant را هم join نمی‌کند. بدون این stamp صریح، ردیف‌ها با
+      // restaurantId=undefined در Dexie ذخیره می‌شوند و reloadLocal (که فیلتر
+      // می‌کند بر اساس restaurantId) برای همیشه نامرئی‌شان می‌بیند — همان باگ
+      // «صفحه‌ی هزینه‌ها کلاً خالی می‌ماند وقتی از این مسیر پر شده».
+      const stampedRows = serverRows.map((r: any) => ({ ...r, restaurantId }));
       // سرور را در local ذخیره کن (upsert — رکورد محلیِ هنوز سینک‌نشده حذف نمی‌شود)
-      await upsertPulledEntities('operational_expense', serverRows);
+      await upsertPulledEntities('operational_expense', stampedRows);
       // از local (که شامل رکوردهای optimistic هنوز push‌نشده هم هست) دوباره بخوان —
       // اگر مستقیماً rows را برابر serverRows بگذاریم، هزینه‌ای که همین الان ثبت
       // شده ولی هنوز پاسخ سرور نرسیده، از لیست محو می‌شود (انگار ثبت نشده).
