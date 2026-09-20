@@ -533,6 +533,26 @@ export async function upsertPulledEntities(entityType: SyncEntityType, rows: any
   const rowsToApply = pendingDeletes.length
     ? normalizedRows.filter((r) => !pendingDeletes.some((op) => op.entityId === String(r.id)))
     : normalizedRows;
+  if (pendingDeletes.length && rowsToApply.length !== normalizedRows.length) {
+    // لاگ تشخیصی موقت — برای ردیابی گزارش «هزینه‌ها یهو از پنل ویندوز محو می‌شوند».
+    // اگر یک عملیات 'delete' برای همین entityId برای همیشه روی pending/failed گیر
+    // کرده باشد (مثلاً چون حذف روی سرور رد شده)، این pull آن رکورد را برای همیشه
+    // نادیده می‌گیرد — حتی اگر رکورد واقعاً هنوز روی سرور موجود باشد.
+    console.warn(
+      `[upsertPulledEntities] skipped ${normalizedRows.length - rowsToApply.length} "${entityType}" row(s) present on server due to a pending/failed local delete op`,
+      {
+        skippedIds: normalizedRows
+          .filter((r) => !rowsToApply.includes(r))
+          .map((r) => r.id),
+        pendingDeleteOps: pendingDeletes.map((op) => ({
+          entityId: op.entityId,
+          status: op.status,
+          retryCount: op.retryCount,
+          errorMessage: op.errorMessage,
+        })),
+      },
+    );
+  }
   if (!rowsToApply.length) return;
 
   // داده‌های قدیمی (از قبل از فیکس بالا) ممکن است هنوز با id رشته‌ای در Dexie نشسته
@@ -1750,4 +1770,46 @@ export async function getPendingCashTransactions(restaurantId: number, limit = 1
 
 export async function markCashTransactionsSynced(ids: number[]): Promise<void> {
   await Promise.all(ids.map((id) => accountingDb.cashAccountTransactions.update(id, { syncStatus: 'synced' })));
+}
+
+// ─── ابزار تشخیصی موقت (کنسول DevTools) ─────────────────────────────────────
+// برای ردیابی گزارش «هزینه‌ها یهو از پنل ویندوز محو می‌شوند» بدون نیاز به صبر
+// کردن برای سیکل بعدی sync. در DevTools (Ctrl+Shift+I) تایپ کن:
+//   __acctDebug.dumpExpenses()
+//   __acctDebug.dumpSyncOps('operational_expense')
+// بعد از رفع قطعی باگ حذف شود.
+if (typeof window !== 'undefined') {
+  (window as any).__acctDebug = {
+    dumpExpenses: async () => {
+      const rows = await accountingDb.operationalExpenses.toArray();
+      console.table(
+        rows.map((r) => ({
+          id: r.id,
+          restaurantId: r.restaurantId,
+          date: r.expenseDate,
+          amount: r.amount,
+          category: r.expenseCategory?.name ?? r.expenseCategoryId,
+          updatedAt: r.updatedAt,
+        })),
+      );
+      return rows;
+    },
+    dumpSyncOps: async (entityType?: string) => {
+      const all = await accountingDb.syncOperations.toArray();
+      const filtered = entityType ? all.filter((o) => o.entityType === entityType) : all;
+      console.table(
+        filtered.map((o) => ({
+          id: o.id,
+          entityType: o.entityType,
+          entityId: o.entityId,
+          op: o.operationType,
+          status: o.status,
+          retryCount: o.retryCount,
+          errorMessage: o.errorMessage,
+          updatedAt: o.updatedAt,
+        })),
+      );
+      return filtered;
+    },
+  };
 }
