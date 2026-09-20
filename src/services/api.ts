@@ -1030,6 +1030,10 @@ export async function syncAccountingPull(
     syncedAt: string;
     strategy: 'last-write-wins';
     since: string | null;
+    // Entity keys whose server-side query failed this round (fell back to []).
+    // Reconcile-delete must be skipped for any entity listed here — an empty
+    // result here does not mean "nothing exists", it means "couldn't check".
+    incompleteEntities?: string[];
     data: {
       rawMaterials: any[];
       suppliers: any[];

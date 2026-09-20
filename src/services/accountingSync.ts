@@ -354,6 +354,12 @@ export async function runAccountingSync(args: {
   // که batch آن کامل بوده، وگرنه رکوردهای واقعی و جدید را به اشتباه حذف می‌کند.
   const PULL_LIMIT = 1000;
   const pullResult = await syncAccountingPull(restaurantId, token, effectiveSince, PULL_LIMIT);
+  // موجودیت‌هایی که سرور نتوانست این دور بررسی کند (خطای دیتابیس/اسکیمای ناقص)
+  // و به‌جای شکست کل pull، آرایه‌ی خالی برگردانده — یعنی «نمی‌دونم» نه «هیچی نیست».
+  // رکنسایل نباید بر اساس چنین batch‌ای رکورد محلی را حذف کند.
+  const incompleteEntities = new Set(pullResult.incompleteEntities || []);
+  const isReconcileSafe = (entityKey: string, batch: any[]) =>
+    batch.length < PULL_LIMIT && !incompleteEntities.has(entityKey);
 
   // Use null sentinel to distinguish "API failed" from "genuinely empty list"
   const [expenseCategoriesFromServer, rawMaterialCategoriesFromServer] = await Promise.all([
@@ -407,6 +413,7 @@ export async function runAccountingSync(args: {
     console.info('[acct-sync] full sync batch sizes', {
       restaurantId,
       pullLimit: PULL_LIMIT,
+      incompleteEntities: Array.from(incompleteEntities),
       operationalExpenses: (pullResult.data.operationalExpenses || []).length,
       suppliers: (pullResult.data.suppliers || []).length,
       rawMaterials: (pullResult.data.rawMaterials || []).length,
@@ -423,32 +430,37 @@ export async function runAccountingSync(args: {
     const operationalExpensesBatch = pullResult.data.operationalExpenses || [];
 
     await Promise.allSettled([
-      // فقط وقتی pull به سقف PULL_LIMIT محدود نشده اجرا کن — وگرنه رکوردهای
-      // واقعی خارج از این batch (رستوران‌های با حجم بالا) اشتباهی حذف می‌شوند
-      // (همان باگی که برای purchaseInvoices پایین‌تر قبلاً رفع شده بود).
-      suppliersBatch.length < PULL_LIMIT
+      // فقط وقتی pull به سقف PULL_LIMIT محدود نشده و سرور واقعاً توانسته این
+      // موجودیت را کوئری کند اجرا کن — وگرنه رکوردهای واقعی که خارج از batch
+      // مانده‌اند یا سرور اصلاً نتوانسته بررسی‌شان کند، اشتباهی حذف می‌شوند
+      // (همان باگی که برای purchaseInvoices پایین‌تر قبلاً رفع شده بود، و باگ
+      // واقعی مشاهده‌شده: یک خطای موقت سرور روی operationalExpenses باعث شد
+      // نتیجه خالی برگردد و تمام هزینه‌های محلی پاک شوند).
+      isReconcileSafe('suppliers', suppliersBatch)
         ? reconcileDeletedEntities(restaurantId, 'supplier', new Set(suppliersBatch.map((r: any) => Number(r.id))))
         : Promise.resolve(),
-      rawMaterialsBatch.length < PULL_LIMIT
+      isReconcileSafe('rawMaterials', rawMaterialsBatch)
         ? reconcileDeletedEntities(restaurantId, 'raw_material', new Set(rawMaterialsBatch.map((r: any) => Number(r.id))))
         : Promise.resolve(),
-      finalProductsBatch.length < PULL_LIMIT
+      isReconcileSafe('finalProducts', finalProductsBatch)
         ? reconcileDeletedEntities(restaurantId, 'final_product', new Set(finalProductsBatch.map((r: any) => Number(r.id))))
         : Promise.resolve(),
-      cashBankAccountsBatch.length < PULL_LIMIT
+      isReconcileSafe('cashBankAccounts', cashBankAccountsBatch)
         ? reconcileDeletedEntities(restaurantId, 'cash_bank_account', new Set(cashBankAccountsBatch.map((r: any) => Number(r.id))))
         : Promise.resolve(),
-      recipesBatch.length < PULL_LIMIT
+      isReconcileSafe('recipes', recipesBatch)
         ? reconcileDeletedEntities(restaurantId, 'recipe_item', new Set(recipesBatch.map((r: any) => Number(r.id))))
         : Promise.resolve(),
-      operationalExpensesBatch.length < PULL_LIMIT
+      isReconcileSafe('operationalExpenses', operationalExpensesBatch)
         ? reconcileDeletedEntities(restaurantId, 'operational_expense', new Set(operationalExpensesBatch.map((r: any) => Number(r.id))))
         : Promise.resolve(),
       // Warehouses are read-only pulled entities — reconcile inline.
-      accountingDb.warehouses.where('restaurantId').equals(restaurantId).toArray().then((local) => {
-        const toDelete = local.filter((w) => !serverWarehouseIds.has(Number(w.id))).map((w) => w.id);
-        return toDelete.length ? accountingDb.warehouses.bulkDelete(toDelete) : Promise.resolve();
-      }),
+      isReconcileSafe('warehouses', pullResult.data.warehouses || [])
+        ? accountingDb.warehouses.where('restaurantId').equals(restaurantId).toArray().then((local) => {
+            const toDelete = local.filter((w) => !serverWarehouseIds.has(Number(w.id))).map((w) => w.id);
+            return toDelete.length ? accountingDb.warehouses.bulkDelete(toDelete) : Promise.resolve();
+          })
+        : Promise.resolve(),
       // فاکتورهای خرید که سرور دیگر برنمی‌گرداند (چون ویرایش و با فاکتور جدید
       // جایگزین شده‌اند) را از Dexie محلی حذف کن — وگرنه فاکتور قدیمی برای همیشه
       // در Electron باقی می‌ماند و کنار فاکتور جدید با همان شماره تکراری دیده می‌شود.

@@ -104,13 +104,20 @@ export default function AccountingExpensesPage() {
 
   // ─── بارگذاری از local (فوری) ────────────────────────────────────────────
   const reloadLocal = useCallback(async () => {
-    if (!restaurantId) return;
+    if (!restaurantId) {
+      // لاگ تشخیصی موقت — برای ردیابی گزارش «صفحه‌ی هزینه‌ها کلاً خالی می‌شود»
+      console.warn('[Expenses] reloadLocal skipped: restaurantId is falsy', { restaurantId });
+      return;
+    }
     const all = await accountingDb.operationalExpenses.toArray();
-    setRows(
-      all
-        .filter((x) => Number(x.restaurantId) === restaurantId)
-        .sort((a, b) => String(b.expenseDate).localeCompare(String(a.expenseDate))),
-    );
+    const matched = all.filter((x) => Number(x.restaurantId) === restaurantId);
+    console.info('[Expenses] reloadLocal', {
+      restaurantId,
+      totalInDexie: all.length,
+      matchedForThisRestaurant: matched.length,
+      distinctRestaurantIdsInDexie: Array.from(new Set(all.map((x) => x.restaurantId))),
+    });
+    setRows(matched.sort((a, b) => String(b.expenseDate).localeCompare(String(a.expenseDate))));
   }, [restaurantId]);
 
   // ─── بارگذاری کامل (local + سینک با سرور در background) ─────────────────
@@ -130,7 +137,9 @@ export default function AccountingExpensesPage() {
       // اگر مستقیماً rows را برابر serverRows بگذاریم، هزینه‌ای که همین الان ثبت
       // شده ولی هنوز پاسخ سرور نرسیده، از لیست محو می‌شود (انگار ثبت نشده).
       await reloadLocal();
-    } catch {
+    } catch (error) {
+      // لاگ تشخیصی موقت — برای ردیابی گزارش «صفحه‌ی هزینه‌ها کلاً خالی می‌شود»
+      console.warn('[Expenses] online fetch failed, falling back to local-only', { restaurantId, fiscalYearId, error });
       setIsOnline(false);
     }
   }, [restaurantId, token, fiscalYearId, reloadLocal]);
