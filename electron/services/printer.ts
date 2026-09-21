@@ -1154,6 +1154,30 @@ function renderLayoutModuleHtml(
     const showDesc = opt.showDescription !== false;
     const showLineNote = opt.showItemNote !== false;
     const tableStyle = (opt.itemsTableStyle as string) ?? 'simple';
+
+    if (tableStyle === 'full') {
+      const cellBorder = '1px solid #999';
+      const striped = opt.itemsStriped === true;
+      const showTotalPrice = opt.showTotalPrice !== false;
+      const rows = orderData.items.map((item: any, i: number) => {
+        const name = item.product?.name_fa || item.productName || 'محصول';
+        const desc = showDesc ? getProductDescription(item) : '';
+        const lineNote = showLineNote ? getLineItemNote(item) : '';
+        const notePart = lineNote ? ` (${lineNote})` : '';
+        const descBlock = desc
+          ? `<div style="font-size:9pt;margin-top:2px;line-height:1.3">${desc}</div>`
+          : '';
+        const price = showPrice ? `<td style="padding:2px 4px;white-space:nowrap;vertical-align:top;border:${cellBorder}">${formatPrice(item.price)}</td>` : '';
+        const total = showTotalPrice ? `<td style="padding:2px 4px;white-space:nowrap;vertical-align:top;font-weight:bold;border:${cellBorder}">${formatPrice(+item.price * +item.quantity)}</td>` : '';
+        const rowBg = striped && i % 2 === 1 ? 'background:#f2f2f2' : '';
+        const titleCell = `<span>${name}</span>${notePart}${descBlock}`;
+        return `<tr style="${rowBg}"><td style="padding:2px 4px;vertical-align:top;border:${cellBorder}">${titleCell}</td><td style="padding:2px 4px;white-space:nowrap;vertical-align:top;text-align:center;border:${cellBorder}">${item.quantity}</td>${price}${total}</tr>`;
+      }).join('');
+      const priceHeader = showPrice ? `<th style="padding:4px;white-space:nowrap;border:${cellBorder}">قیمت</th>` : '';
+      const totalHeader = showTotalPrice ? `<th style="padding:4px;white-space:nowrap;border:${cellBorder}">قیمت کل</th>` : '';
+      return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse;border:${cellBorder}"><thead><tr style="background:#f2f2f2"><th style="padding:4px;border:${cellBorder}">نام کالا</th><th style="padding:4px;white-space:nowrap;border:${cellBorder}">تعداد</th>${priceHeader}${totalHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+
     const rows = orderData.items.map((item: any) => {
       const name = item.product?.name_fa || item.productName || 'محصول';
       const desc = showDesc ? getProductDescription(item) : '';
