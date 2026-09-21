@@ -12,6 +12,7 @@ import { OfflineOrdersSync } from './components/OfflineOrdersSync';
 import { AccountingSyncManager } from './components/AccountingSyncManager';
 import { CatalogSyncManager } from './components/CatalogSyncManager';
 import { ServiceJobsSyncManager } from './components/ServiceJobsSyncManager';
+import { PrintTemplateSyncManager } from './components/PrintTemplateSyncManager';
 import { CallerIdOverlay } from './components/CallerIdOverlay';
 import { useCallerIdStore } from './store/callerIdStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -184,6 +185,7 @@ function AppRoutes() {
       <AccountingSyncManager />
       <CatalogSyncManager />
       <ServiceJobsSyncManager />
+      <PrintTemplateSyncManager />
       <OrdersSocketManager />
       <CallerIdManager />
       <CallerIdOverlay />

@@ -61,6 +61,7 @@ import {
   saveDefaultPrintTemplate,
   loadPrintTemplatesMap,
   setPrintTemplateForPrinter,
+  refreshCachedPrintTemplates,
   getNextReceiptNumberPreview,
   getReceiptNumbersMap,
   assignReceiptNumberForOrder,
@@ -922,6 +923,16 @@ ipcMain.handle('set-print-template-for-printer', async (
   } catch (error) {
     console.error('Set print template for printer error:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('refresh-cached-print-templates', async (_event, freshTemplates: any[]) => {
+  try {
+    const changed = await refreshCachedPrintTemplates(Array.isArray(freshTemplates) ? freshTemplates : []);
+    return { success: true, changed };
+  } catch (error) {
+    console.error('Refresh cached print templates error:', error);
+    return { success: false, changed: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });
 

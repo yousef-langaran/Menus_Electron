@@ -393,8 +393,14 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
       if (!token || !restaurantId) return;
       setLoadingTemplates(true);
       try {
-        const [list, map, fallback] = await Promise.all([
-          getPrintTemplates(restaurantId, token),
+        const list = await getPrintTemplates(restaurantId, token);
+        // قبل از خواندن نگاشتِ محلی، اسنپ‌شات‌های ذخیره‌شده‌ای که قالب‌شان از این پس
+        // تغییر کرده (مثلاً عکس لوگو عوض شده) را با آخرین محتوای سرور به‌روز می‌کنیم؛
+        // وگرنه این صفحه هم مثل چاپ، نسخهٔ قدیمیِ کش‌شده را نشان می‌دهد.
+        if (list.length > 0) {
+          await window.electronAPI?.refreshCachedPrintTemplates?.(list);
+        }
+        const [map, fallback] = await Promise.all([
           window.electronAPI?.getPrintTemplatesMap?.() ?? Promise.resolve({}),
           window.electronAPI?.getDefaultPrintTemplate?.() ?? Promise.resolve(null),
         ]);

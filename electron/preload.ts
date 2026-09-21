@@ -53,6 +53,8 @@ const electronAPI = {
   getPrintTemplatesMap: () => ipcRenderer.invoke('get-print-templates-map'),
   setPrintTemplateForPrinter: (printerName: string, template: any, receiptType?: 'full' | 'kitchen') =>
     ipcRenderer.invoke('set-print-template-for-printer', printerName, template, receiptType),
+  refreshCachedPrintTemplates: (freshTemplates: any[]) =>
+    ipcRenderer.invoke('refresh-cached-print-templates', freshTemplates),
   getReceiptNumberSettings: () => ipcRenderer.invoke('get-receipt-number-settings'),
   saveReceiptNumberSettings: (settings: any) =>
     ipcRenderer.invoke('save-receipt-number-settings', settings),

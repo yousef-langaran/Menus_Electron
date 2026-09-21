@@ -558,6 +558,45 @@ export async function setPrintTemplateForPrinter(
   await writePreferences(prefs);
 }
 
+/**
+ * جایگزینیِ اسنپ‌شات‌های محلیِ قالب‌های چاپ (پرینتر به پرینتر + پیش‌فرض برنامه) با آخرین
+ * نسخهٔ همان قالب (بر اساس id) که تازه از سرور گرفته شده — تا وقتی ادمین محتوای یک قالب
+ * را عوض می‌کند (مثلاً عکس لوگو)، پرینتری که از قبل همان قالب را انتخاب کرده، بدون نیاز
+ * به انتخاب دستیِ دوباره از دراپ‌داون، به‌روز شود.
+ */
+export async function refreshCachedPrintTemplates(
+  freshTemplates: DefaultPrintTemplateSnapshot[],
+): Promise<boolean> {
+  const prefs = await readPreferences();
+  const byId = new Map(freshTemplates.map((t) => [t.id, t]));
+  let changed = false;
+
+  if (prefs.defaultPrintTemplate) {
+    const fresh = byId.get(prefs.defaultPrintTemplate.id);
+    if (fresh && JSON.stringify(fresh) !== JSON.stringify(prefs.defaultPrintTemplate)) {
+      prefs.defaultPrintTemplate = fresh;
+      changed = true;
+    }
+  }
+
+  if (prefs.printerTemplates) {
+    for (const key of Object.keys(prefs.printerTemplates)) {
+      const cached = prefs.printerTemplates[key];
+      if (!cached) continue;
+      const fresh = byId.get(cached.id);
+      if (fresh && JSON.stringify(fresh) !== JSON.stringify(cached)) {
+        prefs.printerTemplates[key] = fresh;
+        changed = true;
+      }
+    }
+  }
+
+  if (changed) {
+    await writePreferences(prefs);
+  }
+  return changed;
+}
+
 export async function saveReceiptNumberSettings(settings: ReceiptNumberSettings) {
   const prefs = await readPreferences();
   prefs.receiptNumberSettings = settings;
