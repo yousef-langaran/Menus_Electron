@@ -186,4 +186,23 @@ describe('image module: embeds an offline-safe data URI instead of a live remote
     );
     expect(html).toContain('https://unreachable.example.com/logo.png');
   });
+
+  // باگ واقعی که هیچ‌کدام از دو تست بالا آن را نمی‌گرفت: getValueForLayoutModule برای
+  // نوع 'image' فقط orderData.logoUrl را چک می‌کند که در هیچ سفارش واقعی‌ای پر نمی‌شود.
+  // ماژول تصویر در Menus_FE به‌طور پیش‌فرض hideWhenEmpty=true دارد (RECEIPT_MODULE_DEFINITIONS)
+  // پس بدون این تست، این ماژول همیشه پیش از رسیدن به رندر عکس، بی‌صدا حذف می‌شد — صرف‌نظر
+  // از درست بودن imageUrl یا موفقیت کش‌شدن آن.
+  it('still renders when hideWhenEmpty is true (the real Menus_FE default) and orderData has no logoUrl', async () => {
+    const html = await generateReceiptHTMLFromLayout(
+      orderData, // بدون فیلد logoUrl — دقیقاً مثل دادهٔ واقعیِ سفارش در چاپ
+      layout([
+        {
+          ...imageBlock('https://cdn.example.com/logo.png'),
+          options: { imageUrl: 'https://cdn.example.com/logo.png', hideWhenEmpty: true },
+        },
+      ]),
+      {},
+    );
+    expect(html).toContain('data:image/png;base64,');
+  });
 });

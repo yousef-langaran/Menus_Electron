@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { spawn } from 'child_process';
-import { BrowserWindow } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import type { PrinterInfo } from 'electron';
 import {
   getNextReceiptNumber,
@@ -78,6 +78,21 @@ export function normalizeReceiptLayout(raw: unknown): ReceiptLayoutV2 | undefine
   return undefined;
 }
 
+/**
+ * لاگ تشخیصیِ ماندگار برای مسیر عکسِ چاپ — چون console.log/error در بیلد نهایی جایی دیده
+ * نمی‌شود (پنجرهٔ چاپ مخفی است و DevTools باز نیست)، اینجا یک فایل متنی ساده در پوشهٔ
+ * دادهٔ کاربر می‌نویسد تا در صورت تکرار مشکلِ «عکس چاپ نمی‌شود»، بشود از خودِ کاربر این
+ * فایل را گرفت و علت واقعی را — به‌جای حدس زدن دوباره — از رویِ آن دید.
+ */
+function logPrintDebug(line: string): void {
+  try {
+    const logPath = path.join(app.getPath('userData'), 'print-debug.log');
+    fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${line}\n`);
+  } catch {
+    // صرفاً بهترین تلاش؛ نبودِ لاگ نباید چاپ را متوقف کند
+  }
+}
+
 /** همهٔ آدرس‌های عکسِ ماژول‌های تصویر (http/https) را از یک طرح رسید جمع می‌کند. */
 function collectImageUrlsFromLayout(layout: ReceiptLayoutV2): string[] {
   const urls = new Set<string>();
@@ -110,19 +125,27 @@ const printImageDataUriCache = new Map<string, string>();
  */
 async function resolveImageForPrint(url: string): Promise<string> {
   const cached = printImageDataUriCache.get(url);
-  if (cached) return cached;
+  if (cached) {
+    logPrintDebug(`resolveImageForPrint: in-memory cache hit for ${url}`);
+    return cached;
+  }
+  logPrintDebug(`resolveImageForPrint: resolving ${url}`);
   try {
     const filePath = await withTimeout(cacheImage(url), 8000, `Image cache timeout: ${url}`);
     if (filePath) {
       const ext = path.extname(filePath).replace('.', '').toLowerCase();
       const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-      const dataUri = `data:${mime};base64,${fs.readFileSync(filePath).toString('base64')}`;
+      const bytes = fs.readFileSync(filePath);
+      const dataUri = `data:${mime};base64,${bytes.toString('base64')}`;
       printImageDataUriCache.set(url, dataUri);
+      logPrintDebug(`resolveImageForPrint: OK, cached at ${filePath} (${bytes.length} bytes) -> data URI (${dataUri.length} chars) for ${url}`);
       return dataUri;
     }
     console.error(`[PRINT] ✗ Image caching returned no file, printing without image: ${url}`);
+    logPrintDebug(`resolveImageForPrint: FAILED (cacheImage returned no path) for ${url}`);
   } catch (error) {
     console.error(`[PRINT] ✗ Failed to load image for printing, printing without image: ${url}`, error);
+    logPrintDebug(`resolveImageForPrint: FAILED for ${url} — ${error instanceof Error ? (error.stack || error.message) : String(error)}`);
   }
   return url;
 }
@@ -1203,7 +1226,12 @@ function renderLayoutModuleHtml(
 ): string {
   const opt = module.options || {};
   const hideWhenEmpty = opt.hideWhenEmpty === true;
-  const { value, isEmpty } = getValueForLayoutModule(module.type, orderData, module);
+  const { value, isEmpty: isEmptyRaw } = getValueForLayoutModule(module.type, orderData, module);
+  // نکتهٔ حیاتی: getValueForLayoutModule برای نوع 'image' فقط orderData.logoUrl (که هیچ‌وقت
+  // در هیچ سفارشی پر نمی‌شود) را بررسی می‌کند، نه opt.imageUrl واقعیِ ماژول — پس بدون این
+  // استثنا، ماژول تصویر با تنظیم پیش‌فرضِ hideWhenEmpty=true همیشه «خالی» تشخیص داده می‌شد
+  // و اینجا، پیش از رسیدن به رندر واقعی عکس، بی‌صدا حذف می‌شد (صرف‌نظر از درست بودن URL).
+  const isEmpty = module.type === 'image' ? !(opt.imageUrl || orderData?.logoUrl) : isEmptyRaw;
   if (!module.visible || (hideWhenEmpty && isEmpty)) return '';
 
   const fontSize = (opt.fontSize as number) ?? 11;
@@ -1359,6 +1387,24 @@ export async function generateReceiptHTMLFromLayout(
   }
 
   const imageUrls = collectImageUrlsFromLayout(layout);
+  const allModules = (layout.rows || []).flatMap((row) =>
+    row.type === 'single'
+      ? Array.isArray(row.blocks) && !Array.isArray(row.blocks[0])
+        ? (row.blocks as ReceiptLayoutModule[])
+        : []
+      : Array.isArray(row.blocks)
+        ? (row.blocks as ReceiptLayoutModule[][]).flat()
+        : [],
+  );
+  const imageModules = allModules.filter((m) => m?.type === 'image');
+  if (imageModules.length === 0) {
+    logPrintDebug('generateReceiptHTMLFromLayout: no "image" module in this layout at all (template has no logo block, or a different template is active than expected)');
+  } else {
+    for (const m of imageModules) {
+      const rawUrl = m.options?.imageUrl;
+      logPrintDebug(`generateReceiptHTMLFromLayout: found image module "${m.id}" visible=${m.visible} hideWhenEmpty=${m.options?.hideWhenEmpty} imageUrl=${rawUrl ? JSON.stringify(rawUrl) : '(empty)'}`);
+    }
+  }
   const resolvedImages = new Map<string, string>();
   if (imageUrls.length > 0) {
     await Promise.all(imageUrls.map(async (url) => {
