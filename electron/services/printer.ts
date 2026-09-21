@@ -11,6 +11,7 @@ import {
   loadReceiptPriceDisplayUnit,
   type ReceiptPriceDisplayUnit,
 } from '../database/preferences';
+import { cacheImage } from './imageCache';
 
 /** نگهداری تنظیمات چاپ پنجرهٔ پیش‌نمایش برای استفاده در IPC */
 export const printPreviewOptsMap = new Map<number, any>();
@@ -75,6 +76,55 @@ export function normalizeReceiptLayout(raw: unknown): ReceiptLayoutV2 | undefine
     }
   }
   return undefined;
+}
+
+/** همهٔ آدرس‌های عکسِ ماژول‌های تصویر (http/https) را از یک طرح رسید جمع می‌کند. */
+function collectImageUrlsFromLayout(layout: ReceiptLayoutV2): string[] {
+  const urls = new Set<string>();
+  for (const row of layout.rows || []) {
+    const modules: ReceiptLayoutModule[] =
+      row.type === 'single'
+        ? Array.isArray(row.blocks) && !Array.isArray(row.blocks[0])
+          ? (row.blocks as ReceiptLayoutModule[])
+          : []
+        : Array.isArray(row.blocks)
+          ? (row.blocks as ReceiptLayoutModule[][]).flat()
+          : [];
+    for (const m of modules) {
+      const url = m?.type === 'image' ? (m.options?.imageUrl as string | undefined) : undefined;
+      if (url && /^https?:\/\//i.test(url)) urls.add(url);
+    }
+  }
+  return Array.from(urls);
+}
+
+const printImageDataUriCache = new Map<string, string>();
+
+/**
+ * عکسِ یک ماژول چاپ را به data URI تبدیل می‌کند (کش‌شده روی دیسک از قبل، طبق imageCache.ts).
+ * پنجرهٔ چاپ با data:text/html بارگذاری می‌شود، پس src از نوع file:// در آن به‌طور قابل‌اعتماد
+ * بارگذاری نمی‌شود (دقیقاً همان مشکلی که فونت ایران‌یکان هم داشت — نگاه کنید به
+ * getIranYekanFontFaceCss) — به همین دلیل باید data URI جاسازی شود، نه مسیر فایل محلی.
+ * اگر دانلود/کش شکست بخورد، همان URL اصلی برگردانده می‌شود (رفتار قبلی، به‌عنوان fallback)
+ * و خطا لاگ می‌شود تا برخلاف قبل، این شکست دیگر کاملاً بی‌صدا نباشد.
+ */
+async function resolveImageForPrint(url: string): Promise<string> {
+  const cached = printImageDataUriCache.get(url);
+  if (cached) return cached;
+  try {
+    const filePath = await withTimeout(cacheImage(url), 8000, `Image cache timeout: ${url}`);
+    if (filePath) {
+      const ext = path.extname(filePath).replace('.', '').toLowerCase();
+      const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      const dataUri = `data:${mime};base64,${fs.readFileSync(filePath).toString('base64')}`;
+      printImageDataUriCache.set(url, dataUri);
+      return dataUri;
+    }
+    console.error(`[PRINT] ✗ Image caching returned no file, printing without image: ${url}`);
+  } catch (error) {
+    console.error(`[PRINT] ✗ Failed to load image for printing, printing without image: ${url}`, error);
+  }
+  return url;
 }
 
 interface ReceiptTemplateOptions {
@@ -486,7 +536,7 @@ const runPrinterJobs = async (
         };
         const layout = normalizeReceiptLayout(job.layout);
         const receiptHTML = layout
-          ? generateReceiptHTMLFromLayout(orderData, layout, opts)
+          ? await generateReceiptHTMLFromLayout(orderData, layout, opts)
           : receiptType === 'kitchen'
             ? generateKitchenReceiptHTML(orderData, opts)
             : generateReceiptHTML(orderData, opts);
@@ -936,7 +986,7 @@ export async function renderReceiptPreview(
   const receiptType = resolvedOptions.receiptType || 'full';
   const layout = normalizeReceiptLayout(resolvedOptions.layout);
   const html = layout
-    ? generateReceiptHTMLFromLayout(orderData, layout, resolvedOptions)
+    ? await generateReceiptHTMLFromLayout(orderData, layout, resolvedOptions)
     : receiptType === 'kitchen'
       ? generateKitchenReceiptHTML(orderData, resolvedOptions)
       : generateReceiptHTML(orderData, resolvedOptions);
@@ -996,7 +1046,7 @@ export async function renderReceiptPreview(
  * باز کردن پنجرهٔ پیش‌نمایش رسید؛ کاربر رسید را می‌بیند و با دکمه «چاپ» دیالوگ چاپ ویندوز باز می‌شود.
  * (اپ الکترون پیش‌نمایش دیالوگ ویندوز را پشتیبانی نمی‌کند، پس پیش‌نمایش همان پنجرهٔ ماست.)
  */
-export function showSystemPrintDialog(
+export async function showSystemPrintDialog(
   orderData: any,
   options: ReceiptTemplateOptions & { receiptType?: ReceiptType } = {},
   printerName?: string
@@ -1014,7 +1064,7 @@ export function showSystemPrintDialog(
   const layout = normalizeReceiptLayout(options.layout);
   const htmlOptions = { ...options, paperWidth, margin, contentWidthMm, shiftLeftMm };
   const html = layout
-    ? generateReceiptHTMLFromLayout(orderData, layout, htmlOptions)
+    ? await generateReceiptHTMLFromLayout(orderData, layout, htmlOptions)
     : receiptType === 'kitchen'
       ? generateKitchenReceiptHTML(orderData, htmlOptions)
       : generateReceiptHTML(orderData, htmlOptions);
@@ -1149,6 +1199,7 @@ function renderLayoutModuleHtml(
   formatPrice: (price: number) => string,
   formatPriceValue: (price: number) => string,
   priceUnitLabel: string,
+  resolvedImages?: Map<string, string>,
 ): string {
   const opt = module.options || {};
   const hideWhenEmpty = opt.hideWhenEmpty === true;
@@ -1271,7 +1322,8 @@ function renderLayoutModuleHtml(
   }
 
   if (module.type === 'image' && (opt.imageUrl || orderData?.logoUrl)) {
-    const url = (opt.imageUrl as string) || orderData?.logoUrl;
+    const rawUrl = (opt.imageUrl as string) || orderData?.logoUrl;
+    const url = resolvedImages?.get(rawUrl) ?? rawUrl;
     const w = (opt.widthMm as number) ?? 40;
     const h = (opt.heightMm as number) ?? 25;
     return `<div style="${style};display:flex;justify-content:center"><img src="${url}" alt="" style="max-width:${w}mm;max-height:${h}mm;object-fit:contain"/></div>`;
@@ -1286,11 +1338,11 @@ function renderLayoutModuleHtml(
   return '';
 }
 
-export function generateReceiptHTMLFromLayout(
+export async function generateReceiptHTMLFromLayout(
   orderData: any,
   layout: ReceiptLayoutV2,
   options: ReceiptTemplateOptions = {}
-): string {
+): Promise<string> {
   const priceUnit = options.priceDisplayUnit ?? 'toman';
   const formatPrice = createFormatPrice(priceUnit);
   const formatPriceValue = createFormatPriceValue(priceUnit);
@@ -1306,13 +1358,21 @@ export function generateReceiptHTMLFromLayout(
     orderData = { ...orderData, receiptCallNumber: receiptNumber };
   }
 
+  const imageUrls = collectImageUrlsFromLayout(layout);
+  const resolvedImages = new Map<string, string>();
+  if (imageUrls.length > 0) {
+    await Promise.all(imageUrls.map(async (url) => {
+      resolvedImages.set(url, await resolveImageForPrint(url));
+    }));
+  }
+
   const rows = (layout.rows || []).slice().sort((a, b) => a.order - b.order);
   const parts: string[] = [];
   for (const row of rows) {
     if (row.type === 'single') {
       const blocks = Array.isArray(row.blocks) && !Array.isArray(row.blocks[0]) ? (row.blocks as ReceiptLayoutModule[]) : [];
       for (const m of blocks) {
-        const html = renderLayoutModuleHtml(m, orderData, formatPrice, formatPriceValue, priceUnitLabel);
+        const html = renderLayoutModuleHtml(m, orderData, formatPrice, formatPriceValue, priceUnitLabel, resolvedImages);
         if (html) parts.push(html);
       }
     } else if (row.type === 'columns' && Array.isArray(row.blocks)) {
@@ -1324,7 +1384,7 @@ export function generateReceiptHTMLFromLayout(
       for (const col of cols) {
         parts.push('<div>');
         for (const m of col) {
-          const html = renderLayoutModuleHtml(m, orderData, formatPrice, formatPriceValue, priceUnitLabel);
+          const html = renderLayoutModuleHtml(m, orderData, formatPrice, formatPriceValue, priceUnitLabel, resolvedImages);
           if (html) parts.push(html);
         }
         parts.push('</div>');

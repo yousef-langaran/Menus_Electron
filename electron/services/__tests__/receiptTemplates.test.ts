@@ -8,6 +8,25 @@ vi.mock('../../database/preferences', () => ({
   setReceiptNumbersForOrder: vi.fn(),
   loadReceiptPriceDisplayUnit: vi.fn(async () => 'toman'),
 }));
+// موفقیت را با نوشتن یک PNG واقعی روی دیسک شبیه‌سازی می‌کند (تا fs.readFileSync واقعیِ
+// printer.ts فایلی برای خواندن داشته باشد)، و شکست دانلود را برای URLهای حاوی "unreachable".
+vi.mock('../imageCache', () => ({
+  cacheImage: vi.fn(async (url: string) => {
+    if (url.includes('unreachable')) {
+      throw new Error('ENOTFOUND (simulated)');
+    }
+    const fs = await import('fs');
+    const os = await import('os');
+    const path = await import('path');
+    const filePath = path.join(os.tmpdir(), `test-print-image-${Buffer.from(url).toString('hex')}.png`);
+    const onePxPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    );
+    fs.writeFileSync(filePath, onePxPng);
+    return filePath;
+  }),
+}));
 
 const {
   normalizeReceiptLayout,
@@ -65,16 +84,16 @@ describe('brand footer', () => {
     expect(generateKitchenReceiptHTML(orderData)).toContain(BRAND);
   });
 
-  it('is appended to a server template receipt', () => {
-    const html = generateReceiptHTMLFromLayout(orderData, layout([callNumberBlock]), {
+  it('is appended to a server template receipt', async () => {
+    const html = await generateReceiptHTMLFromLayout(orderData, layout([callNumberBlock]), {
       receiptNumber: 12,
     });
     expect(html).toContain(BRAND);
     expect(html).toContain('با تشکر از انتخاب شما');
   });
 
-  it('does not repeat the thank-you line when the template already has a footer block', () => {
-    const html = generateReceiptHTMLFromLayout(
+  it('does not repeat the thank-you line when the template already has a footer block', async () => {
+    const html = await generateReceiptHTMLFromLayout(
       orderData,
       layout([{ id: 'f1', type: 'footer', label: 'فوتر', visible: true, order: 0 }]),
       {},
@@ -106,8 +125,8 @@ describe('item line note (e.g. free-reward label)', () => {
 });
 
 describe('generateReceiptHTMLFromLayout page geometry', () => {
-  it('uses the same top-spacing reset as the built-in template', () => {
-    const html = generateReceiptHTMLFromLayout(orderData, layout([callNumberBlock]), {
+  it('uses the same top-spacing reset as the built-in template', async () => {
+    const html = await generateReceiptHTMLFromLayout(orderData, layout([callNumberBlock]), {
       paperWidth: 80,
       contentWidthMm: 64,
       receiptNumber: 3,
@@ -119,18 +138,52 @@ describe('generateReceiptHTMLFromLayout page geometry', () => {
   });
 
   // کادر خالیِ شمارهٔ فراخوانی، فضای سفید بزرگی بالای رسید ایجاد می‌کرد.
-  it('skips the call-number box when there is no call number', () => {
-    const html = generateReceiptHTMLFromLayout(orderData, layout([callNumberBlock]), {
+  it('skips the call-number box when there is no call number', async () => {
+    const html = await generateReceiptHTMLFromLayout(orderData, layout([callNumberBlock]), {
       receiptNumber: 0,
     });
     expect(html).not.toContain('display:inline-flex');
   });
 
-  it('prints the call-number box when a number exists', () => {
-    const html = generateReceiptHTMLFromLayout(orderData, layout([callNumberBlock]), {
+  it('prints the call-number box when a number exists', async () => {
+    const html = await generateReceiptHTMLFromLayout(orderData, layout([callNumberBlock]), {
       receiptNumber: 41,
     });
     expect(html).toContain('41');
     expect(html).toContain('display:inline-flex');
+  });
+});
+
+describe('image module: embeds an offline-safe data URI instead of a live remote src', () => {
+  // پنجرهٔ چاپ با data:text/html بارگذاری می‌شود؛ عکسی که فقط با src=آدرس ریموت چاپ
+  // می‌شد، به دانلود زندهٔ آن در لحظهٔ چاپ وابسته بود و اگر شبکهٔ صندوق آن لحظه کند/قطع
+  // بود یا خودِ دانلود صرفاً کند بود، بدون هیچ خطایی چاپ می‌شد بدون عکس (P0 واقعی که این
+  // تست از تکرارش جلوگیری می‌کند).
+  const imageBlock = (imageUrl: string) => ({
+    id: 'img1',
+    type: 'image',
+    label: 'تصویر',
+    visible: true,
+    order: 0,
+    options: { imageUrl },
+  });
+
+  it('replaces a cacheable image URL with an embedded base64 data URI', async () => {
+    const html = await generateReceiptHTMLFromLayout(
+      orderData,
+      layout([imageBlock('https://cdn.example.com/logo.png')]),
+      {},
+    );
+    expect(html).toContain('data:image/png;base64,');
+    expect(html).not.toContain('https://cdn.example.com/logo.png');
+  });
+
+  it('falls back to the original remote URL (old behavior) when caching fails, without throwing', async () => {
+    const html = await generateReceiptHTMLFromLayout(
+      orderData,
+      layout([imageBlock('https://unreachable.example.com/logo.png')]),
+      {},
+    );
+    expect(html).toContain('https://unreachable.example.com/logo.png');
   });
 });
