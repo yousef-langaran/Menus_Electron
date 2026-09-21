@@ -680,13 +680,48 @@ function renderBrandFooterHtml(date: string, options: { thanksAlreadyShown?: boo
 const BRAND_FOOTER_CSS =
   '.brand-footer { text-align: center; margin-top: 12px; font-size: 8pt; font-weight: bold; }';
 
-function createFormatPrice(unit: ReceiptPriceDisplayUnit = 'toman'): (price: number) => string {
+function getPriceUnitLabel(unit: ReceiptPriceDisplayUnit): string {
+  return unit === 'rial' ? 'ریال' : 'تومان';
+}
+
+/** فقط عدد، با ارقام لاتین (خواناتر روی چاپگر حرارتی) و بدون واحد پولی */
+function createFormatPriceValue(unit: ReceiptPriceDisplayUnit = 'toman'): (price: number) => string {
   return (price: number) => {
     const n = Number(price) || 0;
     const value = unit === 'rial' ? Math.round(n * 10) : n;
-    const label = unit === 'rial' ? 'ریال' : 'ریال';
-    return new Intl.NumberFormat('fa-IR').format(value) + ' ' + label;
+    return new Intl.NumberFormat('en-US').format(value);
   };
+}
+
+function createFormatPrice(unit: ReceiptPriceDisplayUnit = 'toman'): (price: number) => string {
+  const formatValue = createFormatPriceValue(unit);
+  const label = getPriceUnitLabel(unit);
+  return (price: number) => `${formatValue(price)} ${label}`;
+}
+
+/** خانوادهٔ فونتی که در رسید استفاده می‌شود — دقیقاً همان ایران‌یکانِ استفاده‌شده در رندرر (src/index.css) */
+const RECEIPT_FONT_FAMILY = "'iranyekan', Tahoma, Arial, sans-serif";
+
+let cachedIranYekanFontFaceCss: string | null = null;
+
+/**
+ * فونت ایران‌یکان را به‌صورت data URI درون CSS جاسازی می‌کند تا در پنجرهٔ چاپ (که با data: URL
+ * بارگذاری می‌شود و مسیر نسبی برای فایل فونت ندارد) قابل استفاده باشد. اگر فایل فونت پیدا نشود
+ * (مثلاً یک بیلد ناقص)، رشتهٔ خالی برمی‌گردد و چاپ با فونت‌های سیستم (fallback در RECEIPT_FONT_FAMILY) ادامه می‌یابد.
+ */
+function getIranYekanFontFaceCss(): string {
+  if (cachedIranYekanFontFaceCss !== null) return cachedIranYekanFontFaceCss;
+  try {
+    const fontsDir = path.join(__dirname, '..', '..', 'dist-react', 'fonts');
+    const toDataUri = (file: string) =>
+      `data:font/woff;base64,${fs.readFileSync(path.join(fontsDir, file)).toString('base64')}`;
+    cachedIranYekanFontFaceCss = `
+    @font-face { font-family: 'iranyekan'; font-style: normal; font-weight: normal; src: url('${toDataUri('iranyekanwebregularfanum.woff')}') format('woff'); }
+    @font-face { font-family: 'iranyekan'; font-style: normal; font-weight: bold; src: url('${toDataUri('iranyekanwebboldfanum.woff')}') format('woff'); }`;
+  } catch {
+    cachedIranYekanFontFaceCss = '';
+  }
+  return cachedIranYekanFontFaceCss;
 }
 
 export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOptions = {}): string {
@@ -724,6 +759,7 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>رسید سفارش</title>
   <style>
+    ${getIranYekanFontFaceCss()}
     :root {
       --paper-width: ${paperWidth}mm;
       --printable-width: ${printableWidth}mm;
@@ -738,7 +774,7 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
       margin-right: var(--shift-left);
     }
     body {
-      font-family: 'Tahoma', 'Arial', sans-serif;
+      font-family: ${RECEIPT_FONT_FAMILY};
       font-size: 10pt;
       color: #000 !important;
       -webkit-font-smoothing: none;
@@ -1111,6 +1147,8 @@ function renderLayoutModuleHtml(
   module: ReceiptLayoutModule,
   orderData: any,
   formatPrice: (price: number) => string,
+  formatPriceValue: (price: number) => string,
+  priceUnitLabel: string,
 ): string {
   const opt = module.options || {};
   const hideWhenEmpty = opt.hideWhenEmpty === true;
@@ -1159,23 +1197,24 @@ function renderLayoutModuleHtml(
       const cellBorder = '1px solid #999';
       const striped = opt.itemsStriped === true;
       const showTotalPrice = opt.showTotalPrice !== false;
+      const headerCss = `border:${cellBorder};font-size:0.85em`;
       const rows = orderData.items.map((item: any, i: number) => {
         const name = item.product?.name_fa || item.productName || 'محصول';
         const desc = showDesc ? getProductDescription(item) : '';
         const lineNote = showLineNote ? getLineItemNote(item) : '';
         const notePart = lineNote ? ` (${lineNote})` : '';
         const descBlock = desc
-          ? `<div style="font-size:9pt;margin-top:2px;line-height:1.3">${desc}</div>`
+          ? `<div style="font-size:0.85em;margin-top:2px;line-height:1.3">${desc}</div>`
           : '';
-        const price = showPrice ? `<td style="padding:2px 4px;white-space:nowrap;vertical-align:top;border:${cellBorder}">${formatPrice(item.price)}</td>` : '';
-        const total = showTotalPrice ? `<td style="padding:2px 4px;white-space:nowrap;vertical-align:top;font-weight:bold;border:${cellBorder}">${formatPrice(+item.price * +item.quantity)}</td>` : '';
+        const price = showPrice ? `<td style="padding:2px 4px;white-space:nowrap;vertical-align:top;border:${cellBorder}">${formatPriceValue(item.price)}</td>` : '';
+        const total = showTotalPrice ? `<td style="padding:2px 4px;white-space:nowrap;vertical-align:top;font-weight:bold;border:${cellBorder}">${formatPriceValue(+item.price * +item.quantity)}</td>` : '';
         const rowBg = striped && i % 2 === 1 ? 'background:#f2f2f2' : '';
         const titleCell = `<span>${name}</span>${notePart}${descBlock}`;
-        return `<tr style="${rowBg}"><td style="padding:2px 4px;vertical-align:top;border:${cellBorder}">${titleCell}</td><td style="padding:2px 4px;white-space:nowrap;vertical-align:top;text-align:center;border:${cellBorder}">${item.quantity}</td>${price}${total}</tr>`;
+        return `<tr style="${rowBg}"><td style="padding:2px 4px;vertical-align:top;border:${cellBorder};word-break:break-word;overflow-wrap:anywhere">${titleCell}</td><td style="padding:2px 4px;white-space:nowrap;vertical-align:top;text-align:center;border:${cellBorder}">${item.quantity}</td>${price}${total}</tr>`;
       }).join('');
-      const priceHeader = showPrice ? `<th style="padding:4px;white-space:nowrap;border:${cellBorder}">قیمت</th>` : '';
-      const totalHeader = showTotalPrice ? `<th style="padding:4px;white-space:nowrap;border:${cellBorder}">قیمت کل</th>` : '';
-      return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse;border:${cellBorder}"><thead><tr style="background:#f2f2f2"><th style="padding:4px;border:${cellBorder}">نام کالا</th><th style="padding:4px;white-space:nowrap;border:${cellBorder}">تعداد</th>${priceHeader}${totalHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
+      const priceHeader = showPrice ? `<th style="padding:4px;white-space:nowrap;width:24%;${headerCss}">قیمت <span style="font-size:0.75em;font-weight:normal">(${priceUnitLabel})</span></th>` : '';
+      const totalHeader = showTotalPrice ? `<th style="padding:4px;white-space:nowrap;width:24%;${headerCss}">قیمت کل</th>` : '';
+      return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse;border:${cellBorder};table-layout:fixed"><thead><tr style="background:#f2f2f2"><th style="padding:4px;${headerCss}">نام کالا</th><th style="padding:4px;white-space:nowrap;width:14%;${headerCss}">تعداد</th>${priceHeader}${totalHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
     const rows = orderData.items.map((item: any) => {
@@ -1202,10 +1241,30 @@ function renderLayoutModuleHtml(
     const discount = orderData?.discountAmount ?? 0;
     const vat = orderData?.vatAmount ?? 0;
     const final = orderData?.finalAmount ?? total - discount + vat;
-    let html = `<div style="${style}"><div style="display:flex;justify-content:space-between;padding:2px 0">جمع: ${formatPrice(total)}</div>`;
-    if (discount > 0) html += `<div style="display:flex;justify-content:space-between;padding:2px 0">تخفیف: -${formatPrice(discount)}</div>`;
-    if (vat > 0) html += `<div style="display:flex;justify-content:space-between;padding:2px 0">ارزش افزوده: +${formatPrice(vat)}</div>`;
-    html += `<div style="display:flex;justify-content:space-between;padding:4px 0;font-weight:bold;border-top:2px solid #000;margin-top:4px">مبلغ نهایی: ${formatPrice(final)}</div></div>`;
+    const totalsStyle = (opt.totalsStyle as string) ?? 'flex';
+    const striped = opt.totalsStriped === true;
+    const finalScale = opt.finalAmountScale ? Number(opt.finalAmountScale) / 100 : 1;
+    const rowsData: { label: string; value: number; sign: '' | '-' | '+' }[] = [
+      { label: 'جمع:', value: total, sign: '' },
+      ...(discount > 0 ? [{ label: 'تخفیف:', value: discount, sign: '-' as const }] : []),
+      ...(vat > 0 ? [{ label: 'ارزش افزوده:', value: vat, sign: '+' as const }] : []),
+    ];
+
+    if (totalsStyle === 'table') {
+      const cellBorder = '1px solid #999';
+      const headerCss = `border:${cellBorder};font-size:0.85em`;
+      const bodyRows = rowsData.map((r, i) => {
+        const rowBg = striped && i % 2 === 1 ? 'background:#f2f2f2' : '';
+        return `<tr style="${rowBg}"><td style="padding:2px 4px;border:${cellBorder}">${r.label}</td><td style="padding:2px 4px;white-space:nowrap;border:${cellBorder}">${r.sign}${formatPriceValue(r.value)}</td></tr>`;
+      }).join('');
+      const finalRow = `<tr style="font-weight:bold;font-size:${finalScale}em"><td style="padding:4px;border:${cellBorder}">مبلغ نهایی:</td><td style="padding:4px;white-space:nowrap;border:${cellBorder}">${formatPriceValue(final)}</td></tr>`;
+      return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse;border:${cellBorder}"><thead><tr style="background:#f2f2f2"><th style="padding:4px;${headerCss}">شرح</th><th style="padding:4px;white-space:nowrap;${headerCss}">مبلغ <span style="font-size:0.75em;font-weight:normal">(${priceUnitLabel})</span></th></tr></thead><tbody>${bodyRows}${finalRow}</tbody></table></div>`;
+    }
+
+    let html = `<div style="${style}">` + rowsData.map((r) =>
+      `<div style="display:flex;justify-content:space-between;padding:2px 0">${r.label} ${r.sign}${formatPriceValue(r.value)} <span style="font-size:0.75em;font-weight:normal">${priceUnitLabel}</span></div>`
+    ).join('');
+    html += `<div style="display:flex;justify-content:space-between;padding:4px 0;font-weight:bold;font-size:${finalScale}em;border-top:2px solid #000;margin-top:4px">مبلغ نهایی: ${formatPriceValue(final)}</div></div>`;
     return html;
   }
 
@@ -1230,7 +1289,10 @@ export function generateReceiptHTMLFromLayout(
   layout: ReceiptLayoutV2,
   options: ReceiptTemplateOptions = {}
 ): string {
-  const formatPrice = createFormatPrice(options.priceDisplayUnit ?? 'toman');
+  const priceUnit = options.priceDisplayUnit ?? 'toman';
+  const formatPrice = createFormatPrice(priceUnit);
+  const formatPriceValue = createFormatPriceValue(priceUnit);
+  const priceUnitLabel = getPriceUnitLabel(priceUnit);
   const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
   const margin = typeof options.margin === 'number' ? Math.max(0, options.margin) : 5;
   const printableWidth = typeof options.contentWidthMm === 'number' ? options.contentWidthMm : Math.max(30, paperWidth - margin * 2);
@@ -1248,7 +1310,7 @@ export function generateReceiptHTMLFromLayout(
     if (row.type === 'single') {
       const blocks = Array.isArray(row.blocks) && !Array.isArray(row.blocks[0]) ? (row.blocks as ReceiptLayoutModule[]) : [];
       for (const m of blocks) {
-        const html = renderLayoutModuleHtml(m, orderData, formatPrice);
+        const html = renderLayoutModuleHtml(m, orderData, formatPrice, formatPriceValue, priceUnitLabel);
         if (html) parts.push(html);
       }
     } else if (row.type === 'columns' && Array.isArray(row.blocks)) {
@@ -1260,7 +1322,7 @@ export function generateReceiptHTMLFromLayout(
       for (const col of cols) {
         parts.push('<div>');
         for (const m of col) {
-          const html = renderLayoutModuleHtml(m, orderData, formatPrice);
+          const html = renderLayoutModuleHtml(m, orderData, formatPrice, formatPriceValue, priceUnitLabel);
           if (html) parts.push(html);
         }
         parts.push('</div>');
@@ -1284,11 +1346,12 @@ export function generateReceiptHTMLFromLayout(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>رسید سفارش</title>
   <style>
+    ${getIranYekanFontFaceCss()}
     :root { --paper-width: ${paperWidth}mm; --printable-width: ${printableWidth}mm; --content-padding: ${contentPadding}mm; --shift-left: ${shiftLeftMm}mm; }
     @page { size: var(--paper-width) auto; margin: 0; }
     html, body {
       width: var(--paper-width); max-width: var(--paper-width); margin: 0; padding: 0; padding-top: 0 !important;
-      margin-right: var(--shift-left); font-family: Tahoma, Arial, sans-serif; box-sizing: border-box;
+      margin-right: var(--shift-left); font-family: ${RECEIPT_FONT_FAMILY}; box-sizing: border-box;
       direction: rtl; text-align: right; word-break: break-word; overflow-wrap: break-word; background: #fff;
       font-size: 10pt;
       color: #000 !important; /* حیاتی برای کیفیت چاپ */
@@ -1335,6 +1398,7 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>رسید آشپزخانه</title>
   <style>
+    ${getIranYekanFontFaceCss()}
     :root {
       --paper-width: ${paperWidth}mm;
       --printable-width: ${printableWidth}mm;
@@ -1347,7 +1411,7 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
       margin: 0; padding: 0; padding-top: 0 !important; margin-right: var(--shift-left);
     }
     body {
-      font-family: 'Tahoma', 'Arial', sans-serif;
+      font-family: ${RECEIPT_FONT_FAMILY};
       color: #000 !important;
       -webkit-font-smoothing: none;
       text-rendering: geometricPrecision;
