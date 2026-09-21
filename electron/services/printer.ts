@@ -1212,8 +1212,10 @@ function renderLayoutModuleHtml(
         const titleCell = `<span>${name}</span>${notePart}${descBlock}`;
         return `<tr style="${rowBg}"><td style="padding:2px 4px;vertical-align:top;border:${cellBorder};word-break:break-word;overflow-wrap:anywhere">${titleCell}</td><td style="padding:2px 4px;white-space:nowrap;vertical-align:top;text-align:center;border:${cellBorder}">${item.quantity}</td>${price}${total}</tr>`;
       }).join('');
-      const priceHeader = showPrice ? `<th style="padding:4px;white-space:nowrap;width:24%;${headerCss}">قیمت <span style="font-size:0.75em;font-weight:normal">(${priceUnitLabel})</span></th>` : '';
-      const totalHeader = showTotalPrice ? `<th style="padding:4px;white-space:nowrap;width:24%;${headerCss}">قیمت کل</th>` : '';
+      const showPriceUnit = opt.showPriceUnit !== false;
+      const unitLabelHtml = showPriceUnit ? ` <span style="font-size:0.75em;font-weight:normal">(${priceUnitLabel})</span>` : '';
+      const priceHeader = showPrice ? `<th style="padding:4px;white-space:nowrap;width:24%;${headerCss}">قیمت${unitLabelHtml}</th>` : '';
+      const totalHeader = showTotalPrice ? `<th style="padding:4px;white-space:nowrap;width:24%;${headerCss}">قیمت کل${unitLabelHtml}</th>` : '';
       return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse;border:${cellBorder};table-layout:fixed"><thead><tr style="background:#f2f2f2"><th style="padding:4px;${headerCss}">نام کالا</th><th style="padding:4px;white-space:nowrap;width:14%;${headerCss}">تعداد</th>${priceHeader}${totalHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
