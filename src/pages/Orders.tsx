@@ -353,7 +353,7 @@ export default function OrdersPage() {
       socket.off('connect_error', handleConnectError);
       disconnectOrdersSocket();
     };
-  }, [token, restaurantName, isOnline, statusFilter, currentPage, pageSize, scheduleOnlineReload]);
+  }, [token, restaurantName, isOnline, scheduleOnlineReload]);
 
   // هنگام رفرش (سوکت، تغییر وضعیت، ثبت پرداخت) سفارشات قبلی روی صفحه
   // می‌مانند تا صفحه پرش نکند؛ spinner فقط بار اول (وقتی هنوز داده‌ای نیست)
