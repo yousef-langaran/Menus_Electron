@@ -82,6 +82,8 @@ export default function OrderPage() {
   const productLoader = useProductLoader();
   const { handleSubmit, playScanBeep, formatPrice } = useOrderSubmit();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  /** برای نادیده‌گرفتن جواب دیرهنگام کارتخوان بعد از این‌که اپراتور با دکمهٔ لغو از انتظار خارج شده */
+  const cardTerminalRequestIdRef = useRef(0);
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
@@ -420,9 +422,12 @@ export default function OrderPage() {
     if (!window.electronAPI?.sendAmountToCardTerminal) { setModalState((s) => ({ ...s, cardTerminalStatus: 'failed', cardTerminalError: 'نسخه پنل از کارتخوان پشتیبانی نمی‌کند.' })); return; }
     const amount = Number(getFinalAmount() || 0);
     if (!(amount > 0)) { setModalState((s) => ({ ...s, cardTerminalStatus: 'failed', cardTerminalError: 'مبلغ باید بیشتر از صفر باشد.' })); return; }
+    const requestId = ++cardTerminalRequestIdRef.current;
     setModalState((s) => ({ ...s, cardTerminalStatus: 'sending', cardTerminalError: '', cardTerminalRefId: '' }));
     try {
       const result = await window.electronAPI!.sendAmountToCardTerminal({ amount, restaurantId, terminalProfileId: modalState.selectedCardTerminalId || undefined });
+      // اگر اپراتور در این فاصله دکمهٔ لغو را زده، جواب دیرهنگام کارتخوان دیگر معتبر نیست
+      if (cardTerminalRequestIdRef.current !== requestId) return;
       if (result?.success) {
         setModalState((s) => ({ ...s, cardTerminalStatus: 'approved', cardTerminalRefId: result.refId || '' }));
         await handleOrderSubmit();
@@ -430,8 +435,16 @@ export default function OrderPage() {
         setModalState((s) => ({ ...s, cardTerminalStatus: 'failed', cardTerminalError: result?.error || 'کارتخوان جواب مثبت نداد.' }));
       }
     } catch (err: any) {
+      if (cardTerminalRequestIdRef.current !== requestId) return;
       setModalState((s) => ({ ...s, cardTerminalStatus: 'failed', cardTerminalError: err?.message || 'خطا در ارتباط با کارتخوان' }));
     }
+  };
+
+  /** اپراتور می‌تواند به‌جای صبر تا تایم‌اوت کارتخوان، همین حالا انتظار را قطع و کار را ادامه دهد
+      (تلاش مجدد یا ثبت دستی) — جواب دیرهنگام کارتخوان توسط requestId نادیده گرفته می‌شود */
+  const handleCancelCardTerminal = () => {
+    cardTerminalRequestIdRef.current += 1;
+    setModalState((s) => ({ ...s, cardTerminalStatus: 'failed', cardTerminalError: 'ارتباط با کارتخوان توسط اپراتور لغو شد.' }));
   };
 
   const handleOrderSubmit = async () => {
@@ -560,6 +573,7 @@ export default function OrderPage() {
         onSubmit={handleOrderSubmit}
         onSendToCardTerminal={handleSendToCardTerminal}
         onCardManualConfirm={async () => { setModalState((s) => ({ ...s, cardTerminalStatus: 'idle', cardTerminalError: '' })); await handleOrderSubmit(); }}
+        onCancelCardTerminal={handleCancelCardTerminal}
         onClose={() => setModalState((s) => ({ ...s, isOpen: false }))}
       />
 

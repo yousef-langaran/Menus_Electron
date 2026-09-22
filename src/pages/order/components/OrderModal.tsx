@@ -95,13 +95,14 @@ interface Props {
   onSubmit: () => void;
   onSendToCardTerminal: () => void;
   onCardManualConfirm: () => void;
+  onCancelCardTerminal: () => void;
   onClose: () => void;
 }
 
 export function OrderModal({
   state, setState, editingOrderId,
   isMobileRequired, isCardTerminalEnabled, allowDirectSendAmountToCardTerminal, canUseCardTerminal,
-  formatPrice, cartItemOptions, onSubmit, onSendToCardTerminal, onCardManualConfirm, onClose,
+  formatPrice, cartItemOptions, onSubmit, onSendToCardTerminal, onCardManualConfirm, onCancelCardTerminal, onClose,
 }: Props) {
   const { user, token } = useAuthStore();
   const {
@@ -448,15 +449,49 @@ export function OrderModal({
         }}>
           {/* سبد خرید — ستون سمت راست (RTL). قابل کم/زیادکردن و حذف همین‌جا، بدون بستن مودال.
               sticky تا وقتی فرم سمت چپ اسکرول می‌شود، سبد ثابت در دید بماند */}
-          <div className="hidden lg:flex w-[320px] shrink-0 flex-col h-[68vh] sticky top-0 self-start">
-            <OrderCart
-              cartItemOptions={cartItemOptions}
-              formatPrice={formatPrice}
-              onCheckout={() => {}}
-              isDisabled={isSubmitting}
-              editingOrderId={editingOrderId}
-              embedded
-            />
+          <div className="hidden lg:flex w-[320px] shrink-0 flex-col gap-3 h-[68vh] sticky top-0 self-start">
+            <div className="flex-1 min-h-0">
+              <OrderCart
+                cartItemOptions={cartItemOptions}
+                formatPrice={formatPrice}
+                onCheckout={() => {}}
+                isDisabled={isSubmitting}
+                editingOrderId={editingOrderId}
+                embedded
+              />
+            </div>
+
+            {/* Summary — منتقل‌شده به زیر سبد خرید طبق درخواست؛ عمداً همه‌چیز سمت چپ (justify-end) نه دو سر ردیف */}
+            <div className="shrink-0 rounded-xl border border-border bg-surface p-4 space-y-2">
+              <div className="flex justify-end gap-3 text-sm text-muted">
+                <span>جمع کل</span><span className="tabular-nums text-foreground/80">{formatPrice(getTotalAmount())}</span>
+              </div>
+              {discountType === 'code' && appliedDiscountCode ? (
+                <div className="flex justify-end gap-3 text-sm text-muted">
+                  <span>کد تخفیف ({appliedDiscountCode.code})</span><span className="tabular-nums">- {formatPrice(appliedDiscountCode.discountAmount)}</span>
+                </div>
+              ) : getDiscountAmount() > 0 ? (
+                <div className="flex justify-end gap-3 text-sm text-muted">
+                  <span>تخفیف</span><span className="tabular-nums">- {formatPrice(getDiscountAmount())}</span>
+                </div>
+              ) : null}
+              {getVatAmount() > 0 && (
+                <div className="flex justify-end gap-3 text-sm text-muted">
+                  <span>ارزش افزوده</span><span className="tabular-nums">+ {formatPrice(getVatAmount())}</span>
+                </div>
+              )}
+              {cashbackRedeemAmount > 0 && (
+                <div className="flex justify-end gap-3 text-sm text-success-soft-foreground">
+                  <span>کش‌بک استفاده‌شده</span><span className="tabular-nums">- {formatPrice(cashbackRedeemAmount)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-end gap-3 rounded-lg bg-success-soft px-3 py-2.5 mt-1">
+                <span className="text-sm font-medium text-success-soft-foreground">قابل پرداخت</span>
+                <span className="text-lg font-bold tabular-nums text-success-soft-foreground">
+                  {discountType === 'code' && !appliedDiscountCode && discountCode.trim() ? '— (کد را ثبت کنید)' : formatPrice(getFinalAmount())}
+                </span>
+              </div>
+            </div>
           </div>
 
           <div className="flex-1 min-w-0 flex flex-col gap-4">
@@ -675,34 +710,41 @@ export function OrderModal({
             </div>
           ) : null}
 
-          {/* Payment method + Cash box — دو ستونه وقتی صندوق قابل انتخاب است */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className={showCashBoxSelector ? '' : 'col-span-2'}>
-              <Select label="روش پرداخت" selectedKeys={[paymentMethod]}
-                onSelectionChange={(keys) => {
-                  const v = Array.from(keys)[0];
-                  if (v) {
-                    setPaymentMethod(v as any);
-                    if (v !== 'card') set({ cardTerminalStatus: 'idle', cardTerminalError: '', cardTerminalRefId: '' });
-                  }
-                }} variant="bordered" fullWidth>
-                <SelectItem key="cash" textValue="نقد">نقد</SelectItem>
-                <SelectItem key="card" textValue="کارت">کارت</SelectItem>
-                <SelectItem key="online" textValue="آنلاین">آنلاین</SelectItem>
-                <SelectItem key="mixed" textValue="ترکیبی">ترکیبی</SelectItem>
-                <SelectItem key="credit" textValue="اعتباری (نسیه)">اعتباری (نسیه)</SelectItem>
-              </Select>
+          {/* Payment method + Cash box */}
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-foreground">روش پرداخت</span>
+              <div className="flex gap-1.5 flex-nowrap">
+                {([
+                  ['cash', 'نقد'], ['card', 'کارت'], ['online', 'آنلاین'],
+                  ['mixed', 'ترکیبی'], ['credit', 'اعتباری (نسیه)'],
+                ] as const).map(([key, label]) => (
+                  <Button key={key} size="sm" variant={paymentMethod === key ? 'solid' : 'bordered'} color="primary"
+                    className="shrink px-2 text-xs whitespace-nowrap min-w-0"
+                    onPress={() => {
+                      setPaymentMethod(key as any);
+                      if (key !== 'card') set({ cardTerminalStatus: 'idle', cardTerminalError: '', cardTerminalRefId: '' });
+                    }}>
+                    {label}
+                  </Button>
+                ))}
+              </div>
             </div>
 
             {showCashBoxSelector && (
-              <Select label="صندوق" selectedKeys={state.selectedCashBoxId ? [String(state.selectedCashBoxId)] : []}
-                onSelectionChange={(keys) => {
-                  const id = Number(Array.from(keys)[0]);
-                  const acc = state.cashBoxAccounts.find((a) => a.id === id);
-                  if (acc) set({ selectedCashBoxId: acc.id, selectedCashBoxName: acc.name || 'صندوق' });
-                }} variant="bordered" size="sm" fullWidth>
-                {state.cashBoxAccounts.map((acc) => <SelectItem key={String(acc.id)}>{acc.name}</SelectItem>)}
-              </Select>
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-foreground">صندوق</span>
+                <div className="flex gap-1.5 flex-wrap">
+                  {state.cashBoxAccounts.map((acc) => (
+                    <Button key={acc.id} size="sm"
+                      variant={state.selectedCashBoxId === acc.id ? 'solid' : 'bordered'} color="primary"
+                      className="shrink px-2 text-xs whitespace-nowrap min-w-0"
+                      onPress={() => set({ selectedCashBoxId: acc.id, selectedCashBoxName: acc.name || 'صندوق' })}>
+                      {acc.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 
@@ -748,12 +790,19 @@ export function OrderModal({
             <div className="rounded-xl border border-border bg-default-soft p-3 flex flex-col gap-3 text-sm">
               <p className="font-medium text-foreground">پرداخت کارتخوان</p>
               {state.cardTerminalProfiles.length > 1 && state.cardTerminalStatus === 'idle' && (
-                <Select size="sm" label="انتخاب کارتخوان"
-                  selectedKeys={state.selectedCardTerminalId ? [state.selectedCardTerminalId] : []}
-                  onSelectionChange={(keys) => set({ selectedCardTerminalId: String(Array.from(keys)[0] || '') })}
-                  variant="bordered">
-                  {state.cardTerminalProfiles.map((t) => <SelectItem key={t.id}>{t.name}</SelectItem>)}
-                </Select>
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm font-medium text-foreground">انتخاب کارتخوان</span>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {state.cardTerminalProfiles.map((t) => (
+                      <Button key={t.id} size="sm"
+                        variant={state.selectedCardTerminalId === t.id ? 'solid' : 'bordered'} color="primary"
+                        className="shrink px-2 text-xs whitespace-nowrap min-w-0"
+                        onPress={() => set({ selectedCardTerminalId: t.id })}>
+                        {t.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               )}
               {state.cardTerminalStatus === 'idle' && (
                 <Button color="primary" size="sm" onPress={onSendToCardTerminal}>
@@ -761,9 +810,12 @@ export function OrderModal({
                 </Button>
               )}
               {state.cardTerminalStatus === 'sending' && (
-                <div className="flex items-center gap-2 text-accent-soft-foreground py-1">
-                  <span className="animate-spin text-base">⏳</span>
-                  <span>در حال ارتباط با کارتخوان — لطفاً کارت بکشید...</span>
+                <div className="flex items-center justify-between gap-2 text-accent-soft-foreground py-1">
+                  <div className="flex items-center gap-2">
+                    <span className="animate-spin text-base">⏳</span>
+                    <span>در حال ارتباط با کارتخوان — لطفاً کارت بکشید...</span>
+                  </div>
+                  <Button size="sm" variant="flat" color="danger" onPress={onCancelCardTerminal}>لغو</Button>
                 </div>
               )}
               {state.cardTerminalStatus === 'approved' && (
@@ -935,38 +987,6 @@ export function OrderModal({
 
           <Textarea label="یادداشت (اختیاری)" placeholder="یادداشت برای آشپزخانه" value={notes}
             onValueChange={setNotes} minRows={2} classNames={{ input: 'text-right' }} />
-
-          {/* Summary — عمداً همه‌چیز سمت چپ (justify-end) نه دو سر ردیف، طبق درخواست */}
-          <div className="rounded-xl border border-border bg-surface p-4 space-y-2">
-            <div className="flex justify-end gap-3 text-sm text-muted">
-              <span>جمع کل</span><span className="tabular-nums text-foreground/80">{formatPrice(getTotalAmount())}</span>
-            </div>
-            {discountType === 'code' && appliedDiscountCode ? (
-              <div className="flex justify-end gap-3 text-sm text-muted">
-                <span>کد تخفیف ({appliedDiscountCode.code})</span><span className="tabular-nums">- {formatPrice(appliedDiscountCode.discountAmount)}</span>
-              </div>
-            ) : getDiscountAmount() > 0 ? (
-              <div className="flex justify-end gap-3 text-sm text-muted">
-                <span>تخفیف</span><span className="tabular-nums">- {formatPrice(getDiscountAmount())}</span>
-              </div>
-            ) : null}
-            {getVatAmount() > 0 && (
-              <div className="flex justify-end gap-3 text-sm text-muted">
-                <span>ارزش افزوده</span><span className="tabular-nums">+ {formatPrice(getVatAmount())}</span>
-              </div>
-            )}
-            {cashbackRedeemAmount > 0 && (
-              <div className="flex justify-end gap-3 text-sm text-success-soft-foreground">
-                <span>کش‌بک استفاده‌شده</span><span className="tabular-nums">- {formatPrice(cashbackRedeemAmount)}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-end gap-3 rounded-lg bg-success-soft px-3 py-2.5 mt-1">
-              <span className="text-sm font-medium text-success-soft-foreground">قابل پرداخت</span>
-              <span className="text-lg font-bold tabular-nums text-success-soft-foreground">
-                {discountType === 'code' && !appliedDiscountCode && discountCode.trim() ? '— (کد را ثبت کنید)' : formatPrice(getFinalAmount())}
-              </span>
-            </div>
-          </div>
 
           {/* Print options */}
           {isElectronWithPrinters && (

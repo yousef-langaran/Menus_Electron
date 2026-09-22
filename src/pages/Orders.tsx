@@ -1207,16 +1207,19 @@ export default function OrdersPage() {
               min={1}
               isRequired
             />
-            <Select
-              label="روش پرداخت"
-              selectedKeys={[creditPayMethod]}
-              onSelectionChange={(k) => setCreditPayMethod(String(Array.from(k)[0] || 'cash') as any)}
-              variant="bordered"
-            >
-              <SelectItem key="cash">نقد (صندوق)</SelectItem>
-              <SelectItem key="card">کارت</SelectItem>
-              <SelectItem key="online">آنلاین</SelectItem>
-            </Select>
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-foreground">روش پرداخت</span>
+              <div className="flex gap-2 flex-wrap">
+                {([
+                  ['cash', 'نقد (صندوق)'], ['card', 'کارت'], ['online', 'آنلاین'],
+                ] as const).map(([key, label]) => (
+                  <Button key={key} size="sm" variant={creditPayMethod === key ? 'solid' : 'bordered'} color="primary"
+                    onPress={() => setCreditPayMethod(key)}>
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </div>
             {cashBankAccounts.length > 0 && (
               <Select
                 label="حساب"

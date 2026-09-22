@@ -325,15 +325,17 @@ export function OrderCart({ cartItemOptions, formatPrice, onCheckout, isDisabled
                 );
               })}
 
-              {/* Total */}
-              <div className="sticky bottom-0 z-[1] -mx-2 mt-3 border-t border-border bg-surface/95 px-2 pt-3 pb-0.5 backdrop-blur-sm sm:-mx-3 sm:px-3">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-default-soft px-3 py-2.5 shadow-sm">
-                  <span className="text-sm font-medium text-foreground/70">جمع کل</span>
-                  <span className="text-base font-bold tabular-nums tracking-tight text-foreground">
-                    {formatPrice(getTotalAmount())}
-                  </span>
+              {/* Total — داخل مودال تکمیل سفارش نمایش داده نمی‌شود، چون خلاصهٔ کامل‌تر زیر سبد نشان داده می‌شود */}
+              {!embedded && (
+                <div className="sticky bottom-0 z-[1] -mx-2 mt-3 border-t border-border bg-surface/95 px-2 pt-3 pb-0.5 backdrop-blur-sm sm:-mx-3 sm:px-3">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-default-soft px-3 py-2.5 shadow-sm">
+                    <span className="text-sm font-medium text-foreground/70">جمع کل</span>
+                    <span className="text-base font-bold tabular-nums tracking-tight text-foreground">
+                      {formatPrice(getTotalAmount())}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>
