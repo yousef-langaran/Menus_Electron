@@ -334,14 +334,15 @@ export async function savePrinterConfigs(configs: Record<string, any>) {
   await writePreferences(prefs);
 }
 
+/** مبالغ سفارش همیشه به ریال ذخیره می‌شوند (مثل Menus_BE)؛ پیش‌فرض همان ریال است */
 export async function loadReceiptPriceDisplayUnit(): Promise<ReceiptPriceDisplayUnit> {
   const prefs = await readPreferences();
-  return prefs.receiptPriceDisplayUnit === 'rial' ? 'rial' : 'toman';
+  return prefs.receiptPriceDisplayUnit === 'toman' ? 'toman' : 'rial';
 }
 
 export async function saveReceiptPriceDisplayUnit(unit: ReceiptPriceDisplayUnit): Promise<void> {
   const prefs = await readPreferences();
-  prefs.receiptPriceDisplayUnit = unit === 'rial' ? 'rial' : 'toman';
+  prefs.receiptPriceDisplayUnit = unit === 'toman' ? 'toman' : 'rial';
   await writePreferences(prefs);
 }
 

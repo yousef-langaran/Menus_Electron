@@ -754,19 +754,23 @@ const BRAND_FOOTER_CSS =
   '.brand-footer { text-align: center; margin-top: 12px; font-size: 8pt; font-weight: bold; }';
 
 function getPriceUnitLabel(unit: ReceiptPriceDisplayUnit): string {
-  return unit === 'rial' ? 'ریال' : 'تومان';
+  return unit === 'toman' ? 'تومان' : 'ریال';
 }
 
-/** فقط عدد، با ارقام لاتین (خواناتر روی چاپگر حرارتی) و بدون واحد پولی */
-function createFormatPriceValue(unit: ReceiptPriceDisplayUnit = 'toman'): (price: number) => string {
+/**
+ * فقط عدد، با ارقام لاتین (خواناتر روی چاپگر حرارتی) و بدون واحد پولی.
+ * مبالغ سفارش (item.price/totalAmount/...) همیشه به ریال ذخیره می‌شوند (همان‌طور که Menus_BE
+ * ذخیره می‌کند) — پس بدون تبدیل همان عدد ریالی هستند؛ فقط برای نمایش «تومان» به ۱۰ تقسیم می‌شوند.
+ */
+function createFormatPriceValue(unit: ReceiptPriceDisplayUnit = 'rial'): (price: number) => string {
   return (price: number) => {
     const n = Number(price) || 0;
-    const value = unit === 'rial' ? Math.round(n * 10) : n;
+    const value = unit === 'toman' ? Math.round(n / 10) : n;
     return new Intl.NumberFormat('en-US').format(value);
   };
 }
 
-function createFormatPrice(unit: ReceiptPriceDisplayUnit = 'toman'): (price: number) => string {
+function createFormatPrice(unit: ReceiptPriceDisplayUnit = 'rial'): (price: number) => string {
   const formatValue = createFormatPriceValue(unit);
   const label = getPriceUnitLabel(unit);
   return (price: number) => `${formatValue(price)} ${label}`;
@@ -798,7 +802,7 @@ function getIranYekanFontFaceCss(): string {
 }
 
 export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOptions = {}): string {
-  const formatPrice = createFormatPrice(options.priceDisplayUnit ?? 'toman');
+  const formatPrice = createFormatPrice(options.priceDisplayUnit ?? 'rial');
   const items = orderData.items || [];
   const totalAmount = orderData.totalAmount || 0;
   const discountAmount = orderData.discountAmount || 0;
@@ -1333,13 +1337,12 @@ function renderLayoutModuleHtml(
 
     if (totalsStyle === 'table') {
       const cellBorder = '1px solid #999';
-      const headerCss = `border:${cellBorder};font-size:0.85em`;
       const bodyRows = rowsData.map((r, i) => {
         const rowBg = striped && i % 2 === 1 ? 'background:#f2f2f2' : '';
-        return `<tr style="${rowBg}"><td style="padding:2px 4px;border:${cellBorder}">${r.label}</td><td style="padding:2px 4px;white-space:nowrap;border:${cellBorder}">${r.sign}${formatPriceValue(r.value)}</td></tr>`;
+        return `<tr style="${rowBg}"><td style="padding:2px 4px;border:${cellBorder}">${r.label}</td><td style="padding:2px 4px;white-space:nowrap;border:${cellBorder}">${r.sign}${formatPriceValue(r.value)} <span style="font-size:0.75em;font-weight:normal">${priceUnitLabel}</span></td></tr>`;
       }).join('');
       const finalRow = `<tr style="font-weight:bold;font-size:${finalScale}em"><td style="padding:4px;border:${cellBorder}">مبلغ نهایی:</td><td style="padding:4px;white-space:nowrap;border:${cellBorder}">${formatPriceValue(final)}</td></tr>`;
-      return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse;border:${cellBorder}"><thead><tr style="background:#f2f2f2"><th style="padding:4px;${headerCss}">شرح</th><th style="padding:4px;white-space:nowrap;${headerCss}">مبلغ <span style="font-size:0.75em;font-weight:normal">(${priceUnitLabel})</span></th></tr></thead><tbody>${bodyRows}${finalRow}</tbody></table></div>`;
+      return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse;border:${cellBorder}"><tbody>${bodyRows}${finalRow}</tbody></table></div>`;
     }
 
     let html = `<div style="${style}">` + rowsData.map((r) =>
@@ -1371,7 +1374,7 @@ export async function generateReceiptHTMLFromLayout(
   layout: ReceiptLayoutV2,
   options: ReceiptTemplateOptions = {}
 ): Promise<string> {
-  const priceUnit = options.priceDisplayUnit ?? 'toman';
+  const priceUnit = options.priceDisplayUnit ?? 'rial';
   const formatPrice = createFormatPrice(priceUnit);
   const formatPriceValue = createFormatPriceValue(priceUnit);
   const priceUnitLabel = getPriceUnitLabel(priceUnit);

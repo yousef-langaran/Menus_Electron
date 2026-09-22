@@ -960,13 +960,13 @@ ipcMain.handle('get-receipt-price-display-unit', async () => {
     return await loadReceiptPriceDisplayUnit();
   } catch (error) {
     console.error('get-receipt-price-display-unit error:', error);
-    return 'toman';
+    return 'rial';
   }
 });
 
 ipcMain.handle('save-receipt-price-display-unit', async (_event, unit: string) => {
   try {
-    await saveReceiptPriceDisplayUnit(unit === 'rial' ? 'rial' : 'toman');
+    await saveReceiptPriceDisplayUnit(unit === 'toman' ? 'toman' : 'rial');
     return { success: true };
   } catch (error) {
     console.error('save-receipt-price-display-unit error:', error);
