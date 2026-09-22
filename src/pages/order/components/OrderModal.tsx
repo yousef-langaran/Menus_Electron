@@ -12,7 +12,7 @@ import { usePrinterSettingsStore } from '../../../store/printerSettingsStore';
 import {
   getCustomerAddresses, checkUser, validateDiscountCode, getApplicableDiscountCodes,
   getWheelPrizeVouchers, redeemWheelPrizeVoucher, getTables, getCashbackWallet,
-  getPointsRewards, redeemPointsReward,
+  getPointsRewards, redeemPointsReward, getReferralSettings,
   type WheelPrizeVoucher, type PosTable, type PointsRewardOption,
 } from '../../../services/api';
 import { cacheTables, getCachedTables } from '../../../services/cache';
@@ -47,6 +47,13 @@ export interface OrderModalState {
   showCustomerNameFields: boolean;
   /** کد معرف — فقط برای مشتری جدید این رستوران نمایش داده می‌شود */
   referralCode: string;
+  /**
+   * آیا سامانهٔ کد معرف برای این رستوران فعال است و این اپراتور دسترسی
+   * دارد؟ تا این تأیید نشود فیلد کد معرف اصلاً نمایش داده نمی‌شود —
+   * نه الکی برای رستوران‌های بدون این قابلیت، نه خطای دسترسی برای
+   * اپراتورهای بدون مجوز.
+   */
+  referralAvailable: boolean;
   customerAddresses: Array<{ id: number; address: string; label?: string; isDefault: boolean }>;
   selectedAddressId: number | 'new' | null;
   loadingAddresses: boolean;
@@ -230,6 +237,20 @@ export function OrderModal({
       .finally(() => { if (!cancelled) set({ loadingCashback: false }); });
     return () => { cancelled = true; };
   }, [state.isOpen, state.isOnline, customerPhone, token, user?.restaurants]);
+
+  // فعال‌بودن سامانهٔ کد معرف + دسترسی اپراتور — یک‌بار در باز شدن مودال.
+  // شکست (۴۰۳ بدون دسترسی، غیرفعال، آفلاین) یعنی فیلد کد معرف اصلاً
+  // نمایش داده نشود؛ بی‌صدا، بدون خطا به صندوق‌دار.
+  useEffect(() => {
+    if (!state.isOpen || !state.isOnline || !token) { set({ referralAvailable: false }); return; }
+    const restaurantId = user?.restaurants?.[0]?.id;
+    if (!restaurantId) { set({ referralAvailable: false }); return; }
+    let cancelled = false;
+    getReferralSettings(Number(restaurantId), token)
+      .then(({ isEnabled }) => { if (!cancelled) set({ referralAvailable: !!isEnabled }); })
+      .catch(() => { if (!cancelled) set({ referralAvailable: false }); });
+    return () => { cancelled = true; };
+  }, [state.isOpen, state.isOnline, token, user?.restaurants]);
 
   // موجودی امتیاز و کاتالوگ جوایز قابل‌دریافت — مختص همین رستوران
   const loadPointsRewards = () => {
@@ -488,15 +509,17 @@ export function OrderModal({
                   onPress={() => set({ showCustomerNameFields: true })}>
                   {state.showCustomerNameFields ? 'نام مشتری را وارد کنید' : 'افزودن به مشتریان'}
                 </Button>
-                <Input
-                  size="sm"
-                  label="کد معرف داره؟"
-                  placeholder="مثلاً REF-9F3K"
-                  value={state.referralCode}
-                  onValueChange={(v) => set({ referralCode: v })}
-                  variant="bordered"
-                  classNames={{ input: 'text-right' }}
-                />
+                {state.referralAvailable && (
+                  <Input
+                    size="sm"
+                    label="کد معرف داره؟"
+                    placeholder="مثلاً REF-9F3K"
+                    value={state.referralCode}
+                    onValueChange={(v) => set({ referralCode: v })}
+                    variant="bordered"
+                    classNames={{ input: 'text-right' }}
+                  />
+                )}
               </div>
             )}
 

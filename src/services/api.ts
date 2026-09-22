@@ -938,6 +938,22 @@ export async function updateCustomerProfile(
 }
 
 /**
+ * تنظیمات کد معرف رستوران. این تماس با گارد دسترسی رستوران محافظت می‌شود
+ * (ماژول REFERRAL/READ) — پس هم فعال‌بودن سامانه و هم دسترسی اپراتور را
+ * یک‌جا نتیجه می‌دهد: اگر ۴۰۳ برگرداند یعنی این کاربر اجازه ندارد.
+ */
+export async function getReferralSettings(
+  restaurantId: number,
+  token: string,
+): Promise<{ isEnabled: boolean }> {
+  await apiConfigReady;
+  const response = await api.get(`/referral/settings/${restaurantId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+/**
  * ثبت کد معرف برای مشتری تازه‌ساخته‌شده از صندوق حضوری. باید پیش از ثبت
  * اولین سفارش این مشتری فراخوانی شود — سرور با شمارش سفارش‌های قبلی همین
  * رستوران تشخیص می‌دهد مشتری جدید است یا نه.
