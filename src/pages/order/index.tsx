@@ -45,7 +45,7 @@ const formatPriceInput = (value: string) => {
 const INITIAL_MODAL_STATE: OrderModalState = {
   isOpen: false, isOnline: true, userExists: null, isCheckingUser: false,
   loadedCustomerFirstName: '', loadedCustomerLastName: '',
-  customerFirstNameInput: '', customerLastNameInput: '',
+  customerFirstNameInput: '', customerLastNameInput: '', referralCode: '',
   showCustomerNameFields: false, customerAddresses: [], selectedAddressId: null,
   loadingAddresses: false, printOption: 'all', selectedPrinterNames: [],
   cardTerminalStatus: 'idle', cardTerminalError: '', cardTerminalRefId: '',
@@ -448,6 +448,7 @@ export default function OrderPage() {
       loadedCustomerLastName: modalState.loadedCustomerLastName,
       customerFirstNameInput: modalState.customerFirstNameInput,
       customerLastNameInput: modalState.customerLastNameInput,
+      referralCode: modalState.referralCode,
       userExists: modalState.userExists,
       customerAddresses: modalState.customerAddresses,
       selectedAddressId: modalState.selectedAddressId,

@@ -937,6 +937,25 @@ export async function updateCustomerProfile(
   return response.data;
 }
 
+/**
+ * ثبت کد معرف برای مشتری تازه‌ساخته‌شده از صندوق حضوری. باید پیش از ثبت
+ * اولین سفارش این مشتری فراخوانی شود — سرور با شمارش سفارش‌های قبلی همین
+ * رستوران تشخیص می‌دهد مشتری جدید است یا نه.
+ */
+export async function applyReferralCodePos(
+  restaurantId: number,
+  body: { code: string; customerId: number },
+  token: string,
+): Promise<{ applied: boolean; reason?: string }> {
+  await apiConfigReady;
+  const response = await api.post(
+    `/referral/pos/${restaurantId}/apply`,
+    { code: body.code, customerId: body.customerId, source: 'pos' },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
 export async function createCustomerAddress(
   params: { restaurantId?: number; restaurantName?: string },
   body: { customerPhone: string; label?: string; address: string; isDefault?: boolean },

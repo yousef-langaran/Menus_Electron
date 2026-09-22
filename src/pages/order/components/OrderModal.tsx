@@ -45,6 +45,8 @@ export interface OrderModalState {
   customerFirstNameInput: string;
   customerLastNameInput: string;
   showCustomerNameFields: boolean;
+  /** کد معرف — فقط برای مشتری جدید این رستوران نمایش داده می‌شود */
+  referralCode: string;
   customerAddresses: Array<{ id: number; address: string; label?: string; isDefault: boolean }>;
   selectedAddressId: number | 'new' | null;
   loadingAddresses: boolean;
@@ -446,7 +448,7 @@ export function OrderModal({
               value={customerPhone}
               onValueChange={(v) => {
                 setCustomerPhone(sanitizeMobileInput(v));
-                set({ userExists: null, loadedCustomerFirstName: '', loadedCustomerLastName: '', customerFirstNameInput: '', customerLastNameInput: '', showCustomerNameFields: false, wheelVouchers: [] });
+                set({ userExists: null, loadedCustomerFirstName: '', loadedCustomerLastName: '', customerFirstNameInput: '', customerLastNameInput: '', showCustomerNameFields: false, wheelVouchers: [], referralCode: '' });
               }}
               autoComplete="tel" inputMode="numeric" variant="bordered"
               isInvalid={customerPhone.length > 0 && !isValidIranMobile(customerPhone)}
@@ -486,6 +488,15 @@ export function OrderModal({
                   onPress={() => set({ showCustomerNameFields: true })}>
                   {state.showCustomerNameFields ? 'نام مشتری را وارد کنید' : 'افزودن به مشتریان'}
                 </Button>
+                <Input
+                  size="sm"
+                  label="کد معرف داره؟"
+                  placeholder="مثلاً REF-9F3K"
+                  value={state.referralCode}
+                  onValueChange={(v) => set({ referralCode: v })}
+                  variant="bordered"
+                  classNames={{ input: 'text-right' }}
+                />
               </div>
             )}
 

@@ -7,6 +7,7 @@ import {
   addCustomer,
   updateCustomerProfile,
   createCustomerAddress,
+  applyReferralCodePos,
 } from '../../../services/api';
 import { isValidIranMobile, normalizeIranMobile } from '../../../utils/iranMobile';
 import { saveReceiptNumbersToStorage, getNextReceiptNumberBrowser } from '../../../utils/receiptNumbersStorage';
@@ -27,6 +28,7 @@ interface SubmitOptions {
   loadedCustomerLastName: string;
   customerFirstNameInput: string;
   customerLastNameInput: string;
+  referralCode: string;
   userExists: boolean | null;
   customerAddresses: Array<{ id: number; address: string; label?: string; isDefault: boolean }>;
   selectedAddressId: number | 'new' | null;
@@ -97,7 +99,7 @@ export function useOrderSubmit() {
       selectedCashBoxName, selectedCardTerminalId, cardTerminalProfiles,
       printOption, selectedPrinterNames,
       loadedCustomerFirstName, loadedCustomerLastName,
-      customerFirstNameInput, customerLastNameInput,
+      customerFirstNameInput, customerLastNameInput, referralCode,
       userExists, customerAddresses, selectedAddressId,
       onSuccess, onError, onEditSuccess,
     } = opts;
@@ -116,6 +118,7 @@ export function useOrderSubmit() {
     const restaurantName = user?.restaurants?.[0]?.name;
     const trimmedFirstName = customerFirstNameInput.trim();
     const trimmedLastName = customerLastNameInput.trim();
+    const trimmedReferralCode = referralCode.trim();
 
     // Sync customer profile
     try {
@@ -126,12 +129,31 @@ export function useOrderSubmit() {
             { firstName: trimmedFirstName, lastName: trimmedLastName },
             token,
           );
-        } else if (userExists === false && (trimmedFirstName || trimmedLastName)) {
-          await addCustomer(
+        } else if (userExists === false && (trimmedFirstName || trimmedLastName || trimmedReferralCode)) {
+          const { user: createdUser } = await addCustomer(
             { restaurantId, restaurantName },
             { mobile: normalizedPhone, firstName: trimmedFirstName || undefined, lastName: trimmedLastName || undefined },
             token,
           );
+          // باید پیش از ثبت سفارش اعمال شود — سرور با شمارش سفارش‌های قبلی این
+          // مشتری در همین رستوران «جدید بودن» را تشخیص می‌دهد و اگر بعد از
+          // ثبت همین سفارش صدا زده شود، سفارش خودش باعث رد شدن کد می‌شود
+          if (trimmedReferralCode && restaurantId && createdUser?.id) {
+            try {
+              const result = await applyReferralCodePos(
+                restaurantId,
+                { code: trimmedReferralCode, customerId: createdUser.id },
+                token,
+              );
+              if (result.applied) {
+                toast.success('کد معرف ثبت شد');
+              } else {
+                toast.error(result.reason || 'کد معرف اعمال نشد');
+              }
+            } catch (err: any) {
+              toast.error(err?.response?.data?.message || 'خطا در ثبت کد معرف');
+            }
+          }
         }
       }
     } catch (err: any) {
