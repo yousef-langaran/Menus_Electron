@@ -618,7 +618,7 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
             </div>
             <div className="flex justify-between py-2">
               <span className="text-muted">رستوران:</span>
-              <span>{user?.restaurants?.[0]?.name || 'تعیین نشده'}</span>
+              <span>{user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || 'تعیین نشده'}</span>
             </div>
           </CardContent>
         </Card>
