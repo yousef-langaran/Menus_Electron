@@ -176,6 +176,15 @@ export function setupAutoUpdater(mainWindow: BrowserWindow | null) {
       sendToRenderer('update-not-available');
     });
 
+    autoUpdater.on('download-progress', (progress) => {
+      sendToRenderer('update-download-progress', {
+        percent: progress.percent,
+        bytesPerSecond: progress.bytesPerSecond,
+        transferred: progress.transferred,
+        total: progress.total,
+      });
+    });
+
     autoUpdater.on('update-downloaded', () => {
       sendToRenderer('update-downloaded');
     });

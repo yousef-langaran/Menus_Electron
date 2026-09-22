@@ -109,6 +109,16 @@ const electronAPI = {
     ipcRenderer.on('update-downloaded', handler);
     return () => ipcRenderer.removeListener('update-downloaded', handler);
   },
+  onUpdateDownloadProgress: (
+    callback: (progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void
+  ) => {
+    const handler = (
+      _e: Electron.IpcRendererEvent,
+      progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }
+    ) => callback(progress);
+    ipcRenderer.on('update-download-progress', handler);
+    return () => ipcRenderer.removeListener('update-download-progress', handler);
+  },
   onUpdateError: (callback: (message: string) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, message: string) => callback(message);
     ipcRenderer.on('update-error', handler);
