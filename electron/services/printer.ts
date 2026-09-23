@@ -526,21 +526,33 @@ const runPrinterJobs = async (
   const marginBottom = 3;
   const priceDisplayUnit = await loadReceiptPriceDisplayUnit();
 
+  // یک بار در شروع تأیید می‌شود که پرینتر موجود و آنلاین است؛ دیگر لازم نیست
+  // به ازای هر نوع رسید (job) دوباره تکرار شود — printReceipt هم پیش از صف کردن
+  // این تسک همین بررسی را انجام داده، پس این فقط یک چک تازه‌سازیِ سبک است.
+  try {
+    const refresh = await detectPrinters();
+    const current = refresh.find((printer) => printer.name === printerName);
+    if (!current) {
+      console.error(`[PRINT] ✗ Printer not found: "${printerName}"`);
+      throw new PrintOperationError('PRINT_PRINTER_NOT_FOUND', []);
+    }
+    if (current.statusCode === 'PRINTER_OFFLINE') {
+      console.error(`[PRINT] ✗ Printer offline: "${printerName}"`);
+      throw new PrintOperationError('PRINT_PRINTER_OFFLINE', []);
+    }
+  } catch (error) {
+    if (!printWindow.isDestroyed()) {
+      printWindow.close();
+    }
+    const code = error instanceof PrintOperationError ? error.code : 'PRINT_PRINTER_DISCOVERY_FAILED';
+    return jobs.map((job) => ({ printerName, receiptType: job.receiptType || 'full', code }));
+  }
+
   try {
     for (const job of jobs) {
       const receiptType = job.receiptType || 'full';
       console.log(`[PRINT] Processing job: "${printerName}" (${receiptType})`);
       try {
-        const refresh = await detectPrinters();
-        const current = refresh.find((printer) => printer.name === printerName);
-        if (!current) {
-          console.error(`[PRINT] ✗ Printer not found: "${printerName}"`);
-          throw new PrintOperationError('PRINT_PRINTER_NOT_FOUND', []);
-        }
-        if (current.statusCode === 'PRINTER_OFFLINE') {
-          console.error(`[PRINT] ✗ Printer offline: "${printerName}"`);
-          throw new PrintOperationError('PRINT_PRINTER_OFFLINE', []);
-        }
         const paperWidth = job.paperWidth ?? defaultConfig?.paperWidth ?? 80;
         const isNarrow = paperWidth <= 62;
         const shiftLeftMm = typeof job.shiftLeftMm === 'number' ? job.shiftLeftMm : isNarrow ? 4 : 6;
@@ -570,7 +582,10 @@ const runPrinterJobs = async (
           10000,
           `HTML load timeout for printer "${printerName}"`
         );
-        await sleep(1000);
+        // تصاویر رسید از قبل به data URI کش شده‌اند (imageCache)، پس بعد از
+        // did-finish-load چیزی async باقی نمی‌ماند که منتظرش بمانیم؛ فقط یک
+        // فاصلهٔ کوچک برای پایان‌یافتن layout/paint کافی است.
+        await sleep(150);
 
         const width = mmToMicrons(paperWidth);
         const height = mmToMicrons(job.paperLength ?? 200);
@@ -605,7 +620,7 @@ const runPrinterJobs = async (
               height,
             },
           }, printerName, receiptType);
-          await sleep(300);
+          await sleep(150);
         }
         console.log(`[PRINT] ✓ Job completed: "${printerName}" (${receiptType})`);
       } catch (error) {
