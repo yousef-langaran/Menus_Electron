@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - master
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install dependencies
+        # Native modules (serialport, node-hid, usb) are not needed for type-check/tests.
+        # TODO: yarn.lock is out of sync with package.json; once it is regenerated
+        # and committed, add --frozen-lockfile back.
+        run: yarn install --ignore-scripts
+
+      - name: Type-check (renderer)
+        run: yarn type-check
+
+      - name: Type-check (electron main process)
+        run: npx tsc -p tsconfig.electron.json --noEmit
+
+      - name: Unit tests
+        run: yarn test
