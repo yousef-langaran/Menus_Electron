@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
-import { Modal, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Modal } from '@/ui/compat-modal';
 import { LockKeyhole, Wallet as WalletIcon, Sparkles, Truck, ShoppingBag, UserRound } from 'lucide-react';
 import { Button } from '../../../ui/compat-button';
 import { Input } from '../../../ui/compat-input';

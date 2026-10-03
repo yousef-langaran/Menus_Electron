@@ -89,7 +89,7 @@ describe('OfflineOrdersSync — pos-shift wiring', () => {
     render(<OfflineOrdersSync />);
 
     // یک تیک برای اجرای effect اولیه صبر می‌کنیم؛ چون success صفر است نباید loadCurrentShift صدا زده شود
-    await waitFor(() => expect(window.electronAPI.syncPosShifts).toHaveBeenCalled());
+    await waitFor(() => expect(window.electronAPI!.syncPosShifts).toHaveBeenCalled());
     expect(loadCurrentShift).not.toHaveBeenCalled();
   });
 });

@@ -1642,7 +1642,7 @@ export async function recordOrderPaymentTransactions(params: {
 }): Promise<void> {
   const {
     restaurantId, orderId, orderNumber, customerPhone,
-    paymentMethod, finalAmount, splitCash, splitCard, splitOnline, mixedHasCredit,
+    paymentMethod, finalAmount, splitCash, splitCard, splitOnline,
     referenceCode,
   } = params;
   const cashName = params.cashAccountName || 'صندوق';

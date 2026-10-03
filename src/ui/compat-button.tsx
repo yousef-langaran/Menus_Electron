@@ -12,6 +12,13 @@ type LegacyVariant =
   | 'faded'
   | 'shadow'
   | 'ghost'
+  // مقدارهای بومی v3 هم مستقیم پذیرفته می‌شوند (mapToV3Variant آن‌ها را عیناً برمی‌گرداند)
+  | 'primary'
+  | 'secondary'
+  | 'tertiary'
+  | 'outline'
+  | 'danger'
+  | 'danger-soft'
   | undefined;
 
 export type CompatButtonProps = Omit<HeroBtn, 'variant' | 'children' | 'disabled'> & {
@@ -21,12 +28,20 @@ export type CompatButtonProps = Omit<HeroBtn, 'variant' | 'children' | 'disabled
   /** v2-style plain prop; unioned with isDisabled before forwarding to HeroButton */
   disabled?: boolean;
   children?: ReactNode;
+  /** HTML title (tooltip) */
+  title?: string;
+  /** v2: آیکن/محتوا قبل و بعد از متن (در v3 باید داخل children باشد) */
+  startContent?: ReactNode;
+  endContent?: ReactNode;
 };
 
 function mapToV3Variant(color?: LegacyColor, variant?: LegacyVariant): HeroBtn['variant'] {
   const v = variant ?? 'solid';
   const c = color ?? 'default';
 
+  if (v === 'primary' || v === 'secondary' || v === 'tertiary' || v === 'outline' || v === 'danger' || v === 'danger-soft') {
+    return v;
+  }
   if (v === 'bordered') return 'outline';
   if (v === 'solid' || v === 'shadow' || v === 'faded') {
     if (c === 'danger') return 'danger';
@@ -65,7 +80,7 @@ function successClassName(variant?: LegacyVariant): string {
   return '!bg-success !text-success-foreground hover:!bg-success-hover';
 }
 
-export function Button({ color, variant, isLoading, children, isDisabled, disabled: plainDisabled, className, ...rest }: CompatButtonProps) {
+export function Button({ color, variant, isLoading, children, isDisabled, disabled: plainDisabled, className, startContent, endContent, ...rest }: CompatButtonProps) {
   const nextVariant = mapToV3Variant(color, variant);
   const disabled = Boolean(isDisabled || plainDisabled || isLoading);
   const mergedClassName = [color === 'success' ? successClassName(variant) : '', className]
@@ -86,7 +101,11 @@ export function Button({ color, variant, isLoading, children, isDisabled, disabl
           <span className="opacity-70">{children}</span>
         </span>
       ) : (
-        children
+        <>
+          {startContent}
+          {children}
+          {endContent}
+        </>
       )}
     </HeroButton>
   );

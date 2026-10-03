@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Chip, Spinner } from '@heroui/react';
+import { Spinner } from '@heroui/react';
+import { Chip } from '@/ui/compat-chip';
 import { Input } from '../../../ui/compat-input';
 import { Textarea } from '../../../ui/compat-textarea';
 import { CheckboxCompat as Checkbox } from '../../../ui/compat-checkbox';

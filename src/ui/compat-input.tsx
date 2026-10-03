@@ -1,4 +1,4 @@
-import { FieldError, InputGroup, Label, TextField, Input as HeroInput } from '@heroui/react';
+import { Description, FieldError, InputGroup, Label, TextField, Input as HeroInput } from '@heroui/react';
 import { forwardRef, type ReactNode } from 'react';
 import type { ComponentPropsWithRef } from 'react';
 
@@ -19,7 +19,9 @@ export type CompatInputProps = Omit<HeroInputProps, 'size' | 'variant'> & {
   onValueChange?: (value: string) => void;
   startContent?: ReactNode;
   endContent?: ReactNode;
-  classNames?: { input?: string };
+  classNames?: { input?: string; base?: string };
+  /** زیر فیلد نمایش داده می‌شود (v3 prop ندارد؛ با Description رندر می‌شود) */
+  description?: ReactNode;
   textFieldProps?: Omit<TextFieldProps, 'children' | 'onChange' | 'value' | 'defaultValue' | 'variant'>;
 } & Pick<TextFieldProps, 'fullWidth'>;
 
@@ -77,6 +79,7 @@ export const Input = forwardRef<HTMLInputElement, CompatInputProps>(function Inp
     startContent,
     endContent,
     classNames,
+    description,
     textFieldProps,
     disabled,
     readOnly,
@@ -105,7 +108,6 @@ export const Input = forwardRef<HTMLInputElement, CompatInputProps>(function Inp
       <InputGroup.Input
         ref={ref}
         className={`[&]:ps-2 [&]:pe-4 ${inputClass ?? ''}`}
-        variant={inputVariant}
         disabled={nativeDisabled}
         readOnly={nativeReadOnly}
         {...rest}
@@ -124,16 +126,18 @@ export const Input = forwardRef<HTMLInputElement, CompatInputProps>(function Inp
   );
 
   if (!hasVisibleLabel && errorMessage == null) {
-    if (Object.keys(textFieldValueProps).length > 0 || isDisabled != null || isReadOnly != null) {
+    if (Object.keys(textFieldValueProps).length > 0 || isDisabled != null || isReadOnly != null || description != null || classNames?.base) {
       return (
         <TextField
           fullWidth={fullWidth}
+          className={classNames?.base}
           isDisabled={isDisabled}
           isReadOnly={isReadOnly}
           {...textFieldProps}
           {...textFieldValueProps}
         >
           {inputEl}
+          {description ? <Description>{description}</Description> : null}
         </TextField>
       );
     }
@@ -143,6 +147,7 @@ export const Input = forwardRef<HTMLInputElement, CompatInputProps>(function Inp
   return (
     <TextField
       fullWidth={fullWidth}
+      className={classNames?.base}
       isInvalid={invalid}
       isRequired={isRequired}
       isDisabled={isDisabled}
@@ -157,6 +162,7 @@ export const Input = forwardRef<HTMLInputElement, CompatInputProps>(function Inp
         </Label>
       ) : null}
       {inputEl}
+      {description ? <Description>{description}</Description> : null}
       {errorMessage ? <FieldError>{errorMessage}</FieldError> : null}
     </TextField>
   );

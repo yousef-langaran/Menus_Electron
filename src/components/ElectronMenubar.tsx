@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Button, Chip, Dropdown, Separator } from '@heroui/react';
+import { Button, Dropdown, Header, Separator } from '@heroui/react';
+import { Chip } from '@/ui/compat-chip';
 import { ShoppingCart, LayoutGrid, Wallet, ClipboardList, SlidersHorizontal, ChevronDown, LogOut, UserRound } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useCallerIdStore } from '../store/callerIdStore';
@@ -223,8 +224,6 @@ export function ElectronMenubar() {
       {salesVis.length > 0 ? (
         <Dropdown.Root>
           <Dropdown.Trigger
-            variant="ghost"
-            size="sm"
             className={menuBtnClass(salesGroupActive(pathname))}
           >
             <span className="inline-flex items-center gap-1.5">
@@ -235,7 +234,8 @@ export function ElectronMenubar() {
           </Dropdown.Trigger>
           <Dropdown.Popover>
             <Dropdown.Menu aria-label="سفارش و فروش" onAction={onMenuAction}>
-              <Dropdown.Section title="سفارش">
+              <Dropdown.Section>
+                <Header className="px-3 py-1 text-xs opacity-60">سفارش</Header>
                 {salesVis.map((item) => (
                   <Dropdown.Item
                     key={item.path}
@@ -254,7 +254,7 @@ export function ElectronMenubar() {
 
       {catalogVis.length > 0 ? (
         <Dropdown.Root>
-          <Dropdown.Trigger variant="ghost" size="sm" className={menuBtnClass(catalogGroupActive(pathname))}>
+          <Dropdown.Trigger className={menuBtnClass(catalogGroupActive(pathname))}>
             <span className="inline-flex items-center gap-1.5">
               <LayoutGrid className="h-4 w-4" aria-hidden />
               کاتالوگ
@@ -263,7 +263,8 @@ export function ElectronMenubar() {
           </Dropdown.Trigger>
           <Dropdown.Popover>
             <Dropdown.Menu aria-label="کاتالوگ" onAction={onMenuAction}>
-              <Dropdown.Section title="محتوا">
+              <Dropdown.Section>
+                <Header className="px-3 py-1 text-xs opacity-60">محتوا</Header>
                 {catalogVis.map((item) => (
                   <Dropdown.Item
                     key={item.path}
@@ -282,7 +283,7 @@ export function ElectronMenubar() {
 
       {accountingVis.length > 0 ? (
         <Dropdown.Root>
-          <Dropdown.Trigger variant="ghost" size="sm" className={menuBtnClass(accountingGroupActive(pathname))}>
+          <Dropdown.Trigger className={menuBtnClass(accountingGroupActive(pathname))}>
             <span className="inline-flex items-center gap-1.5">
               <Wallet className="h-4 w-4" aria-hidden />
               حسابداری
@@ -292,7 +293,8 @@ export function ElectronMenubar() {
           <Dropdown.Popover>
             <Dropdown.Menu aria-label="حسابداری" className="max-h-[70vh] overflow-y-auto" onAction={onMenuAction}>
               {accountingDash.length > 0 ? (
-                <Dropdown.Section title="کلیات">
+                <Dropdown.Section>
+                  <Header className="px-3 py-1 text-xs opacity-60">کلیات</Header>
                   {accountingDash.map((item) => (
                     <Dropdown.Item
                       key={item.path}
@@ -306,7 +308,8 @@ export function ElectronMenubar() {
                 </Dropdown.Section>
               ) : null}
               {accountingRest.length > 0 ? (
-                <Dropdown.Section title="ماژول‌ها">
+                <Dropdown.Section>
+                  <Header className="px-3 py-1 text-xs opacity-60">ماژول‌ها</Header>
                   {accountingRest.map((item) => (
                     <Dropdown.Item
                       key={item.path}
@@ -341,8 +344,6 @@ export function ElectronMenubar() {
       {systemVis.length > 0 ? (
         <Dropdown.Root>
           <Dropdown.Trigger
-            variant="ghost"
-            size="sm"
             className={menuBtnClass(systemVis.some((i) => pathname === i.path || pathname.startsWith(i.path + '/')))}
           >
             <span className="inline-flex items-center gap-1.5">
@@ -359,7 +360,8 @@ export function ElectronMenubar() {
           <Dropdown.Popover>
             <Dropdown.Menu aria-label="سیستم" onAction={onMenuAction}>
               {systemHwVis.length > 0 ? (
-                <Dropdown.Section title="سخت‌افزار">
+                <Dropdown.Section>
+                  <Header className="px-3 py-1 text-xs opacity-60">سخت‌افزار</Header>
                   {systemHwVis.map((item) => (
                     <Dropdown.Item
                       key={item.path}
@@ -373,7 +375,8 @@ export function ElectronMenubar() {
                 </Dropdown.Section>
               ) : null}
               {systemCallVis.length > 0 ? (
-                <Dropdown.Section title="تماس">
+                <Dropdown.Section>
+                  <Header className="px-3 py-1 text-xs opacity-60">تماس</Header>
                   {systemCallVis.map((item) => (
                     <Dropdown.Item
                       key={item.path}
@@ -386,7 +389,8 @@ export function ElectronMenubar() {
                   ))}
                 </Dropdown.Section>
               ) : null}
-              <Dropdown.Section title="راهنما">
+              <Dropdown.Section>
+                <Header className="px-3 py-1 text-xs opacity-60">راهنما</Header>
                 <Dropdown.Item id={SHORTCUTS_HELP_KEY} textValue="راهنمای میانبرها">
                   <span className="flex items-center justify-between gap-4 w-full">
                     <span>راهنمای میانبرها</span>

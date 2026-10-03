@@ -20,7 +20,10 @@ import {
   normalizeTemplateLayout,
   resolveTemplateForPrinter,
 } from '../utils/printTemplates';
-import { Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter, Chip, Input } from '@heroui/react';
+import { Card, CardContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Modal } from '@/ui/compat-modal';
+import { Input } from '@/ui/compat-input';
+import { Chip } from '@/ui/compat-chip';
 import { Button } from '../ui/compat-button';
 import { Select, SelectItem } from '../ui/compat-select';
 import { ModalShell } from '../ui/modal-shell';
@@ -74,7 +77,7 @@ export default function OrdersPage() {
   const [onlineLoading, setOnlineLoading] = useState(false);
   const [offlineLoading, setOfflineLoading] = useState(false);
   const [statusUpdateLoading, setStatusUpdateLoading] = useState<number | null>(null);
-  const [syncInProgress, setSyncInProgress] = useState(false);
+  const [, setSyncInProgress] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const printerConfigs = usePrinterSettingsStore((state) => state.configs);
   const loadPrinterConfigs = usePrinterSettingsStore((state) => state.loadFromStorage);
@@ -110,7 +113,7 @@ export default function OrdersPage() {
   const [creditPayNotes, setCreditPayNotes] = useState('');
   const [creditPaySaving, setCreditPaySaving] = useState(false);
   const [cashBankAccounts, setCashBankAccounts] = useState<Array<{id: number; name: string; accountType: string}>>([]);
-  const [creditPayHistory, setCreditPayHistory] = useState<any[]>([]);
+  const [, setCreditPayHistory] = useState<any[]>([]);
 
   const restaurantName = useMemo(() => {
     const name = user?.restaurants?.[0]?.name;
@@ -553,6 +556,8 @@ export default function OrdersPage() {
     }
     syncAndRefresh();
   };
+  // دکمهٔ همگام‌سازی دستی فعلاً در UI نیست؛ مرجع را نگه می‌داریم (noUnusedLocals).
+  void handleManualSync;
 
   const normalizeOrderForReceipt = (order: any, isOffline = false) => {
     if (isOffline) {

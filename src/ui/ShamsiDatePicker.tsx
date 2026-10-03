@@ -62,7 +62,7 @@ export function ShamsiDatePicker({
             direction: 'ltr',
           }}
         >
-          <DateField.Input size={size} className="flex-1 bg-transparent text-sm py-0" dir="ltr">
+          <DateField.Input className="flex-1 bg-transparent text-sm py-0" dir="ltr">
             {(segment) => (
               <DateField.Segment
                 segment={segment}

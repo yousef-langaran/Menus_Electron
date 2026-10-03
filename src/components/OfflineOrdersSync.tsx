@@ -16,7 +16,8 @@ export function OfflineOrdersSync() {
   const setLastError = useSyncStore((s) => s.setLastError);
 
   useEffect(() => {
-    if (!window.electronAPI?.checkOnline) {
+    const electronApi = window.electronAPI;
+    if (!electronApi?.checkOnline) {
       return;
     }
 
@@ -27,7 +28,7 @@ export function OfflineOrdersSync() {
 
       let online = false;
       try {
-        online = await window.electronAPI.checkOnline();
+        online = await electronApi.checkOnline();
       } catch {
         return;
       }
@@ -37,8 +38,8 @@ export function OfflineOrdersSync() {
       setSyncing(true);
       const errors: string[] = [];
       try {
-        if (window.electronAPI.syncOrders) {
-          const ordersResult = await window.electronAPI.syncOrders(liveToken);
+        if (electronApi.syncOrders) {
+          const ordersResult = await electronApi.syncOrders(liveToken);
           if (ordersResult && (ordersResult.success > 0 || ordersResult.failed > 0)) {
             console.log(`[Offline orders sync:${reason}]`, ordersResult);
           }
@@ -46,8 +47,8 @@ export function OfflineOrdersSync() {
           if (ordersResult?.success > 0) setLastSyncedAt(new Date().toISOString());
         }
 
-        if (window.electronAPI.syncReturns) {
-          const returnsResult = await window.electronAPI.syncReturns(liveToken);
+        if (electronApi.syncReturns) {
+          const returnsResult = await electronApi.syncReturns(liveToken);
           if (returnsResult && (returnsResult.success > 0 || returnsResult.failed > 0)) {
             console.log(`[Offline returns sync:${reason}]`, returnsResult);
           }
@@ -55,8 +56,8 @@ export function OfflineOrdersSync() {
           if (returnsResult?.success > 0) setLastSyncedAt(new Date().toISOString());
         }
 
-        if (window.electronAPI.syncPosShifts) {
-          const shiftsResult = await window.electronAPI.syncPosShifts(liveToken);
+        if (electronApi.syncPosShifts) {
+          const shiftsResult = await electronApi.syncPosShifts(liveToken);
           if (shiftsResult && (shiftsResult.success > 0 || shiftsResult.failed > 0)) {
             console.log(`[Offline pos-shifts sync:${reason}]`, shiftsResult);
           }

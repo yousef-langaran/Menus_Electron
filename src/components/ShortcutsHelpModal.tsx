@@ -1,4 +1,5 @@
-import { Modal, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Modal } from '@/ui/compat-modal';
 import { Button } from '../ui/compat-button';
 import { ModalShell } from '../ui/modal-shell';
 import { useShortcutsHelpStore } from '../store/shortcutsHelpStore';

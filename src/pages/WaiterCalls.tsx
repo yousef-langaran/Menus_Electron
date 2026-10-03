@@ -8,7 +8,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, Chip } from '@heroui/react';
+import { Card, CardContent } from '@heroui/react';
+import { Chip } from '@/ui/compat-chip';
 import { Button } from '../ui/compat-button';
 import { useAuthStore } from '../store/authStore';
 import { toast } from '../utils/toast';

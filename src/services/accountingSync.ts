@@ -298,7 +298,7 @@ export async function runAccountingSync(args: {
       return 0;
     }
   });
-  draftPurchaseSynced = invoiceResults.reduce((a, b) => a + b, 0);
+  draftPurchaseSynced = invoiceResults.reduce<number>((a, b) => a + b, 0);
 
   // Push pending purchase return drafts
   const pendingReturnDrafts = await getPendingPurchaseReturnDrafts(restaurantId);

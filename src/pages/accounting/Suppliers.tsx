@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, Modal, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
+import { Card, CardContent, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
+import { Modal } from '@/ui/compat-modal';
 import { Button } from '../../ui/compat-button';
 import { Input } from '../../ui/compat-input';
 import { ModalShell } from '../../ui/modal-shell';
@@ -11,7 +12,7 @@ import { toast } from '../../utils/toast';
 
 export default function AccountingSuppliersPage() {
   const navigate = useNavigate();
-  const { user, token } = useAuthStore();
+  const { user } = useAuthStore();
   const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
   const isOnline = useSyncStore((s) => s.isOnline);
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt);

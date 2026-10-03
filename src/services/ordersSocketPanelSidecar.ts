@@ -13,9 +13,9 @@ export function attachOrdersSocketPanelSidecar(socket: Socket | null): () => voi
   const announce = async () => {
     try {
       await usePrinterSettingsStore.getState().loadFromStorage();
-      const list = await window.electronAPI.getPrinters();
+      const list = (await window.electronAPI?.getPrinters()) ?? [];
       const { configs, getPrinterReceipts } = usePrinterSettingsStore.getState();
-      const printers = (list || []).map((p) => {
+      const printers = (list || []).map((p: any) => {
         const cfg = configs[p.name];
         return {
           name: p.name,

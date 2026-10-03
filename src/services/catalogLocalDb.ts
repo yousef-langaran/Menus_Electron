@@ -231,6 +231,7 @@ export async function createProductLocal(input: {
   barcode?: string;
   unit?: string;
   isAvailable?: boolean;
+  useScaleForWeight?: boolean;
 }): Promise<LocalProduct> {
   const now = new Date().toISOString();
   const row: LocalProduct = {
@@ -243,6 +244,7 @@ export async function createProductLocal(input: {
     barcode: input.barcode?.trim() || null,
     unit: input.unit || 'عدد',
     isAvailable: input.isAvailable !== false,
+    useScaleForWeight: input.useScaleForWeight ?? false,
     sortOrder: 0,
     updatedAt: now,
     _syncStatus: 'pending_create',
@@ -254,7 +256,7 @@ export async function createProductLocal(input: {
 
 export async function updateProductLocal(
   id: number,
-  patch: Partial<Pick<LocalProduct, 'name_fa' | 'name' | 'price' | 'category_id' | 'barcode' | 'unit' | 'isAvailable'>>,
+  patch: Partial<Pick<LocalProduct, 'name_fa' | 'name' | 'price' | 'category_id' | 'barcode' | 'unit' | 'isAvailable' | 'useScaleForWeight'>>,
 ): Promise<LocalProduct | null> {
   const existing = await catalogDb.products.get(id);
   if (!existing) return null;

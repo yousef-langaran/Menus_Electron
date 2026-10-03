@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter, Chip } from '@heroui/react';
+import { Card, CardContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Modal } from '@/ui/compat-modal';
+import { Chip } from '@/ui/compat-chip';
 import { Button } from '../ui/compat-button';
 import { Input } from '../ui/compat-input';
 import { Select, SelectItem } from '../ui/compat-select';

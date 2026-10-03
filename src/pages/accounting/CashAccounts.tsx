@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, Modal, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
+import { Card, CardContent, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
+import { Modal } from '@/ui/compat-modal';
 import { Button } from '../../ui/compat-button';
 import { Input } from '../../ui/compat-input';
 import { Select, SelectItem } from '../../ui/compat-select';
@@ -132,9 +133,8 @@ export default function CashAccountsPage() {
         {summary.map((s) => (
           <Card
             key={s.accountType}
-            isPressable
             className={`cursor-pointer border-2 transition-all ${filterAccount === s.accountType ? 'border-accent' : 'border-transparent'}`}
-            onPress={() => setFilterAccount(filterAccount === s.accountType ? 'all' : s.accountType)}
+            onClick={() => setFilterAccount(filterAccount === s.accountType ? 'all' : s.accountType)}
           >
             <CardContent className="p-3 text-center space-y-1">
               <div className="text-xs text-muted">{s.accountName}</div>

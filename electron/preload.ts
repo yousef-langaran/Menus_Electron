@@ -92,22 +92,30 @@ const electronAPI = {
   onScaleWeightUpdate: (callback: (weight: number) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, weight: number) => callback(weight);
     ipcRenderer.on('scale:weight-update', handler);
-    return () => ipcRenderer.removeListener('scale:weight-update', handler);
+    return () => {
+      ipcRenderer.removeListener('scale:weight-update', handler);
+    };
   },
   onUpdateAvailable: (callback: (info: { version: string }) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, info: { version: string }) => callback(info);
     ipcRenderer.on('update-available', handler);
-    return () => ipcRenderer.removeListener('update-available', handler);
+    return () => {
+      ipcRenderer.removeListener('update-available', handler);
+    };
   },
   onUpdateNotAvailable: (callback: () => void) => {
     const handler = () => callback();
     ipcRenderer.on('update-not-available', handler);
-    return () => ipcRenderer.removeListener('update-not-available', handler);
+    return () => {
+      ipcRenderer.removeListener('update-not-available', handler);
+    };
   },
   onUpdateDownloaded: (callback: () => void) => {
     const handler = () => callback();
     ipcRenderer.on('update-downloaded', handler);
-    return () => ipcRenderer.removeListener('update-downloaded', handler);
+    return () => {
+      ipcRenderer.removeListener('update-downloaded', handler);
+    };
   },
   onUpdateDownloadProgress: (
     callback: (progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void
@@ -117,12 +125,16 @@ const electronAPI = {
       progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }
     ) => callback(progress);
     ipcRenderer.on('update-download-progress', handler);
-    return () => ipcRenderer.removeListener('update-download-progress', handler);
+    return () => {
+      ipcRenderer.removeListener('update-download-progress', handler);
+    };
   },
   onUpdateError: (callback: (message: string) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, message: string) => callback(message);
     ipcRenderer.on('update-error', handler);
-    return () => ipcRenderer.removeListener('update-error', handler);
+    return () => {
+      ipcRenderer.removeListener('update-error', handler);
+    };
   },
   getCallerIdSettings: () => ipcRenderer.invoke('caller-id:get-settings'),
   saveCallerIdSettings: (settings: any) => ipcRenderer.invoke('caller-id:save-settings', settings),
@@ -141,17 +153,23 @@ const electronAPI = {
     const handler = (_e: Electron.IpcRendererEvent, payload: { phone: string; timestamp: string }) =>
       callback(payload);
     ipcRenderer.on('caller-id:incoming-call', handler);
-    return () => ipcRenderer.removeListener('caller-id:incoming-call', handler);
+    return () => {
+      ipcRenderer.removeListener('caller-id:incoming-call', handler);
+    };
   },
   onDeepLinkOpenOrder: (callback: (url: string) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, url: string) => callback(url);
     ipcRenderer.on('deep-link-open-order', handler);
-    return () => ipcRenderer.removeListener('deep-link-open-order', handler);
+    return () => {
+      ipcRenderer.removeListener('deep-link-open-order', handler);
+    };
   },
   onCallEnded: (callback: () => void) => {
     const handler = () => callback();
     ipcRenderer.on('caller-id:call-ended', handler);
-    return () => ipcRenderer.removeListener('caller-id:call-ended', handler);
+    return () => {
+      ipcRenderer.removeListener('caller-id:call-ended', handler);
+    };
   },
   callerIdLoadHistory: () => ipcRenderer.invoke('caller-id:load-history'),
   callerIdSaveHistory: (history: any[]) => ipcRenderer.invoke('caller-id:save-history', history),

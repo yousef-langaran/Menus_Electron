@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Modal, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Modal } from '@/ui/compat-modal';
 import { Button } from '../ui/compat-button';
 import { Select, SelectItem } from '../ui/compat-select';
 import { ModalShell } from '../ui/modal-shell';

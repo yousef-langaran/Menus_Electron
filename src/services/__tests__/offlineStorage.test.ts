@@ -64,7 +64,6 @@ describe('offlineStorage (renderer-side offline order queue)', () => {
 
     it('uses the localStorage queue directly when there is no electron bridge at all (web fallback)', async () => {
       const originalDescriptor = Object.getOwnPropertyDescriptor(window, 'electronAPI');
-      // @ts-expect-error simulating a plain-web (non-Electron) environment
       delete window.electronAPI;
       try {
         const id = await saveOfflineOrder({ items: [{ id: 4 }] }, 'tok');

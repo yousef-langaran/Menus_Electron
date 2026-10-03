@@ -14,7 +14,7 @@ import { printTemplateKey, resolveTemplateForPrinter } from '../utils/printTempl
 import { useSyncStore } from '../store/syncStore';
 import { toast } from '../utils/toast';
 import { useNavigate } from 'react-router-dom';
-import { canManageHardwareSettings, getPrimaryRestaurantId } from '../lib/electronPermissions';
+import { canManageHardwareSettings } from '../lib/electronPermissions';
 
 export default function SettingsPage() {
   const navigate = useNavigate();

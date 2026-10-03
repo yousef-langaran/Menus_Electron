@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toShamsiDate } from '../../utils/date';
-import { Card, CardContent, Chip, Modal, ModalBody, ModalFooter, ModalHeader, Spinner } from '@heroui/react';
+import { Card, CardContent, ModalBody, ModalFooter, ModalHeader, Spinner } from '@heroui/react';
+import { Modal } from '@/ui/compat-modal';
+import { Chip } from '@/ui/compat-chip';
 import { Button } from '../../ui/compat-button';
 import { Input } from '../../ui/compat-input';
 import { ModalShell } from '../../ui/modal-shell';

@@ -1,6 +1,6 @@
 import { FieldError, ListBox, ListBoxItem, Label, Select as HeroSelect } from '@heroui/react';
 import { Children, cloneElement, isValidElement } from 'react';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps, ReactElement, ReactNode } from 'react';
 
 type BaseSelectProps = ComponentProps<typeof HeroSelect>;
 
@@ -37,11 +37,19 @@ export function SelectItem({
 
 export type LegacySelectProps = Omit<
   BaseSelectProps,
-  'children' | 'selectedKey' | 'onSelectionChange' | 'selectedKeys'
+  'children' | 'selectedKey' | 'onSelectionChange' | 'selectedKeys' | 'variant' | 'className'
 > & {
   label?: string;
   placeholder?: string;
   errorMessage?: string;
+  /** v2؛ همیشه secondary اعمال می‌شود (پایین‌تر) */
+  variant?: BaseSelectProps['variant'] | 'bordered' | 'flat' | 'faded' | 'underlined';
+  className?: string;
+  /** پراپ‌های قدیمی v2 که در v3 وجود ندارند و نادیده گرفته می‌شوند */
+  size?: string;
+  description?: ReactNode;
+  startContent?: ReactNode;
+  isLoading?: boolean;
   selectedKeys?: string[] | readonly string[] | Iterable<string>;
   onSelectionChange?: (keys: Set<string>) => void;
   children: React.ReactNode;
@@ -57,6 +65,10 @@ export function Select({
   className,
   errorMessage,
   isInvalid,
+  size: _size,
+  description: _description,
+  startContent: _startContent,
+  isLoading: _isLoading,
   ...rest
 }: LegacySelectProps) {
   const arr = selectedKeys ? Array.from(selectedKeys) : [];
@@ -64,8 +76,9 @@ export function Select({
   const invalid = Boolean(isInvalid ?? errorMessage);
   const rootClassName = mergeClasses('w-full text-right', className);
   const normalizeReactKey = (k: string) => k.replace(/^\.\$/, '').replace(/^\./, '');
-  const ensureIdsFromKeys = (node: ReactNode): ReactNode => {
-    if (!isValidElement(node)) return node;
+  const ensureIdsFromKeys = (input: ReactNode): ReactNode => {
+    if (!isValidElement(input)) return input;
+    const node = input as ReactElement<any>;
     const maybeKey = node.key != null ? normalizeReactKey(String(node.key)) : '';
     const nextChildren = node.props?.children
       ? Children.map(node.props.children, (c) => ensureIdsFromKeys(c))
@@ -123,7 +136,7 @@ export function Select({
         </Label>
       ) : null}
       <HeroSelect.Trigger className="flex w-full min-w-0 items-stretch gap-1 text-right !pl-7 !pr-3">
-        <HeroSelect.Value placeholder={placeholder} className="order-2 min-w-0 flex-1 truncate text-right [direction:rtl]" />
+        <HeroSelect.Value className="order-2 min-w-0 flex-1 truncate text-right [direction:rtl]" />
         <HeroSelect.Indicator className="order-1 shrink-0 !left-2 !right-auto" />
       </HeroSelect.Trigger>
       <HeroSelect.Popover placement="bottom end" dir="rtl">
@@ -142,6 +155,6 @@ function getTextContent(node: ReactNode): string {
   if (node == null || typeof node === 'boolean') return '';
   if (typeof node === 'string' || typeof node === 'number') return String(node);
   if (Array.isArray(node)) return node.map((child) => getTextContent(child)).join(' ').trim();
-  if (isValidElement(node)) return getTextContent(node.props?.children);
+  if (isValidElement(node)) return getTextContent((node as ReactElement<any>).props?.children);
   return '';
 }

@@ -44,7 +44,6 @@ export function useOrderSubmit() {
     cart, customerPhone, serviceType, tableNumber, tableId, customerAddress,
     paymentMethod, notes, splitCash, splitCard, splitOnline, cashbackRedeemAmount,
     getTotalAmount, getFinalAmount, getDiscountAmount, getVatAmount,
-    appliedDiscountCode, discountType,
     submitOrder, restoreDraft,
   } = useOrderStore();
   const { enabledPrinters, getPrinterReceipts } = usePrinterSettingsStore((s) => ({
@@ -207,7 +206,7 @@ export function useOrderSubmit() {
       };
       const orderKeys = res.offline
         ? [`offline-${res.orderId}`]
-        : [String(res.orderId), res.orderNumber, orderData.orderNumber].filter(Boolean);
+        : [String(res.orderId), res.orderNumber, orderData.orderNumber].filter((k): k is string => Boolean(k));
       runPrint(orderData, orderKeys, { printOption, selectedPrinterNames });
 
       // فروش نقدی (کامل یا بخشی از پرداخت ترکیبی) — کشوی پول را بی‌صدا باز کن؛

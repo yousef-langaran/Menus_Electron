@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, Chip, Spinner } from '@heroui/react';
+import { Card, CardContent, Spinner } from '@heroui/react';
+import { Chip } from '@/ui/compat-chip';
 import { Button } from '../../ui/compat-button';
 import { ItemPicker } from '../../ui/ItemPicker';
 import { useAuthStore } from '../../store/authStore';

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Card, CardContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Modal } from '@/ui/compat-modal';
 import { Button } from '../../ui/compat-button';
 import { Input } from '../../ui/compat-input';
 import { Select, SelectItem } from '../../ui/compat-select';
@@ -10,10 +11,9 @@ import { Panel, Group, Separator } from 'react-resizable-panels';
 import { useAuthStore } from '../../store/authStore';
 import { useOrderStore } from '../../store/orderStore';
 import { useOrderNavStore } from '../../store/orderNavStore';
-import { useSyncStore } from '../../store/syncStore';
 import {
   createProduct, fetchOrderById, fetchOrders, getMasterProductByBarcode, searchMasterProducts,
-  getAssetBaseUrl, type MasterProduct,
+  type MasterProduct,
 } from '../../services/api';
 import { MODULES } from '../../types';
 import { hasModuleAccess, isOwnerOrAdmin } from '../../lib/electronPermissions';
@@ -68,11 +68,9 @@ export default function OrderPage() {
   const [searchParams] = useSearchParams();
   const { user, token } = useAuthStore();
   const {
-    cart, isSubmitting, clearCart, restoreDraft,
+    cart, clearCart,
     setCustomerPhone, setCustomerAddress, setServiceType,
-    submitOrder,
   } = useOrderStore();
-  const isOnline = useSyncStore((s) => s.isOnline);
 
   const editParam = searchParams.get('edit');
   const parsedEditId = editParam != null ? Number(editParam) : NaN;
@@ -338,6 +336,8 @@ export default function OrderPage() {
     setModalState((s) => ({ ...s, isOpen: true }));
   };
   const handleQuickSearch = () => searchInputRef.current?.focus();
+  // نوار اکشن سریع فعلاً در JSX کامنت شده؛ مرجع‌ها را نگه می‌داریم تا کد از بین نرود و noUnusedLocals خطا ندهد.
+  void [OrderQuickActionsRail, handleQuickSale, handleTableOrder, handleCustomerOrder, handlePreInvoice, handleQuickSearch];  void [OrderQuickActionsRail, handleQuickSale, handleTableOrder, handleCustomerOrder, handlePreInvoice, handleQuickSearch];
 
   const openScaleModal = async (product: any) => {
     setScaleModalProduct(product); setScaleWeight(null); setScaleError(''); setScaleModalOpen(true); setScaleReading(true);
@@ -417,7 +417,7 @@ export default function OrderPage() {
 
   const handleSendToCardTerminal = async () => {
     const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
-    const { getFinalAmount, customerPhone: phone, isSubmitting: sub } = useOrderStore.getState();
+    const { getFinalAmount, customerPhone: phone } = useOrderStore.getState();
     if (productLoader.isMobileRequired && !phone.trim()) { setModalState((s) => ({ ...s, cardTerminalStatus: 'failed', cardTerminalError: 'ابتدا شماره تماس مشتری را وارد کنید.' })); return; }
     if (!window.electronAPI?.sendAmountToCardTerminal) { setModalState((s) => ({ ...s, cardTerminalStatus: 'failed', cardTerminalError: 'نسخه پنل از کارتخوان پشتیبانی نمی‌کند.' })); return; }
     const amount = Number(getFinalAmount() || 0);

@@ -1081,6 +1081,8 @@ export async function syncAccountingPull(
       cheques: any[];
       customerReceivables: any[];
       warehouses: any[];
+      warehouseTransfers?: any[];
+      warehouseStocks?: any[];
       purchaseReturns?: any[];
       purchaseReturnItems?: any[];
     };

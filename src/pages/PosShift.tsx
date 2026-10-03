@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, Chip } from '@heroui/react';
+import { Card, CardContent } from '@heroui/react';
+import { Chip } from '@/ui/compat-chip';
 import { Button } from '../ui/compat-button';
 import { Input } from '../ui/compat-input';
 import { Textarea } from '../ui/compat-textarea';
