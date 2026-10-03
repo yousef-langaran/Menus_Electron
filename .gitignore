@@ -16,3 +16,6 @@ __hid_class__.js
 menus-preferences.json
 hs_err_pid*.log
 
+
+# yarn is the package manager (see CI/deploy); do not commit an npm lockfile
+package-lock.json

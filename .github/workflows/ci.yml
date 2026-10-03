@@ -19,9 +19,7 @@ jobs:
 
       - name: Install dependencies
         # Native modules (serialport, node-hid, usb) are not needed for type-check/tests.
-        # TODO: yarn.lock is out of sync with package.json; once it is regenerated
-        # and committed, add --frozen-lockfile back.
-        run: yarn install --ignore-scripts
+        run: yarn install --frozen-lockfile --ignore-scripts
 
       - name: Type-check (renderer)
         run: yarn type-check
