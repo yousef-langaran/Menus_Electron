@@ -30,9 +30,11 @@ type DateFilter = 'all' | 'today' | 'week';
 function isToday(iso: string): boolean {
   const d = new Date(iso);
   const n = new Date();
-  return d.getFullYear() === n.getFullYear()
-    && d.getMonth() === n.getMonth()
-    && d.getDate() === n.getDate();
+  return (
+    d.getFullYear() === n.getFullYear() &&
+    d.getMonth() === n.getMonth() &&
+    d.getDate() === n.getDate()
+  );
 }
 
 function isThisWeek(iso: string): boolean {
@@ -80,16 +82,18 @@ export default function CallHistoryPage() {
     const name = lookupResult?.customer
       ? `${lookupResult.customer.firstName} ${lookupResult.customer.lastName}`.trim()
       : '';
-    const address = lookupResult?.addresses?.find((a: any) => a.isDefault)?.address
-      ?? lookupResult?.addresses?.[0]?.address
-      ?? '';
-    navigate('/order', { state: { prefill: { customerPhone: phone, customerName: name, customerAddress: address } } });
+    const address =
+      lookupResult?.addresses?.find((a: any) => a.isDefault)?.address ??
+      lookupResult?.addresses?.[0]?.address ??
+      '';
+    navigate('/order', {
+      state: { prefill: { customerPhone: phone, customerName: name, customerAddress: address } },
+    });
   };
 
   return (
     <div className="min-h-screen bg-background p-4 space-y-4">
       <div className="max-w-2xl mx-auto space-y-4">
-
         {/* Header */}
         <div className="flex items-center gap-3">
           <Button variant="flat" size="sm" onPress={() => navigate(-1)}>
@@ -112,16 +116,33 @@ export default function CallHistoryPage() {
               value={search}
               onValueChange={setSearch}
               startContent={
-                <svg className="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                <svg
+                  className="w-4 h-4 text-muted shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
+                  />
                 </svg>
               }
               endContent={
                 search ? (
-                  <button onClick={() => setSearch('')} className="text-muted hover:text-foreground/70">
+                  <button
+                    onClick={() => setSearch('')}
+                    className="text-muted hover:text-foreground/70"
+                  >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 ) : undefined
@@ -175,12 +196,21 @@ export default function CallHistoryPage() {
         {/* Empty state — no calls at all */}
         {callHistory.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-muted">
-            <svg className="w-16 h-16 mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+            <svg
+              className="w-16 h-16 mb-4 opacity-40"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
                 d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36
                    1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1
                    1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2
-                   2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                   2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
+              />
             </svg>
             <p className="text-base">هنوز تماسی ثبت نشده</p>
             <p className="text-xs mt-1 opacity-60">تماس‌های ورودی اینجا نگه‌داشته می‌شوند</p>
@@ -190,9 +220,18 @@ export default function CallHistoryPage() {
         {/* Empty state — filter has no results */}
         {callHistory.length > 0 && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-muted">
-            <svg className="w-12 h-12 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            <svg
+              className="w-12 h-12 mb-3 opacity-40"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
+              />
             </svg>
             <p className="text-base">نتیجه‌ای یافت نشد</p>
             <p className="text-xs mt-1 opacity-60">فیلتر یا کلیدواژه جستجو را تغییر دهید</p>
@@ -216,10 +255,14 @@ export default function CallHistoryPage() {
                     className="rounded-xl border border-border bg-default-soft p-3 flex items-center gap-3"
                   >
                     {/* Avatar */}
-                    <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold
-                      ${isKnown
-                        ? 'bg-accent-soft text-accent-soft-foreground dark:bg-accent/40 dark:text-accent/70'
-                        : 'bg-default text-muted'}`}>
+                    <div
+                      className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold
+                      ${
+                        isKnown
+                          ? 'bg-accent-soft text-accent-soft-foreground dark:bg-accent/40 dark:text-accent/70'
+                          : 'bg-default text-muted'
+                      }`}
+                    >
                       {displayName ? displayName[0] : '📞'}
                     </div>
 
@@ -244,7 +287,8 @@ export default function CallHistoryPage() {
                       {isKnown && call.lookupResult && (
                         <p className="text-xs text-muted mt-0.5">
                           {call.lookupResult.totalOrders} سفارش
-                          {call.lookupResult.totalSpent > 0 && ` · ${formatCurrency(call.lookupResult.totalSpent)}`}
+                          {call.lookupResult.totalSpent > 0 &&
+                            ` · ${formatCurrency(call.lookupResult.totalSpent)}`}
                         </p>
                       )}
                     </div>
@@ -264,7 +308,6 @@ export default function CallHistoryPage() {
             </CardContent>
           </Card>
         )}
-
       </div>
     </div>
   );

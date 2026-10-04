@@ -20,7 +20,9 @@ function sendToRenderer(win: BrowserWindow | null, phone: string) {
   }
 }
 
-export async function startCallerIdWebhook(getMainWindow: () => BrowserWindow | null): Promise<void> {
+export async function startCallerIdWebhook(
+  getMainWindow: () => BrowserWindow | null,
+): Promise<void> {
   const settings = await loadCallerIdSettings();
   if (!settings.enabled) {
     await stopCallerIdWebhook();
@@ -48,7 +50,9 @@ export async function startCallerIdWebhook(getMainWindow: () => BrowserWindow | 
     }
 
     let raw = '';
-    req.on('data', (chunk) => { raw += chunk; });
+    req.on('data', (chunk) => {
+      raw += chunk;
+    });
     req.on('end', () => {
       try {
         const body = JSON.parse(raw);
@@ -56,8 +60,9 @@ export async function startCallerIdWebhook(getMainWindow: () => BrowserWindow | 
         if (phone) {
           sendToRenderer(getMainWindow(), phone);
         }
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-           .end(JSON.stringify({ ok: true }));
+        res
+          .writeHead(200, { 'Content-Type': 'application/json' })
+          .end(JSON.stringify({ ok: true }));
       } catch {
         res.writeHead(400).end('Bad Request');
       }

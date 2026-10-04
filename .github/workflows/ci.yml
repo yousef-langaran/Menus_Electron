@@ -21,6 +21,9 @@ jobs:
         # Native modules (serialport, node-hid, usb) are not needed for type-check/tests.
         run: yarn install --frozen-lockfile --ignore-scripts
 
+      - name: Check formatting
+        run: yarn format:check
+
       - name: Type-check (renderer)
         run: yarn type-check
 

@@ -41,8 +41,21 @@ export function IssueInvoiceModal({ isOpen, onClose, items, onConfirm }: Props) 
         <ModalHeader>صدور فاکتور فروش</ModalHeader>
         <ModalBody className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <Input label="نرخ VAT (٪) — اختیاری" type="number" value={vatRate} onValueChange={setVatRate} min="0" max="100" />
-            <Input label="شناسه انبار — اختیاری" type="number" value={warehouseId} onValueChange={setWarehouseId} min="1" />
+            <Input
+              label="نرخ VAT (٪) — اختیاری"
+              type="number"
+              value={vatRate}
+              onValueChange={setVatRate}
+              min="0"
+              max="100"
+            />
+            <Input
+              label="شناسه انبار — اختیاری"
+              type="number"
+              value={warehouseId}
+              onValueChange={setWarehouseId}
+              min="1"
+            />
           </div>
           <div className="bg-default-soft rounded-xl px-3 py-3 space-y-1.5 text-sm">
             <div className="flex justify-between text-muted">
@@ -60,11 +73,20 @@ export function IssueInvoiceModal({ isOpen, onClose, items, onConfirm }: Props) 
               <span className="font-mono">{grandTotal.toLocaleString('fa-IR')} ریال</span>
             </div>
           </div>
-          <p className="text-xs text-muted text-center">پس از تأیید، موجودی انبار برای اقلام علامت‌گذاری‌شده کسر می‌شود</p>
+          <p className="text-xs text-muted text-center">
+            پس از تأیید، موجودی انبار برای اقلام علامت‌گذاری‌شده کسر می‌شود
+          </p>
         </ModalBody>
         <ModalFooter>
-          <Button variant="light" onPress={onClose} isDisabled={isIssuing}>انصراف</Button>
-          <Button color="primary" onPress={handleConfirm} isLoading={isIssuing} isDisabled={items.length === 0}>
+          <Button variant="light" onPress={onClose} isDisabled={isIssuing}>
+            انصراف
+          </Button>
+          <Button
+            color="primary"
+            onPress={handleConfirm}
+            isLoading={isIssuing}
+            isDisabled={items.length === 0}
+          >
             صدور فاکتور
           </Button>
         </ModalFooter>

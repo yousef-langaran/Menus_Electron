@@ -293,7 +293,9 @@ describe('regression: raw-material-category / expense-category double-write (com
     // point is that it never called cancelPendingSyncOp afterward, so the
     // op createRawMaterialCategoryLocal queued is still there:
     const pendingBefore = await accountingDb.syncOperations
-      .where('entityType').equals('raw_material_category').toArray();
+      .where('entityType')
+      .equals('raw_material_category')
+      .toArray();
     expect(pendingBefore).toHaveLength(1);
 
     mockPushAllSynced();

@@ -19,14 +19,21 @@ import {
   type LocalServiceJobItem,
   type ServiceJobPriority,
 } from '../../services/serviceJobsLocalDb';
-import { getServiceJobStaffRemote, issueServiceJobInvoiceRemote, addServiceJobAttachmentRemote } from '../../services/api';
+import {
+  getServiceJobStaffRemote,
+  issueServiceJobInvoiceRemote,
+  addServiceJobAttachmentRemote,
+} from '../../services/api';
 import { refreshServiceJobDetail, resolveOnlineStatus } from '../../services/serviceJobsSync';
 import { AddJobItemModal } from './AddJobItemModal';
 import { IssueInvoiceModal } from './IssueInvoiceModal';
 import { toast } from '../../utils/toast';
 
 const PRIORITY_OPTIONS: { key: ServiceJobPriority; label: string }[] = [
-  { key: 'low', label: 'کم' }, { key: 'normal', label: 'معمولی' }, { key: 'high', label: 'زیاد' }, { key: 'urgent', label: 'فوری' },
+  { key: 'low', label: 'کم' },
+  { key: 'normal', label: 'معمولی' },
+  { key: 'high', label: 'زیاد' },
+  { key: 'urgent', label: 'فوری' },
 ];
 
 interface Props {
@@ -42,9 +49,15 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
   const [localJob, setLocalJob] = useState(job);
   const [items, setItems] = useState<LocalServiceJobItem[]>([]);
   const [editItem, setEditItem] = useState<LocalServiceJobItem | null>(null);
-  const [opState, setOpState] = useState<{ hasPending: boolean; hasFailed: boolean; errors: string[] }>({ hasPending: false, hasFailed: false, errors: [] });
+  const [opState, setOpState] = useState<{
+    hasPending: boolean;
+    hasFailed: boolean;
+    errors: string[];
+  }>({ hasPending: false, hasFailed: false, errors: [] });
   const [isOnline, setIsOnline] = useState(true);
-  const [remoteExtra, setRemoteExtra] = useState<{ attachments: any[]; activities: any[] } | null>(null);
+  const [remoteExtra, setRemoteExtra] = useState<{ attachments: any[]; activities: any[] } | null>(
+    null,
+  );
   const [isLoadingRemote, setIsLoadingRemote] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -54,8 +67,12 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
   const [editCustomerPhone, setEditCustomerPhone] = useState(job.customerPhone ?? '');
   const [editPriority, setEditPriority] = useState<ServiceJobPriority>(job.priority);
   const [editDueDate, setEditDueDate] = useState(job.dueDate ?? '');
-  const [editEstimated, setEditEstimated] = useState(job.estimatedAmount > 0 ? String(Math.round(job.estimatedAmount / 10)) : '');
-  const [editAssigneeId, setEditAssigneeId] = useState(job.assigneeId != null ? String(job.assigneeId) : '');
+  const [editEstimated, setEditEstimated] = useState(
+    job.estimatedAmount > 0 ? String(Math.round(job.estimatedAmount / 10)) : '',
+  );
+  const [editAssigneeId, setEditAssigneeId] = useState(
+    job.assigneeId != null ? String(job.assigneeId) : '',
+  );
   const [staff, setStaff] = useState<{ id: number; name: string }[]>([]);
 
   const [isUploading, setIsUploading] = useState(false);
@@ -63,27 +80,45 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
 
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [isIssueInvoiceOpen, setIsIssueInvoiceOpen] = useState(false);
-  const addItemModal = { isOpen: isAddItemOpen, onOpen: () => setIsAddItemOpen(true), onClose: () => setIsAddItemOpen(false) };
-  const issueInvoiceModal = { isOpen: isIssueInvoiceOpen, onOpen: () => setIsIssueInvoiceOpen(true), onClose: () => setIsIssueInvoiceOpen(false) };
+  const addItemModal = {
+    isOpen: isAddItemOpen,
+    onOpen: () => setIsAddItemOpen(true),
+    onClose: () => setIsAddItemOpen(false),
+  };
+  const issueInvoiceModal = {
+    isOpen: isIssueInvoiceOpen,
+    onOpen: () => setIsIssueInvoiceOpen(true),
+    onClose: () => setIsIssueInvoiceOpen(false),
+  };
 
   const loadLocal = useCallback(async () => {
-    const [its, ops] = await Promise.all([getLocalServiceJobItems(localJob.id), getJobOpsState(localJob.id)]);
+    const [its, ops] = await Promise.all([
+      getLocalServiceJobItems(localJob.id),
+      getJobOpsState(localJob.id),
+    ]);
     setItems(its);
     setOpState(ops);
   }, [localJob.id]);
 
-  useEffect(() => { loadLocal(); }, [loadLocal]);
+  useEffect(() => {
+    loadLocal();
+  }, [loadLocal]);
 
   useEffect(() => {
     resolveOnlineStatus().then(async (online) => {
       setIsOnline(online);
       if (!online) return;
-      getServiceJobStaffRemote(restaurantId, token).then(setStaff).catch(() => {});
+      getServiceJobStaffRemote(restaurantId, token)
+        .then(setStaff)
+        .catch(() => {});
       if (localJob.id > 0) {
         setIsLoadingRemote(true);
         try {
           const serverJob = await refreshServiceJobDetail(localJob.id, restaurantId, token);
-          setRemoteExtra({ attachments: serverJob.attachments ?? [], activities: serverJob.activities ?? [] });
+          setRemoteExtra({
+            attachments: serverJob.attachments ?? [],
+            activities: serverJob.activities ?? [],
+          });
           await loadLocal();
         } catch {
           // اگر پرونده هنوز روی سرور سینک نشده یا خطا رخ داد، نادیده بگیر
@@ -103,7 +138,9 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
     setEditCustomerPhone(localJob.customerPhone ?? '');
     setEditPriority(localJob.priority);
     setEditDueDate(localJob.dueDate ?? '');
-    setEditEstimated(localJob.estimatedAmount > 0 ? String(Math.round(localJob.estimatedAmount / 10)) : '');
+    setEditEstimated(
+      localJob.estimatedAmount > 0 ? String(Math.round(localJob.estimatedAmount / 10)) : '',
+    );
     setEditAssigneeId(localJob.assigneeId != null ? String(localJob.assigneeId) : '');
     setIsEditing(true);
   };
@@ -143,14 +180,26 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
     }
   };
 
-  const handleAddItem = async (data: { itemType: any; description: string; quantity: number; unitPrice: number; deductFromInventory: boolean }) => {
+  const handleAddItem = async (data: {
+    itemType: any;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    deductFromInventory: boolean;
+  }) => {
     await addServiceJobItemLocal(restaurantId, localJob.id, data);
     await loadLocal();
     onUpdated();
     toast.success(isOnline ? 'قلم اضافه شد' : 'ذخیره شد — در انتظار سینک');
   };
 
-  const handleEditItem = async (data: { itemType: any; description: string; quantity: number; unitPrice: number; deductFromInventory: boolean }) => {
+  const handleEditItem = async (data: {
+    itemType: any;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    deductFromInventory: boolean;
+  }) => {
     if (!editItem) return;
     await updateServiceJobItemLocal(restaurantId, localJob.id, editItem.id, data);
     setEditItem(null);
@@ -166,10 +215,18 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
     onUpdated();
   };
 
-  const handleIssueInvoice = async (opts: { warehouseId?: number; vatRate?: number; saleDate?: string }) => {
+  const handleIssueInvoice = async (opts: {
+    warehouseId?: number;
+    vatRate?: number;
+    saleDate?: string;
+  }) => {
     try {
       const serverJob = await issueServiceJobInvoiceRemote(localJob.id, restaurantId, opts, token);
-      setLocalJob((prev) => ({ ...prev, finalAmount: serverJob.finalAmount, salesInvoiceId: serverJob.salesInvoiceId }));
+      setLocalJob((prev) => ({
+        ...prev,
+        finalAmount: serverJob.finalAmount,
+        salesInvoiceId: serverJob.salesInvoiceId,
+      }));
       issueInvoiceModal.onClose();
       onUpdated();
       toast.success('فاکتور با موفقیت صادر شد');
@@ -185,7 +242,10 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
     try {
       await addServiceJobAttachmentRemote(localJob.id, restaurantId, file, token);
       const serverJob = await refreshServiceJobDetail(localJob.id, restaurantId, token);
-      setRemoteExtra({ attachments: serverJob.attachments ?? [], activities: serverJob.activities ?? [] });
+      setRemoteExtra({
+        attachments: serverJob.attachments ?? [],
+        activities: serverJob.activities ?? [],
+      });
       toast.success('فایل پیوست شد');
     } catch {
       toast.error('خطا در بارگذاری فایل — نیاز به اتصال اینترنت دارد');
@@ -202,15 +262,32 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
       <ModalShell size="3xl">
         <ModalHeader>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-xs text-muted">{localJob.jobNumber ?? '(در صف ثبت)'}</span>
+            <span className="font-mono text-xs text-muted">
+              {localJob.jobNumber ?? '(در صف ثبت)'}
+            </span>
             <span className="font-bold">{localJob.title}</span>
             {status && (
-              <span className="text-xs px-2 py-1 rounded-lg font-medium" style={status.color ? { backgroundColor: status.color + '22', color: status.color } : undefined}>
+              <span
+                className="text-xs px-2 py-1 rounded-lg font-medium"
+                style={
+                  status.color
+                    ? { backgroundColor: status.color + '22', color: status.color }
+                    : undefined
+                }
+              >
                 {status.label}
               </span>
             )}
-            {opState.hasFailed && <span className="text-xs px-2 py-1 rounded-lg bg-danger-soft text-danger-soft-foreground">خطای سینک</span>}
-            {opState.hasPending && !opState.hasFailed && <span className="text-xs px-2 py-1 rounded-lg bg-warning-soft text-warning-soft-foreground">در صف سینک</span>}
+            {opState.hasFailed && (
+              <span className="text-xs px-2 py-1 rounded-lg bg-danger-soft text-danger-soft-foreground">
+                خطای سینک
+              </span>
+            )}
+            {opState.hasPending && !opState.hasFailed && (
+              <span className="text-xs px-2 py-1 rounded-lg bg-warning-soft text-warning-soft-foreground">
+                در صف سینک
+              </span>
+            )}
           </div>
         </ModalHeader>
         <ModalBody className="space-y-4">
@@ -226,50 +303,128 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
               <div className="space-y-3">
                 <Input label="عنوان" value={editTitle} onValueChange={setEditTitle} />
                 <div className="grid grid-cols-2 gap-3">
-                  <Input label="نام مشتری" value={editCustomerName} onValueChange={setEditCustomerName} />
-                  <Input label="شماره تماس" value={editCustomerPhone} onValueChange={setEditCustomerPhone} dir="ltr" />
+                  <Input
+                    label="نام مشتری"
+                    value={editCustomerName}
+                    onValueChange={setEditCustomerName}
+                  />
+                  <Input
+                    label="شماره تماس"
+                    value={editCustomerPhone}
+                    onValueChange={setEditCustomerPhone}
+                    dir="ltr"
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <Select label="اولویت" selectedKeys={[editPriority]} onSelectionChange={(keys) => { const v = Array.from(keys)[0] as ServiceJobPriority; if (v) setEditPriority(v); }}>
-                    {PRIORITY_OPTIONS.map((p) => <SelectItem key={p.key}>{p.label}</SelectItem>)}
+                  <Select
+                    label="اولویت"
+                    selectedKeys={[editPriority]}
+                    onSelectionChange={(keys) => {
+                      const v = Array.from(keys)[0] as ServiceJobPriority;
+                      if (v) setEditPriority(v);
+                    }}
+                  >
+                    {PRIORITY_OPTIONS.map((p) => (
+                      <SelectItem key={p.key}>{p.label}</SelectItem>
+                    ))}
                   </Select>
-                  <ShamsiDatePicker label="تاریخ سررسید" value={editDueDate} onChange={setEditDueDate} />
+                  <ShamsiDatePicker
+                    label="تاریخ سررسید"
+                    value={editDueDate}
+                    onChange={setEditDueDate}
+                  />
                 </div>
                 <Input
                   label="مبلغ تخمینی (تومان)"
                   value={formatPriceInput(editEstimated)}
-                  onValueChange={(v) => setEditEstimated(v === '' ? '' : String(parseFormattedNumber(v)))}
+                  onValueChange={(v) =>
+                    setEditEstimated(v === '' ? '' : String(parseFormattedNumber(v)))
+                  }
                 />
                 {staff.length > 0 && (
-                  <Select label="مسئول" selectedKeys={editAssigneeId ? [editAssigneeId] : []} onSelectionChange={(keys) => setEditAssigneeId(Array.from(keys)[0] as string ?? '')}>
+                  <Select
+                    label="مسئول"
+                    selectedKeys={editAssigneeId ? [editAssigneeId] : []}
+                    onSelectionChange={(keys) =>
+                      setEditAssigneeId((Array.from(keys)[0] as string) ?? '')
+                    }
+                  >
                     <SelectItem key="">بدون مسئول</SelectItem>
-                    {staff.map((s) => <SelectItem key={String(s.id)}>{s.name}</SelectItem>)}
+                    {staff.map((s) => (
+                      <SelectItem key={String(s.id)}>{s.name}</SelectItem>
+                    ))}
                   </Select>
                 )}
                 <div className="flex justify-end gap-2">
-                  <Button variant="light" size="sm" onPress={() => setIsEditing(false)} isDisabled={isSaving}>انصراف</Button>
-                  <Button color="primary" size="sm" onPress={saveEdit} isLoading={isSaving} isDisabled={!editTitle.trim()}>ذخیره</Button>
+                  <Button
+                    variant="light"
+                    size="sm"
+                    onPress={() => setIsEditing(false)}
+                    isDisabled={isSaving}
+                  >
+                    انصراف
+                  </Button>
+                  <Button
+                    color="primary"
+                    size="sm"
+                    onPress={saveEdit}
+                    isLoading={isSaving}
+                    isDisabled={!editTitle.trim()}
+                  >
+                    ذخیره
+                  </Button>
                 </div>
               </div>
             ) : (
               <>
                 <div className="flex justify-between items-start">
                   <div className="grid grid-cols-2 gap-2 text-sm flex-1">
-                    <InfoRow label="مشتری" value={localJob.customerName || localJob.customerPhone} />
+                    <InfoRow
+                      label="مشتری"
+                      value={localJob.customerName || localJob.customerPhone}
+                    />
                     <InfoRow label="تلفن" value={localJob.customerPhone} />
                     <InfoRow label="مسئول" value={localJob.assigneeName} />
-                    <InfoRow label="اولویت" value={PRIORITY_OPTIONS.find((p) => p.key === localJob.priority)?.label} />
-                    <InfoRow label="موعد" value={localJob.dueDate ? new Date(localJob.dueDate).toLocaleDateString('fa-IR') : undefined} />
-                    {localJob.estimatedAmount > 0 && <InfoRow label="تخمین" value={`${localJob.estimatedAmount.toLocaleString('fa-IR')} ریال`} />}
-                    {localJob.salesInvoiceId && <InfoRow label="فاکتور" value={`#${localJob.salesInvoiceId}`} />}
+                    <InfoRow
+                      label="اولویت"
+                      value={PRIORITY_OPTIONS.find((p) => p.key === localJob.priority)?.label}
+                    />
+                    <InfoRow
+                      label="موعد"
+                      value={
+                        localJob.dueDate
+                          ? new Date(localJob.dueDate).toLocaleDateString('fa-IR')
+                          : undefined
+                      }
+                    />
+                    {localJob.estimatedAmount > 0 && (
+                      <InfoRow
+                        label="تخمین"
+                        value={`${localJob.estimatedAmount.toLocaleString('fa-IR')} ریال`}
+                      />
+                    )}
+                    {localJob.salesInvoiceId && (
+                      <InfoRow label="فاکتور" value={`#${localJob.salesInvoiceId}`} />
+                    )}
                   </div>
-                  <button onClick={startEdit} className="text-muted hover:text-accent text-sm px-2 py-1 rounded-lg">ویرایش</button>
+                  <button
+                    onClick={startEdit}
+                    className="text-muted hover:text-accent text-sm px-2 py-1 rounded-lg"
+                  >
+                    ویرایش
+                  </button>
                 </div>
                 {localJob.formData && Object.keys(localJob.formData).length > 0 && (
                   <div className="pt-2 border-t border-border grid grid-cols-2 gap-2 text-sm">
-                    {board.formFields.filter((f) => localJob.formData?.[f.key] !== undefined).map((f) => (
-                      <InfoRow key={f.key} label={f.label} value={String(localJob.formData![f.key])} />
-                    ))}
+                    {board.formFields
+                      .filter((f) => localJob.formData?.[f.key] !== undefined)
+                      .map((f) => (
+                        <InfoRow
+                          key={f.key}
+                          label={f.label}
+                          value={String(localJob.formData![f.key])}
+                        />
+                      ))}
                   </div>
                 )}
               </>
@@ -281,7 +436,16 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sm">اقلام پرونده</h3>
               {!localJob.salesInvoiceId && (
-                <Button size="sm" variant="flat" onPress={() => { setEditItem(null); addItemModal.onOpen(); }}>افزودن قلم</Button>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  onPress={() => {
+                    setEditItem(null);
+                    addItemModal.onOpen();
+                  }}
+                >
+                  افزودن قلم
+                </Button>
               )}
             </div>
             {items.length === 0 ? (
@@ -292,12 +456,28 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
                   <div key={item.id} className="flex items-center justify-between py-2 text-sm">
                     <div className="min-w-0 flex-1">
                       <p>{item.description}</p>
-                      <p className="text-xs text-muted">{item.quantity} × {item.unitPrice.toLocaleString('fa-IR')} = {item.lineTotal.toLocaleString('fa-IR')} ریال</p>
+                      <p className="text-xs text-muted">
+                        {item.quantity} × {item.unitPrice.toLocaleString('fa-IR')} ={' '}
+                        {item.lineTotal.toLocaleString('fa-IR')} ریال
+                      </p>
                     </div>
                     {!localJob.salesInvoiceId && (
                       <div className="flex gap-2 flex-shrink-0">
-                        <button onClick={() => { setEditItem(item); addItemModal.onOpen(); }} className="text-muted hover:text-accent text-xs">ویرایش</button>
-                        <button onClick={() => handleRemoveItem(item)} className="text-muted hover:text-danger text-xs">حذف</button>
+                        <button
+                          onClick={() => {
+                            setEditItem(item);
+                            addItemModal.onOpen();
+                          }}
+                          className="text-muted hover:text-accent text-xs"
+                        >
+                          ویرایش
+                        </button>
+                        <button
+                          onClick={() => handleRemoveItem(item)}
+                          className="text-muted hover:text-danger text-xs"
+                        >
+                          حذف
+                        </button>
                       </div>
                     )}
                   </div>
@@ -308,25 +488,43 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
                 </div>
               </div>
             )}
-            {!localJob.salesInvoiceId && items.length > 0 && (
-              isOnline ? (
+            {!localJob.salesInvoiceId &&
+              items.length > 0 &&
+              (isOnline ? (
                 <div className="flex justify-end">
-                  <Button size="sm" color="primary" onPress={issueInvoiceModal.onOpen}>صدور فاکتور فروش</Button>
+                  <Button size="sm" color="primary" onPress={issueInvoiceModal.onOpen}>
+                    صدور فاکتور فروش
+                  </Button>
                 </div>
               ) : (
-                <p className="text-xs text-warning text-left">صدور فاکتور نیاز به اتصال اینترنت دارد</p>
-              )
-            )}
+                <p className="text-xs text-warning text-left">
+                  صدور فاکتور نیاز به اتصال اینترنت دارد
+                </p>
+              ))}
           </div>
 
           {/* پیوست‌ها */}
           <div className="border border-border rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-sm">پیوست‌ها {remoteExtra && `(${remoteExtra.attachments.length})`}</h3>
+              <h3 className="font-semibold text-sm">
+                پیوست‌ها {remoteExtra && `(${remoteExtra.attachments.length})`}
+              </h3>
               {isOnline && localJob.id > 0 ? (
                 <>
-                  <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
-                  <Button size="sm" variant="flat" onPress={() => fileInputRef.current?.click()} isLoading={isUploading}>افزودن فایل</Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleUpload}
+                  />
+                  <Button
+                    size="sm"
+                    variant="flat"
+                    onPress={() => fileInputRef.current?.click()}
+                    isLoading={isUploading}
+                  >
+                    افزودن فایل
+                  </Button>
                 </>
               ) : (
                 <span className="text-xs text-warning">نیاز به اتصال اینترنت</span>
@@ -343,7 +541,9 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
                 {remoteExtra.attachments.map((att: any) => (
                   <div key={att.id} className="text-sm flex justify-between">
                     <span>{att.originalName ?? 'فایل'}</span>
-                    <span className="text-xs text-muted">{new Date(att.createdAt).toLocaleDateString('fa-IR')}</span>
+                    <span className="text-xs text-muted">
+                      {new Date(att.createdAt).toLocaleDateString('fa-IR')}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -362,7 +562,9 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
                 {remoteExtra.activities.map((act: any) => (
                   <div key={act.id} className="flex justify-between text-foreground/70">
                     <span>{act.note || act.type}</span>
-                    <span className="text-xs text-muted">{new Date(act.createdAt).toLocaleDateString('fa-IR')}</span>
+                    <span className="text-xs text-muted">
+                      {new Date(act.createdAt).toLocaleDateString('fa-IR')}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -370,13 +572,18 @@ export function JobDetailPanel({ job, board, restaurantId, token, onClose, onUpd
           </div>
         </ModalBody>
         <ModalFooter>
-          <Button variant="light" onPress={onClose}>بستن</Button>
+          <Button variant="light" onPress={onClose}>
+            بستن
+          </Button>
         </ModalFooter>
       </ModalShell>
 
       <AddJobItemModal
         isOpen={addItemModal.isOpen}
-        onClose={() => { addItemModal.onClose(); setEditItem(null); }}
+        onClose={() => {
+          addItemModal.onClose();
+          setEditItem(null);
+        }}
         onSave={editItem ? handleEditItem : handleAddItem}
         editItem={editItem}
       />

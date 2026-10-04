@@ -18,7 +18,10 @@ vi.mock('../imageCache', () => ({
     const fs = await import('fs');
     const os = await import('os');
     const path = await import('path');
-    const filePath = path.join(os.tmpdir(), `test-print-image-${Buffer.from(url).toString('hex')}.png`);
+    const filePath = path.join(
+      os.tmpdir(),
+      `test-print-image-${Buffer.from(url).toString('hex')}.png`,
+    );
     const onePxPng = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
       'base64',
@@ -110,7 +113,9 @@ describe('item line note (e.g. free-reward label)', () => {
   it('renders itemNote under the item name on the built-in priced receipt', () => {
     const html = generateReceiptHTML({
       ...orderData,
-      items: [{ productName: 'قهوه ترک', quantity: 1, price: 0, itemNote: 'رایگان (جایزهٔ امتیازی)' }],
+      items: [
+        { productName: 'قهوه ترک', quantity: 1, price: 0, itemNote: 'رایگان (جایزهٔ امتیازی)' },
+      ],
     });
     expect(html).toContain('رایگان (جایزهٔ امتیازی)');
   });
@@ -118,7 +123,9 @@ describe('item line note (e.g. free-reward label)', () => {
   it('falls back to itemOption when itemNote is absent (Electron cart snapshot field name)', () => {
     const html = generateReceiptHTML({
       ...orderData,
-      items: [{ productName: 'قهوه ترک', quantity: 1, price: 0, itemOption: 'رایگان (جایزهٔ امتیازی)' }],
+      items: [
+        { productName: 'قهوه ترک', quantity: 1, price: 0, itemOption: 'رایگان (جایزهٔ امتیازی)' },
+      ],
     });
     expect(html).toContain('رایگان (جایزهٔ امتیازی)');
   });

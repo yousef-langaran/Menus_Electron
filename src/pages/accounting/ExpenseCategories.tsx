@@ -46,7 +46,9 @@ function sortAsTree(rows: ExpenseCategoryRow[]): Array<ExpenseCategoryRow & { de
     });
   };
   walk(null, 0);
-  rows.forEach((r) => { if (!visited.has(r.id)) result.push({ ...r, depth: 0 }); });
+  rows.forEach((r) => {
+    if (!visited.has(r.id)) result.push({ ...r, depth: 0 });
+  });
   return result;
 }
 
@@ -77,7 +79,9 @@ export default function AccountingExpenseCategoriesPage() {
     if (excludeId != null) {
       const collectDescendants = (id: number) => {
         excluded.add(id);
-        rows.filter((r) => Number(r.parentCategoryId) === id).forEach((r) => collectDescendants(r.id));
+        rows
+          .filter((r) => Number(r.parentCategoryId) === id)
+          .forEach((r) => collectDescendants(r.id));
       };
       collectDescendants(excludeId);
     }
@@ -116,7 +120,11 @@ export default function AccountingExpenseCategoriesPage() {
     const parentCategoryId = newParentId === NONE_PARENT ? null : Number(newParentId);
     try {
       // optimistic: همیشه اول local ذخیره کن
-      const localRow = await createExpenseCategoryLocal({ restaurantId, name: newName.trim(), parentCategoryId });
+      const localRow = await createExpenseCategoryLocal({
+        restaurantId,
+        name: newName.trim(),
+        parentCategoryId,
+      });
       toast.success('دسته‌بندی ثبت شد');
       setNewName('');
       setNewParentId(NONE_PARENT);
@@ -128,12 +136,15 @@ export default function AccountingExpenseCategoriesPage() {
           .then((serverRow) => {
             accountingDb.expenseCategories.delete(localRow.id);
             accountingDb.expenseCategories.put({ ...serverRow, restaurantId });
-            setRows((prev) => prev.map((r) => r.id === localRow.id ? { ...serverRow, restaurantId } : r));
+            setRows((prev) =>
+              prev.map((r) => (r.id === localRow.id ? { ...serverRow, restaurantId } : r)),
+            );
             // عملیات صف‌شده برای همین رکورد را پاک کن — وگرنه سینک پس‌زمینه دوباره
             // آن را با id موقت محلی به سرور می‌فرستد و یک دسته‌بندی تکراری واقعی
             // می‌سازد که قابل حذف از این صفحه هم نیست (چون UI فقط رکورد اصلی را می‌شناسد).
             void cancelPendingSyncOp('expense_category', String(localRow.id));
-          }).catch(() => {});
+          })
+          .catch(() => {});
       }
     } catch {
       toast.error('خطا در ثبت دسته‌بندی');
@@ -148,18 +159,33 @@ export default function AccountingExpenseCategoriesPage() {
     const parentCategoryId = editParentId === NONE_PARENT ? null : Number(editParentId);
     try {
       // optimistic: فوری در local و UI آپدیت کن
-      await updateExpenseCategoryLocal({ id: editRow.id, restaurantId, patch: { name: editName.trim(), parentCategoryId } });
+      await updateExpenseCategoryLocal({
+        id: editRow.id,
+        restaurantId,
+        patch: { name: editName.trim(), parentCategoryId },
+      });
       toast.success('دسته‌بندی ویرایش شد');
-      setRows((prev) => prev.map((r) => r.id === editRow.id ? { ...r, name: editName.trim(), parentCategoryId } : r));
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === editRow.id ? { ...r, name: editName.trim(), parentCategoryId } : r,
+        ),
+      );
       setEditOpen(false);
       setEditRow(null);
       if (isOnline) {
-        updateExpenseCategory(editRow.id, { restaurantId, name: editName.trim(), parentCategoryId }, token)
+        updateExpenseCategory(
+          editRow.id,
+          { restaurantId, name: editName.trim(), parentCategoryId },
+          token,
+        )
           .then((serverRow) => {
             accountingDb.expenseCategories.put({ ...serverRow, restaurantId });
-            setRows((prev) => prev.map((r) => r.id === editRow.id ? { ...serverRow, restaurantId } : r));
+            setRows((prev) =>
+              prev.map((r) => (r.id === editRow.id ? { ...serverRow, restaurantId } : r)),
+            );
             void cancelPendingSyncOp('expense_category', String(editRow.id));
-          }).catch(() => {});
+          })
+          .catch(() => {});
       }
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'خطا در ویرایش دسته‌بندی');
@@ -172,21 +198,28 @@ export default function AccountingExpenseCategoriesPage() {
     if (!restaurantId || !token) return;
     // optimistic: فوری در UI تغییر بده
     const newActive = !row.isActive;
-    setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, isActive: newActive } : r));
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, isActive: newActive } : r)));
     try {
-      await updateExpenseCategoryLocal({ id: row.id, restaurantId, patch: { isActive: newActive } });
+      await updateExpenseCategoryLocal({
+        id: row.id,
+        restaurantId,
+        patch: { isActive: newActive },
+      });
       toast.success(newActive ? 'فعال شد' : 'غیرفعال شد');
       if (isOnline) {
         updateExpenseCategory(row.id, { restaurantId, isActive: newActive }, token)
           .then((serverRow) => {
             accountingDb.expenseCategories.put({ ...serverRow, restaurantId });
-            setRows((prev) => prev.map((r) => r.id === row.id ? { ...serverRow, restaurantId } : r));
+            setRows((prev) =>
+              prev.map((r) => (r.id === row.id ? { ...serverRow, restaurantId } : r)),
+            );
             void cancelPendingSyncOp('expense_category', String(row.id));
-          }).catch(() => {});
+          })
+          .catch(() => {});
       }
     } catch {
       // rollback
-      setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, isActive: row.isActive } : r));
+      setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, isActive: row.isActive } : r)));
       toast.error('خطا در تغییر وضعیت');
     }
   };
@@ -230,9 +263,7 @@ export default function AccountingExpenseCategoriesPage() {
           <h1 className="text-xl font-bold">دسته‌بندی هزینه‌ها</h1>
           <span
             className={`text-xs rounded-full px-2 py-0.5 font-medium ${
-              isOnline
-                ? 'bg-success-soft text-success-soft-foreground'
-                : 'bg-default text-muted'
+              isOnline ? 'bg-success-soft text-success-soft-foreground' : 'bg-default text-muted'
             }`}
           >
             {isOnline ? '● آنلاین' : '○ آفلاین'}
@@ -257,7 +288,8 @@ export default function AccountingExpenseCategoriesPage() {
 
       {!isOnline && (
         <div className="bg-warning-soft border border-warning/30 rounded-lg p-3 text-sm text-warning-soft-foreground">
-          اتصال به سرور برقرار نیست — تغییرات ذخیره می‌شوند و پس از برقراری اتصال همگام‌سازی خواهند شد.
+          اتصال به سرور برقرار نیست — تغییرات ذخیره می‌شوند و پس از برقراری اتصال همگام‌سازی خواهند
+          شد.
         </div>
       )}
 
@@ -268,9 +300,7 @@ export default function AccountingExpenseCategoriesPage() {
           )}
 
           {!loading && rows.length === 0 && (
-            <p className="text-center text-sm text-muted py-6">
-              هنوز دسته‌بندی تعریف نشده است.
-            </p>
+            <p className="text-center text-sm text-muted py-6">هنوز دسته‌بندی تعریف نشده است.</p>
           )}
 
           {treeRows.map((row) => (
@@ -294,7 +324,9 @@ export default function AccountingExpenseCategoriesPage() {
                   onPress={() => {
                     setEditRow(row);
                     setEditName(row.name);
-                    setEditParentId(row.parentCategoryId != null ? String(row.parentCategoryId) : NONE_PARENT);
+                    setEditParentId(
+                      row.parentCategoryId != null ? String(row.parentCategoryId) : NONE_PARENT,
+                    );
                     setEditOpen(true);
                   }}
                 >

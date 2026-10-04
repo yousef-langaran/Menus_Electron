@@ -75,10 +75,7 @@ describe('getReceiptNumbersMapFromStorage', () => {
   });
 
   it('drops entries whose value is not a receipt number', () => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ good: 3, bad: 'x', zero: 0, negative: -1 }),
-    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ good: 3, bad: 'x', zero: 0, negative: -1 }));
 
     expect(getReceiptNumbersMapFromStorage()).toEqual({ good: 3 });
   });

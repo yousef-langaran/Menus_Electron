@@ -46,7 +46,9 @@ import type { LocalServiceJobOp } from '../serviceJobsLocalDb';
 const RID = 42;
 const TOKEN = 'test-token';
 
-function op(partial: Partial<LocalServiceJobOp> & Pick<LocalServiceJobOp, 'id' | 'opType' | 'payload'>): LocalServiceJobOp {
+function op(
+  partial: Partial<LocalServiceJobOp> & Pick<LocalServiceJobOp, 'id' | 'opType' | 'payload'>,
+): LocalServiceJobOp {
   return {
     jobLocalId: -1,
     restaurantId: RID,
@@ -68,7 +70,7 @@ afterEach(() => {
 });
 
 describe('runServiceJobsSync per-job op ordering', () => {
-  it('stops processing a job\'s queue at the first failing op, preserving order (later ops stay queued)', async () => {
+  it("stops processing a job's queue at the first failing op, preserving order (later ops stay queued)", async () => {
     const ops = [
       op({ id: 1, opType: 'update', payload: { title: 'A' } }),
       op({ id: 2, opType: 'move', payload: { statusId: 9 } }),
@@ -100,7 +102,12 @@ describe('runServiceJobsSync per-job op ordering', () => {
 
     expect(result.jobsPushed).toBe(2);
     expect(localDb.reassignJobLocalId).toHaveBeenCalledWith(-10, 555);
-    expect(api.updateServiceJobRemote).toHaveBeenCalledWith(555, RID, { title: 'New job (edited)' }, TOKEN);
+    expect(api.updateServiceJobRemote).toHaveBeenCalledWith(
+      555,
+      RID,
+      { title: 'New job (edited)' },
+      TOKEN,
+    );
     expect(localDb.deleteOp).toHaveBeenCalledTimes(2);
   });
 
@@ -130,7 +137,10 @@ describe('runServiceJobsSync single-flight lock', () => {
   it('shares one in-flight run across concurrent callers instead of starting a second overlapping sync', async () => {
     let resolveGrouped!: (v: Map<number, LocalServiceJobOp[]>) => void;
     (localDb.getPendingOpsGroupedByJob as any).mockImplementation(
-      () => new Promise((res) => { resolveGrouped = res; }),
+      () =>
+        new Promise((res) => {
+          resolveGrouped = res;
+        }),
     );
 
     const callA = runServiceJobsSync({ restaurantId: RID, token: TOKEN });
@@ -162,7 +172,13 @@ describe('runServiceJobsSync offline short-circuit', () => {
     Object.defineProperty(window.navigator, 'onLine', { value: false, configurable: true });
     try {
       const result = await runServiceJobsSync({ restaurantId: RID, token: TOKEN });
-      expect(result).toEqual({ isOnline: false, jobsPushed: 0, jobsFailed: 0, boardsPulled: 0, jobsPulled: 0 });
+      expect(result).toEqual({
+        isOnline: false,
+        jobsPushed: 0,
+        jobsFailed: 0,
+        boardsPulled: 0,
+        jobsPulled: 0,
+      });
       expect(localDb.getPendingOpsGroupedByJob).not.toHaveBeenCalled();
     } finally {
       if (originalOnLine) Object.defineProperty(window.navigator, 'onLine', originalOnLine);

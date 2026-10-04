@@ -103,7 +103,9 @@ describe('syncOfflineOrders auth token resolution', () => {
     expect(post).toHaveBeenCalledWith(
       'https://default.example.com/api/v1/orders',
       expect.anything(),
-      expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer override-token' }) }),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer override-token' }),
+      }),
     );
   });
 
@@ -119,7 +121,9 @@ describe('syncOfflineOrders auth token resolution', () => {
     expect(post).toHaveBeenCalledWith(
       expect.any(String),
       expect.anything(),
-      expect.objectContaining({ headers: expect.objectContaining({ Authorization: `Bearer ${newerToken}` }) }),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: `Bearer ${newerToken}` }),
+      }),
     );
   });
 
@@ -135,7 +139,9 @@ describe('syncOfflineOrders auth token resolution', () => {
     expect(post).toHaveBeenCalledWith(
       expect.any(String),
       expect.anything(),
-      expect.objectContaining({ headers: expect.objectContaining({ Authorization: `Bearer ${newerOrderToken}` }) }),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: `Bearer ${newerOrderToken}` }),
+      }),
     );
   });
 });

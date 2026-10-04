@@ -14,10 +14,10 @@ import { encodeTLV, encodeConstructedTLV, decodeAllTLV, decodeTLV } from './berT
  */
 
 const TAG_ROOT = 0x72;
-const TAG_POS_INFO = 0xB1;
-const TAG_SWITCH_DATA = 0xB2;
-const TAG_AMOUNTS = 0xA1;
-const TAG_HISTORY = 0xA2;
+const TAG_POS_INFO = 0xb1;
+const TAG_SWITCH_DATA = 0xb2;
+const TAG_AMOUNTS = 0xa1;
+const TAG_HISTORY = 0xa2;
 
 const T_TOTAL_FEE = 0x81;
 const T_CODEPAGE = 0x83;
@@ -46,7 +46,10 @@ function ascii(v: string | number): Buffer {
 }
 
 /** پیام «ارسال مبلغ»: Tag 72 شامل B1 (اطلاعات کارتخوان) و B2 (مبلغ ارسالی به سوییچ) */
-export function buildAmountMessage(amountRial: number, opts?: { dllVer?: string; prgVer?: string }): Buffer {
+export function buildAmountMessage(
+  amountRial: number,
+  opts?: { dllVer?: string; prgVer?: string },
+): Buffer {
   const amountStr = ascii(Math.max(0, Math.round(amountRial)));
   const dllVer = ascii(opts?.dllVer || '2.5.0.0');
   const prgVer = ascii(opts?.prgVer || 'MenusElectron/1.0');
@@ -61,8 +64,14 @@ export function buildAmountMessage(amountRial: number, opts?: { dllVer?: string;
   const amounts = encodeConstructedTLV(TAG_AMOUNTS, [encodeTLV(T_AMOUNT1, amountStr)]);
 
   const history = encodeConstructedTLV(TAG_HISTORY, [
-    encodeConstructedTLV(TAG_AMOUNTS, [encodeTLV(T_ITEM, ascii('DllVer')), encodeTLV(T_VALUE, dllVer)]),
-    encodeConstructedTLV(TAG_AMOUNTS, [encodeTLV(T_ITEM, ascii('PrgVer')), encodeTLV(T_VALUE, prgVer)]),
+    encodeConstructedTLV(TAG_AMOUNTS, [
+      encodeTLV(T_ITEM, ascii('DllVer')),
+      encodeTLV(T_VALUE, dllVer),
+    ]),
+    encodeConstructedTLV(TAG_AMOUNTS, [
+      encodeTLV(T_ITEM, ascii('PrgVer')),
+      encodeTLV(T_VALUE, prgVer),
+    ]),
   ]);
 
   const switchData = encodeConstructedTLV(TAG_SWITCH_DATA, [amounts, history]);
@@ -94,9 +103,11 @@ export interface SamanPosResult {
 export function parseResponseFrame(buf: Buffer): SamanPosResult {
   try {
     const root = decodeTLV(buf, 0);
-    if (root.tag !== TAG_ROOT) return { success: false, error: 'ساختار پاسخ کارتخوان نامعتبر است (Tag ریشه)' };
+    if (root.tag !== TAG_ROOT)
+      return { success: false, error: 'ساختار پاسخ کارتخوان نامعتبر است (Tag ریشه)' };
     const b1 = decodeTLV(root.value, 0);
-    if (b1.tag !== TAG_POS_INFO) return { success: false, error: 'ساختار پاسخ کارتخوان نامعتبر است (Tag B1)' };
+    if (b1.tag !== TAG_POS_INFO)
+      return { success: false, error: 'ساختار پاسخ کارتخوان نامعتبر است (Tag B1)' };
 
     const byTag = new Map<number, Buffer>();
     for (const f of decodeAllTLV(b1.value)) byTag.set(f.tag, f.value);
@@ -174,7 +185,10 @@ export async function sendAmountViaSamanSerial(
   }
   const sp = await getSerialPort();
   if (!sp) {
-    return { success: false, error: 'ماژول serialport نصب نیست. دستور "npm run rebuild" را اجرا کنید.' };
+    return {
+      success: false,
+      error: 'ماژول serialport نصب نیست. دستور "npm run rebuild" را اجرا کنید.',
+    };
   }
 
   const { SerialPort } = sp;
@@ -219,7 +233,10 @@ export async function sendAmountViaSamanSerial(
 
     port.open((err: Error | null) => {
       if (err) {
-        finish({ success: false, error: `اتصال به پورت ${options.portName} ناموفق بود: ${err.message}` });
+        finish({
+          success: false,
+          error: `اتصال به پورت ${options.portName} ناموفق بود: ${err.message}`,
+        });
         return;
       }
 
@@ -257,7 +274,10 @@ export async function sendAmountViaSamanSerial(
       try {
         port.write(buildAmountMessage(amountRial));
       } catch (writeErr: any) {
-        finish({ success: false, error: `ارسال به کارتخوان ناموفق بود: ${String(writeErr?.message || writeErr)}` });
+        finish({
+          success: false,
+          error: `ارسال به کارتخوان ناموفق بود: ${String(writeErr?.message || writeErr)}`,
+        });
       }
     });
   });

@@ -7,7 +7,13 @@ export type CompatCheckboxProps = Omit<ComponentProps<typeof Checkbox>, 'onChang
   classNames?: { label?: string };
 };
 
-export function CheckboxCompat({ isSelected, onValueChange, children, classNames, ...rest }: CompatCheckboxProps) {
+export function CheckboxCompat({
+  isSelected,
+  onValueChange,
+  children,
+  classNames,
+  ...rest
+}: CompatCheckboxProps) {
   const hasLabel = children != null && children !== '';
 
   // Checkbox.Content is the interactive element (React Aria's CheckboxButton); the

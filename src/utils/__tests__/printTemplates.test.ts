@@ -91,7 +91,10 @@ describe('buildPrinterJobs', () => {
 
     expect(jobs).toHaveLength(2);
     for (const job of jobs) {
-      expect(job.layout).toEqual({ version: 2, rows: [{ id: 'r1', type: 'single', order: 0, blocks: [] }] });
+      expect(job.layout).toEqual({
+        version: 2,
+        rows: [{ id: 'r1', type: 'single', order: 0, blocks: [] }],
+      });
       expect(job.paperWidth).toBe(72);
       expect(job.margin).toBe(3);
     }
@@ -104,10 +107,15 @@ describe('buildPrinterJobs', () => {
     const fullTemplate = template({ id: 31, paperWidth: 80, layout: [{ id: 'full-row' }] });
     const kitchenTemplate = template({ id: 32, paperWidth: 58, layout: [{ id: 'kitchen-row' }] });
 
-    const jobs = buildPrinterJobs([printer('POS-1')], bothReceipts, {
-      'POS-1::full': fullTemplate,
-      'POS-1::kitchen': kitchenTemplate,
-    }, null);
+    const jobs = buildPrinterJobs(
+      [printer('POS-1')],
+      bothReceipts,
+      {
+        'POS-1::full': fullTemplate,
+        'POS-1::kitchen': kitchenTemplate,
+      },
+      null,
+    );
 
     expect(jobs).toHaveLength(2);
     expect(jobs[0]).toMatchObject({ receiptType: 'full', paperWidth: 80 });

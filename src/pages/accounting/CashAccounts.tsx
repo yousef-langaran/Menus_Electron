@@ -51,7 +51,9 @@ export default function CashAccountsPage() {
   const { user } = useAuthStore();
   const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
 
-  const [summary, setSummary] = useState<Array<{ accountType: CashAccountType; accountName: string; balance: number; txCount: number }>>([]);
+  const [summary, setSummary] = useState<
+    Array<{ accountType: CashAccountType; accountName: string; balance: number; txCount: number }>
+  >([]);
   const [transactions, setTransactions] = useState<CashAccountTransaction[]>([]);
   const [filterAccount, setFilterAccount] = useState<CashAccountType | 'all'>('all');
   const [filterFrom, setFilterFrom] = useState('');
@@ -73,9 +75,11 @@ export default function CashAccountsPage() {
       const s = await getAllCashAccountsSummary(restaurantId);
       setSummary(s);
 
-      let rows = await accountingDb.cashAccountTransactions
-        .where('restaurantId').equals(restaurantId)
-        .reverse().sortBy('createdAt') as CashAccountTransaction[];
+      let rows = (await accountingDb.cashAccountTransactions
+        .where('restaurantId')
+        .equals(restaurantId)
+        .reverse()
+        .sortBy('createdAt')) as CashAccountTransaction[];
 
       if (filterAccount !== 'all') rows = rows.filter((r) => r.accountType === filterAccount);
       if (filterFrom) rows = rows.filter((r) => r.date >= filterFrom);
@@ -86,7 +90,9 @@ export default function CashAccountsPage() {
     }
   }, [restaurantId, filterAccount, filterFrom, filterTo]);
 
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   const handleManualSave = async () => {
     if (!restaurantId || !manualAmount || !manualAccountType) return;
@@ -123,8 +129,12 @@ export default function CashAccountsPage() {
       <div className="flex flex-wrap justify-between items-center gap-2">
         <h1 className="text-xl font-bold text-foreground">صندوق و حساب‌های دریافت</h1>
         <div className="flex gap-2">
-          <Button variant="flat" onPress={() => navigate('/accounting')}>بازگشت</Button>
-          <Button color="primary" onPress={() => setManualOpen(true)}>ثبت دستی</Button>
+          <Button variant="flat" onPress={() => navigate('/accounting')}>
+            بازگشت
+          </Button>
+          <Button color="primary" onPress={() => setManualOpen(true)}>
+            ثبت دستی
+          </Button>
         </div>
       </div>
 
@@ -134,14 +144,20 @@ export default function CashAccountsPage() {
           <Card
             key={s.accountType}
             className={`cursor-pointer border-2 transition-all ${filterAccount === s.accountType ? 'border-accent' : 'border-transparent'}`}
-            onClick={() => setFilterAccount(filterAccount === s.accountType ? 'all' : s.accountType)}
+            onClick={() =>
+              setFilterAccount(filterAccount === s.accountType ? 'all' : s.accountType)
+            }
           >
             <CardContent className="p-3 text-center space-y-1">
               <div className="text-xs text-muted">{s.accountName}</div>
-              <div className={`text-lg font-bold ${s.balance >= 0 ? 'text-success' : 'text-danger'}`}>
+              <div
+                className={`text-lg font-bold ${s.balance >= 0 ? 'text-success' : 'text-danger'}`}
+              >
                 {Number(Math.abs(s.balance)).toLocaleString('fa-IR')}
               </div>
-              <div className="text-xs text-muted">ریال · {Number(s.txCount).toLocaleString('fa-IR')} تراکنش</div>
+              <div className="text-xs text-muted">
+                ریال · {Number(s.txCount).toLocaleString('fa-IR')} تراکنش
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -149,7 +165,9 @@ export default function CashAccountsPage() {
         <Card className="border-2 border-border-secondary bg-default-soft">
           <CardContent className="p-3 text-center space-y-1">
             <div className="text-xs text-muted">جمع کل</div>
-            <div className={`text-lg font-bold ${totalBalance >= 0 ? 'text-success' : 'text-danger'}`}>
+            <div
+              className={`text-lg font-bold ${totalBalance >= 0 ? 'text-success' : 'text-danger'}`}
+            >
               {Number(Math.abs(totalBalance)).toLocaleString('fa-IR')}
             </div>
             <div className="text-xs text-muted">ریال</div>
@@ -163,7 +181,9 @@ export default function CashAccountsPage() {
           <Select
             label="حساب"
             selectedKeys={[filterAccount]}
-            onSelectionChange={(k) => setFilterAccount(String(Array.from(k)[0] || 'all') as CashAccountType | 'all')}
+            onSelectionChange={(k) =>
+              setFilterAccount(String(Array.from(k)[0] || 'all') as CashAccountType | 'all')
+            }
             className="w-36"
             size="sm"
           >
@@ -185,8 +205,18 @@ export default function CashAccountsPage() {
             size="sm"
             className="w-36"
           />
-          <Button size="sm" variant="flat" onPress={() => void reload()}>اعمال</Button>
-          <Button size="sm" variant="light" onPress={() => { setFilterAccount('all'); setFilterFrom(''); setFilterTo(todayIso()); }}>
+          <Button size="sm" variant="flat" onPress={() => void reload()}>
+            اعمال
+          </Button>
+          <Button
+            size="sm"
+            variant="light"
+            onPress={() => {
+              setFilterAccount('all');
+              setFilterFrom('');
+              setFilterTo(todayIso());
+            }}
+          >
             پاک کردن
           </Button>
         </CardContent>
@@ -196,57 +226,70 @@ export default function CashAccountsPage() {
       <Card>
         <CardContent className="gap-2">
           <div className="flex justify-between items-center mb-1">
-            <h3 className="font-semibold text-sm">تراکنش‌ها ({Number(transactions.length).toLocaleString('fa-IR')})</h3>
+            <h3 className="font-semibold text-sm">
+              تراکنش‌ها ({Number(transactions.length).toLocaleString('fa-IR')})
+            </h3>
             {filterAccount !== 'all' && (
               <div className="text-sm font-medium">
                 مانده {summary.find((s) => s.accountType === filterAccount)?.accountName}:
                 <span className="font-bold text-accent mr-1">
-                  {Number(summary.find((s) => s.accountType === filterAccount)?.balance ?? 0).toLocaleString('fa-IR')} ریال
+                  {Number(
+                    summary.find((s) => s.accountType === filterAccount)?.balance ?? 0,
+                  ).toLocaleString('fa-IR')}{' '}
+                  ریال
                 </span>
               </div>
             )}
           </div>
 
-          {loading && <p className="text-center text-sm text-muted py-6 animate-pulse">در حال بارگذاری...</p>}
+          {loading && (
+            <p className="text-center text-sm text-muted py-6 animate-pulse">در حال بارگذاری...</p>
+          )}
           {!loading && transactions.length === 0 && (
             <p className="text-center text-sm text-muted py-8">هنوز تراکنشی ثبت نشده است.</p>
           )}
 
-          {!loading && transactions.map((tx) => (
-            <div key={tx.id} className="bg-default-soft border border-border rounded-lg p-3 text-sm">
-              <div className="flex justify-between items-start gap-2">
-                <div className="space-y-0.5 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-default text-foreground/80 text-xs px-1.5 py-0.5 rounded">
-                      {accountTypeLabel(tx.accountType)}
-                    </span>
-                    <span className="text-xs text-muted">
-                      {TRANSACTION_TYPE_LABELS[tx.transactionType] || tx.transactionType}
-                    </span>
+          {!loading &&
+            transactions.map((tx) => (
+              <div
+                key={tx.id}
+                className="bg-default-soft border border-border rounded-lg p-3 text-sm"
+              >
+                <div className="flex justify-between items-start gap-2">
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-default text-foreground/80 text-xs px-1.5 py-0.5 rounded">
+                        {accountTypeLabel(tx.accountType)}
+                      </span>
+                      <span className="text-xs text-muted">
+                        {TRANSACTION_TYPE_LABELS[tx.transactionType] || tx.transactionType}
+                      </span>
+                    </div>
+                    {tx.orderNumber && (
+                      <div className="text-xs text-muted">فاکتور: {tx.orderNumber}</div>
+                    )}
+                    {tx.customerPhone && (
+                      <div className="text-xs text-muted">مشتری: {tx.customerPhone}</div>
+                    )}
+                    {tx.referenceCode && (
+                      <div className="text-xs text-muted">کد پیگیری: {tx.referenceCode}</div>
+                    )}
+                    {tx.description && (
+                      <div className="text-xs text-foreground/70">{tx.description}</div>
+                    )}
                   </div>
-                  {tx.orderNumber && (
-                    <div className="text-xs text-muted">فاکتور: {tx.orderNumber}</div>
-                  )}
-                  {tx.customerPhone && (
-                    <div className="text-xs text-muted">مشتری: {tx.customerPhone}</div>
-                  )}
-                  {tx.referenceCode && (
-                    <div className="text-xs text-muted">کد پیگیری: {tx.referenceCode}</div>
-                  )}
-                  {tx.description && (
-                    <div className="text-xs text-foreground/70">{tx.description}</div>
-                  )}
-                </div>
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  <div className={`font-bold text-base ${tx.amount >= 0 ? 'text-success' : 'text-danger'}`}>
-                    {formatAmount(tx.amount)} ریال
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div
+                      className={`font-bold text-base ${tx.amount >= 0 ? 'text-success' : 'text-danger'}`}
+                    >
+                      {formatAmount(tx.amount)} ریال
+                    </div>
+                    <div className="text-xs text-muted">{toShamsiDate(tx.date)}</div>
+                    <div className="text-xs text-muted">{toShamsiTime(tx.createdAt)}</div>
                   </div>
-                  <div className="text-xs text-muted">{toShamsiDate(tx.date)}</div>
-                  <div className="text-xs text-muted">{toShamsiTime(tx.createdAt)}</div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
         </CardContent>
       </Card>
 
@@ -258,7 +301,9 @@ export default function CashAccountsPage() {
             <Select
               label="حساب"
               selectedKeys={[manualAccountType]}
-              onSelectionChange={(k) => setManualAccountType(String(Array.from(k)[0] || 'cash') as CashAccountType)}
+              onSelectionChange={(k) =>
+                setManualAccountType(String(Array.from(k)[0] || 'cash') as CashAccountType)
+              }
               isRequired
             >
               <SelectItem key="cash">صندوق</SelectItem>
@@ -269,7 +314,9 @@ export default function CashAccountsPage() {
             <Select
               label="نوع تراکنش"
               selectedKeys={[manualType]}
-              onSelectionChange={(k) => setManualType(String(Array.from(k)[0] || 'manual_in') as 'manual_in' | 'manual_out')}
+              onSelectionChange={(k) =>
+                setManualType(String(Array.from(k)[0] || 'manual_in') as 'manual_in' | 'manual_out')
+              }
               isRequired
             >
               <SelectItem key="manual_in">ورودی (دریافت وجه)</SelectItem>
@@ -291,7 +338,9 @@ export default function CashAccountsPage() {
             />
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setManualOpen(false)}>انصراف</Button>
+            <Button variant="flat" onPress={() => setManualOpen(false)}>
+              انصراف
+            </Button>
             <Button
               color="primary"
               isLoading={manualSaving}

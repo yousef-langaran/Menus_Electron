@@ -17,7 +17,13 @@ const ITEM_TYPES: { value: ServiceJobItemType; label: string }[] = [
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { itemType: ServiceJobItemType; description: string; quantity: number; unitPrice: number; deductFromInventory: boolean }) => Promise<void>;
+  onSave: (data: {
+    itemType: ServiceJobItemType;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    deductFromInventory: boolean;
+  }) => Promise<void>;
   editItem?: LocalServiceJobItem | null;
 }
 
@@ -37,7 +43,11 @@ export function AddJobItemModal({ isOpen, onClose, onSave, editItem }: Props) {
       setUnitPrice(String(editItem.unitPrice));
       setDeductFromInventory(editItem.deductFromInventory);
     } else {
-      setItemType('service'); setDescription(''); setQuantity('1'); setUnitPrice('0'); setDeductFromInventory(false);
+      setItemType('service');
+      setDescription('');
+      setQuantity('1');
+      setUnitPrice('0');
+      setDeductFromInventory(false);
     }
   }, [editItem, isOpen]);
 
@@ -49,7 +59,13 @@ export function AddJobItemModal({ isOpen, onClose, onSave, editItem }: Props) {
     if (!description.trim() || isNaN(qty) || qty <= 0 || isNaN(price) || price < 0) return;
     setIsSaving(true);
     try {
-      await onSave({ itemType, description: description.trim(), quantity: qty, unitPrice: price, deductFromInventory });
+      await onSave({
+        itemType,
+        description: description.trim(),
+        quantity: qty,
+        unitPrice: price,
+        deductFromInventory,
+      });
       onClose();
     } finally {
       setIsSaving(false);
@@ -67,7 +83,9 @@ export function AddJobItemModal({ isOpen, onClose, onSave, editItem }: Props) {
                 key={t.value}
                 onClick={() => setItemType(t.value)}
                 className={`flex-1 py-1.5 rounded-xl text-sm border transition-colors ${
-                  itemType === t.value ? 'bg-accent text-white border-accent' : 'border-border text-foreground/70 hover:border-accent/40'
+                  itemType === t.value
+                    ? 'bg-accent text-white border-accent'
+                    : 'border-border text-foreground/70 hover:border-accent/40'
                 }`}
               >
                 {t.label}
@@ -76,7 +94,14 @@ export function AddJobItemModal({ isOpen, onClose, onSave, editItem }: Props) {
           </div>
           <Input label="شرح قلم *" value={description} onValueChange={setDescription} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="تعداد" type="number" value={quantity} onValueChange={setQuantity} min="0.001" step="0.001" />
+            <Input
+              label="تعداد"
+              type="number"
+              value={quantity}
+              onValueChange={setQuantity}
+              min="0.001"
+              step="0.001"
+            />
             <Input
               label="قیمت واحد (ریال)"
               value={formatPriceInput(unitPrice)}
@@ -94,8 +119,15 @@ export function AddJobItemModal({ isOpen, onClose, onSave, editItem }: Props) {
           )}
         </ModalBody>
         <ModalFooter>
-          <Button variant="light" onPress={onClose} isDisabled={isSaving}>انصراف</Button>
-          <Button color="primary" onPress={handleSave} isLoading={isSaving} isDisabled={!description.trim()}>
+          <Button variant="light" onPress={onClose} isDisabled={isSaving}>
+            انصراف
+          </Button>
+          <Button
+            color="primary"
+            onPress={handleSave}
+            isLoading={isSaving}
+            isDisabled={!description.trim()}
+          >
             {editItem ? 'ذخیره تغییرات' : 'افزودن قلم'}
           </Button>
         </ModalFooter>

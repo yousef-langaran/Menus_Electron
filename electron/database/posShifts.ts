@@ -71,7 +71,10 @@ const writeToDisk = async (actions: OfflineShiftAction[]) => {
 let shiftActionsLock: Promise<void> = Promise.resolve();
 const withShiftActionsLock = <T>(fn: () => Promise<T>): Promise<T> => {
   const next = shiftActionsLock.then(() => fn());
-  shiftActionsLock = next.then(() => {}, () => {});
+  shiftActionsLock = next.then(
+    () => {},
+    () => {},
+  );
   return next;
 };
 
@@ -129,7 +132,10 @@ export async function markShiftActionError(id: number, message: string): Promise
 }
 
 /** بعد از sync موفقِ یک «باز کردن» — همهٔ «بستن»‌های در انتظارِ همان clientShiftKey را با شناسهٔ سرور پر می‌کند */
-export async function resolveServerShiftIdForKey(clientShiftKey: string, serverShiftId: number): Promise<void> {
+export async function resolveServerShiftIdForKey(
+  clientShiftKey: string,
+  serverShiftId: number,
+): Promise<void> {
   return withShiftActionsLock(async () => {
     const actions = await readFromDisk();
     let changed = false;

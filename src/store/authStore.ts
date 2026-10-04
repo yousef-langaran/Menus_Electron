@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { cacheUser, getCachedUser, clearUserCache } from '../services/cache';
-import { login as apiLogin, fetchProfile, getActiveSubscription, setLiveToken } from '../services/api';
+import {
+  login as apiLogin,
+  fetchProfile,
+  getActiveSubscription,
+  setLiveToken,
+} from '../services/api';
 
 interface User {
   id: number;
@@ -121,7 +126,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // بررسی اشتراک فعال
       const subscriptionValid = await checkSubscription(hydratedUser, token);
       if (!subscriptionValid.valid) {
-        throw new Error(subscriptionValid.message || 'اشتراک شما منقضی شده است. لطفاً اشتراک خود را تمدید کنید.');
+        throw new Error(
+          subscriptionValid.message || 'اشتراک شما منقضی شده است. لطفاً اشتراک خود را تمدید کنید.',
+        );
       }
 
       await cacheUser(hydratedUser, token);
@@ -134,12 +141,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     } catch (error: any) {
       let errorMessage = 'خطا در ورود به سیستم';
-      
+
       if (error.response) {
         // Server responded with error
-        errorMessage = error.response.data?.message || 
-                      error.response.data?.error || 
-                      `خطا: ${error.response.status} ${error.response.statusText}`;
+        errorMessage =
+          error.response.data?.message ||
+          error.response.data?.error ||
+          `خطا: ${error.response.status} ${error.response.statusText}`;
       } else if (error.request) {
         // Request was made but no response received
         errorMessage = 'خطا در اتصال به سرور. لطفاً اتصال اینترنت خود را بررسی کنید.';
@@ -147,7 +155,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // Something else happened
         errorMessage = error.message || 'خطا در ورود به سیستم';
       }
-      
+
       console.error('Login error:', error);
       set({
         error: errorMessage,
@@ -184,7 +192,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         resolvedUser = await hydrateUserProfile(cached.token, resolvedUser);
         await cacheUser(resolvedUser, cached.token);
       }
-      
+
       // بررسی دسترسی ثبت سفارش
       const hasOrderPermission = checkOrderPermission(resolvedUser);
       if (!hasOrderPermission) {
@@ -222,10 +230,10 @@ function checkOrderPermission(user: User | null): boolean {
   // بررسی دسترسی ORDERS_MANAGEMENT با action CREATE
   const permissions = user.restaurantPermissions || [];
   const primaryRestaurant = user.restaurants?.[0];
-  
+
   if (!primaryRestaurant) return false;
 
-  const hasPermission = permissions.some(perm => {
+  const hasPermission = permissions.some((perm) => {
     if (!perm.isActive) return false;
     if (perm.restaurant?.id !== primaryRestaurant.id) return false;
     if (perm.module !== 'orders_management') return false;
@@ -236,7 +244,10 @@ function checkOrderPermission(user: User | null): boolean {
 }
 
 // بررسی اشتراک فعال
-async function checkSubscription(user: User | null, token: string): Promise<{ valid: boolean; message?: string }> {
+async function checkSubscription(
+  user: User | null,
+  token: string,
+): Promise<{ valid: boolean; message?: string }> {
   if (!user) return { valid: false, message: 'کاربر یافت نشد' };
 
   const primaryRestaurant = user.restaurants?.[0];
@@ -270,10 +281,13 @@ async function checkSubscription(user: User | null, token: string): Promise<{ va
     }
 
     localStorage.setItem(storageKey, now.toISOString());
-    localStorage.setItem(storageDataKey, JSON.stringify({
-      expiresAt: subscription.expiresAt,
-      status: subscription.status,
-    }));
+    localStorage.setItem(
+      storageDataKey,
+      JSON.stringify({
+        expiresAt: subscription.expiresAt,
+        status: subscription.status,
+      }),
+    );
 
     // ذخیره تاریخ انقضا در store برای نمایش هشدار
     useAuthStore.setState({ subscriptionExpiresAt: subscription.expiresAt });
@@ -295,14 +309,14 @@ async function checkSubscription(user: User | null, token: string): Promise<{ va
   // در حالت آفلاین، از اطلاعات کش شده استفاده می‌کنیم
   const lastCheckStr = localStorage.getItem(storageKey);
   const subscriptionDataStr = localStorage.getItem(storageDataKey);
-  
+
   if (lastCheckStr && subscriptionDataStr) {
     try {
       const lastCheck = new Date(lastCheckStr);
       const subscriptionData = JSON.parse(subscriptionDataStr);
       const now = new Date();
       const expiresAt = new Date(subscriptionData.expiresAt);
-      
+
       // بررسی انقضای اشتراک
       if (expiresAt < now || subscriptionData.status !== 'active') {
         // پاک کردن اطلاعات منقضی شده
@@ -329,4 +343,3 @@ async function checkSubscription(user: User | null, token: string): Promise<{ va
   // اگر آنلاین نیستیم و اطلاعات کش شده نداریم، اجازه نمی‌دهیم
   return { valid: false, message: 'برای بررسی اعتبار اشتراک، اتصال اینترنت لازم است' };
 }
-

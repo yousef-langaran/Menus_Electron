@@ -38,7 +38,10 @@ const normalizePriceInput = (v: string) =>
     .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
     .replace(/[^\d]/g, '');
 
-const STATUS_CONFIG: Record<string, { label: string; color: 'warning' | 'success' | 'danger' | 'default' }> = {
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; color: 'warning' | 'success' | 'danger' | 'default' }
+> = {
   draft: { label: 'پیش‌نویس', color: 'warning' },
   approved: { label: 'تایید شده', color: 'success' },
   cancelled: { label: 'لغو شده', color: 'danger' },
@@ -95,7 +98,9 @@ export default function AccountingPurchaseReturnsPage() {
         await upsertPulledPurchaseReturns(serverRows.map((r: any) => ({ ...r, restaurantId })));
         if (items.length) await upsertPulledPurchaseReturnItems(items);
       }
-      setReturns([...serverRows].sort((a, b) => String(b.returnDate).localeCompare(String(a.returnDate))));
+      setReturns(
+        [...serverRows].sort((a, b) => String(b.returnDate).localeCompare(String(a.returnDate))),
+      );
     } catch {
       setIsOnline(false);
       const local = await accountingDb.purchaseReturns
@@ -115,17 +120,18 @@ export default function AccountingPurchaseReturnsPage() {
         .equals(restaurantId)
         .filter((x) => x.status === 'approved')
         .toArray(),
-      accountingDb.suppliers
-        .where('restaurantId')
-        .equals(restaurantId)
-        .toArray(),
+      accountingDb.suppliers.where('restaurantId').equals(restaurantId).toArray(),
     ]);
     setApprovedInvoices(invs);
     setSuppliers(sups);
   }, [restaurantId, token, fiscalYearId]);
 
-  useEffect(() => { void reload(); }, [reload]);
-  useEffect(() => { if (lastSyncedAt) void reload(); }, [lastSyncedAt, reload]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+  useEffect(() => {
+    if (lastSyncedAt) void reload();
+  }, [lastSyncedAt, reload]);
 
   // اگر از صفحه فاکتورها با invoiceId آمده باشیم، مودال را باز کن
   useEffect(() => {
@@ -140,7 +146,10 @@ export default function AccountingPurchaseReturnsPage() {
 
   // ─── لود آیتم‌های فاکتور انتخاب‌شده ──────────────────────────────────────
   useEffect(() => {
-    if (!selectedInvoiceId) { setReturnItems([]); return; }
+    if (!selectedInvoiceId) {
+      setReturnItems([]);
+      return;
+    }
     const loadItems = async () => {
       setLoadingInvoiceItems(true);
       const invoiceId = Number(selectedInvoiceId);
@@ -150,9 +159,13 @@ export default function AccountingPurchaseReturnsPage() {
       const mapped: ReturnItem[] = lineItems.map((x: any) => {
         let name = '—';
         if (x.rawMaterialId) {
-          name = materials.find((m) => m.id === Number(x.rawMaterialId))?.name || `ماده #${x.rawMaterialId}`;
+          name =
+            materials.find((m) => m.id === Number(x.rawMaterialId))?.name ||
+            `ماده #${x.rawMaterialId}`;
         } else if (x.finalProductId) {
-          name = finalProducts.find((fp) => fp.id === Number(x.finalProductId))?.name || `محصول #${x.finalProductId}`;
+          name =
+            finalProducts.find((fp) => fp.id === Number(x.finalProductId))?.name ||
+            `محصول #${x.finalProductId}`;
         }
         return {
           rawMaterialId: String(x.rawMaterialId || ''),
@@ -170,17 +183,22 @@ export default function AccountingPurchaseReturnsPage() {
   }, [selectedInvoiceId]);
 
   // ─── نام تامین‌کننده برای فاکتور ─────────────────────────────────────────
-  const invoiceOptions = useMemo(() =>
-    approvedInvoices.map((inv) => {
-      const sup = suppliers.find((s) => s.id === inv.supplierId)?.name || '—';
-      return { id: String(inv.id), label: `#${inv.invoiceNumber} — ${sup}` };
-    }),
+  const invoiceOptions = useMemo(
+    () =>
+      approvedInvoices.map((inv) => {
+        const sup = suppliers.find((s) => s.id === inv.supplierId)?.name || '—';
+        return { id: String(inv.id), label: `#${inv.invoiceNumber} — ${sup}` };
+      }),
     [approvedInvoices, suppliers],
   );
 
   // ─── کل مرجوعی ──────────────────────────────────────────────────────────
-  const totalAmount = useMemo(() =>
-    returnItems.reduce((s, i) => s + Number(i.quantity || 0) * Number(normalizePriceInput(i.unitPrice) || 0), 0),
+  const totalAmount = useMemo(
+    () =>
+      returnItems.reduce(
+        (s, i) => s + Number(i.quantity || 0) * Number(normalizePriceInput(i.unitPrice) || 0),
+        0,
+      ),
     [returnItems],
   );
 
@@ -285,7 +303,10 @@ export default function AccountingPurchaseReturnsPage() {
           <Button
             color="primary"
             size="sm"
-            onPress={() => { resetCreateForm(); setCreateOpen(true); }}
+            onPress={() => {
+              resetCreateForm();
+              setCreateOpen(true);
+            }}
           >
             + ثبت مرجوعی
           </Button>
@@ -294,7 +315,8 @@ export default function AccountingPurchaseReturnsPage() {
 
       {!isOnline && (
         <div className="rounded-2xl border border-warning/30 bg-warning-soft px-4 py-3 text-warning-soft-foreground text-sm">
-          اتصال به سرور برقرار نیست — تغییرات ذخیره می‌شوند و پس از برقراری اتصال همگام‌سازی خواهند شد.
+          اتصال به سرور برقرار نیست — تغییرات ذخیره می‌شوند و پس از برقراری اتصال همگام‌سازی خواهند
+          شد.
         </div>
       )}
 
@@ -307,14 +329,29 @@ export default function AccountingPurchaseReturnsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="w-14 h-14 rounded-full bg-default flex items-center justify-center">
-              <svg className="w-7 h-7 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
+              <svg
+                className="w-7 h-7 text-muted"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z"
+                />
               </svg>
             </div>
             <p className="text-muted text-sm">هیچ مرجوعی خریدی ثبت نشده است</p>
             {isOnline && (
-              <Button color="primary" onPress={() => { resetCreateForm(); setCreateOpen(true); }}>
+              <Button
+                color="primary"
+                onPress={() => {
+                  resetCreateForm();
+                  setCreateOpen(true);
+                }}
+              >
                 ثبت اولین مرجوعی
               </Button>
             )}
@@ -326,12 +363,12 @@ export default function AccountingPurchaseReturnsPage() {
             const cfg = STATUS_CONFIG[ret.status] ?? STATUS_CONFIG.draft;
             const isDraft = ret.status === 'draft';
             const isLoading = actionLoading === ret.id;
-            const supplierName = ret.supplier?.name
-              || suppliers.find((s) => s.id === ret.supplierId)?.name
-              || '—';
-            const invoiceNumber = ret.purchaseInvoice?.invoiceNumber
-              || approvedInvoices.find((i) => i.id === ret.purchaseInvoiceId)?.invoiceNumber
-              || ret.purchaseInvoiceId;
+            const supplierName =
+              ret.supplier?.name || suppliers.find((s) => s.id === ret.supplierId)?.name || '—';
+            const invoiceNumber =
+              ret.purchaseInvoice?.invoiceNumber ||
+              approvedInvoices.find((i) => i.id === ret.purchaseInvoiceId)?.invoiceNumber ||
+              ret.purchaseInvoiceId;
             return (
               <Card key={ret.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="py-3 px-4">
@@ -355,9 +392,7 @@ export default function AccountingPurchaseReturnsPage() {
                           </span>
                         )}
                       </div>
-                      {ret.notes && (
-                        <p className="text-xs text-muted truncate">{ret.notes}</p>
-                      )}
+                      {ret.notes && <p className="text-xs text-muted truncate">{ret.notes}</p>}
                     </div>
                     {isDraft && isOnline && (
                       <div className="flex gap-1 shrink-0">
@@ -390,7 +425,15 @@ export default function AccountingPurchaseReturnsPage() {
       )}
 
       {/* Create Modal */}
-      <Modal isOpen={createOpen} onOpenChange={(open) => { if (!open) { resetCreateForm(); } setCreateOpen(open); }}>
+      <Modal
+        isOpen={createOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            resetCreateForm();
+          }
+          setCreateOpen(open);
+        }}
+      >
         <ModalShell size="lg">
           <ModalHeader>ثبت برگشت از خرید</ModalHeader>
           <ModalBody className="gap-4" dir="rtl">
@@ -464,9 +507,15 @@ export default function AccountingPurchaseReturnsPage() {
                           type="text"
                           inputMode="numeric"
                           label="قیمت واحد"
-                          value={new Intl.NumberFormat('en-US').format(Number(normalizePriceInput(item.unitPrice) || 0))}
-                          onValueChange={(v) => updateReturnItem(idx, { unitPrice: normalizePriceInput(v) })}
-                          endContent={<span className="text-muted text-xs whitespace-nowrap">ریال</span>}
+                          value={new Intl.NumberFormat('en-US').format(
+                            Number(normalizePriceInput(item.unitPrice) || 0),
+                          )}
+                          onValueChange={(v) =>
+                            updateReturnItem(idx, { unitPrice: normalizePriceInput(v) })
+                          }
+                          endContent={
+                            <span className="text-muted text-xs whitespace-nowrap">ریال</span>
+                          }
                         />
                       </div>
                     </div>
@@ -476,14 +525,22 @@ export default function AccountingPurchaseReturnsPage() {
                 {totalAmount > 0 && (
                   <div className="rounded-2xl bg-success-soft border border-success/30 px-4 py-3">
                     <span className="text-sm text-success-soft-foreground">جمع مرجوعی: </span>
-                    <span className="font-bold text-success-soft-foreground">{formatCurrency(totalAmount)}</span>
+                    <span className="font-bold text-success-soft-foreground">
+                      {formatCurrency(totalAmount)}
+                    </span>
                   </div>
                 )}
               </>
             )}
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => { resetCreateForm(); setCreateOpen(false); }}>
+            <Button
+              variant="flat"
+              onPress={() => {
+                resetCreateForm();
+                setCreateOpen(false);
+              }}
+            >
               انصراف
             </Button>
             <Button

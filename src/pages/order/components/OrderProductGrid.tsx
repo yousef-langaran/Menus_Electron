@@ -18,8 +18,16 @@ const MAX_THUMB_RETRIES = 3;
  * here might be a pizza, a haircut service, or a laptop. */
 function ImagePlaceholderIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
       <rect x="3" y="3" width="18" height="18" rx="2" />
       <circle cx="8.5" cy="8.5" r="1.5" />
       <path d="M21 15l-5-5L5 21" />
@@ -52,9 +60,12 @@ function ProductThumb({ src, alt }: { src: string; alt: string }) {
     setFailed(false);
   }, [src]);
 
-  useEffect(() => () => {
-    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    },
+    [],
+  );
 
   if (failed) return <ImagePlaceholder />;
 
@@ -111,9 +122,15 @@ interface Props {
 }
 
 export function OrderProductGrid({
-  products, categories, searchTerm,
-  onProductClick, onBarcodeAdd, formatPrice, staffCartUnitPrice,
-  orderEditLoading, isLoading,
+  products,
+  categories,
+  searchTerm,
+  onProductClick,
+  onBarcodeAdd,
+  formatPrice,
+  staffCartUnitPrice,
+  orderEditLoading,
+  isLoading,
 }: Props) {
   const showProductImages = useCatalogDisplayStore((s) => s.showProductImages);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -122,16 +139,21 @@ export function OrderProductGrid({
   const scanBufferRef = useRef('');
   const scanLastKeyAtRef = useRef(0);
 
-  const filteredProducts = useMemo(() => products.filter((p) => {
-    const categoryMatch = !selectedCategory || p.category?.name_fa === selectedCategory;
-    const term = normalizeNameFa(searchTerm).toLowerCase();
-    const searchMatch = !term ||
-      normalizeNameFa(p.name_fa).toLowerCase().includes(term) ||
-      normalizeNameFa(p.name).toLowerCase().includes(term) ||
-      smartSearchMatch(p.name_fa, searchTerm) ||
-      smartSearchMatch(p.name, searchTerm);
-    return categoryMatch && searchMatch;
-  }), [products, selectedCategory, searchTerm]);
+  const filteredProducts = useMemo(
+    () =>
+      products.filter((p) => {
+        const categoryMatch = !selectedCategory || p.category?.name_fa === selectedCategory;
+        const term = normalizeNameFa(searchTerm).toLowerCase();
+        const searchMatch =
+          !term ||
+          normalizeNameFa(p.name_fa).toLowerCase().includes(term) ||
+          normalizeNameFa(p.name).toLowerCase().includes(term) ||
+          smartSearchMatch(p.name_fa, searchTerm) ||
+          smartSearchMatch(p.name, searchTerm);
+        return categoryMatch && searchMatch;
+      }),
+    [products, selectedCategory, searchTerm],
+  );
 
   // تعداد واقعی محصولات هر دسته — از خودِ داده محاسبه می‌شود (هیچ دسته/شمارشی Hard-Code نیست)
   const categoryCounts = useMemo(() => {
@@ -157,7 +179,11 @@ export function OrderProductGrid({
     // [minWidth, columns] — ordered ascending; widen this table (not the density of any
     // one card) to add more columns on larger screens.
     const BREAKPOINTS: [number, number][] = [
-      [0, 2], [480, 3], [640, 4], [860, 5], [1080, 6],
+      [0, 2],
+      [480, 3],
+      [640, 4],
+      [860, 5],
+      [1080, 6],
     ];
     const colsForWidth = (w: number) => {
       let cols = BREAKPOINTS[0][1];
@@ -171,10 +197,11 @@ export function OrderProductGrid({
       if (up === current || down === current) return current;
       return up;
     };
-    const update = (w: number) => setColCount((prev) => {
-      const next = calc(w, prev);
-      return next === prev ? prev : next;
-    });
+    const update = (w: number) =>
+      setColCount((prev) => {
+        const next = calc(w, prev);
+        return next === prev ? prev : next;
+      });
     update(el.clientWidth);
     const obs = new ResizeObserver((entries) => update(entries[0].contentRect.width));
     obs.observe(el);
@@ -182,7 +209,7 @@ export function OrderProductGrid({
   }, []);
 
   const productRows = useMemo(() => {
-    const rows: (typeof filteredProducts[number])[][] = [];
+    const rows: (typeof filteredProducts)[number][][] = [];
     for (let i = 0; i < filteredProducts.length; i += colCount) {
       rows.push(filteredProducts.slice(i, i + colCount));
     }
@@ -207,7 +234,10 @@ export function OrderProductGrid({
       // مثلاً تایپ شماره موبایل مشتری در مودال پرداخت و زدن Enter برای «چاپ»، به‌عنوان
       // بارکد ناموجود تفسیر می‌شود و مودال «افزودن محصول» را به‌جای عملیات مدنظر کاربر باز می‌کند.
       const active = document.activeElement as HTMLElement | null;
-      if (active?.closest('input, textarea, [contenteditable="true"]') || active?.closest('[role="dialog"]')) {
+      if (
+        active?.closest('input, textarea, [contenteditable="true"]') ||
+        active?.closest('[role="dialog"]')
+      ) {
         scanBufferRef.current = '';
         scanLastKeyAtRef.current = 0;
         return;
@@ -218,7 +248,11 @@ export function OrderProductGrid({
         const code = normalizeBarcode(scanBufferRef.current);
         scanBufferRef.current = '';
         scanLastKeyAtRef.current = 0;
-        if (code.length >= 3) { e.preventDefault(); e.stopPropagation(); onBarcodeAdd(code); }
+        if (code.length >= 3) {
+          e.preventDefault();
+          e.stopPropagation();
+          onBarcodeAdd(code);
+        }
         return;
       }
       if (now - scanLastKeyAtRef.current > 250) scanBufferRef.current = '';
@@ -245,7 +279,11 @@ export function OrderProductGrid({
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       const active = document.activeElement as HTMLElement | null;
-      if (active?.closest('input, textarea, [contenteditable="true"]') || active?.closest('[role="dialog"]')) return;
+      if (
+        active?.closest('input, textarea, [contenteditable="true"]') ||
+        active?.closest('[role="dialog"]')
+      )
+        return;
       const text = e.clipboardData?.getData('text/plain') || '';
       const code = normalizeBarcode(text);
       if (code.length < 3) return;
@@ -262,21 +300,28 @@ export function OrderProductGrid({
   return (
     <div className="flex flex-row h-full min-h-0 overflow-hidden w-full">
       {/* Product grid */}
-      <div ref={productGridRef} className="w-full flex-1 min-h-0 overflow-y-scroll p-2 sm:p-3 min-w-0 relative">
+      <div
+        ref={productGridRef}
+        className="w-full flex-1 min-h-0 overflow-y-scroll p-2 sm:p-3 min-w-0 relative"
+      >
         {orderEditLoading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-surface/80 text-foreground/70 text-sm">
             در حال بارگذاری فاکتور...
           </div>
         )}
         {isLoading ? (
-          <div className="flex items-center justify-center py-12 text-muted">در حال بارگذاری...</div>
+          <div className="flex items-center justify-center py-12 text-muted">
+            در حال بارگذاری...
+          </div>
         ) : filteredProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-1 py-16 text-muted text-sm text-center">
-            {searchTerm
-              ? <p>نتیجه‌ای برای «{searchTerm}» یافت نشد</p>
-              : selectedCategory
-                ? <p>محصولی در این دسته وجود ندارد</p>
-                : <p>هنوز محصولی ثبت نشده است</p>}
+            {searchTerm ? (
+              <p>نتیجه‌ای برای «{searchTerm}» یافت نشد</p>
+            ) : selectedCategory ? (
+              <p>محصولی در این دسته وجود ندارد</p>
+            ) : (
+              <p>هنوز محصولی ثبت نشده است</p>
+            )}
           </div>
         ) : (
           <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
@@ -286,11 +331,15 @@ export function OrderProductGrid({
                 ref={virtualizer.measureElement}
                 data-index={virtualRow.index}
                 style={{
-                  position: 'absolute', top: 0, left: 0, right: 0,
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
                   transform: `translateY(${virtualRow.start}px)`,
                   display: 'grid',
                   gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
-                  gap: '0.625rem', paddingBottom: '0.625rem',
+                  gap: '0.625rem',
+                  paddingBottom: '0.625rem',
                 }}
               >
                 {productRows[virtualRow.index].map((product) => (
@@ -337,7 +386,9 @@ export function OrderProductGrid({
       {/* Category sidebar — سمت چپ لیست محصولات، بر اساس دادهٔ سرور: بدون هیچ دسته/آیکون Hard-Code شده.
           نقطهٔ رنگی هر ردیف صرفاً برای تمایز بصری است و از هش نام دسته ساخته می‌شود. */}
       <aside className="w-56 flex-shrink-0 border-s border-border p-3 flex flex-col overflow-y-auto bg-surface">
-        <span className="mb-2 w-full text-right text-sm font-semibold text-foreground px-1 pb-2 border-b border-border">دسته‌بندی‌ها</span>
+        <span className="mb-2 w-full text-right text-sm font-semibold text-foreground px-1 pb-2 border-b border-border">
+          دسته‌بندی‌ها
+        </span>
         <div className="flex flex-col divide-y divide-border">
           <button
             type="button"
@@ -350,46 +401,52 @@ export function OrderProductGrid({
             ].join(' ')}
           >
             <span>همه</span>
-            <span className={[
-              'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
-              selectedCategory === '' ? 'bg-white/25' : 'bg-default-soft text-muted',
-            ].join(' ')}>
+            <span
+              className={[
+                'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
+                selectedCategory === '' ? 'bg-white/25' : 'bg-default-soft text-muted',
+              ].join(' ')}
+            >
               {products.length}
             </span>
           </button>
           {categories.length === 0 ? (
             <p className="px-2.5 py-2 text-xs text-muted">هنوز دسته‌بندی‌ای ایجاد نشده است</p>
-          ) : categories.map((cat) => {
-            const isActive = selectedCategory === cat;
-            return (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedCategory(cat)}
-                className={[
-                  'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2.5 text-right text-sm transition',
-                  isActive
-                    ? 'bg-accent text-accent-foreground font-semibold shadow-sm'
-                    : 'text-foreground/80 hover:bg-default-soft',
-                ].join(' ')}
-              >
-                <span className="flex min-w-0 items-center gap-2">
+          ) : (
+            categories.map((cat) => {
+              const isActive = selectedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={[
+                    'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2.5 text-right text-sm transition',
+                    isActive
+                      ? 'bg-accent text-accent-foreground font-semibold shadow-sm'
+                      : 'text-foreground/80 hover:bg-default-soft',
+                  ].join(' ')}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span
+                      aria-hidden
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: isActive ? 'currentColor' : categoryAccent(cat) }}
+                    />
+                    <span className="truncate leading-snug whitespace-normal">{cat}</span>
+                  </span>
                   <span
-                    aria-hidden
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: isActive ? 'currentColor' : categoryAccent(cat) }}
-                  />
-                  <span className="truncate leading-snug whitespace-normal">{cat}</span>
-                </span>
-                <span className={[
-                  'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
-                  isActive ? 'bg-white/25' : 'bg-default-soft text-muted',
-                ].join(' ')}>
-                  {categoryCounts.get(cat) ?? 0}
-                </span>
-              </button>
-            );
-          })}
+                    className={[
+                      'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
+                      isActive ? 'bg-white/25' : 'bg-default-soft text-muted',
+                    ].join(' ')}
+                  >
+                    {categoryCounts.get(cat) ?? 0}
+                  </span>
+                </button>
+              );
+            })
+          )}
         </div>
       </aside>
     </div>

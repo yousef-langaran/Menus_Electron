@@ -58,7 +58,9 @@ export default function CategoriesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<CategoryForm>(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true,
+  );
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // هنگام رفرش داده‌های قبلی روی صفحه می‌مانند تا صفحه پرش نکند؛
@@ -132,7 +134,9 @@ export default function CategoriesPage() {
           description: form.description.trim() || '',
           hasVat: form.hasVat,
         });
-        isOnline ? toast.success('دسته‌بندی ویرایش شد') : toast.info('دسته‌بندی ذخیره شد — در انتظار سینک');
+        isOnline
+          ? toast.success('دسته‌بندی ویرایش شد')
+          : toast.info('دسته‌بندی ذخیره شد — در انتظار سینک');
       } else {
         await createCategoryLocal({
           restaurantId,
@@ -141,7 +145,9 @@ export default function CategoriesPage() {
           description: form.description.trim() || undefined,
           hasVat: form.hasVat,
         });
-        isOnline ? toast.success('دسته‌بندی جدید ثبت شد') : toast.info('دسته‌بندی ذخیره شد — در انتظار سینک');
+        isOnline
+          ? toast.success('دسته‌بندی جدید ثبت شد')
+          : toast.info('دسته‌بندی ذخیره شد — در انتظار سینک');
       }
       setModalOpen(false);
       await loadFromDb(true);
@@ -175,9 +181,8 @@ export default function CategoriesPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
-    return rows.filter((c) =>
-      c.name_fa.toLowerCase().includes(q) ||
-      (c.name || '').toLowerCase().includes(q),
+    return rows.filter(
+      (c) => c.name_fa.toLowerCase().includes(q) || (c.name || '').toLowerCase().includes(q),
     );
   }, [rows, search]);
 
@@ -194,8 +199,15 @@ export default function CategoriesPage() {
       <div className="p-6 max-w-5xl mx-auto space-y-4">
         <Card>
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <Input label="جستجو" placeholder="نام دسته‌بندی" value={search} onValueChange={setSearch} />
-            <Button color="primary" onPress={openCreate}>افزودن دسته‌بندی جدید</Button>
+            <Input
+              label="جستجو"
+              placeholder="نام دسته‌بندی"
+              value={search}
+              onValueChange={setSearch}
+            />
+            <Button color="primary" onPress={openCreate}>
+              افزودن دسته‌بندی جدید
+            </Button>
           </CardContent>
         </Card>
         <Card>
@@ -250,11 +262,25 @@ export default function CategoriesPage() {
       </div>
       <Modal isOpen={modalOpen} onOpenChange={setModalOpen}>
         <ModalShell size="lg">
-          <ModalHeader>{form.id !== undefined ? 'ویرایش دسته‌بندی' : 'افزودن دسته‌بندی'}</ModalHeader>
+          <ModalHeader>
+            {form.id !== undefined ? 'ویرایش دسته‌بندی' : 'افزودن دسته‌بندی'}
+          </ModalHeader>
           <ModalBody className="grid grid-cols-1 gap-3">
-            <Input label="نام فارسی" value={form.name_fa} onValueChange={(v) => setForm((f) => ({ ...f, name_fa: v }))} />
-            <Input label="نام انگلیسی (اختیاری)" value={form.name} onValueChange={(v) => setForm((f) => ({ ...f, name: v }))} />
-            <Input label="توضیحات (اختیاری)" value={form.description} onValueChange={(v) => setForm((f) => ({ ...f, description: v }))} />
+            <Input
+              label="نام فارسی"
+              value={form.name_fa}
+              onValueChange={(v) => setForm((f) => ({ ...f, name_fa: v }))}
+            />
+            <Input
+              label="نام انگلیسی (اختیاری)"
+              value={form.name}
+              onValueChange={(v) => setForm((f) => ({ ...f, name: v }))}
+            />
+            <Input
+              label="توضیحات (اختیاری)"
+              value={form.description}
+              onValueChange={(v) => setForm((f) => ({ ...f, description: v }))}
+            />
             <div className="rounded-lg border border-border p-3 space-y-1">
               <SwitchCompat
                 isSelected={form.hasVat}
@@ -263,13 +289,15 @@ export default function CategoriesPage() {
                 مشمول مالیات بر ارزش افزوده
               </SwitchCompat>
               <p className="text-xs text-muted">
-                قیمت نمایشی محصولات این دسته تغییر نمی‌کند؛ مبلغ ارزش افزوده فقط هنگام تسویه
-                زیر ردیف تخفیف در فیش نوشته و به مبلغ قابل پرداخت اضافه می‌شود.
+                قیمت نمایشی محصولات این دسته تغییر نمی‌کند؛ مبلغ ارزش افزوده فقط هنگام تسویه زیر
+                ردیف تخفیف در فیش نوشته و به مبلغ قابل پرداخت اضافه می‌شود.
               </p>
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" onPress={() => setModalOpen(false)}>انصراف</Button>
+            <Button variant="light" onPress={() => setModalOpen(false)}>
+              انصراف
+            </Button>
             <Button color="primary" isLoading={saving} onPress={submit}>
               {form.id !== undefined ? 'ذخیره تغییرات' : 'ثبت دسته‌بندی'}
             </Button>

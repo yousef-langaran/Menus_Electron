@@ -57,7 +57,8 @@ export function NameAutocomplete({
       if (
         wrapperRef.current?.contains(e.target as Node) ||
         dropdownRef.current?.contains(e.target as Node)
-      ) return;
+      )
+        return;
       setRect(null);
     };
     document.addEventListener('pointerdown', handle);
@@ -101,8 +102,10 @@ export function NameAutocomplete({
                   style={{
                     padding: '10px 16px',
                     cursor: 'pointer',
-                    backgroundColor: hoveredId === s.id ? 'var(--color-surface-secondary)' : 'transparent',
-                    borderBottom: i < suggestions.length - 1 ? '1px solid var(--color-border)' : 'none',
+                    backgroundColor:
+                      hoveredId === s.id ? 'var(--color-surface-secondary)' : 'transparent',
+                    borderBottom:
+                      i < suggestions.length - 1 ? '1px solid var(--color-border)' : 'none',
                     textAlign: 'right',
                     direction: 'rtl',
                     transition: 'background-color 100ms',
@@ -115,11 +118,18 @@ export function NameAutocomplete({
                     setRect(null);
                   }}
                 >
-                  <div style={{ fontSize: '14px', fontWeight: 500, lineHeight: 1.4 }}>
-                    {s.name}
-                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 500, lineHeight: 1.4 }}>{s.name}</div>
                   {s.barcode && (
-                    <div style={{ fontSize: '12px', color: 'var(--color-muted)', fontFamily: 'monospace', marginTop: '2px', direction: 'ltr', textAlign: 'left' }}>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--color-muted)',
+                        fontFamily: 'monospace',
+                        marginTop: '2px',
+                        direction: 'ltr',
+                        textAlign: 'left',
+                      }}
+                    >
                       {s.barcode}
                     </div>
                   )}

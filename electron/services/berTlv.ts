@@ -23,7 +23,10 @@ export function encodeConstructedTLV(tag: number, children: Buffer[]): Buffer {
   return encodeTLV(tag, Buffer.concat(children));
 }
 
-export function decodeLength(buf: Buffer, offset: number): { length: number; bytesConsumed: number } {
+export function decodeLength(
+  buf: Buffer,
+  offset: number,
+): { length: number; bytesConsumed: number } {
   const first = buf[offset];
   if (first < 0x80) return { length: first, bytesConsumed: 1 };
   const numBytes = first & 0x7f;

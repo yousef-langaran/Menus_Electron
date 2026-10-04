@@ -30,7 +30,9 @@ export function AccountingSyncManager() {
         const result = await runAccountingSync({ restaurantId, token, forceFullSync });
         if (result.syncedAt) setLastSyncedAt(result.syncedAt);
         if (result.pushFailed > 0) {
-          setLastError(`همگام‌سازی حسابداری: ${result.pushFailed} عملیات ناموفق — داده‌ها در صف منتظرند`);
+          setLastError(
+            `همگام‌سازی حسابداری: ${result.pushFailed} عملیات ناموفق — داده‌ها در صف منتظرند`,
+          );
         } else {
           setLastError(null);
         }
@@ -56,7 +58,10 @@ export function AccountingSyncManager() {
     const onFocus = () => scheduleAccountingSync(() => sync('focus'));
     window.addEventListener('online', onOnline);
     window.addEventListener('focus', onFocus);
-    const interval = window.setInterval(() => scheduleAccountingSync(() => sync('interval')), 30_000);
+    const interval = window.setInterval(
+      () => scheduleAccountingSync(() => sync('interval')),
+      30_000,
+    );
     const queueRefresh = window.setInterval(() => void refreshQueue(), 7_000);
 
     return () => {
@@ -65,15 +70,7 @@ export function AccountingSyncManager() {
       window.clearInterval(interval);
       window.clearInterval(queueRefresh);
     };
-  }, [
-    token,
-    user,
-    restaurantId,
-    setLastError,
-    setLastSyncedAt,
-    setQueueState,
-    setSyncing,
-  ]);
+  }, [token, user, restaurantId, setLastError, setLastSyncedAt, setQueueState, setSyncing]);
 
   return null;
 }

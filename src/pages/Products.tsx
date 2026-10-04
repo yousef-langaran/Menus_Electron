@@ -25,8 +25,20 @@ import { toast } from '../utils/toast';
 const PAGE_SIZE = 20;
 
 const PRODUCT_UNITS = [
-  'عدد', 'کیلوگرم', 'گرم', 'لیتر', 'میلی‌لیتر',
-  'متر', 'سانتی‌متر', 'بسته', 'جعبه', 'پرس', 'وعده', 'پیمانه', 'قوطی', 'بطری',
+  'عدد',
+  'کیلوگرم',
+  'گرم',
+  'لیتر',
+  'میلی‌لیتر',
+  'متر',
+  'سانتی‌متر',
+  'بسته',
+  'جعبه',
+  'پرس',
+  'وعده',
+  'پیمانه',
+  'قوطی',
+  'بطری',
 ];
 
 const SCALE_UNITS = ['کیلوگرم', 'گرم'];
@@ -66,8 +78,7 @@ const normalizeDigits = (value: string) =>
     .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
     .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776));
 
-const normalizePriceInput = (value: string) =>
-  normalizeDigits(value).replace(/[^\d]/g, '');
+const normalizePriceInput = (value: string) => normalizeDigits(value).replace(/[^\d]/g, '');
 
 const formatPriceInput = (value: string) => {
   const digits = normalizePriceInput(value);
@@ -75,7 +86,13 @@ const formatPriceInput = (value: string) => {
   return new Intl.NumberFormat('en-US').format(Number(digits));
 };
 
-function SyncBadge({ status, error }: { status: LocalProduct['_syncStatus']; error?: string | null }) {
+function SyncBadge({
+  status,
+  error,
+}: {
+  status: LocalProduct['_syncStatus'];
+  error?: string | null;
+}) {
   if (status === 'synced') return null;
   if (status === 'pending_create' || status === 'pending_update') {
     return (
@@ -85,7 +102,10 @@ function SyncBadge({ status, error }: { status: LocalProduct['_syncStatus']; err
     );
   }
   return (
-    <span className="text-xs bg-danger-soft text-danger-soft-foreground border border-danger/40 px-2 py-0.5 rounded-full" title={error ?? ''}>
+    <span
+      className="text-xs bg-danger-soft text-danger-soft-foreground border border-danger/40 px-2 py-0.5 rounded-full"
+      title={error ?? ''}
+    >
       خطای سینک
     </span>
   );
@@ -108,10 +128,14 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const scanBufferRef = useRef('');
   const scanLastKeyAtRef = useRef(0);
-  const [nameSuggestions, setNameSuggestions] = useState<import('../services/api').MasterProduct[]>([]);
+  const [nameSuggestions, setNameSuggestions] = useState<import('../services/api').MasterProduct[]>(
+    [],
+  );
   const nameSuggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true,
+  );
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // فیلترهای اضافه
@@ -121,7 +145,13 @@ export default function ProductsPage() {
   const [filterUnit, setFilterUnit] = useState('');
   const [filterHasError, setFilterHasError] = useState(false);
 
-  const hasActiveFilters = !!(filterSyncStatus || filterMinPrice || filterMaxPrice || filterUnit || filterHasError);
+  const hasActiveFilters = !!(
+    filterSyncStatus ||
+    filterMinPrice ||
+    filterMaxPrice ||
+    filterUnit ||
+    filterHasError
+  );
 
   const clearExtraFilters = () => {
     setFilterSyncStatus('');
@@ -139,13 +169,27 @@ export default function ProductsPage() {
     const maxPrice = Number(normalizePriceInput(filterMaxPrice) || 0);
     return allProducts.filter((p) => {
       const catMatch = selectedCategoryId === null || p.category_id === selectedCategoryId;
-      const searchMatch = !q || normalizeNameFa(p.name_fa).toLowerCase().includes(q) || normalizeNameFa(p.name).toLowerCase().includes(q) || (p.barcode || '').includes(q) || smartSearchMatch(p.name_fa, search) || smartSearchMatch(p.name, search);
+      const searchMatch =
+        !q ||
+        normalizeNameFa(p.name_fa).toLowerCase().includes(q) ||
+        normalizeNameFa(p.name).toLowerCase().includes(q) ||
+        (p.barcode || '').includes(q) ||
+        smartSearchMatch(p.name_fa, search) ||
+        smartSearchMatch(p.name, search);
       const syncMatch = !filterSyncStatus || p._syncStatus === filterSyncStatus;
       const minPriceMatch = minPrice === 0 || p.price >= minPrice;
       const maxPriceMatch = maxPrice === 0 || p.price <= maxPrice;
       const unitMatch = !filterUnit || (p.unit || 'عدد') === filterUnit;
       const errorMatch = !filterHasError || p._syncStatus === 'failed';
-      return catMatch && searchMatch && syncMatch && minPriceMatch && maxPriceMatch && unitMatch && errorMatch;
+      return (
+        catMatch &&
+        searchMatch &&
+        syncMatch &&
+        minPriceMatch &&
+        maxPriceMatch &&
+        unitMatch &&
+        errorMatch
+      );
     });
   })();
   const total = filteredProducts.length;
@@ -207,13 +251,17 @@ export default function ProductsPage() {
     setPage(1);
   };
 
-  useEffect(() => { setPage(1); }, [filterSyncStatus, filterMinPrice, filterMaxPrice, filterUnit, filterHasError]);
+  useEffect(() => {
+    setPage(1);
+  }, [filterSyncStatus, filterMinPrice, filterMaxPrice, filterUnit, filterHasError]);
 
   const openCreate = (barcode: string) => {
     setForm({
       ...emptyForm,
       barcode,
-      category_id: String(categories.find((c) => c._syncStatus === 'synced')?.id || categories[0]?.id || ''),
+      category_id: String(
+        categories.find((c) => c._syncStatus === 'synced')?.id || categories[0]?.id || '',
+      ),
       unit: 'عدد',
     });
     setModalOpen(true);
@@ -299,7 +347,9 @@ export default function ProductsPage() {
             e.stopPropagation();
             if (modalOpen) {
               setForm((prev) => ({ ...prev, barcode: code }));
-              toast.info(form.id ? 'بارکد در فرم ویرایش اعمال شد.' : 'بارکد در فرم افزودن اعمال شد.');
+              toast.info(
+                form.id ? 'بارکد در فرم ویرایش اعمال شد.' : 'بارکد در فرم افزودن اعمال شد.',
+              );
             } else {
               void handleBarcodeActionWithCode(code);
             }
@@ -346,7 +396,9 @@ export default function ProductsPage() {
 
     const normalizedNameFa = normalizeNameFa(form.name_fa);
     const dupName = allProducts.find(
-      (p) => (form.id === undefined || p.id !== form.id) && normalizeNameFa(p.name_fa) === normalizedNameFa,
+      (p) =>
+        (form.id === undefined || p.id !== form.id) &&
+        normalizeNameFa(p.name_fa) === normalizedNameFa,
     );
     if (dupName) {
       toast.error(`نام فارسی «${normalizedNameFa}» قبلاً ثبت شده است`);
@@ -356,7 +408,9 @@ export default function ProductsPage() {
     const normalizedBarcode = normalizeBarcode(form.barcode);
     if (normalizedBarcode) {
       const dupBarcode = allProducts.find(
-        (p) => (form.id === undefined || p.id !== form.id) && normalizeBarcode(p.barcode || '') === normalizedBarcode,
+        (p) =>
+          (form.id === undefined || p.id !== form.id) &&
+          normalizeBarcode(p.barcode || '') === normalizedBarcode,
       );
       if (dupBarcode) {
         toast.error(`بارکد تکراری است — قبلاً برای «${dupBarcode.name_fa}» ثبت شده`);
@@ -389,7 +443,9 @@ export default function ProductsPage() {
           useScaleForWeight: form.useScaleForWeight,
           isAvailable: true,
         });
-        isOnline ? toast.success('محصول جدید ثبت شد') : toast.info('محصول ذخیره شد — در انتظار سینک');
+        isOnline
+          ? toast.success('محصول جدید ثبت شد')
+          : toast.info('محصول ذخیره شد — در انتظار سینک');
       }
       setModalOpen(false);
       await loadFromDb(true);
@@ -423,7 +479,9 @@ export default function ProductsPage() {
       <div className="p-6 max-w-6xl mx-auto space-y-4">
         <Card>
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <Button variant="flat" color="secondary" onPress={() => openCreate('')}>افزودن محصول جدید</Button>
+            <Button variant="flat" color="secondary" onPress={() => openCreate('')}>
+              افزودن محصول جدید
+            </Button>
             <Input
               label="جستجو"
               placeholder="نام یا بارکد"
@@ -470,7 +528,9 @@ export default function ProductsPage() {
                   </Button>
                 )}
                 {hasActiveFilters && (
-                  <span className="text-xs text-muted">{total} نتیجه از {allProducts.length} محصول</span>
+                  <span className="text-xs text-muted">
+                    {total} نتیجه از {allProducts.length} محصول
+                  </span>
                 )}
               </div>
             </div>
@@ -492,7 +552,9 @@ export default function ProductsPage() {
                 selectedKeys={filterUnit ? [filterUnit] : []}
                 onSelectionChange={(k) => setFilterUnit(String(Array.from(k)[0] || ''))}
               >
-                {PRODUCT_UNITS.map((u) => <SelectItem key={u}>{u}</SelectItem>)}
+                {PRODUCT_UNITS.map((u) => (
+                  <SelectItem key={u}>{u}</SelectItem>
+                ))}
               </Select>
               <Input
                 size="sm"
@@ -514,17 +576,25 @@ export default function ProductsPage() {
                 type="button"
                 onClick={() => setFilterHasError((v) => !v)}
                 className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors cursor-pointer
-                  ${filterHasError
-                    ? 'bg-[var(--danger-soft)] border-[var(--danger)] text-[var(--danger-soft-foreground)] font-medium'
-                    : 'border-[var(--border)] text-muted hover:bg-[var(--accent-soft-hover)]'
+                  ${
+                    filterHasError
+                      ? 'bg-[var(--danger-soft)] border-[var(--danger)] text-[var(--danger-soft-foreground)] font-medium'
+                      : 'border-[var(--border)] text-muted hover:bg-[var(--accent-soft-hover)]'
                   }`}
               >
-                <span className={`w-3 h-3 rounded-sm border flex-shrink-0 flex items-center justify-center
+                <span
+                  className={`w-3 h-3 rounded-sm border flex-shrink-0 flex items-center justify-center
                   ${filterHasError ? 'bg-[var(--danger)] border-[var(--danger)]' : 'border-border-tertiary'}`}
                 >
                   {filterHasError && (
                     <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-                      <path d="m2 5 2.5 2.5 3.5-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path
+                        d="m2 5 2.5 2.5 3.5-4"
+                        stroke="white"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   )}
                 </span>
@@ -553,15 +623,25 @@ export default function ProductsPage() {
                         <SyncBadge status={p._syncStatus} error={p._syncError} />
                       </div>
                       <div className="text-xs text-muted flex items-center flex-wrap gap-x-2">
-                        <span>بارکد: {p.barcode || '—'} | قیمت: {p.price.toLocaleString('fa-IR')} | {p.unit || 'عدد'}</span>
-                        {(() => { const cat = categories.find((c) => c.id === p.category_id); return cat ? <span>{cat.name_fa || cat.name}</span> : null; })()}
+                        <span>
+                          بارکد: {p.barcode || '—'} | قیمت: {p.price.toLocaleString('fa-IR')} |{' '}
+                          {p.unit || 'عدد'}
+                        </span>
+                        {(() => {
+                          const cat = categories.find((c) => c.id === p.category_id);
+                          return cat ? <span>{cat.name_fa || cat.name}</span> : null;
+                        })()}
                         {(() => {
                           const stock = stockByProductId.get(p.id);
                           const defined = stockByProductId.has(p.id);
                           const isLow = defined && Number(stock) <= 0;
                           return (
                             <span
-                              title={defined ? 'موجودی محصول نهایی' : 'موجودی تعریف‌نشده — این محصول هنوز به کالای حسابداری وصل نشده'}
+                              title={
+                                defined
+                                  ? 'موجودی محصول نهایی'
+                                  : 'موجودی تعریف‌نشده — این محصول هنوز به کالای حسابداری وصل نشده'
+                              }
                               className={isLow ? 'text-danger font-medium' : ''}
                             >
                               موجودی: {defined ? Number(stock).toLocaleString('fa-IR') : '—'}
@@ -576,17 +656,34 @@ export default function ProductsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 mr-2">
-                      <Button size="sm" variant="flat" color="primary" onPress={() => openEdit(p)}>ویرایش</Button>
-                      {p._syncStatus === 'failed' && (
-                        deletingId === p.id ? (
+                      <Button size="sm" variant="flat" color="primary" onPress={() => openEdit(p)}>
+                        ویرایش
+                      </Button>
+                      {p._syncStatus === 'failed' &&
+                        (deletingId === p.id ? (
                           <>
-                            <Button size="sm" variant="flat" color="danger" onPress={() => void handleDeleteFailed(p.id)}>تایید حذف</Button>
-                            <Button size="sm" variant="flat" onPress={() => setDeletingId(null)}>انصراف</Button>
+                            <Button
+                              size="sm"
+                              variant="flat"
+                              color="danger"
+                              onPress={() => void handleDeleteFailed(p.id)}
+                            >
+                              تایید حذف
+                            </Button>
+                            <Button size="sm" variant="flat" onPress={() => setDeletingId(null)}>
+                              انصراف
+                            </Button>
                           </>
                         ) : (
-                          <Button size="sm" variant="flat" color="danger" onPress={() => setDeletingId(p.id)}>حذف</Button>
-                        )
-                      )}
+                          <Button
+                            size="sm"
+                            variant="flat"
+                            color="danger"
+                            onPress={() => setDeletingId(p.id)}
+                          >
+                            حذف
+                          </Button>
+                        ))}
                     </div>
                   </div>
                   {p._syncStatus === 'failed' && p._syncError && (
@@ -603,21 +700,36 @@ export default function ProductsPage() {
         {total > 0 && !loading && (
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-muted">
-              {totalPages > 1 ? `صفحه ${page} از ${totalPages} — ` : ''}{total} محصول
+              {totalPages > 1 ? `صفحه ${page} از ${totalPages} — ` : ''}
+              {total} محصول
             </span>
             {totalPages > 1 && (
               <div className="flex items-center gap-1">
-                <Button size="sm" variant="flat" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>قبلی</Button>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  isDisabled={page <= 1}
+                  onPress={() => setPage((p) => p - 1)}
+                >
+                  قبلی
+                </Button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
                   .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
                   .reduce<(number | '…')[]>((acc, p, idx, arr) => {
-                    if (idx > 0 && typeof arr[idx - 1] === 'number' && (p as number) - (arr[idx - 1] as number) > 1) acc.push('…');
+                    if (
+                      idx > 0 &&
+                      typeof arr[idx - 1] === 'number' &&
+                      (p as number) - (arr[idx - 1] as number) > 1
+                    )
+                      acc.push('…');
                     acc.push(p);
                     return acc;
                   }, [])
                   .map((p, i) =>
                     p === '…' ? (
-                      <span key={`e-${i}`} className="px-1 text-muted text-sm">…</span>
+                      <span key={`e-${i}`} className="px-1 text-muted text-sm">
+                        …
+                      </span>
                     ) : (
                       <Button
                         key={p}
@@ -625,10 +737,19 @@ export default function ProductsPage() {
                         variant={p === page ? 'solid' : 'flat'}
                         color={p === page ? 'primary' : 'default'}
                         onPress={() => setPage(p as number)}
-                      >{p}</Button>
+                      >
+                        {p}
+                      </Button>
                     ),
                   )}
-                <Button size="sm" variant="flat" isDisabled={page >= totalPages} onPress={() => setPage((p) => p + 1)}>بعدی</Button>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  isDisabled={page >= totalPages}
+                  onPress={() => setPage((p) => p + 1)}
+                >
+                  بعدی
+                </Button>
               </div>
             )}
           </div>
@@ -644,7 +765,10 @@ export default function ProductsPage() {
               onValueChange={(v) => {
                 setForm((f) => ({ ...f, name_fa: v }));
                 if (nameSuggestTimerRef.current) clearTimeout(nameSuggestTimerRef.current);
-                if (!v.trim()) { setNameSuggestions([]); return; }
+                if (!v.trim()) {
+                  setNameSuggestions([]);
+                  return;
+                }
                 nameSuggestTimerRef.current = setTimeout(async () => {
                   const results = await searchMasterProducts(v, token ?? undefined);
                   setNameSuggestions(results);
@@ -661,8 +785,16 @@ export default function ProductsPage() {
                 setNameSuggestions([]);
               }}
             />
-            <Input label="نام انگلیسی" value={form.name} onValueChange={(v) => setForm((f) => ({ ...f, name: v }))} />
-            <Input label="بارکد" value={form.barcode} onValueChange={(v) => setForm((f) => ({ ...f, barcode: v }))} />
+            <Input
+              label="نام انگلیسی"
+              value={form.name}
+              onValueChange={(v) => setForm((f) => ({ ...f, name: v }))}
+            />
+            <Input
+              label="بارکد"
+              value={form.barcode}
+              onValueChange={(v) => setForm((f) => ({ ...f, barcode: v }))}
+            />
             <Input
               label="قیمت (ریال)"
               type="text"
@@ -673,11 +805,14 @@ export default function ProductsPage() {
             <Select
               label="دسته‌بندی"
               selectedKeys={form.category_id ? [form.category_id] : []}
-              onSelectionChange={(keys) => setForm((f) => ({ ...f, category_id: String(Array.from(keys)[0] || '') }))}
+              onSelectionChange={(keys) =>
+                setForm((f) => ({ ...f, category_id: String(Array.from(keys)[0] || '') }))
+              }
             >
               {categories.map((c) => (
                 <SelectItem key={String(c.id)}>
-                  {c.name_fa || c.name}{c._syncStatus !== 'synced' ? ' ⏳' : ''}
+                  {c.name_fa || c.name}
+                  {c._syncStatus !== 'synced' ? ' ⏳' : ''}
                 </SelectItem>
               ))}
             </Select>
@@ -713,7 +848,9 @@ export default function ProductsPage() {
             )}
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" onPress={() => setModalOpen(false)}>انصراف</Button>
+            <Button variant="light" onPress={() => setModalOpen(false)}>
+              انصراف
+            </Button>
             <Button color="primary" isLoading={saving} onPress={submit}>
               {form.id !== undefined ? 'ذخیره تغییرات' : 'ثبت محصول'}
             </Button>

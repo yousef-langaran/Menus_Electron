@@ -36,7 +36,10 @@ function KanbanColumn({
   onAddJob: (statusId: number) => void;
   canCreate: boolean;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `col-${status.id}`, data: { type: 'column', statusId: status.id } });
+  const { setNodeRef, isOver } = useDroppable({
+    id: `col-${status.id}`,
+    data: { type: 'column', statusId: status.id },
+  });
   const wipExceeded = status.wipLimit !== null && jobs.length >= status.wipLimit;
 
   return (
@@ -46,14 +49,26 @@ function KanbanColumn({
     >
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <div className="flex items-center gap-2 min-w-0">
-          {status.color && <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />}
+          {status.color && (
+            <span
+              className="w-3 h-3 rounded-full flex-shrink-0"
+              style={{ backgroundColor: status.color }}
+            />
+          )}
           <span className="font-semibold text-sm text-foreground/80 truncate">{status.label}</span>
-          <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${wipExceeded ? 'bg-danger-soft text-danger' : 'bg-default/80 text-muted'}`}>
-            {jobs.length}{status.wipLimit !== null ? `/${status.wipLimit}` : ''}
+          <span
+            className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${wipExceeded ? 'bg-danger-soft text-danger' : 'bg-default/80 text-muted'}`}
+          >
+            {jobs.length}
+            {status.wipLimit !== null ? `/${status.wipLimit}` : ''}
           </span>
         </div>
         {canCreate && (
-          <button onClick={() => onAddJob(status.id)} className="text-muted hover:text-accent transition-colors p-0.5 rounded text-lg leading-none" title="افزودن پرونده">
+          <button
+            onClick={() => onAddJob(status.id)}
+            className="text-muted hover:text-accent transition-colors p-0.5 rounded text-lg leading-none"
+            title="افزودن پرونده"
+          >
             +
           </button>
         )}
@@ -62,7 +77,12 @@ function KanbanColumn({
       <div ref={setNodeRef} className="flex-1 overflow-y-auto px-2 pb-2 space-y-2 min-h-[120px]">
         <SortableContext items={jobs.map((j) => j.id)} strategy={verticalListSortingStrategy}>
           {jobs.map((job) => (
-            <JobCard key={job.id} job={job} opState={opStates.get(job.id)} onClick={() => onJobClick(job)} />
+            <JobCard
+              key={job.id}
+              job={job}
+              opState={opStates.get(job.id)}
+              onClick={() => onJobClick(job)}
+            />
           ))}
         </SortableContext>
         {jobs.length === 0 && (
@@ -85,7 +105,15 @@ interface KanbanBoardProps {
   canCreate: boolean;
 }
 
-export function KanbanBoard({ statuses, jobs, opStates, onJobClick, onJobMove, onAddJob, canCreate }: KanbanBoardProps) {
+export function KanbanBoard({
+  statuses,
+  jobs,
+  opStates,
+  onJobClick,
+  onJobMove,
+  onAddJob,
+  canCreate,
+}: KanbanBoardProps) {
   const [activeJob, setActiveJob] = useState<LocalServiceJob | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const sortedStatuses = [...statuses].sort((a, b) => a.order - b.order);
@@ -118,7 +146,12 @@ export function KanbanBoard({ statuses, jobs, opStates, onJobClick, onJobMove, o
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
       <div className="flex gap-4 overflow-x-auto pb-4 pt-1 px-1" dir="rtl">
         {sortedStatuses.map((status) => (
           <KanbanColumn

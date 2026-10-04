@@ -1,4 +1,8 @@
-export async function saveOfflineOrder(orderData: any, token: string, baseURL?: string): Promise<number> {
+export async function saveOfflineOrder(
+  orderData: any,
+  token: string,
+  baseURL?: string,
+): Promise<number> {
   if (typeof window !== 'undefined' && window.electronAPI) {
     try {
       const result = await window.electronAPI.saveOfflineOrder(orderData, token, baseURL);
@@ -46,4 +50,3 @@ export async function getAllOrders() {
     return [];
   }
 }
-

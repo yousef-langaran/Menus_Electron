@@ -65,7 +65,9 @@ export default function KardexReportPage() {
       const data = await getInventoryKardex(
         {
           restaurantId,
-          ...(itemType === 'final_product' ? { finalProductId: Number(itemId) } : { rawMaterialId: Number(itemId) }),
+          ...(itemType === 'final_product'
+            ? { finalProductId: Number(itemId) }
+            : { rawMaterialId: Number(itemId) }),
         },
         token,
       );
@@ -82,31 +84,49 @@ export default function KardexReportPage() {
     <div className="min-h-screen bg-background p-4 space-y-4" dir="rtl">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-foreground">گزارش کاردکس کالا</h1>
-        <Button variant="flat" size="sm" onPress={() => navigate('/accounting')}>بازگشت</Button>
+        <Button variant="flat" size="sm" onPress={() => navigate('/accounting')}>
+          بازگشت
+        </Button>
       </div>
 
       <Card>
         <CardContent className="py-4 px-4 space-y-3">
           <p className="text-xs text-muted">
-            تاریخچهٔ کامل ورود/خروج یک کالا — برای کالای نهایی، قیمت خرید و قیمت فروشِ ثبت‌شده در هر فاکتور خرید هم نشان داده می‌شود تا مشخص شود کدام فاکتور باعث تغییر (یا صفر شدن) قیمت فروش شده است.
+            تاریخچهٔ کامل ورود/خروج یک کالا — برای کالای نهایی، قیمت خرید و قیمت فروشِ ثبت‌شده در هر
+            فاکتور خرید هم نشان داده می‌شود تا مشخص شود کدام فاکتور باعث تغییر (یا صفر شدن) قیمت
+            فروش شده است.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="flex rounded-full bg-default p-0.5 gap-0.5 self-start sm:col-span-1">
               <button
                 type="button"
                 className={`flex-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                  itemType === 'final_product' ? 'bg-white text-accent shadow-sm' : 'text-muted hover:text-foreground/80'
+                  itemType === 'final_product'
+                    ? 'bg-white text-accent shadow-sm'
+                    : 'text-muted hover:text-foreground/80'
                 }`}
-                onClick={() => { setItemType('final_product'); setItemId(null); setReport(null); setHasSearched(false); }}
+                onClick={() => {
+                  setItemType('final_product');
+                  setItemId(null);
+                  setReport(null);
+                  setHasSearched(false);
+                }}
               >
                 کالای نهایی
               </button>
               <button
                 type="button"
                 className={`flex-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                  itemType === 'raw_material' ? 'bg-white text-orange-600 shadow-sm' : 'text-muted hover:text-foreground/80'
+                  itemType === 'raw_material'
+                    ? 'bg-white text-orange-600 shadow-sm'
+                    : 'text-muted hover:text-foreground/80'
                 }`}
-                onClick={() => { setItemType('raw_material'); setItemId(null); setReport(null); setHasSearched(false); }}
+                onClick={() => {
+                  setItemType('raw_material');
+                  setItemId(null);
+                  setReport(null);
+                  setHasSearched(false);
+                }}
               >
                 ماده اولیه
               </button>
@@ -117,11 +137,21 @@ export default function KardexReportPage() {
                 value={itemId}
                 label={itemType === 'final_product' ? 'کالای نهایی' : 'ماده اولیه'}
                 placeholder="جستجو..."
-                onChange={(v) => { setItemId(v); setReport(null); setHasSearched(false); }}
+                onChange={(v) => {
+                  setItemId(v);
+                  setReport(null);
+                  setHasSearched(false);
+                }}
               />
             </div>
           </div>
-          <Button color="primary" size="sm" isDisabled={!itemId} isLoading={isLoading} onPress={loadReport}>
+          <Button
+            color="primary"
+            size="sm"
+            isDisabled={!itemId}
+            isLoading={isLoading}
+            onPress={loadReport}
+          >
             نمایش کاردکس
           </Button>
         </CardContent>
@@ -143,11 +173,15 @@ export default function KardexReportPage() {
                   موجودی فعلی: {formatQty(report.item.currentStock)} {report.item.unit || ''}
                 </p>
               </div>
-              <Chip size="sm" variant="flat" color="default">{report.rows.length} رویداد</Chip>
+              <Chip size="sm" variant="flat" color="default">
+                {report.rows.length} رویداد
+              </Chip>
             </div>
 
             {report.rows.length === 0 ? (
-              <p className="text-muted text-sm text-center py-8">برای این کالا هنوز رویدادی ثبت نشده است</p>
+              <p className="text-muted text-sm text-center py-8">
+                برای این کالا هنوز رویدادی ثبت نشده است
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -177,21 +211,33 @@ export default function KardexReportPage() {
                           key={row.id}
                           className={`border-b border-border ${zeroSalePriceWarning ? 'bg-danger-soft' : ''}`}
                         >
-                          <td className="py-2 px-2 text-muted whitespace-nowrap">{toShamsiDateTime(row.date)}</td>
+                          <td className="py-2 px-2 text-muted whitespace-nowrap">
+                            {toShamsiDateTime(row.date)}
+                          </td>
                           <td className="py-2 px-2">
-                            <span className={`inline-flex items-center gap-1 ${row.isIncrease ? 'text-success' : 'text-danger'}`}>
-                              {row.isIncrease ? '▲' : '▼'} {MOVEMENT_LABELS[row.movementType] || row.movementType}
+                            <span
+                              className={`inline-flex items-center gap-1 ${row.isIncrease ? 'text-success' : 'text-danger'}`}
+                            >
+                              {row.isIncrease ? '▲' : '▼'}{' '}
+                              {MOVEMENT_LABELS[row.movementType] || row.movementType}
                             </span>
                           </td>
                           <td className="py-2 px-2 text-center tabular-nums">
-                            {row.isIncrease ? '+' : '-'}{formatQty(row.quantity)}
+                            {row.isIncrease ? '+' : '-'}
+                            {formatQty(row.quantity)}
                           </td>
-                          <td className="py-2 px-2 text-center tabular-nums font-medium">{formatQty(row.balanceAfter)}</td>
+                          <td className="py-2 px-2 text-center tabular-nums font-medium">
+                            {formatQty(row.balanceAfter)}
+                          </td>
                           <td className="py-2 px-2 text-muted">{row.invoiceNumber || '—'}</td>
                           {itemType === 'final_product' && (
                             <>
-                              <td className="py-2 px-2 text-center tabular-nums">{formatCurrency(row.unitPrice)}</td>
-                              <td className={`py-2 px-2 text-center tabular-nums ${zeroSalePriceWarning ? 'text-danger font-bold' : ''}`}>
+                              <td className="py-2 px-2 text-center tabular-nums">
+                                {formatCurrency(row.unitPrice)}
+                              </td>
+                              <td
+                                className={`py-2 px-2 text-center tabular-nums ${zeroSalePriceWarning ? 'text-danger font-bold' : ''}`}
+                              >
                                 {row.salePrice == null ? '—' : formatCurrency(row.salePrice)}
                               </td>
                             </>

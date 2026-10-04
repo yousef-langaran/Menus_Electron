@@ -166,7 +166,10 @@ export function DeliveryDestination({
 
   // کرایهٔ دستی لازم است وقتی محاسبهٔ خودکار در دسترس نیست یا رد شده
   const needsManualFee =
-    !online || !location || (quote != null && !quote.serviceable) || (!quoting && location != null && quote == null);
+    !online ||
+    !location ||
+    (quote != null && !quote.serviceable) ||
+    (!quoting && location != null && quote == null);
 
   return (
     <div className="flex flex-col gap-2">
@@ -251,16 +254,10 @@ export function DeliveryDestination({
           )}
           {!quoting && quote && (
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span className="font-medium">
-                کرایه: {fa(Math.round(quote.fee / 10))} تومان
-              </span>
+              <span className="font-medium">کرایه: {fa(Math.round(quote.fee / 10))} تومان</span>
               <div className="flex items-center gap-2 text-xs text-muted">
                 <span>{fa(Math.round(quote.distanceM / 100) / 10)} کیلومتر</span>
-                <Chip
-                  size="sm"
-                  color={quote.serviceable ? 'success' : 'danger'}
-                  variant="flat"
-                >
+                <Chip size="sm" color={quote.serviceable ? 'success' : 'danger'} variant="flat">
                   {quote.serviceable ? 'داخل محدوده' : 'خارج از محدوده'}
                 </Chip>
               </div>

@@ -76,7 +76,9 @@ export function OfflineOrdersSync() {
         }
 
         if (errors.length > 0) {
-          setLastError(`همگام‌سازی سفارش/مرجوعی آفلاین: ${errors.length} مورد ناموفق — ${errors[0]}`);
+          setLastError(
+            `همگام‌سازی سفارش/مرجوعی آفلاین: ${errors.length} مورد ناموفق — ${errors[0]}`,
+          );
         } else {
           setLastError(null);
         }

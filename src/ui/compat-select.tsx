@@ -57,7 +57,7 @@ export type LegacySelectProps = Omit<
 
 export function Select({
   label,
-  placeholder='انتخاب کنید',
+  placeholder = 'انتخاب کنید',
   selectedKeys,
   onSelectionChange,
   children,
@@ -83,9 +83,13 @@ export function Select({
     const nextChildren = node.props?.children
       ? Children.map(node.props.children, (c) => ensureIdsFromKeys(c))
       : node.props?.children;
-    const shouldInjectId = node.type === SelectItem && !(node.props as { id?: string })?.id && maybeKey;
+    const shouldInjectId =
+      node.type === SelectItem && !(node.props as { id?: string })?.id && maybeKey;
     if (shouldInjectId) {
-      return cloneElement(node, { id: maybeKey, children: nextChildren } as Record<string, unknown>);
+      return cloneElement(node, { id: maybeKey, children: nextChildren } as Record<
+        string,
+        unknown
+      >);
     }
     if (nextChildren !== node.props?.children) {
       return cloneElement(node, { children: nextChildren } as Record<string, unknown>);
@@ -104,7 +108,11 @@ export function Select({
     if (typeof key === 'object' && key !== null) {
       const o = key as Record<string, unknown>;
       const candidate =
-        o.currentKey ?? o.anchorKey ?? o.id ?? o.key ?? (Array.isArray(o.keys) ? o.keys[0] : undefined);
+        o.currentKey ??
+        o.anchorKey ??
+        o.id ??
+        o.key ??
+        (Array.isArray(o.keys) ? o.keys[0] : undefined);
       if (candidate != null) return String(candidate);
     }
     return String(key);
@@ -127,7 +135,7 @@ export function Select({
       isRequired={isRequired}
       isInvalid={invalid}
       className={rootClassName}
-      variant={"secondary"}
+      variant={'secondary'}
       placeholder={placeholder}
     >
       {label ? (
@@ -140,7 +148,9 @@ export function Select({
         <HeroSelect.Indicator className="order-1 shrink-0 !left-2 !right-auto" />
       </HeroSelect.Trigger>
       <HeroSelect.Popover placement="bottom end" dir="rtl">
-        <ListBox className="text-right" dir="rtl">{processedChildren}</ListBox>
+        <ListBox className="text-right" dir="rtl">
+          {processedChildren}
+        </ListBox>
       </HeroSelect.Popover>
       {errorMessage ? <FieldError>{errorMessage}</FieldError> : null}
     </HeroSelect>
@@ -154,7 +164,11 @@ function mergeClasses(...values: Array<string | undefined>) {
 function getTextContent(node: ReactNode): string {
   if (node == null || typeof node === 'boolean') return '';
   if (typeof node === 'string' || typeof node === 'number') return String(node);
-  if (Array.isArray(node)) return node.map((child) => getTextContent(child)).join(' ').trim();
+  if (Array.isArray(node))
+    return node
+      .map((child) => getTextContent(child))
+      .join(' ')
+      .trim();
   if (isValidElement(node)) return getTextContent((node as ReactElement<any>).props?.children);
   return '';
 }

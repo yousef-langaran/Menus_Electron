@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FocusEvent as ReactFocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { useFilter } from '@heroui/react';
 import { Input } from './compat-input';
@@ -66,14 +73,19 @@ export function ItemPicker({
 
   const { visible, totalMatches } = useMemo(() => {
     const q = (query ?? '').trim();
-    const matched = q ? options.filter((o) => contains(o.label, q) || smartSearchMatch(o.label, q)) : options;
+    const matched = q
+      ? options.filter((o) => contains(o.label, q) || smartSearchMatch(o.label, q))
+      : options;
     return { visible: matched.slice(0, PICKER_RENDER_CAP), totalMatches: matched.length };
   }, [options, query, contains]);
 
   useEffect(() => {
     let el: HTMLElement | null = wrapperRef.current;
     while (el) {
-      if (el.getAttribute('role') === 'dialog') { setPortalEl(el); return; }
+      if (el.getAttribute('role') === 'dialog') {
+        setPortalEl(el);
+        return;
+      }
       el = el.parentElement;
     }
     setPortalEl(document.body);
@@ -90,7 +102,8 @@ export function ItemPicker({
       if (
         wrapperRef.current?.contains(e.target as Node) ||
         dropdownRef.current?.contains(e.target as Node)
-      ) return;
+      )
+        return;
       setOpen(false);
       setQuery(null);
     };
@@ -118,14 +131,23 @@ export function ItemPicker({
           e.target.select?.();
         }}
         onClick={() => setOpen(true)}
-        onValueChange={(v) => { setQuery(v); if (!open) setOpen(true); }}
+        onValueChange={(v) => {
+          setQuery(v);
+          if (!open) setOpen(true);
+        }}
         onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
-          if (e.key === 'Escape') { setOpen(false); setQuery(null); (e.target as HTMLInputElement).blur(); }
+          if (e.key === 'Escape') {
+            setOpen(false);
+            setQuery(null);
+            (e.target as HTMLInputElement).blur();
+          }
         }}
         endContent={
           <svg
             className={`w-4 h-4 shrink-0 text-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
@@ -156,17 +178,33 @@ export function ItemPicker({
                     <button
                       key={opt.id}
                       type="button"
-                      onMouseDown={(e) => { e.preventDefault(); handleSelect(opt.id); }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleSelect(opt.id);
+                      }}
                       className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-right text-sm transition-colors duration-100
-                        ${isSelected
-                          ? 'bg-[var(--accent-soft)] text-[var(--accent-soft-foreground)] font-medium'
-                          : 'text-[var(--overlay-foreground)] hover:bg-[var(--accent-soft-hover)]'
+                        ${
+                          isSelected
+                            ? 'bg-[var(--accent-soft)] text-[var(--accent-soft-foreground)] font-medium'
+                            : 'text-[var(--overlay-foreground)] hover:bg-[var(--accent-soft-hover)]'
                         }`}
                     >
                       <span className="truncate">{opt.label}</span>
                       {isSelected && (
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="shrink-0 text-[var(--accent)]">
-                          <path d="m5 12 5 5 9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg
+                          width="15"
+                          height="15"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          className="shrink-0 text-[var(--accent)]"
+                        >
+                          <path
+                            d="m5 12 5 5 9-9"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
                         </svg>
                       )}
                     </button>

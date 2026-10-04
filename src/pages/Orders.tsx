@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { fetchOrders, fetchOrderById, updateOrderStatus, createCreditPayment } from '../services/api';
+import {
+  fetchOrders,
+  fetchOrderById,
+  updateOrderStatus,
+  createCreditPayment,
+} from '../services/api';
 import CreateOrderReturnModal from '../components/CreateOrderReturnModal';
 import { getAllOrders } from '../services/offlineStorage';
 import { hasModuleAccess } from '../lib/electronPermissions';
@@ -112,7 +117,9 @@ export default function OrdersPage() {
   const [creditPayAccountId, setCreditPayAccountId] = useState('');
   const [creditPayNotes, setCreditPayNotes] = useState('');
   const [creditPaySaving, setCreditPaySaving] = useState(false);
-  const [cashBankAccounts, setCashBankAccounts] = useState<Array<{id: number; name: string; accountType: string}>>([]);
+  const [cashBankAccounts, setCashBankAccounts] = useState<
+    Array<{ id: number; name: string; accountType: string }>
+  >([]);
   const [, setCreditPayHistory] = useState<any[]>([]);
 
   const restaurantName = useMemo(() => {
@@ -121,7 +128,7 @@ export default function OrdersPage() {
   }, [user]);
   const restaurantNameFa = useMemo(
     () => user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || '',
-    [user]
+    [user],
   );
   const primaryRestaurantId = user?.restaurants?.[0]?.id;
   const canRegisterReturn = useMemo(
@@ -136,7 +143,7 @@ export default function OrdersPage() {
   );
   const enabledPrinters = useMemo(
     () => Object.values(printerConfigs || {}).filter((config) => config.enabled),
-    [printerConfigs]
+    [printerConfigs],
   );
   const primaryPrinter = enabledPrinters[0];
   const isElectronEnv = typeof window !== 'undefined' && Boolean(window.electronAPI);
@@ -174,7 +181,9 @@ export default function OrdersPage() {
   // فهرست شناسه‌ها را در استور مشترک منتشر کن تا میانبر ← / → در صفحهٔ ویرایش سفارش
   // (بعد از رفتن به /order?edit=<id> و خروج این کامپوننت از DOM) هم کار کند
   useEffect(() => {
-    useOrderNavStore.getState().setOrderIds(onlineOrders.map((o) => o?.id).filter((id) => id != null));
+    useOrderNavStore
+      .getState()
+      .setOrderIds(onlineOrders.map((o) => o?.id).filter((id) => id != null));
   }, [onlineOrders]);
 
   useEffect(() => {
@@ -231,9 +240,7 @@ export default function OrdersPage() {
   // شناسهٔ پایدار: همیشه به آخرین loadOnlineOrders از طریق ref اشاره می‌کند،
   // بنابراین socket effect با هر رندر بازتولید نمی‌شود.
   const onlineReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const loadOnlineOrdersRef = useRef<(isRefresh?: boolean) => Promise<void>>(
-    async () => {},
-  );
+  const loadOnlineOrdersRef = useRef<(isRefresh?: boolean) => Promise<void>>(async () => {});
   const scheduleOnlineReload = useCallback(() => {
     if (onlineReloadTimerRef.current) clearTimeout(onlineReloadTimerRef.current);
     onlineReloadTimerRef.current = setTimeout(() => {
@@ -383,14 +390,15 @@ export default function OrdersPage() {
         : Array.isArray(response?.data)
           ? response.data
           : [];
-      const meta = !Array.isArray(response) && response?.meta
-        ? response.meta
-        : {
-            ...DEFAULT_ONLINE_META,
-            page: currentPage,
-            limit: pageSize,
-            total: data.length,
-          };
+      const meta =
+        !Array.isArray(response) && response?.meta
+          ? response.meta
+          : {
+              ...DEFAULT_ONLINE_META,
+              page: currentPage,
+              limit: pageSize,
+              total: data.length,
+            };
       setOnlineOrders(data);
       setOnlineMeta(meta);
 
@@ -441,7 +449,8 @@ export default function OrdersPage() {
         const restaurantId = user?.restaurants?.[0]?.id;
         if (!restaurantId) return;
         const accounts = await accountingDb.cashBankAccounts
-          .where('restaurantId').equals(Number(restaurantId))
+          .where('restaurantId')
+          .equals(Number(restaurantId))
           .toArray();
         setCashBankAccounts(accounts || []);
         if (accounts?.length) setCreditPayAccountId(String(accounts[0].id));
@@ -477,7 +486,8 @@ export default function OrdersPage() {
         if (restaurantId) {
           await recordCreditPaymentTransaction({
             restaurantId: Number(restaurantId),
-            accountType: creditPayMethod === 'cash' ? 'cash' : creditPayMethod === 'card' ? 'card' : 'online',
+            accountType:
+              creditPayMethod === 'cash' ? 'cash' : creditPayMethod === 'card' ? 'card' : 'online',
             amount: amt,
             orderId: creditPayOrder.id,
             orderNumber: creditPayOrder.orderNumber,
@@ -515,32 +525,36 @@ export default function OrdersPage() {
   };
 
   const syncAndRefresh = async (auto = false) => {
-        if (!window.electronAPI?.syncOrders) {
+    if (!window.electronAPI?.syncOrders) {
       await loadOnlineOrders();
       return;
     }
 
     setSyncInProgress(true);
     try {
-          const result = await window.electronAPI.syncOrders(token || undefined);
-          if (result) {
-            const unauthorizedError = Array.isArray(result.errors)
-              ? result.errors.find((msg: string) => typeof msg === 'string' && /unauthorized/i.test(msg))
-              : null;
+      const result = await window.electronAPI.syncOrders(token || undefined);
+      if (result) {
+        const unauthorizedError = Array.isArray(result.errors)
+          ? result.errors.find(
+              (msg: string) => typeof msg === 'string' && /unauthorized/i.test(msg),
+            )
+          : null;
 
-            if (unauthorizedError) {
-              toast.warning('نشست شما منقضی شده است. لطفاً دوباره وارد شوید و سپس همگام‌سازی را تکرار کنید.');
-              if (!auto) {
-                await logout();
-                navigate('/login');
-              }
-              return;
-            }
-
-            toast.success(`ارسال انجام شد: ${result.success} موفق، ${result.failed} ناموفق`);
+        if (unauthorizedError) {
+          toast.warning(
+            'نشست شما منقضی شده است. لطفاً دوباره وارد شوید و سپس همگام‌سازی را تکرار کنید.',
+          );
+          if (!auto) {
+            await logout();
+            navigate('/login');
           }
-        await loadOfflineOrders();
-        await loadOnlineOrders(true);
+          return;
+        }
+
+        toast.success(`ارسال انجام شد: ${result.success} موفق، ${result.failed} ناموفق`);
+      }
+      await loadOfflineOrders();
+      await loadOnlineOrders(true);
     } catch (error: any) {
       console.error('Sync error:', error);
       toast.error(error?.message || 'خطا در همگام‌سازی سفارشات آفلاین');
@@ -602,7 +616,12 @@ export default function OrdersPage() {
     if (window.electronAPI?.getPrintTemplatesMap) {
       const { templatesMap, defaultTemplate } = await loadPrintTemplateSources();
       // پیش‌نمایش همیشه رسید کامل است، پس قالبِ همان رسید را نشان می‌دهیم
-      const template = resolveTemplateForPrinter(printerName, templatesMap, defaultTemplate, 'full');
+      const template = resolveTemplateForPrinter(
+        printerName,
+        templatesMap,
+        defaultTemplate,
+        'full',
+      );
       if (template) {
         paperWidth = template.paperWidth ?? paperWidth;
         margin = template.margin ?? margin;
@@ -697,11 +716,14 @@ export default function OrdersPage() {
         }
       } finally {
         if (!cancelled) {
-          setSearchParams((prev) => {
-            const next = new URLSearchParams(prev);
-            next.delete('openOrderId');
-            return next;
-          }, { replace: true });
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete('openOrderId');
+              return next;
+            },
+            { replace: true },
+          );
         }
       }
     })();
@@ -734,14 +756,23 @@ export default function OrdersPage() {
   };
 
   const doReprint = async () => {
-    if (!window.electronAPI?.printReceipt || !reprintOrder || reprintSelectedPrinters.length === 0) {
+    if (
+      !window.electronAPI?.printReceipt ||
+      !reprintOrder ||
+      reprintSelectedPrinters.length === 0
+    ) {
       return;
     }
     setReprintLoading(true);
     try {
       const { templatesMap, defaultTemplate } = await loadPrintTemplateSources();
       const printersToUse = enabledPrinters.filter((p) => reprintSelectedPrinters.includes(p.name));
-      const printerJobs = buildPrinterJobs(printersToUse, getPrinterReceipts, templatesMap, defaultTemplate);
+      const printerJobs = buildPrinterJobs(
+        printersToUse,
+        getPrinterReceipts,
+        templatesMap,
+        defaultTemplate,
+      );
       if (printerJobs.length === 0) {
         throw new Error('برای پرینترهای انتخابی، نوع رسید فعالی تنظیم نشده است.');
       }
@@ -751,7 +782,7 @@ export default function OrdersPage() {
       const res = await window.electronAPI.printReceipt(
         normalizeOrderForReceipt(reprintOrder, reprintIsOffline),
         printerJobs,
-        orderKeys
+        orderKeys,
       );
       if (res?.status !== 'PRINT_OK') {
         throw new Error(res?.code || 'PRINT_UNKNOWN_ERROR');
@@ -766,7 +797,9 @@ export default function OrdersPage() {
           return next;
         });
       }
-      toast.success(`چاپ مجدد با ${printersToUse.map((p) => p.displayName || p.name).join('، ')} انجام شد.`);
+      toast.success(
+        `چاپ مجدد با ${printersToUse.map((p) => p.displayName || p.name).join('، ')} انجام شد.`,
+      );
       setReprintModalOpen(false);
       setReprintOrder(null);
       loadReceiptNumbersMap();
@@ -809,13 +842,21 @@ export default function OrdersPage() {
           <Card key={order.id} className="shadow-sm border border-border">
             <CardContent className="gap-3">
               <div className="flex justify-between items-center flex-wrap gap-2">
-                <h3 className="font-semibold text-foreground">سفارش #{order.orderNumber || order.id}</h3>
+                <h3 className="font-semibold text-foreground">
+                  سفارش #{order.orderNumber || order.id}
+                </h3>
                 <Chip size="sm" color={statusColorMap[order.status] || 'default'} variant="soft">
                   {STATUS_LABELS[order.status] || order.status}
                 </Chip>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-foreground">
-                <div><strong>شماره رسید فراخوانی:</strong> {order.receiptCallNumber ?? receiptNumbersMap[String(order.id)] ?? receiptNumbersMap[order.orderNumber] ?? '—'}</div>
+                <div>
+                  <strong>شماره رسید فراخوانی:</strong>{' '}
+                  {order.receiptCallNumber ??
+                    receiptNumbersMap[String(order.id)] ??
+                    receiptNumbersMap[order.orderNumber] ??
+                    '—'}
+                </div>
                 <div>مشتری: {order.customerName || order.customerPhone || '---'}</div>
                 <div>تلفن: {order.customerPhone || '---'}</div>
                 <div>نوع: {order.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر'}</div>
@@ -831,16 +872,27 @@ export default function OrdersPage() {
               {order.paymentMethod === 'credit' && (
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs text-warning font-medium">
-                    نسیه: مانده {Number(Math.max(0, (order.finalAmount ?? order.totalAmount ?? 0) - (order.creditPaidAmount ?? 0))).toLocaleString('fa-IR')} ریال
+                    نسیه: مانده{' '}
+                    {Number(
+                      Math.max(
+                        0,
+                        (order.finalAmount ?? order.totalAmount ?? 0) -
+                          (order.creditPaidAmount ?? 0),
+                      ),
+                    ).toLocaleString('fa-IR')}{' '}
+                    ریال
                   </span>
-                  {((order.finalAmount ?? order.totalAmount ?? 0) - (order.creditPaidAmount ?? 0)) > 0 && (
+                  {(order.finalAmount ?? order.totalAmount ?? 0) - (order.creditPaidAmount ?? 0) >
+                    0 && (
                     <Button
                       size="sm"
                       color="success"
                       variant="flat"
                       onPress={() => {
                         setCreditPayOrder(order);
-                        const remaining = (order.finalAmount ?? order.totalAmount ?? 0) - (order.creditPaidAmount ?? 0);
+                        const remaining =
+                          (order.finalAmount ?? order.totalAmount ?? 0) -
+                          (order.creditPaidAmount ?? 0);
                         setCreditPayAmount(String(remaining));
                         setCreditPayNotes('');
                         setCreditPayHistory([]);
@@ -853,13 +905,16 @@ export default function OrdersPage() {
                 </div>
               )}
               {order.notes && (
-                <p className="text-muted text-sm"><strong>یادداشت:</strong> {order.notes}</p>
+                <p className="text-muted text-sm">
+                  <strong>یادداشت:</strong> {order.notes}
+                </p>
               )}
               {order.items?.length > 0 && (
                 <ul className="list-disc list-inside text-sm text-foreground">
                   {order.items.map((item: any, idx: number) => (
                     <li key={idx}>
-                      {item.product?.name_fa || item.productName || 'محصول'} - {item.quantity} × {formatPrice(item.price)}
+                      {item.product?.name_fa || item.productName || 'محصول'} - {item.quantity} ×{' '}
+                      {formatPrice(item.price)}
                     </li>
                   ))}
                 </ul>
@@ -877,10 +932,25 @@ export default function OrdersPage() {
                 >
                   ویرایش فاکتور
                 </Button>
-                <Button size="sm" variant="flat" onPress={() => handlePreviewOrder(order)}>پیش‌نمایش رسید</Button>
-                <Button size="sm" variant="flat" color="primary" onPress={() => openReprintModal(order)} isDisabled={!canPrint}>چاپ مجدد</Button>
+                <Button size="sm" variant="flat" onPress={() => handlePreviewOrder(order)}>
+                  پیش‌نمایش رسید
+                </Button>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color="primary"
+                  onPress={() => openReprintModal(order)}
+                  isDisabled={!canPrint}
+                >
+                  چاپ مجدد
+                </Button>
                 {canRegisterReturn && (
-                  <Button size="sm" variant="flat" color="warning" onPress={() => openReturnModal(order)}>
+                  <Button
+                    size="sm"
+                    variant="flat"
+                    color="warning"
+                    onPress={() => openReturnModal(order)}
+                  >
                     ثبت مرجوعی
                   </Button>
                 )}
@@ -888,13 +958,18 @@ export default function OrdersPage() {
                   size="sm"
                   className="max-w-40"
                   selectedKeys={[order.status]}
-                  onSelectionChange={(keys) => { const v = Array.from(keys)[0]; if (v) handleStatusChange(order.id, v as string); }}
+                  onSelectionChange={(keys) => {
+                    const v = Array.from(keys)[0];
+                    if (v) handleStatusChange(order.id, v as string);
+                  }}
                   isDisabled={statusUpdateLoading === order.id}
                   variant="bordered"
                   label="وضعیت"
                 >
                   {STATUS_OPTIONS.filter((opt) => opt.value !== 'all').map((option) => (
-                    <SelectItem key={option.value} textValue={option.label}>{option.label}</SelectItem>
+                    <SelectItem key={option.value} textValue={option.label}>
+                      {option.label}
+                    </SelectItem>
                   ))}
                 </Select>
               </div>
@@ -904,7 +979,9 @@ export default function OrdersPage() {
         {onlineMeta.total > 0 && (
           <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted text-center sm:text-right">
-              نمایش {onlineMeta.offset + 1} تا {Math.min(onlineMeta.offset + onlineMeta.limit, onlineMeta.total)} از {onlineMeta.total} سفارش
+              نمایش {onlineMeta.offset + 1} تا{' '}
+              {Math.min(onlineMeta.offset + onlineMeta.limit, onlineMeta.total)} از{' '}
+              {onlineMeta.total} سفارش
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <Select
@@ -922,7 +999,9 @@ export default function OrdersPage() {
                 label="تعداد در صفحه"
               >
                 {ORDERS_PAGE_SIZE_OPTIONS.map((size) => (
-                  <SelectItem key={String(size)} textValue={`${size} در صفحه`}>{size} در صفحه</SelectItem>
+                  <SelectItem key={String(size)} textValue={`${size} در صفحه`}>
+                    {size} در صفحه
+                  </SelectItem>
                 ))}
               </Select>
               <div className="flex items-center justify-center gap-2">
@@ -966,12 +1045,19 @@ export default function OrdersPage() {
             <CardContent className="gap-3">
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <h3 className="font-semibold text-foreground">سفارش آفلاین #{order.id}</h3>
-                <Chip size="sm" color="warning" variant="soft">در انتظار ارسال</Chip>
+                <Chip size="sm" color="warning" variant="soft">
+                  در انتظار ارسال
+                </Chip>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-foreground">
-                <div><strong>شماره رسید فراخوانی:</strong> {receiptNumbersMap[`offline-${order.id}`] ?? '—'}</div>
+                <div>
+                  <strong>شماره رسید فراخوانی:</strong>{' '}
+                  {receiptNumbersMap[`offline-${order.id}`] ?? '—'}
+                </div>
                 <div>مشتری: {order.orderData?.customerPhone || '---'}</div>
-                <div>نوع: {order.orderData?.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر'}</div>
+                <div>
+                  نوع: {order.orderData?.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر'}
+                </div>
                 <div>مبلغ کل: {formatPrice(order.orderData?.totalAmount)}</div>
                 {Number(order.orderData?.vatAmount ?? 0) > 0 && (
                   <div>ارزش افزوده: {formatPrice(Number(order.orderData.vatAmount))}</div>
@@ -980,20 +1066,33 @@ export default function OrdersPage() {
                 <div>تاریخ ثبت: {formatDate(order.createdAt)}</div>
               </div>
               {order.orderData?.notes && (
-                <p className="text-muted text-sm"><strong>یادداشت:</strong> {order.orderData.notes}</p>
+                <p className="text-muted text-sm">
+                  <strong>یادداشت:</strong> {order.orderData.notes}
+                </p>
               )}
               {order.orderData?.items?.length > 0 && (
                 <ul className="list-disc list-inside text-sm text-foreground">
                   {order.orderData.items.map((item: any, idx: number) => (
                     <li key={idx}>
-                      {item.product?.name_fa || item.productName || 'محصول'} - {item.quantity} × {formatPrice(item.price)}
+                      {item.product?.name_fa || item.productName || 'محصول'} - {item.quantity} ×{' '}
+                      {formatPrice(item.price)}
                     </li>
                   ))}
                 </ul>
               )}
               <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
-                <Button size="sm" variant="flat" onPress={() => handlePreviewOrder(order, true)}>پیش‌نمایش رسید</Button>
-                <Button size="sm" variant="flat" color="primary" onPress={() => openReprintModal(order, true)} isDisabled={!canPrint}>چاپ مجدد</Button>
+                <Button size="sm" variant="flat" onPress={() => handlePreviewOrder(order, true)}>
+                  پیش‌نمایش رسید
+                </Button>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color="primary"
+                  onPress={() => openReprintModal(order, true)}
+                  isDisabled={!canPrint}
+                >
+                  چاپ مجدد
+                </Button>
                 <span className="text-muted text-sm">این سفارش به محض اتصال ارسال می‌شود.</span>
               </div>
             </CardContent>
@@ -1013,7 +1112,9 @@ export default function OrdersPage() {
         <Card>
           <CardContent className="gap-4">
             <div className="flex flex-wrap justify-between items-center gap-4">
-              <div className={`flex items-center gap-2 font-semibold ${isOnline ? 'text-success' : 'text-danger'}`}>
+              <div
+                className={`flex items-center gap-2 font-semibold ${isOnline ? 'text-success' : 'text-danger'}`}
+              >
                 <span className="w-2.5 h-2.5 rounded-full bg-current" />
                 {isOnline ? 'شما آنلاین هستید' : 'شما آفلاین هستید'}
               </div>
@@ -1021,7 +1122,8 @@ export default function OrdersPage() {
 
             {!isOnline && offlineOrders.length > 0 && (
               <p className="text-muted text-sm">
-                {offlineOrders.length} سفارش در صف ارسال قرار دارد و پس از اتصال به اینترنت به صورت خودکار ارسال می‌شود.
+                {offlineOrders.length} سفارش در صف ارسال قرار دارد و پس از اتصال به اینترنت به صورت
+                خودکار ارسال می‌شود.
               </p>
             )}
 
@@ -1042,10 +1144,14 @@ export default function OrdersPage() {
                   label="وضعیت"
                 >
                   {STATUS_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} textValue={option.label}>{option.label}</SelectItem>
+                    <SelectItem key={option.value} textValue={option.label}>
+                      {option.label}
+                    </SelectItem>
                   ))}
                 </Select>
-                <Button size="sm" variant="flat" onPress={() => void loadOnlineOrders()}>بروزرسانی</Button>
+                <Button size="sm" variant="flat" onPress={() => void loadOnlineOrders()}>
+                  بروزرسانی
+                </Button>
                 {onlineOrders.length > 0 && (
                   <p className="text-xs text-muted w-full sm:w-auto">
                     میانبر: ← و → برای رفتن به سفارش قبلی/بعدی در همین صفحه و باز کردن ویرایش فاکتور
@@ -1063,7 +1169,9 @@ export default function OrdersPage() {
               <>
                 {offlineOrders.length > 0 && (
                   <>
-                    <h2 className="text-lg font-semibold text-foreground">سفارشات آفلاین (در انتظار ارسال)</h2>
+                    <h2 className="text-lg font-semibold text-foreground">
+                      سفارشات آفلاین (در انتظار ارسال)
+                    </h2>
                     {renderOfflineOrders()}
                   </>
                 )}
@@ -1071,15 +1179,15 @@ export default function OrdersPage() {
                   <>
                     <h2 className="text-lg font-semibold text-foreground mt-4">
                       آخرین سفارشات بارگذاری‌شده
-                      <span className="text-sm font-normal text-muted mr-2">(نمایش کش — ممکن است به‌روز نباشند)</span>
+                      <span className="text-sm font-normal text-muted mr-2">
+                        (نمایش کش — ممکن است به‌روز نباشند)
+                      </span>
                     </h2>
                     {renderOnlineOrders()}
                   </>
                 )}
                 {offlineOrders.length === 0 && onlineOrders.length === 0 && (
-                  <div className="py-12 text-center text-muted">
-                    سفارشی برای نمایش وجود ندارد.
-                  </div>
+                  <div className="py-12 text-center text-muted">سفارشی برای نمایش وجود ندارد.</div>
                 )}
               </>
             )}
@@ -1092,7 +1200,9 @@ export default function OrdersPage() {
           <ModalHeader className="flex flex-col gap-2">
             <div className="flex flex-row justify-between items-center w-full">
               <h3 className="text-lg font-semibold">{previewTitle || 'پیش‌نمایش رسید'}</h3>
-              <Button size="sm" variant="light" isIconOnly onPress={closePreview}>×</Button>
+              <Button size="sm" variant="light" isIconOnly onPress={closePreview}>
+                ×
+              </Button>
             </div>
             {enabledPrinters.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 w-full">
@@ -1123,11 +1233,17 @@ export default function OrdersPage() {
             ) : previewImage ? (
               <img src={previewImage} alt="receipt-preview" className="max-w-full h-auto mx-auto" />
             ) : (
-              <iframe title="receipt-preview" className="w-full min-h-[400px] border-0 rounded-lg" srcDoc={previewHtml || ''} />
+              <iframe
+                title="receipt-preview"
+                className="w-full min-h-[400px] border-0 rounded-lg"
+                srcDoc={previewHtml || ''}
+              />
             )}
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={closePreview}>بستن</Button>
+            <Button variant="flat" onPress={closePreview}>
+              بستن
+            </Button>
           </ModalFooter>
         </ModalShell>
       </Modal>
@@ -1136,12 +1252,11 @@ export default function OrdersPage() {
         <ModalShell size="md">
           <ModalHeader>چاپ مجدد – انتخاب پرینتر</ModalHeader>
           <ModalBody className="gap-3">
-            <p className="text-sm text-muted">
-              با کدام پرینتر چاپ مجدد انجام شود؟
-            </p>
+            <p className="text-sm text-muted">با کدام پرینتر چاپ مجدد انجام شود؟</p>
             {reprintOrder && (
               <p className="text-sm font-medium">
-                سفارش #{reprintIsOffline ? reprintOrder.id : (reprintOrder.orderNumber || reprintOrder.id)}
+                سفارش #
+                {reprintIsOffline ? reprintOrder.id : reprintOrder.orderNumber || reprintOrder.id}
               </p>
             )}
             <div className="flex flex-col gap-2">
@@ -1163,7 +1278,9 @@ export default function OrdersPage() {
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setReprintModalOpen(false)}>انصراف</Button>
+            <Button variant="flat" onPress={() => setReprintModalOpen(false)}>
+              انصراف
+            </Button>
             <Button
               color="primary"
               onPress={doReprint}
@@ -1194,13 +1311,27 @@ export default function OrdersPage() {
           <ModalBody className="gap-4">
             {creditPayOrder && (
               <div className="bg-default-soft border border-border rounded-lg p-3 text-sm space-y-1">
-                <div className="font-semibold">فاکتور: {creditPayOrder.orderNumber || `#${creditPayOrder.id}`}</div>
+                <div className="font-semibold">
+                  فاکتور: {creditPayOrder.orderNumber || `#${creditPayOrder.id}`}
+                </div>
                 <div className="text-muted">مشتری: {creditPayOrder.customerPhone || '—'}</div>
                 <div className="text-muted">
-                  مبلغ کل: {Number(creditPayOrder.finalAmount ?? creditPayOrder.totalAmount ?? 0).toLocaleString('fa-IR')} ریال
+                  مبلغ کل:{' '}
+                  {Number(
+                    creditPayOrder.finalAmount ?? creditPayOrder.totalAmount ?? 0,
+                  ).toLocaleString('fa-IR')}{' '}
+                  ریال
                 </div>
                 <div className="text-warning font-medium">
-                  مانده: {Number(Math.max(0,(creditPayOrder.finalAmount ?? creditPayOrder.totalAmount ?? 0) - (creditPayOrder.creditPaidAmount ?? 0))).toLocaleString('fa-IR')} ریال
+                  مانده:{' '}
+                  {Number(
+                    Math.max(
+                      0,
+                      (creditPayOrder.finalAmount ?? creditPayOrder.totalAmount ?? 0) -
+                        (creditPayOrder.creditPaidAmount ?? 0),
+                    ),
+                  ).toLocaleString('fa-IR')}{' '}
+                  ریال
                 </div>
               </div>
             )}
@@ -1215,11 +1346,20 @@ export default function OrdersPage() {
             <div className="flex flex-col gap-2">
               <span className="text-sm font-medium text-foreground">روش پرداخت</span>
               <div className="flex gap-2 flex-wrap">
-                {([
-                  ['cash', 'نقد (صندوق)'], ['card', 'کارت'], ['online', 'آنلاین'],
-                ] as const).map(([key, label]) => (
-                  <Button key={key} size="sm" variant={creditPayMethod === key ? 'solid' : 'bordered'} color="primary"
-                    onPress={() => setCreditPayMethod(key)}>
+                {(
+                  [
+                    ['cash', 'نقد (صندوق)'],
+                    ['card', 'کارت'],
+                    ['online', 'آنلاین'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <Button
+                    key={key}
+                    size="sm"
+                    variant={creditPayMethod === key ? 'solid' : 'bordered'}
+                    color="primary"
+                    onPress={() => setCreditPayMethod(key)}
+                  >
                     {label}
                   </Button>
                 ))}
@@ -1247,7 +1387,9 @@ export default function OrdersPage() {
             />
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setCreditPayModalOpen(false)}>انصراف</Button>
+            <Button variant="flat" onPress={() => setCreditPayModalOpen(false)}>
+              انصراف
+            </Button>
             <Button
               color="success"
               isLoading={creditPaySaving}

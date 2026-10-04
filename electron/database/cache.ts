@@ -44,7 +44,12 @@ class CacheDatabase extends Dexie {
 const db = new CacheDatabase();
 
 // Menu cache functions
-export async function cacheMenu(restaurantId: number, restaurantName: string, products: any[], categories: any[]): Promise<void> {
+export async function cacheMenu(
+  restaurantId: number,
+  restaurantName: string,
+  products: any[],
+  categories: any[],
+): Promise<void> {
   const expiresAt = new Date();
   expiresAt.setHours(expiresAt.getHours() + 24); // Cache for 24 hours
 
@@ -58,7 +63,10 @@ export async function cacheMenu(restaurantId: number, restaurantName: string, pr
   });
 }
 
-export async function getCachedMenu(restaurantId?: number, restaurantName?: string): Promise<CachedMenu | undefined> {
+export async function getCachedMenu(
+  restaurantId?: number,
+  restaurantName?: string,
+): Promise<CachedMenu | undefined> {
   let menu: CachedMenu | undefined;
 
   if (restaurantId) {
@@ -100,4 +108,3 @@ export async function getCachedUser(): Promise<CachedUser | undefined> {
 export async function clearUserCache(): Promise<void> {
   await db.users.clear();
 }
-

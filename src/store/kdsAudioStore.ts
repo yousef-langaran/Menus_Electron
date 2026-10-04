@@ -51,7 +51,10 @@ export const useKdsAudioStore = create<KdsAudioState>((set) => ({
   },
 
   setAgingThresholdMinutes: (minutes: number) => {
-    const clamped = Math.max(1, Math.min(180, Math.round(minutes) || DEFAULT_KDS_AGING_THRESHOLD_MINUTES));
+    const clamped = Math.max(
+      1,
+      Math.min(180, Math.round(minutes) || DEFAULT_KDS_AGING_THRESHOLD_MINUTES),
+    );
     set({ agingThresholdMinutes: clamped });
     if (typeof window !== 'undefined') {
       try {

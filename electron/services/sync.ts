@@ -60,7 +60,8 @@ export async function syncOfflineOrders(tokenOverride?: string) {
   const defaultBaseURL = apiConfig.baseURL;
   // بار session یک‌بار برای همه سفارش‌ها
   const currentSession = await loadUserSession();
-  const latestSessionToken = typeof currentSession?.token === 'string' ? currentSession.token.trim() : '';
+  const latestSessionToken =
+    typeof currentSession?.token === 'string' ? currentSession.token.trim() : '';
   const override = typeof tokenOverride === 'string' ? tokenOverride.trim() : '';
 
   type ItemResult = { success: number; failed: number; errors: string[] };
@@ -77,7 +78,7 @@ export async function syncOfflineOrders(tokenOverride?: string) {
     try {
       // اگر sync با توکن زنده‌ی رندرر انجام می‌شود، باید به همان سرور فعلی بزنیم
       // نه baseURL قدیمی ذخیره‌شده روی سفارش آفلاین.
-      const targetBaseURL = override.length > 0 ? defaultBaseURL : (order.baseURL || defaultBaseURL);
+      const targetBaseURL = override.length > 0 ? defaultBaseURL : order.baseURL || defaultBaseURL;
       const orderTok = typeof order.token === 'string' ? order.token.trim() : '';
       const authToken = override || resolveAuthTokenWithoutOverride(latestSessionToken, orderTok);
 
@@ -95,9 +96,10 @@ export async function syncOfflineOrders(tokenOverride?: string) {
       return { success: 0, failed: 1, errors: [`سفارش ${order.id}: پاسخ خالی از سرور`] };
     } catch (error: any) {
       const status = error?.response?.status;
-      const errorMsg = status === 401
-        ? `سفارش ${order.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`
-        : `Order ${order.id}: ${error.response?.data?.message || error.message || 'Unknown error'}`;
+      const errorMsg =
+        status === 401
+          ? `سفارش ${order.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`
+          : `Order ${order.id}: ${error.response?.data?.message || error.message || 'Unknown error'}`;
       console.error(`Failed to sync order ${order.id}:`, error);
       return { success: 0, failed: 1, errors: [errorMsg] };
     }
@@ -128,7 +130,8 @@ export async function syncOfflinePosShifts(tokenOverride?: string) {
   const apiConfig = getApiConfig();
   const defaultBaseURL = apiConfig.baseURL;
   const currentSession = await loadUserSession();
-  const latestSessionToken = typeof currentSession?.token === 'string' ? currentSession.token.trim() : '';
+  const latestSessionToken =
+    typeof currentSession?.token === 'string' ? currentSession.token.trim() : '';
   const override = typeof tokenOverride === 'string' ? tokenOverride.trim() : '';
 
   type ItemResult = { success: number; failed: number; errors: string[] };
@@ -138,13 +141,17 @@ export async function syncOfflinePosShifts(tokenOverride?: string) {
 
   const openResults = await concurrentMap(opens, 3, async (action): Promise<ItemResult> => {
     try {
-      const targetBaseURL = override.length > 0 ? defaultBaseURL : (action.baseURL || defaultBaseURL);
+      const targetBaseURL = override.length > 0 ? defaultBaseURL : action.baseURL || defaultBaseURL;
       const actionTok = typeof action.token === 'string' ? action.token.trim() : '';
       const authToken = override || resolveAuthTokenWithoutOverride(latestSessionToken, actionTok);
 
       const response = await axios.post(
         `${targetBaseURL}/pos-shifts/open`,
-        { ...action.payload, restaurantId: action.restaurantId, clientShiftKey: action.clientShiftKey },
+        {
+          ...action.payload,
+          restaurantId: action.restaurantId,
+          clientShiftKey: action.clientShiftKey,
+        },
         {
           headers: {
             ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
@@ -160,9 +167,10 @@ export async function syncOfflinePosShifts(tokenOverride?: string) {
       return { success: 1, failed: 0, errors: [] };
     } catch (error: any) {
       const status = error?.response?.status;
-      const errorMsg = status === 401
-        ? `باز کردن شیفت ${action.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`
-        : `باز کردن شیفت ${action.id}: ${error.response?.data?.message || error.message || 'خطای ناشناخته'}`;
+      const errorMsg =
+        status === 401
+          ? `باز کردن شیفت ${action.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`
+          : `باز کردن شیفت ${action.id}: ${error.response?.data?.message || error.message || 'خطای ناشناخته'}`;
       await markShiftActionError(action.id, errorMsg);
       console.error(`Failed to sync pos-shift open ${action.id}:`, error);
       return { success: 0, failed: 1, errors: [errorMsg] };
@@ -176,7 +184,7 @@ export async function syncOfflinePosShifts(tokenOverride?: string) {
       return { success: 0, failed: 0, errors: [] };
     }
     try {
-      const targetBaseURL = override.length > 0 ? defaultBaseURL : (action.baseURL || defaultBaseURL);
+      const targetBaseURL = override.length > 0 ? defaultBaseURL : action.baseURL || defaultBaseURL;
       const actionTok = typeof action.token === 'string' ? action.token.trim() : '';
       const authToken = override || resolveAuthTokenWithoutOverride(latestSessionToken, actionTok);
 
@@ -195,9 +203,10 @@ export async function syncOfflinePosShifts(tokenOverride?: string) {
       return { success: 1, failed: 0, errors: [] };
     } catch (error: any) {
       const status = error?.response?.status;
-      const errorMsg = status === 401
-        ? `بستن شیفت ${action.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`
-        : `بستن شیفت ${action.id}: ${error.response?.data?.message || error.message || 'خطای ناشناخته'}`;
+      const errorMsg =
+        status === 401
+          ? `بستن شیفت ${action.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`
+          : `بستن شیفت ${action.id}: ${error.response?.data?.message || error.message || 'خطای ناشناخته'}`;
       await markShiftActionError(action.id, errorMsg);
       console.error(`Failed to sync pos-shift close ${action.id}:`, error);
       return { success: 0, failed: 1, errors: [errorMsg] };
@@ -221,7 +230,8 @@ export async function syncOfflineReturns(tokenOverride?: string) {
   const defaultBaseURL = apiConfig.baseURL;
   // بار session یک‌بار برای همه مرجوعی‌ها
   const currentSession = await loadUserSession();
-  const latestSessionToken = typeof currentSession?.token === 'string' ? currentSession.token.trim() : '';
+  const latestSessionToken =
+    typeof currentSession?.token === 'string' ? currentSession.token.trim() : '';
   const override = typeof tokenOverride === 'string' ? tokenOverride.trim() : '';
 
   type ItemResult = { success: number; failed: number; errors: string[] };
@@ -236,7 +246,7 @@ export async function syncOfflineReturns(tokenOverride?: string) {
     }
 
     try {
-      const targetBaseURL = override.length > 0 ? defaultBaseURL : (ret.baseURL || defaultBaseURL);
+      const targetBaseURL = override.length > 0 ? defaultBaseURL : ret.baseURL || defaultBaseURL;
       const retTok = typeof ret.token === 'string' ? ret.token.trim() : '';
       const authToken = override || resolveAuthTokenWithoutOverride(latestSessionToken, retTok);
 
@@ -254,9 +264,10 @@ export async function syncOfflineReturns(tokenOverride?: string) {
       return { success: 0, failed: 1, errors: [`مرجوعی ${ret.id}: پاسخ خالی از سرور`] };
     } catch (error: any) {
       const status = error?.response?.status;
-      const errorMsg = status === 401
-        ? `مرجوعی ${ret.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`
-        : `مرجوعی ${ret.id}: ${error.response?.data?.message || error.message || 'Unknown error'}`;
+      const errorMsg =
+        status === 401
+          ? `مرجوعی ${ret.id}: Unauthorized (نشست منقضی یا نامعتبر — دوباره وارد شوید)`
+          : `مرجوعی ${ret.id}: ${error.response?.data?.message || error.message || 'Unknown error'}`;
       console.error(`Failed to sync return ${ret.id}:`, error);
       return { success: 0, failed: 1, errors: [errorMsg] };
     }

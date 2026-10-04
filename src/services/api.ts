@@ -3,10 +3,12 @@ import { toast } from '../utils/toast';
 
 // مقدار پیش‌فرض از env ویترین (فقط در زمان build درج می‌شود)
 const getDefaultBaseUrl = () => {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL ||
+  const baseUrl =
+    import.meta.env.VITE_API_BASE_URL ||
     import.meta.env.NEXT_PUBLIC_API_BASE_URL ||
     'https://api.secoin.ir';
-  const version = import.meta.env.VITE_API_BASE_VERSION ||
+  const version =
+    import.meta.env.VITE_API_BASE_VERSION ||
     import.meta.env.NEXT_PUBLIC_API_BASE_VERSION ||
     '/api/v1';
   const cleanBaseUrl = String(baseUrl).replace(/\/+$/, '');
@@ -120,7 +122,7 @@ api.interceptors.request.use(
   (error) => {
     console.error('Request error:', error);
     return Promise.reject(error);
-  }
+  },
 );
 
 const AUTH_WHITELIST_ENDPOINTS = [
@@ -156,9 +158,7 @@ function dispatchUnauthorized(): void {
 /** نسخه‌ی کلاینت قدیمی است و سرور درخواست را رد کرده (426). */
 function dispatchOutdated(minVersion?: string): void {
   if (typeof window === 'undefined') return;
-  window.dispatchEvent(
-    new CustomEvent('menus-electron:outdated', { detail: { minVersion } }),
-  );
+  window.dispatchEvent(new CustomEvent('menus-electron:outdated', { detail: { minVersion } }));
 }
 
 function extractApiErrorMessage(error: unknown): string | null {
@@ -180,7 +180,11 @@ const DEDUP_MS = 1200;
 const dedup = { key: '', at: 0 };
 
 function showApiErrorToast(error: unknown, normalizedPath: string): void {
-  const err = error as { config?: { skipGlobalErrorToast?: boolean }; response?: { status?: number }; request?: unknown };
+  const err = error as {
+    config?: { skipGlobalErrorToast?: boolean };
+    response?: { status?: number };
+    request?: unknown;
+  };
   if (err?.config?.skipGlobalErrorToast === true) return;
 
   const status = err?.response?.status;
@@ -225,7 +229,9 @@ function showApiErrorToast(error: unknown, normalizedPath: string): void {
 
   try {
     toast.error(title, description ? { description } : undefined);
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 api.interceptors.response.use(
@@ -248,7 +254,9 @@ api.interceptors.response.use(
         toast.error('انقضای نشست', { description: 'لطفاً دوباره وارد شوید.' });
         dispatchUnauthorized();
       } finally {
-        setTimeout(() => { isHandlingUnauthorized = false; }, 1500);
+        setTimeout(() => {
+          isHandlingUnauthorized = false;
+        }, 1500);
       }
     }
 
@@ -256,7 +264,8 @@ api.interceptors.response.use(
     if (status === 426) {
       const data = error?.response?.data as { message?: string; minVersion?: string } | undefined;
       toast.error('نیاز به به‌روزرسانی', {
-        description: data?.message || 'نسخه نرم‌افزار شما قدیمی است. لطفاً برنامه را به‌روزرسانی کنید.',
+        description:
+          data?.message || 'نسخه نرم‌افزار شما قدیمی است. لطفاً برنامه را به‌روزرسانی کنید.',
       });
       dispatchOutdated(data?.minVersion);
       return Promise.reject(error);
@@ -264,7 +273,7 @@ api.interceptors.response.use(
 
     showApiErrorToast(error, normalizedPath);
     return Promise.reject(error);
-  }
+  },
 );
 
 /** حداقل نسخه‌ی مجاز کلاینت دسکتاپ از سرور (برای گیت ورود). */
@@ -294,7 +303,9 @@ export async function getRestaurantByName(restaurantName: string, token?: string
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await api.get(`/restaurant/name/${encodeURIComponent(restaurantName)}`, { headers });
+  const response = await api.get(`/restaurant/name/${encodeURIComponent(restaurantName)}`, {
+    headers,
+  });
   return response.data;
 }
 
@@ -332,7 +343,11 @@ export async function getProducts(restaurantName?: string, restaurantId?: number
   return Array.isArray(response.data) ? response.data : [];
 }
 
-export async function getCategories(restaurantName?: string, restaurantId?: number, token?: string) {
+export async function getCategories(
+  restaurantName?: string,
+  restaurantId?: number,
+  token?: string,
+) {
   await apiConfigReady;
   const headers: Record<string, string> = {};
   if (token) {
@@ -665,7 +680,13 @@ export async function redeemWheelPrizeVoucher(
 const DEFAULT_ORDERS_PAGE_SIZE = 50;
 
 export async function fetchOrders(
-  params: { restaurantName?: string; status?: string; page?: number; limit?: number; offset?: number } = {},
+  params: {
+    restaurantName?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+    offset?: number;
+  } = {},
   token?: string,
 ) {
   await apiConfigReady;
@@ -752,9 +773,13 @@ export async function saveReceiptNumberSettingsToServer(
   token: string,
 ): Promise<{ message: string }> {
   await apiConfigReady;
-  const response = await api.post('/settings/receipt-number', { ...settings, restaurantId }, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await api.post(
+    '/settings/receipt-number',
+    { ...settings, restaurantId },
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
   return response.data;
 }
 
@@ -777,7 +802,11 @@ export async function getCustomerAddresses(
 ): Promise<CustomerAddressItem[]> {
   await apiConfigReady;
   const response = await api.get('/customers/addresses', {
-    params: { restaurantId: params.restaurantId, restaurantName: params.restaurantName, phone: params.phone },
+    params: {
+      restaurantId: params.restaurantId,
+      restaurantName: params.restaurantName,
+      phone: params.phone,
+    },
     headers: { Authorization: `Bearer ${token}` },
   });
   return Array.isArray(response.data) ? response.data : [];
@@ -821,10 +850,7 @@ export interface NeshanSearchItem {
 }
 
 /** جست‌وجوی آدرس. فقط آنلاین معنا دارد — فراخوان باید خودش چک کند. */
-export async function searchAddress(
-  term: string,
-  token: string,
-): Promise<NeshanSearchItem[]> {
+export async function searchAddress(term: string, token: string): Promise<NeshanSearchItem[]> {
   await apiConfigReady;
   const response = await api.get('/neshan/search', {
     params: { term },
@@ -901,7 +927,11 @@ export async function callerLookup(
 ): Promise<CallerLookupResult> {
   await apiConfigReady;
   const response = await api.get('/customers/caller-lookup', {
-    params: { restaurantId: params.restaurantId, restaurantName: params.restaurantName, phone: params.phone },
+    params: {
+      restaurantId: params.restaurantId,
+      restaurantName: params.restaurantName,
+      phone: params.phone,
+    },
     headers: { Authorization: `Bearer ${token}` },
   });
   return response.data;
@@ -911,7 +941,10 @@ export async function addCustomer(
   params: { restaurantId?: number; restaurantName?: string },
   body: { mobile: string; firstName?: string; lastName?: string },
   token: string,
-): Promise<{ user: { id: number; mobile: string; firstName: string; lastName: string }; added: boolean }> {
+): Promise<{
+  user: { id: number; mobile: string; firstName: string; lastName: string };
+  added: boolean;
+}> {
   await apiConfigReady;
   const response = await api.post('/customers/add', body, {
     params: { restaurantId: params.restaurantId, restaurantName: params.restaurantName },
@@ -1095,7 +1128,14 @@ export async function createPurchaseInvoiceAccounting(
     supplierId: number;
     invoiceNumber: string;
     purchaseDate: string;
-    items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number; warehouseId?: number }>;
+    items: Array<{
+      rawMaterialId?: number;
+      finalProductId?: number;
+      quantity: number;
+      unitPrice: number;
+      salePrice?: number;
+      warehouseId?: number;
+    }>;
     extraCosts?: number;
     status?: 'draft' | 'pending_approval' | 'approved' | 'rejected';
     notes?: string;
@@ -1132,23 +1172,33 @@ export async function updatePurchaseInvoiceAccounting(
     supplierId?: number;
     invoiceNumber?: string;
     purchaseDate?: string;
-    items?: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number }>;
+    items?: Array<{
+      rawMaterialId?: number;
+      finalProductId?: number;
+      quantity: number;
+      unitPrice: number;
+      salePrice?: number;
+    }>;
     extraCosts?: number;
     notes?: string;
   },
   token: string,
 ) {
   await apiConfigReady;
-  const response = await api.patch(
-    `/accounting/purchases/invoices/${invoiceId}`,
-    payload,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
+  const response = await api.patch(`/accounting/purchases/invoices/${invoiceId}`, payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return response.data;
 }
 
 export async function fetchAccountingPurchaseReport(
-  params: { restaurantId: number; from?: string; to?: string; supplierId?: number; fiscalYearId?: number },
+  params: {
+    restaurantId: number;
+    from?: string;
+    to?: string;
+    supplierId?: number;
+    fiscalYearId?: number;
+  },
   token: string,
 ) {
   await apiConfigReady;
@@ -1181,7 +1231,10 @@ export type FiscalYearRow = {
   isActive: boolean;
 };
 
-export async function listFiscalYears(restaurantId: number, token: string): Promise<FiscalYearRow[]> {
+export async function listFiscalYears(
+  restaurantId: number,
+  token: string,
+): Promise<FiscalYearRow[]> {
   await apiConfigReady;
   const response = await api.get('/accounting/fiscal-years', {
     params: { restaurantId },
@@ -1235,7 +1288,10 @@ export async function searchMasterProducts(
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   try {
-    const response = await api.get('/master-products', { headers, params: { search: query.trim(), limit: 8 } });
+    const response = await api.get('/master-products', {
+      headers,
+      params: { search: query.trim(), limit: 8 },
+    });
     return response.data?.data ?? [];
   } catch {
     return [];
@@ -1251,7 +1307,9 @@ export async function getMasterProductByBarcode(
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   try {
-    const response = await api.get(`/master-products/barcode/${encodeURIComponent(barcode)}`, { headers });
+    const response = await api.get(`/master-products/barcode/${encodeURIComponent(barcode)}`, {
+      headers,
+    });
     return response.data ?? null;
   } catch {
     return null;
@@ -1264,11 +1322,9 @@ export async function updateAccountingPurchaseInvoiceStatus(
   token: string,
 ) {
   await apiConfigReady;
-  const response = await api.post(
-    `/accounting/purchases/invoices/${invoiceId}/status`,
-    payload,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
+  const response = await api.post(`/accounting/purchases/invoices/${invoiceId}/status`, payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return response.data as { invoiceId: number; status: string };
 }
 
@@ -1287,7 +1343,14 @@ export async function editApprovedPurchaseInvoice(
     supplierId?: number;
     invoiceNumber?: string;
     purchaseDate?: string;
-    items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number; warehouseId?: number }>;
+    items: Array<{
+      rawMaterialId?: number;
+      finalProductId?: number;
+      quantity: number;
+      unitPrice: number;
+      salePrice?: number;
+      warehouseId?: number;
+    }>;
     extraCosts?: number;
     vatRate?: number;
     notes?: string;
@@ -1295,11 +1358,9 @@ export async function editApprovedPurchaseInvoice(
   token: string,
 ) {
   await apiConfigReady;
-  const response = await api.post(
-    `/accounting/purchases/invoices/${invoiceId}/edit`,
-    payload,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
+  const response = await api.post(`/accounting/purchases/invoices/${invoiceId}/edit`, payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return response.data as {
     originalInvoiceId: number;
     purchaseReturnId: number;
@@ -1345,15 +1406,18 @@ export async function updateExpenseCategory(
   id: number,
   // restaurantId اجباری است — DTO سمت سرور بدون آن با 400 رد می‌شود و همیشه silently
   // در .catch(() => {}) صداهای caller گم می‌شد (تغییرات هرگز واقعاً sync نمی‌شدند).
-  payload: { restaurantId: number; name?: string; isActive?: boolean; parentCategoryId?: number | null },
+  payload: {
+    restaurantId: number;
+    name?: string;
+    isActive?: boolean;
+    parentCategoryId?: number | null;
+  },
   token: string,
 ): Promise<ExpenseCategoryRow> {
   await apiConfigReady;
-  const response = await api.patch(
-    `/accounting/financial/expense-categories/${id}`,
-    payload,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
+  const response = await api.patch(`/accounting/financial/expense-categories/${id}`, payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return response.data;
 }
 
@@ -1416,11 +1480,9 @@ export async function updateOperationalExpenseOnline(
   token: string,
 ): Promise<any> {
   await apiConfigReady;
-  const response = await api.patch(
-    `/accounting/financial/operational-expenses/${id}`,
-    payload,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
+  const response = await api.patch(`/accounting/financial/operational-expenses/${id}`, payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return response.data;
 }
 
@@ -1481,11 +1543,9 @@ export async function updateRawMaterialCategory(
   token: string,
 ): Promise<RawMaterialCategoryRow> {
   await apiConfigReady;
-  const response = await api.patch(
-    `/accounting/inventory/raw-material-categories/${id}`,
-    payload,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
+  const response = await api.patch(`/accounting/inventory/raw-material-categories/${id}`, payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return response.data;
 }
 
@@ -1669,20 +1729,17 @@ export async function createCreditPayment(
   token: string,
 ) {
   await apiConfigReady;
-  const response = await api.post(
-    `/orders/${orderId}/credit-payment`,
-    payload,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
+  const response = await api.post(`/orders/${orderId}/credit-payment`, payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return response.data;
 }
 
 export async function getCreditPaymentHistory(orderId: number, token: string) {
   await apiConfigReady;
-  const response = await api.get(
-    `/orders/${orderId}/credit-payments`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
+  const response = await api.get(`/orders/${orderId}/credit-payments`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return response.data;
 }
 
@@ -1693,7 +1750,12 @@ export async function createPurchaseReturn(
     restaurantId: number;
     purchaseInvoiceId: number;
     returnDate: string;
-    items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number }>;
+    items: Array<{
+      rawMaterialId?: number;
+      finalProductId?: number;
+      quantity: number;
+      unitPrice: number;
+    }>;
     notes?: string;
   },
   token: string,
@@ -1717,11 +1779,7 @@ export async function listPurchaseReturns(
   return Array.isArray(response.data) ? response.data : [];
 }
 
-export async function approvePurchaseReturn(
-  returnId: number,
-  restaurantId: number,
-  token: string,
-) {
+export async function approvePurchaseReturn(returnId: number, restaurantId: number, token: string) {
   await apiConfigReady;
   const response = await api.post(
     `/accounting/purchases/returns/${returnId}/approve`,
@@ -1760,7 +1818,12 @@ export interface KardexReport {
 
 /** گزارش کاردکس کالا — تاریخچهٔ کامل ورود/خروج + قیمت خرید/فروش هر رویداد */
 export async function getInventoryKardex(
-  params: { restaurantId: number; rawMaterialId?: number; finalProductId?: number; fiscalYearId?: number },
+  params: {
+    restaurantId: number;
+    rawMaterialId?: number;
+    finalProductId?: number;
+    fiscalYearId?: number;
+  },
   token: string,
 ): Promise<KardexReport> {
   await apiConfigReady;
@@ -1806,7 +1869,10 @@ export interface CreateServiceJobElectronDto {
   formData?: Record<string, any>;
 }
 
-export async function createServiceJobRemote(dto: CreateServiceJobElectronDto, token: string): Promise<any> {
+export async function createServiceJobRemote(
+  dto: CreateServiceJobElectronDto,
+  token: string,
+): Promise<any> {
   await apiConfigReady;
   const { restaurantId, ...body } = dto;
   const response = await api.post('/service-jobs/jobs', body, {
@@ -1828,7 +1894,11 @@ export async function listServiceJobsRemote(
   return response.data;
 }
 
-export async function getServiceJobRemote(jobId: number, restaurantId: number, token: string): Promise<any> {
+export async function getServiceJobRemote(
+  jobId: number,
+  restaurantId: number,
+  token: string,
+): Promise<any> {
   await apiConfigReady;
   const response = await api.get(`/service-jobs/jobs/${jobId}`, {
     params: { restaurantId },
@@ -1868,10 +1938,14 @@ export async function moveServiceJobStatusRemote(
   token: string,
 ): Promise<any> {
   await apiConfigReady;
-  const response = await api.patch(`/service-jobs/jobs/${jobId}/move`, { statusId }, {
-    params: { restaurantId },
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await api.patch(
+    `/service-jobs/jobs/${jobId}/move`,
+    { statusId },
+    {
+      params: { restaurantId },
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
   return response.data;
 }
 
@@ -1950,18 +2024,17 @@ export async function addServiceJobAttachmentRemote(
   await apiConfigReady;
   const form = new FormData();
   form.append('file', file);
-  const response = await api.post(
-    `/service-jobs/jobs/${jobId}/attachments`,
-    form,
-    {
-      params: { restaurantId, visibleToCustomer },
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
-    },
-  );
+  const response = await api.post(`/service-jobs/jobs/${jobId}/attachments`, form, {
+    params: { restaurantId, visibleToCustomer },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+  });
   return response.data;
 }
 
-export async function getServiceJobStaffRemote(restaurantId: number, token: string): Promise<{ id: number; name: string; mobile: string }[]> {
+export async function getServiceJobStaffRemote(
+  restaurantId: number,
+  token: string,
+): Promise<{ id: number; name: string; mobile: string }[]> {
   await apiConfigReady;
   const response = await api.get('/service-jobs/staff', {
     params: { restaurantId },
@@ -1970,7 +2043,10 @@ export async function getServiceJobStaffRemote(restaurantId: number, token: stri
   return Array.isArray(response.data) ? response.data : [];
 }
 
-export async function phoneLookupServiceJobRemote(phone: string, token: string): Promise<{ found: boolean; customerId?: number; name?: string }> {
+export async function phoneLookupServiceJobRemote(
+  phone: string,
+  token: string,
+): Promise<{ found: boolean; customerId?: number; name?: string }> {
   await apiConfigReady;
   const response = await api.get('/service-jobs/phone-lookup', {
     params: { phone },
@@ -2150,7 +2226,10 @@ export interface PosShiftReport {
   paymentMethodBreakdown: PosShiftPaymentMethodBreakdownRow[];
 }
 
-export async function openPosShift(payload: OpenPosShiftPayload, token: string): Promise<PosShiftRow> {
+export async function openPosShift(
+  payload: OpenPosShiftPayload,
+  token: string,
+): Promise<PosShiftRow> {
   await apiConfigReady;
   const response = await api.post('/pos-shifts/open', payload, {
     headers: { Authorization: `Bearer ${token}` },
@@ -2172,7 +2251,10 @@ export async function closePosShift(
   return response.data;
 }
 
-export async function getCurrentPosShift(restaurantId: number, token: string): Promise<PosShiftRow | null> {
+export async function getCurrentPosShift(
+  restaurantId: number,
+  token: string,
+): Promise<PosShiftRow | null> {
   await apiConfigReady;
   const response = await api.get('/pos-shifts/current', {
     params: { restaurantId },

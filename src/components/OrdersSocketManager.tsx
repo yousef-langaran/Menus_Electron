@@ -65,8 +65,7 @@ export function OrdersSocketManager() {
     // کاربری که فقط دسترسی «فراخوان گارسون» دارد هم باید سوکت زنده داشته
     // باشد، وگرنه پیجر نرم‌افزاری برای گارسون‌های بدون دسترسی سفارش کار نمی‌کند.
     const canUseLiveSocket =
-      !!user &&
-      (canAccessRoute(user, '/orders') || canAccessRoute(user, '/waiter-calls'));
+      !!user && (canAccessRoute(user, '/orders') || canAccessRoute(user, '/waiter-calls'));
     if (isOrdersPage || !canUseLiveSocket || !token || !restaurantName) {
       disconnectOrdersSocket();
       restaurantKeyRef.current = null;
@@ -141,4 +140,3 @@ export function OrdersSocketManager() {
 
   return null;
 }
-

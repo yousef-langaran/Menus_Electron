@@ -27,7 +27,8 @@ export function SyncErrorBanner() {
     return null;
   })();
 
-  const syncMessage = lastError || (failedOps > 0 ? `${failedOps} عملیات ناموفق در صف همگام‌سازی` : null);
+  const syncMessage =
+    lastError || (failedOps > 0 ? `${failedOps} عملیات ناموفق در صف همگام‌سازی` : null);
 
   if (!syncMessage && !subscriptionWarning) return null;
 
@@ -44,7 +45,9 @@ export function SyncErrorBanner() {
             <div className="flex items-center gap-2">
               <span>⚠️</span>
               <span>{syncMessage}</span>
-              <span className="text-warning text-xs">— با اتصال به اینترنت خودکار همگام‌سازی می‌شود</span>
+              <span className="text-warning text-xs">
+                — با اتصال به اینترنت خودکار همگام‌سازی می‌شود
+              </span>
               {failedOps > 0 && (
                 <Button
                   variant="ghost"

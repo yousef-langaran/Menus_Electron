@@ -27,9 +27,17 @@ function ReportView({ report }: { report: PosShiftReport }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <div>جمع فروش: <strong>{formatAmount(report.totals.salesAmount)}</strong> ({report.totals.salesCount} فقره)</div>
-        <div>جمع مرجوعی: <strong>{formatAmount(report.totals.refundsAmount)}</strong> ({report.totals.refundsCount} فقره)</div>
-        <div className="col-span-2">خالص: <strong>{formatAmount(report.totals.netAmount)}</strong></div>
+        <div>
+          جمع فروش: <strong>{formatAmount(report.totals.salesAmount)}</strong> (
+          {report.totals.salesCount} فقره)
+        </div>
+        <div>
+          جمع مرجوعی: <strong>{formatAmount(report.totals.refundsAmount)}</strong> (
+          {report.totals.refundsCount} فقره)
+        </div>
+        <div className="col-span-2">
+          خالص: <strong>{formatAmount(report.totals.netAmount)}</strong>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
@@ -62,9 +70,15 @@ function ReportView({ report }: { report: PosShiftReport }) {
       </div>
       {report.type === 'z' && (
         <div className="grid grid-cols-2 gap-2 text-sm border-t border-border-secondary pt-3">
-          <div>ته‌صندوق اولیه: <strong>{formatAmount(report.openingFloatAmount)}</strong></div>
-          <div>مبلغ مورد انتظار: <strong>{formatAmount(report.expectedCashAmount)}</strong></div>
-          <div>مبلغ شمارش‌شده: <strong>{formatAmount(report.countedCashAmount)}</strong></div>
+          <div>
+            ته‌صندوق اولیه: <strong>{formatAmount(report.openingFloatAmount)}</strong>
+          </div>
+          <div>
+            مبلغ مورد انتظار: <strong>{formatAmount(report.expectedCashAmount)}</strong>
+          </div>
+          <div>
+            مبلغ شمارش‌شده: <strong>{formatAmount(report.countedCashAmount)}</strong>
+          </div>
           <div>
             مغایرت:{' '}
             <strong className={Number(report.varianceAmount) < 0 ? 'text-danger' : 'text-success'}>
@@ -80,8 +94,16 @@ function ReportView({ report }: { report: PosShiftReport }) {
 export default function PosShiftPage() {
   const { user, token } = useAuthStore();
   const restaurantId = user?.restaurants?.[0]?.id;
-  const { currentShift, loading, error, loadCurrentShift, openShift, closeShift, fetchReport, clearError } =
-    usePosShiftStore();
+  const {
+    currentShift,
+    loading,
+    error,
+    loadCurrentShift,
+    openShift,
+    closeShift,
+    fetchReport,
+    clearError,
+  } = usePosShiftStore();
 
   const [openingFloatAmount, setOpeningFloatAmount] = useState('');
   const [openingNotes, setOpeningNotes] = useState('');
@@ -127,7 +149,11 @@ export default function PosShiftPage() {
       toast.error('مبلغ شمارش‌شده را درست وارد کنید');
       return;
     }
-    const result = await closeShift({ countedCashAmount: amount, closingNotes: closingNotes.trim() || undefined, token });
+    const result = await closeShift({
+      countedCashAmount: amount,
+      closingNotes: closingNotes.trim() || undefined,
+      token,
+    });
     if (result.success) {
       toast.success('شیفت بسته شد');
       setShowCloseForm(false);
@@ -180,7 +206,9 @@ export default function PosShiftPage() {
       {error && (
         <div className="bg-danger-soft border border-danger/30 text-danger-soft-foreground rounded-lg p-3 flex items-center justify-between text-sm">
           <span>{error}</span>
-          <Button variant="light" size="sm" onPress={clearError}>بستن</Button>
+          <Button variant="light" size="sm" onPress={clearError}>
+            بستن
+          </Button>
         </div>
       )}
 
@@ -219,23 +247,39 @@ export default function PosShiftPage() {
                 )}
               </h2>
               {currentShift.status === 'open' && (
-                <Button variant="flat" color="secondary" size="sm" onPress={handleFetchXReport} isDisabled={reportLoading}>
+                <Button
+                  variant="flat"
+                  color="secondary"
+                  size="sm"
+                  onPress={handleFetchXReport}
+                  isDisabled={reportLoading}
+                >
                   گزارش X (لحظه‌ای)
                 </Button>
               )}
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>ته‌صندوق اولیه: <strong>{formatAmount(currentShift.openingFloatAmount)}</strong></div>
-              <div>زمان باز شدن: <strong>{formatDateTime(currentShift.openedAt)}</strong></div>
+              <div>
+                ته‌صندوق اولیه: <strong>{formatAmount(currentShift.openingFloatAmount)}</strong>
+              </div>
+              <div>
+                زمان باز شدن: <strong>{formatDateTime(currentShift.openedAt)}</strong>
+              </div>
               {currentShift.status === 'closed' && (
                 <>
-                  <div>مبلغ شمارش‌شده: <strong>{formatAmount(currentShift.countedCashAmount)}</strong></div>
-                  <div>زمان بستن: <strong>{formatDateTime(currentShift.closedAt)}</strong></div>
+                  <div>
+                    مبلغ شمارش‌شده: <strong>{formatAmount(currentShift.countedCashAmount)}</strong>
+                  </div>
+                  <div>
+                    زمان بستن: <strong>{formatDateTime(currentShift.closedAt)}</strong>
+                  </div>
                   {currentShift.varianceAmount != null && (
                     <div className="col-span-2">
                       مغایرت:{' '}
-                      <strong className={currentShift.varianceAmount < 0 ? 'text-danger' : 'text-success'}>
+                      <strong
+                        className={currentShift.varianceAmount < 0 ? 'text-danger' : 'text-success'}
+                      >
                         {formatAmount(currentShift.varianceAmount)}
                       </strong>
                     </div>
@@ -267,19 +311,26 @@ export default function PosShiftPage() {
                   <Button color="danger" onPress={handleCloseShift} isDisabled={loading}>
                     {loading ? 'در حال بستن...' : 'تأیید بستن شیفت'}
                   </Button>
-                  <Button variant="light" onPress={() => setShowCloseForm(false)}>انصراف</Button>
+                  <Button variant="light" onPress={() => setShowCloseForm(false)}>
+                    انصراف
+                  </Button>
                 </div>
               </div>
             )}
 
             {currentShift.status === 'closed' && !currentShift.pendingSync && (
-              <Button variant="flat" color="secondary" size="sm" onPress={async () => {
-                if (!token) return;
-                setReportLoading(true);
-                const z = await fetchReport('z', token);
-                setReport(z);
-                setReportLoading(false);
-              }}>
+              <Button
+                variant="flat"
+                color="secondary"
+                size="sm"
+                onPress={async () => {
+                  if (!token) return;
+                  setReportLoading(true);
+                  const z = await fetchReport('z', token);
+                  setReport(z);
+                  setReportLoading(false);
+                }}
+              >
                 گزارش Z (پایان شیفت)
               </Button>
             )}
@@ -287,14 +338,20 @@ export default function PosShiftPage() {
         </Card>
       )}
 
-      {reportLoading && <div className="text-center text-muted text-sm">در حال دریافت گزارش...</div>}
+      {reportLoading && (
+        <div className="text-center text-muted text-sm">در حال دریافت گزارش...</div>
+      )}
 
       {report && !reportLoading && (
         <Card>
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold">{report.type === 'x' ? 'گزارش X (لحظه‌ای)' : 'گزارش Z (پایان شیفت)'}</h2>
-              <Button variant="ghost" size="sm" onPress={() => setReport(null)}>بستن</Button>
+              <h2 className="font-semibold">
+                {report.type === 'x' ? 'گزارش X (لحظه‌ای)' : 'گزارش Z (پایان شیفت)'}
+              </h2>
+              <Button variant="ghost" size="sm" onPress={() => setReport(null)}>
+                بستن
+              </Button>
             </div>
             <ReportView report={report} />
           </CardContent>

@@ -1,4 +1,11 @@
-import { Description, FieldError, InputGroup, Label, TextField, Input as HeroInput } from '@heroui/react';
+import {
+  Description,
+  FieldError,
+  InputGroup,
+  Label,
+  TextField,
+  Input as HeroInput,
+} from '@heroui/react';
 import { forwardRef, type ReactNode } from 'react';
 import type { ComponentPropsWithRef } from 'react';
 
@@ -22,7 +29,10 @@ export type CompatInputProps = Omit<HeroInputProps, 'size' | 'variant'> & {
   classNames?: { input?: string; base?: string };
   /** زیر فیلد نمایش داده می‌شود (v3 prop ندارد؛ با Description رندر می‌شود) */
   description?: ReactNode;
-  textFieldProps?: Omit<TextFieldProps, 'children' | 'onChange' | 'value' | 'defaultValue' | 'variant'>;
+  textFieldProps?: Omit<
+    TextFieldProps,
+    'children' | 'onChange' | 'value' | 'defaultValue' | 'variant'
+  >;
 } & Pick<TextFieldProps, 'fullWidth'>;
 
 function toTextFieldString(v: string | number | readonly string[] | undefined): string | undefined {
@@ -55,7 +65,8 @@ function pickTextFieldValueProps(
 }
 
 function mapInputVariant(v: CompatInputProps['variant']): 'primary' | 'secondary' | undefined {
-  if (!v || v === 'bordered' || v === 'flat' || v === 'faded' || v === 'underlined') return 'secondary';
+  if (!v || v === 'bordered' || v === 'flat' || v === 'faded' || v === 'underlined')
+    return 'secondary';
   if (v === 'primary' || v === 'secondary') return v;
   return 'secondary';
 }
@@ -126,7 +137,13 @@ export const Input = forwardRef<HTMLInputElement, CompatInputProps>(function Inp
   );
 
   if (!hasVisibleLabel && errorMessage == null) {
-    if (Object.keys(textFieldValueProps).length > 0 || isDisabled != null || isReadOnly != null || description != null || classNames?.base) {
+    if (
+      Object.keys(textFieldValueProps).length > 0 ||
+      isDisabled != null ||
+      isReadOnly != null ||
+      description != null ||
+      classNames?.base
+    ) {
       return (
         <TextField
           fullWidth={fullWidth}

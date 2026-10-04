@@ -3,7 +3,14 @@ import type { ComponentProps, ReactNode } from 'react';
 
 type HeroBtn = ComponentProps<typeof HeroButton>;
 
-type LegacyColor = 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | undefined;
+type LegacyColor =
+  | 'default'
+  | 'primary'
+  | 'secondary'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | undefined;
 type LegacyVariant =
   | 'solid'
   | 'bordered'
@@ -39,7 +46,14 @@ function mapToV3Variant(color?: LegacyColor, variant?: LegacyVariant): HeroBtn['
   const v = variant ?? 'solid';
   const c = color ?? 'default';
 
-  if (v === 'primary' || v === 'secondary' || v === 'tertiary' || v === 'outline' || v === 'danger' || v === 'danger-soft') {
+  if (
+    v === 'primary' ||
+    v === 'secondary' ||
+    v === 'tertiary' ||
+    v === 'outline' ||
+    v === 'danger' ||
+    v === 'danger-soft'
+  ) {
     return v;
   }
   if (v === 'bordered') return 'outline';
@@ -76,16 +90,28 @@ function successClassName(variant?: LegacyVariant): string {
   const v = variant ?? 'solid';
   if (v === 'bordered') return '!border-success !text-success hover:!bg-success-soft';
   if (v === 'light' || v === 'ghost') return '!text-success hover:!bg-success-soft';
-  if (v === 'flat') return '!bg-success-soft !text-success-soft-foreground hover:!bg-success-soft-hover';
+  if (v === 'flat')
+    return '!bg-success-soft !text-success-soft-foreground hover:!bg-success-soft-hover';
   return '!bg-success !text-success-foreground hover:!bg-success-hover';
 }
 
-export function Button({ color, variant, isLoading, children, isDisabled, disabled: plainDisabled, className, startContent, endContent, ...rest }: CompatButtonProps) {
+export function Button({
+  color,
+  variant,
+  isLoading,
+  children,
+  isDisabled,
+  disabled: plainDisabled,
+  className,
+  startContent,
+  endContent,
+  ...rest
+}: CompatButtonProps) {
   const nextVariant = mapToV3Variant(color, variant);
   const disabled = Boolean(isDisabled || plainDisabled || isLoading);
-  const mergedClassName = [color === 'success' ? successClassName(variant) : '', className]
-    .filter(Boolean)
-    .join(' ') || undefined;
+  const mergedClassName =
+    [color === 'success' ? successClassName(variant) : '', className].filter(Boolean).join(' ') ||
+    undefined;
 
   return (
     <HeroButton

@@ -232,7 +232,9 @@ describe('runCatalogSync pull reconciliation', () => {
     });
     // Force a full pull and simulate the server no longer listing this category.
     await catalogDb.syncMeta.delete(`catalog:lastFullSyncAt:${RID}`);
-    (api.getCategoriesLastUpdatedAt as any).mockResolvedValue({ lastUpdatedAt: '2026-09-01T00:00:00.000Z' });
+    (api.getCategoriesLastUpdatedAt as any).mockResolvedValue({
+      lastUpdatedAt: '2026-09-01T00:00:00.000Z',
+    });
     (api.getCategories as any).mockResolvedValue([]);
 
     const result = await runCatalogSync({ restaurantId: RID, token: TOKEN });

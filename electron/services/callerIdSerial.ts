@@ -114,7 +114,9 @@ class CallerIdSerialService {
 
   private emit(phone: string) {
     for (const cb of this.callbacks) {
-      try { cb(phone); } catch {}
+      try {
+        cb(phone);
+      } catch {}
     }
   }
 
@@ -157,7 +159,10 @@ class CallerIdSerialService {
 
     const sp = await getSerialPort();
     if (!sp) {
-      return { success: false, error: 'ماژول serialport نصب نیست — "npm run rebuild" را اجرا کنید' };
+      return {
+        success: false,
+        error: 'ماژول serialport نصب نیست — "npm run rebuild" را اجرا کنید',
+      };
     }
 
     return new Promise((resolve) => {
@@ -184,7 +189,9 @@ class CallerIdSerialService {
             try {
               port.write('ATZ\r\n');
               setTimeout(() => {
-                try { port.write('AT+VCID=1\r\n'); } catch {}
+                try {
+                  port.write('AT+VCID=1\r\n');
+                } catch {}
               }, 500);
             } catch {}
           }
@@ -226,7 +233,9 @@ class CallerIdSerialService {
     this._connected = false;
   }
 
-  isConnected() { return this._connected; }
+  isConnected() {
+    return this._connected;
+  }
 }
 
 export const callerIdSerialService = new CallerIdSerialService();

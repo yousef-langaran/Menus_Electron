@@ -45,28 +45,30 @@ export async function cacheImage(imageUrl: string): Promise<string | null> {
     // دانلود عکس
     return new Promise((resolve, reject) => {
       const protocol = imageUrl.startsWith('https') ? https : http;
-      
-      protocol.get(imageUrl, (response) => {
-        if (response.statusCode !== 200) {
-          reject(new Error(`Failed to download image: ${response.statusCode}`));
-          return;
-        }
 
-        const fileStream = fs.createWriteStream(filePath);
-        response.pipe(fileStream);
+      protocol
+        .get(imageUrl, (response) => {
+          if (response.statusCode !== 200) {
+            reject(new Error(`Failed to download image: ${response.statusCode}`));
+            return;
+          }
 
-        fileStream.on('finish', () => {
-          fileStream.close();
-          resolve(filePath);
-        });
+          const fileStream = fs.createWriteStream(filePath);
+          response.pipe(fileStream);
 
-        fileStream.on('error', (err) => {
-          fs.unlink(filePath, () => {}); // حذف فایل ناقص
+          fileStream.on('finish', () => {
+            fileStream.close();
+            resolve(filePath);
+          });
+
+          fileStream.on('error', (err) => {
+            fs.unlink(filePath, () => {}); // حذف فایل ناقص
+            reject(err);
+          });
+        })
+        .on('error', (err) => {
           reject(err);
         });
-      }).on('error', (err) => {
-        reject(err);
-      });
     });
   } catch (error) {
     console.error('Error caching image:', error);
@@ -145,4 +147,3 @@ export function getImageUrl(imageUrl: string): string {
   }
   return imageUrl;
 }
-

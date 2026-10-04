@@ -24,7 +24,9 @@ export default function ServiceJobsPage() {
 
   const [boards, setBoards] = useState<LocalServiceBoard[]>([]);
   const [jobs, setJobs] = useState<LocalServiceJob[]>([]);
-  const [opStates, setOpStates] = useState<Map<number, { hasPending: boolean; hasFailed: boolean }>>(new Map());
+  const [opStates, setOpStates] = useState<
+    Map<number, { hasPending: boolean; hasFailed: boolean }>
+  >(new Map());
   const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -63,7 +65,9 @@ export default function ServiceJobsPage() {
   useEffect(() => {
     if (!restaurantId) return;
     setIsLoading(true);
-    loadLocal().then(() => doSync()).finally(() => setIsLoading(false));
+    loadLocal()
+      .then(() => doSync())
+      .finally(() => setIsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId]);
 
@@ -90,7 +94,19 @@ export default function ServiceJobsPage() {
   });
 
   const handleJobMove = async (jobId: number, newStatus: LocalServiceBoard['statuses'][number]) => {
-    setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, statusId: newStatus.id, statusLabel: newStatus.label, statusColor: newStatus.color, statusCategory: newStatus.category } : j)));
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId
+          ? {
+              ...j,
+              statusId: newStatus.id,
+              statusLabel: newStatus.label,
+              statusColor: newStatus.color,
+              statusCategory: newStatus.category,
+            }
+          : j,
+      ),
+    );
     await moveServiceJobLocal(jobId, newStatus);
     await loadLocal();
     void doSync(); // اگر آنلاینیم، بدون تأخیر تا ۶۰ ثانیه‌ای، همین الان push شود
@@ -104,16 +120,29 @@ export default function ServiceJobsPage() {
       <div className="shrink-0 border-b border-border bg-surface px-4 py-3 flex items-center gap-3 flex-wrap">
         <h1 className="font-bold text-base shrink-0">پرونده‌های خدمت</h1>
         {pendingCount.pendingCount + pendingCount.failedCount > 0 && (
-          <span className={`text-xs px-2 py-0.5 rounded-full ${pendingCount.failedCount > 0 ? 'bg-danger-soft text-danger-soft-foreground' : 'bg-warning-soft text-warning-soft-foreground'}`}>
-            {pendingCount.failedCount > 0 ? `${pendingCount.failedCount} ناموفق` : `${pendingCount.pendingCount} در صف سینک`}
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full ${pendingCount.failedCount > 0 ? 'bg-danger-soft text-danger-soft-foreground' : 'bg-warning-soft text-warning-soft-foreground'}`}
+          >
+            {pendingCount.failedCount > 0
+              ? `${pendingCount.failedCount} ناموفق`
+              : `${pendingCount.pendingCount} در صف سینک`}
           </span>
         )}
         <div className="flex-1 min-w-[160px] max-w-xs">
           <Input placeholder="جستجو در پرونده‌ها…" value={search} onValueChange={setSearch} />
         </div>
-        <Button size="sm" variant="flat" onPress={() => void doSync()} isLoading={isSyncing}>سینک</Button>
+        <Button size="sm" variant="flat" onPress={() => void doSync()} isLoading={isSyncing}>
+          سینک
+        </Button>
         {selectedBoard && (
-          <Button size="sm" color="primary" onPress={() => { setCreateStatusId(undefined); setShowCreate(true); }}>
+          <Button
+            size="sm"
+            color="primary"
+            onPress={() => {
+              setCreateStatusId(undefined);
+              setShowCreate(true);
+            }}
+          >
             پرونده جدید
           </Button>
         )}
@@ -128,10 +157,13 @@ export default function ServiceJobsPage() {
                 key={b.id}
                 onClick={() => setSelectedBoardId(b.id)}
                 className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  selectedBoardId === b.id ? 'bg-accent text-white' : 'text-foreground/70 hover:bg-default-soft'
+                  selectedBoardId === b.id
+                    ? 'bg-accent text-white'
+                    : 'text-foreground/70 hover:bg-default-soft'
                 }`}
               >
-                {b.icon ? `${b.icon} ` : ''}{b.name}
+                {b.icon ? `${b.icon} ` : ''}
+                {b.name}
               </button>
             ))}
           </div>
@@ -154,7 +186,10 @@ export default function ServiceJobsPage() {
             opStates={opStates}
             onJobClick={setOpenJob}
             onJobMove={handleJobMove}
-            onAddJob={(statusId) => { setCreateStatusId(statusId); setShowCreate(true); }}
+            onAddJob={(statusId) => {
+              setCreateStatusId(statusId);
+              setShowCreate(true);
+            }}
             canCreate
           />
         )}
@@ -168,7 +203,11 @@ export default function ServiceJobsPage() {
           defaultStatusId={createStatusId}
           restaurantId={restaurantId}
           token={token}
-          onCreated={() => { void loadLocal(); void doSync(); toast.success('پرونده ثبت شد'); }}
+          onCreated={() => {
+            void loadLocal();
+            void doSync();
+            toast.success('پرونده ثبت شد');
+          }}
         />
       )}
 
@@ -178,8 +217,14 @@ export default function ServiceJobsPage() {
           board={boards.find((b) => b.id === openJob.boardId) ?? selectedBoard}
           restaurantId={restaurantId}
           token={token}
-          onClose={() => { setOpenJob(null); void loadLocal(); }}
-          onUpdated={() => { void loadLocal(); void doSync(); }}
+          onClose={() => {
+            setOpenJob(null);
+            void loadLocal();
+          }}
+          onUpdated={() => {
+            void loadLocal();
+            void doSync();
+          }}
         />
       )}
     </div>

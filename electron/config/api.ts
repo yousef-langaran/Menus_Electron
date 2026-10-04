@@ -88,7 +88,9 @@ export function getUpdateServerUrl(): string {
     ''
   ).trim();
   const fromUserDataFile =
-    typeof cachedFileConfig?.updateServerUrl === 'string' ? cachedFileConfig.updateServerUrl.trim() : '';
+    typeof cachedFileConfig?.updateServerUrl === 'string'
+      ? cachedFileConfig.updateServerUrl.trim()
+      : '';
   const fromBuild = readPackagedUpdateEnvFromDist();
   const raw = fromEnv || fromUserDataFile || fromBuild;
   return raw.replace(/\/+$/, '');
@@ -103,4 +105,3 @@ export function saveApiConfig(config: ApiConfig): void {
     console.error('Error saving API config:', error);
   }
 }
-

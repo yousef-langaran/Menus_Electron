@@ -15,9 +15,12 @@ export default function AccountingPage() {
   const { pendingOps, failedOps, isSyncing, lastSyncedAt } = useSyncStore();
   const { user, token } = useAuthStore();
   const restaurantId = user?.restaurants?.[0]?.id;
-  const hasInventory = isOwnerOrAdmin(user) || hasModuleAccess(user, 'inventory', ['read', 'manage'], restaurantId);
-  const hasPurchases = isOwnerOrAdmin(user) || hasModuleAccess(user, 'purchases', ['read', 'manage'], restaurantId);
-  const hasAccounting = isOwnerOrAdmin(user) || hasModuleAccess(user, 'accounting', ['read', 'manage'], restaurantId);
+  const hasInventory =
+    isOwnerOrAdmin(user) || hasModuleAccess(user, 'inventory', ['read', 'manage'], restaurantId);
+  const hasPurchases =
+    isOwnerOrAdmin(user) || hasModuleAccess(user, 'purchases', ['read', 'manage'], restaurantId);
+  const hasAccounting =
+    isOwnerOrAdmin(user) || hasModuleAccess(user, 'accounting', ['read', 'manage'], restaurantId);
   const [fiscalYears, setFiscalYears] = useState<any[]>([]);
   const { selectedByRestaurant, setSelectedFiscalYear } = useFiscalYearStore();
   const selectedFiscalYearId = restaurantId ? selectedByRestaurant[restaurantId] : undefined;
@@ -48,7 +51,9 @@ export default function AccountingPage() {
           <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
             <div className="bg-default-soft rounded-lg p-2">عملیات صف: {pendingOps}</div>
             <div className="bg-default-soft rounded-lg p-2">ناموفق: {failedOps}</div>
-            <div className="bg-default-soft rounded-lg p-2">در حال سینک: {isSyncing ? 'بله' : 'خیر'}</div>
+            <div className="bg-default-soft rounded-lg p-2">
+              در حال سینک: {isSyncing ? 'بله' : 'خیر'}
+            </div>
             <div className="bg-default-soft rounded-lg p-2">
               آخرین سینک: {lastSyncedAt ? toShamsiDateTime(lastSyncedAt) : '—'}
             </div>
@@ -68,9 +73,11 @@ export default function AccountingPage() {
                 setSelectedFiscalYear(restaurantId, fiscalYearId);
               }}
             >
-              {fiscalYears.filter((x) => x.status === 'open').map((x) => (
-                <SelectItem key={String(x.id)}>{x.name}</SelectItem>
-              ))}
+              {fiscalYears
+                .filter((x) => x.status === 'open')
+                .map((x) => (
+                  <SelectItem key={String(x.id)}>{x.name}</SelectItem>
+                ))}
             </Select>
             {selectedFiscalYearId ? (
               <Button
@@ -96,7 +103,9 @@ export default function AccountingPage() {
               <CardContent className="gap-2">
                 <h3 className="font-semibold">مواد اولیه</h3>
                 <p className="text-sm text-muted">ثبت، جستجو و ویرایش مواد اولیه</p>
-                <Button color="primary" onPress={() => navigate('/accounting/raw-materials')}>ورود</Button>
+                <Button color="primary" onPress={() => navigate('/accounting/raw-materials')}>
+                  ورود
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -105,7 +114,12 @@ export default function AccountingPage() {
               <CardContent className="gap-2">
                 <h3 className="font-semibold">دسته‌بندی مواد اولیه</h3>
                 <p className="text-sm text-muted">تعریف و ویرایش دسته‌بندی مواد اولیه</p>
-                <Button color="secondary" onPress={() => navigate('/accounting/raw-material-categories')}>ورود</Button>
+                <Button
+                  color="secondary"
+                  onPress={() => navigate('/accounting/raw-material-categories')}
+                >
+                  ورود
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -114,7 +128,9 @@ export default function AccountingPage() {
               <CardContent className="gap-2">
                 <h3 className="font-semibold">تامین‌کنندگان</h3>
                 <p className="text-sm text-muted">ثبت، جستجو و ویرایش تامین‌کننده</p>
-                <Button color="primary" onPress={() => navigate('/accounting/suppliers')}>ورود</Button>
+                <Button color="primary" onPress={() => navigate('/accounting/suppliers')}>
+                  ورود
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -123,7 +139,9 @@ export default function AccountingPage() {
               <CardContent className="gap-2">
                 <h3 className="font-semibold">فاکتورهای خرید</h3>
                 <p className="text-sm text-muted">ثبت پیش‌نویس، مشاهده و تایید فاکتورهای خرید</p>
-                <Button color="primary" onPress={() => navigate('/accounting/purchase-drafts')}>ورود</Button>
+                <Button color="primary" onPress={() => navigate('/accounting/purchase-drafts')}>
+                  ورود
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -132,7 +150,9 @@ export default function AccountingPage() {
               <CardContent className="gap-2">
                 <h3 className="font-semibold">ثبت هزینه</h3>
                 <p className="text-sm text-muted">ثبت هزینه‌های عملیاتی با دسته‌بندی</p>
-                <Button color="primary" onPress={() => navigate('/accounting/expenses')}>ورود</Button>
+                <Button color="primary" onPress={() => navigate('/accounting/expenses')}>
+                  ورود
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -141,7 +161,12 @@ export default function AccountingPage() {
               <CardContent className="gap-2">
                 <h3 className="font-semibold">دسته‌بندی هزینه‌ها</h3>
                 <p className="text-sm text-muted">تعریف، ویرایش و غیرفعال‌سازی دسته‌بندی هزینه</p>
-                <Button color="secondary" onPress={() => navigate('/accounting/expense-categories')}>ورود</Button>
+                <Button
+                  color="secondary"
+                  onPress={() => navigate('/accounting/expense-categories')}
+                >
+                  ورود
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -149,8 +174,12 @@ export default function AccountingPage() {
             <Card>
               <CardContent className="gap-2">
                 <h3 className="font-semibold">صندوق و حساب‌ها</h3>
-                <p className="text-sm text-muted">موجودی صندوق، کارتخوان و آنلاین — دریافت وجه نقدی و کارتی</p>
-                <Button color="primary" onPress={() => navigate('/accounting/cash-accounts')}>ورود</Button>
+                <p className="text-sm text-muted">
+                  موجودی صندوق، کارتخوان و آنلاین — دریافت وجه نقدی و کارتی
+                </p>
+                <Button color="primary" onPress={() => navigate('/accounting/cash-accounts')}>
+                  ورود
+                </Button>
               </CardContent>
             </Card>
           )}

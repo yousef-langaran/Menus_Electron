@@ -311,52 +311,52 @@ export default function OrderReturnsPage() {
                 </div>
               )}
               <div className="flex gap-2 w-full justify-between">
-              <div className="flex gap-2">
-                {selectedReturn.status === 'pending' && (
-                  <>
+                <div className="flex gap-2">
+                  {selectedReturn.status === 'pending' && (
+                    <>
+                      <Button
+                        onClick={() => handleUpdateStatus('approved')}
+                        disabled={updateLoading}
+                        color="primary"
+                      >
+                        تایید
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          if (!showRejectionInput) {
+                            setShowRejectionInput(true);
+                          } else {
+                            handleUpdateStatus('rejected');
+                          }
+                        }}
+                        disabled={updateLoading}
+                        color="danger"
+                      >
+                        {showRejectionInput ? 'تایید رد' : 'رد'}
+                      </Button>
+                    </>
+                  )}
+                  {selectedReturn.status === 'approved' && (
                     <Button
-                      onClick={() => handleUpdateStatus('approved')}
+                      onClick={() => handleUpdateStatus('completed')}
                       disabled={updateLoading}
-                      color="primary"
+                      color="success"
                     >
-                      تایید
+                      تکمیل
                     </Button>
-                    <Button
-                      onClick={() => {
-                        if (!showRejectionInput) {
-                          setShowRejectionInput(true);
-                        } else {
-                          handleUpdateStatus('rejected');
-                        }
-                      }}
-                      disabled={updateLoading}
-                      color="danger"
-                    >
-                      {showRejectionInput ? 'تایید رد' : 'رد'}
-                    </Button>
-                  </>
-                )}
-                {selectedReturn.status === 'approved' && (
-                  <Button
-                    onClick={() => handleUpdateStatus('completed')}
-                    disabled={updateLoading}
-                    color="success"
-                  >
-                    تکمیل
-                  </Button>
-                )}
+                  )}
+                </div>
+                <Button
+                  onClick={() => {
+                    setDetailsModalOpen(false);
+                    setShowRejectionInput(false);
+                    setRejectionReason('');
+                  }}
+                  variant="outline"
+                >
+                  بستن
+                </Button>
               </div>
-              <Button 
-                onClick={() => {
-                  setDetailsModalOpen(false);
-                  setShowRejectionInput(false);
-                  setRejectionReason('');
-                }} 
-                variant="outline"
-              >
-                بستن
-              </Button>
-            </div>
             </div>
           </ModalFooter>
         </Modal>

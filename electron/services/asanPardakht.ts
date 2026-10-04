@@ -75,7 +75,10 @@ export async function sendPaymentViaAsanPardakht(
     try {
       child = spawn(connection.bridgeExePath, [], { windowsHide: true });
     } catch (err: any) {
-      resolve({ success: false, error: `اجرای PosBridge ناموفق بود: ${String(err?.message || err)}` });
+      resolve({
+        success: false,
+        error: `اجرای PosBridge ناموفق بود: ${String(err?.message || err)}`,
+      });
       return;
     }
 
@@ -98,7 +101,12 @@ export async function sendPaymentViaAsanPardakht(
         initSent = true;
         const initCmd =
           connection.mode === 'serial'
-            ? { cmd: 'init', mode: 'serial', comPort: connection.comPort, baudRate: connection.baudRate }
+            ? {
+                cmd: 'init',
+                mode: 'serial',
+                comPort: connection.comPort,
+                baudRate: connection.baudRate,
+              }
             : { cmd: 'init', mode: 'lan', ip: connection.ip, port: connection.port };
         child.stdin!.write(JSON.stringify(initCmd) + '\n');
         return;

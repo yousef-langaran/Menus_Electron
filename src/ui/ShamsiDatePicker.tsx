@@ -5,7 +5,7 @@ import { I18nProvider } from 'react-aria-components';
 
 interface ShamsiDatePickerProps {
   label: string;
-  value: string;           // ISO YYYY-MM-DD (or empty)
+  value: string; // ISO YYYY-MM-DD (or empty)
   onChange: (iso: string) => void;
   isRequired?: boolean;
   isReadOnly?: boolean;
@@ -14,13 +14,13 @@ interface ShamsiDatePickerProps {
 }
 
 const DAY_ABBR: Record<string, string> = {
-  'شنبه': 'ش',
-  'یکشنبه': 'ی',
-  'دوشنبه': 'د',
-  'سه‌شنبه': 'س',
-  'چهارشنبه': 'چ',
-  'پنجشنبه': 'پ',
-  'جمعه': 'ج',
+  شنبه: 'ش',
+  یکشنبه: 'ی',
+  دوشنبه: 'د',
+  سه‌شنبه: 'س',
+  چهارشنبه: 'چ',
+  پنجشنبه: 'پ',
+  جمعه: 'ج',
 };
 
 function toCalendarDate(iso: string): DateValue | null {
@@ -28,7 +28,11 @@ function toCalendarDate(iso: string): DateValue | null {
   // مقدار ممکن است از سرور به‌صورت تایم‌استمپ کامل بیاید
   // (مثل 2026-06-05T00:00:00.000Z)؛ parseDate فقط YYYY-MM-DD می‌پذیرد.
   const datePart = iso.slice(0, 10);
-  try { return parseDate(datePart); } catch { return null; }
+  try {
+    return parseDate(datePart);
+  } catch {
+    return null;
+  }
 }
 
 export function ShamsiDatePicker({
@@ -49,9 +53,7 @@ export function ShamsiDatePicker({
         isRequired={isRequired}
         isReadOnly={isReadOnly}
       >
-        <Label className="text-sm font-medium text-foreground-700 mb-1 block">
-          {label}
-        </Label>
+        <Label className="text-sm font-medium text-foreground-700 mb-1 block">{label}</Label>
 
         {/* ─── Input Field ─── */}
         <DateField.Group
@@ -79,10 +81,7 @@ export function ShamsiDatePicker({
 
         {/* ─── Calendar Popover ─── */}
         <DatePicker.Popover className="z-[9999] rounded-2xl shadow-xl border border-border bg-background p-0 overflow-hidden">
-          <Calendar
-            aria-label={label}
-            className="w-[300px] p-4"
-          >
+          <Calendar aria-label={label} className="w-[300px] p-4">
             {/* Header: swap slots so RTL flex renders › (next) on RIGHT and ‹ (previous) on LEFT */}
             <Calendar.Header className="flex items-center justify-between mb-3">
               <Calendar.NavButton

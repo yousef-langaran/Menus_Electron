@@ -12,7 +12,11 @@ import { useAuthStore } from '../../store/authStore';
 import { useOrderStore } from '../../store/orderStore';
 import { useOrderNavStore } from '../../store/orderNavStore';
 import {
-  createProduct, fetchOrderById, fetchOrders, getMasterProductByBarcode, searchMasterProducts,
+  createProduct,
+  fetchOrderById,
+  fetchOrders,
+  getMasterProductByBarcode,
+  searchMasterProducts,
   type MasterProduct,
 } from '../../services/api';
 import { MODULES } from '../../types';
@@ -26,8 +30,20 @@ import { OrderModal, type OrderModalState } from './components/OrderModal';
 import { OrderQuickActionsRail } from './components/OrderQuickActionsRail';
 
 const PRODUCT_UNITS = [
-  'عدد', 'کیلوگرم', 'گرم', 'لیتر', 'میلی‌لیتر',
-  'متر', 'سانتی‌متر', 'بسته', 'جعبه', 'پرس', 'وعده', 'پیمانه', 'قوطی', 'بطری',
+  'عدد',
+  'کیلوگرم',
+  'گرم',
+  'لیتر',
+  'میلی‌لیتر',
+  'متر',
+  'سانتی‌متر',
+  'بسته',
+  'جعبه',
+  'پرس',
+  'وعده',
+  'پیمانه',
+  'قوطی',
+  'بطری',
 ];
 
 const normalizePriceInput = (value: string) =>
@@ -43,23 +59,48 @@ const formatPriceInput = (value: string) => {
 };
 
 const INITIAL_MODAL_STATE: OrderModalState = {
-  isOpen: false, isOnline: true, userExists: null, isCheckingUser: false,
-  loadedCustomerFirstName: '', loadedCustomerLastName: '',
-  customerFirstNameInput: '', customerLastNameInput: '', referralCode: '', referralAvailable: false,
-  showCustomerNameFields: false, customerAddresses: [], selectedAddressId: null,
-  loadingAddresses: false, printOption: 'all', selectedPrinterNames: [],
-  cardTerminalStatus: 'idle', cardTerminalError: '', cardTerminalRefId: '',
-  cardTerminalProfiles: [], selectedCardTerminalId: '',
-  cashBoxAccounts: [], selectedCashBoxId: null, selectedCashBoxName: 'صندوق',
-  discountCodeError: '', availableDiscountCodes: [], loadingAvailableDiscountCodes: false,
-  wheelVouchers: [], applyingVoucher: null,
-  cashbackBalance: 0, loadingCashback: false,
-  pointsBalance: 0, loadingPointsRewards: false, availableRewards: [], redeemingTierId: null,
+  isOpen: false,
+  isOnline: true,
+  userExists: null,
+  isCheckingUser: false,
+  loadedCustomerFirstName: '',
+  loadedCustomerLastName: '',
+  customerFirstNameInput: '',
+  customerLastNameInput: '',
+  referralCode: '',
+  referralAvailable: false,
+  showCustomerNameFields: false,
+  customerAddresses: [],
+  selectedAddressId: null,
+  loadingAddresses: false,
+  printOption: 'all',
+  selectedPrinterNames: [],
+  cardTerminalStatus: 'idle',
+  cardTerminalError: '',
+  cardTerminalRefId: '',
+  cardTerminalProfiles: [],
+  selectedCardTerminalId: '',
+  cashBoxAccounts: [],
+  selectedCashBoxId: null,
+  selectedCashBoxName: 'صندوق',
+  discountCodeError: '',
+  availableDiscountCodes: [],
+  loadingAvailableDiscountCodes: false,
+  wheelVouchers: [],
+  applyingVoucher: null,
+  cashbackBalance: 0,
+  loadingCashback: false,
+  pointsBalance: 0,
+  loadingPointsRewards: false,
+  availableRewards: [],
+  redeemingTierId: null,
   selectedProductByTier: {},
 };
 
 function hasPermission(user: any, module: string) {
-  return isOwnerOrAdmin(user) || hasModuleAccess(user, module, ['manage'], user?.restaurants?.[0]?.id);
+  return (
+    isOwnerOrAdmin(user) || hasModuleAccess(user, module, ['manage'], user?.restaurants?.[0]?.id)
+  );
 }
 
 export default function OrderPage() {
@@ -67,10 +108,7 @@ export default function OrderPage() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { user, token } = useAuthStore();
-  const {
-    cart, clearCart,
-    setCustomerPhone, setCustomerAddress, setServiceType,
-  } = useOrderStore();
+  const { cart, clearCart, setCustomerPhone, setCustomerAddress, setServiceType } = useOrderStore();
 
   const editParam = searchParams.get('edit');
   const parsedEditId = editParam != null ? Number(editParam) : NaN;
@@ -93,7 +131,14 @@ export default function OrderPage() {
   // Barcode / new product modal state
   const [showCreateProductModal, setShowCreateProductModal] = useState(false);
   const [creatingProduct, setCreatingProduct] = useState(false);
-  const [newProductForm, setNewProductForm] = useState({ name_fa: '', name: '', price: '', category_id: '', barcode: '', unit: 'عدد' });
+  const [newProductForm, setNewProductForm] = useState({
+    name_fa: '',
+    name: '',
+    price: '',
+    category_id: '',
+    barcode: '',
+    unit: 'عدد',
+  });
   const [isCheckingMasterProduct, setIsCheckingMasterProduct] = useState(false);
   const [nameSuggestions, setNameSuggestions] = useState<MasterProduct[]>([]);
   const nameSuggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -105,16 +150,20 @@ export default function OrderPage() {
   const [scaleReading, setScaleReading] = useState(false);
   const [scaleError, setScaleError] = useState('');
 
-  const canUseScale = !productLoader.isScaleIntegrationEnabled ||
+  const canUseScale =
+    !productLoader.isScaleIntegrationEnabled ||
     !productLoader.restrictScaleAccess ||
     hasPermission(user, MODULES.ELECTRON_PANEL);
 
-  const canUseCardTerminal = !productLoader.isCardTerminalEnabled ||
+  const canUseCardTerminal =
+    !productLoader.isCardTerminalEnabled ||
     !productLoader.restrictCardTerminalAccess ||
     hasPermission(user, 'payment_terminal');
 
   // Load on mount
-  useEffect(() => { void productLoader.loadProducts(); }, []);
+  useEffect(() => {
+    void productLoader.loadProducts();
+  }, []);
 
   // Prefill from caller-ID overlay
   useEffect(() => {
@@ -142,30 +191,51 @@ export default function OrderPage() {
     const prev = prevEditingIdRef.current;
     if (prev != null && editingOrderId == null) {
       clearCart();
-      setModalState((s) => ({ ...s, loadedCustomerFirstName: '', loadedCustomerLastName: '', userExists: null }));
+      setModalState((s) => ({
+        ...s,
+        loadedCustomerFirstName: '',
+        loadedCustomerLastName: '',
+        userExists: null,
+      }));
       setOrderEditError('');
     }
     prevEditingIdRef.current = editingOrderId;
   }, [editingOrderId, clearCart]);
 
   useEffect(() => {
-    if (editingOrderId == null) { setOrderEditLoading(false); return; }
-    if (!token) { setOrderEditError('برای ویرایش فاکتور باید وارد شوید.'); return; }
+    if (editingOrderId == null) {
+      setOrderEditLoading(false);
+      return;
+    }
+    if (!token) {
+      setOrderEditError('برای ویرایش فاکتور باید وارد شوید.');
+      return;
+    }
     let cancelled = false;
     setOrderEditLoading(true);
     setOrderEditError('');
     fetchOrderById(editingOrderId, token)
       .then((order: any) => {
         if (cancelled) return;
-        const cartItems = (order.items || []).filter((r: any) => r.product?.id).map((r: any) => ({
-          productId: r.product.id, product: r.product,
-          quantity: Number(r.quantity), price: Number(r.price),
-          totalPrice: Number(r.price) * Number(r.quantity),
-          itemOption: r.itemNote?.trim() ?? '',
-        }));
+        const cartItems = (order.items || [])
+          .filter((r: any) => r.product?.id)
+          .map((r: any) => ({
+            productId: r.product.id,
+            product: r.product,
+            quantity: Number(r.quantity),
+            price: Number(r.price),
+            totalPrice: Number(r.price) * Number(r.quantity),
+            itemOption: r.itemNote?.trim() ?? '',
+          }));
         const codeVal = (order.discountCodeValue || '').trim();
         const disc = Number(order.discountAmount) || 0;
-        const { restoreDraft, setDiscountType, setDiscountAmount, setDiscountCode, setAppliedDiscountCode } = useOrderStore.getState();
+        const {
+          restoreDraft,
+          setDiscountType,
+          setDiscountAmount,
+          setDiscountCode,
+          setAppliedDiscountCode,
+        } = useOrderStore.getState();
         restoreDraft({
           cart: cartItems,
           customerPhone: order.customerPhone || '',
@@ -176,11 +246,24 @@ export default function OrderPage() {
           paymentMethod: order.paymentMethod || 'cash',
           notes: order.notes || '',
         });
-        if (codeVal) { setDiscountType('code'); setDiscountCode(codeVal); setAppliedDiscountCode({ code: codeVal, discountAmount: disc }); }
-        else { setDiscountType('fixed'); setDiscountAmount(disc); setAppliedDiscountCode(null); setDiscountCode(''); }
+        if (codeVal) {
+          setDiscountType('code');
+          setDiscountCode(codeVal);
+          setAppliedDiscountCode({ code: codeVal, discountAmount: disc });
+        } else {
+          setDiscountType('fixed');
+          setDiscountAmount(disc);
+          setAppliedDiscountCode(null);
+          setDiscountCode('');
+        }
         const nameRaw = (order.customerName || '').trim();
         const parts = nameRaw.split(/\s+/).filter(Boolean);
-        setModalState((s) => ({ ...s, loadedCustomerFirstName: parts[0] || '', loadedCustomerLastName: parts.slice(1).join(' ') || '', userExists: null }));
+        setModalState((s) => ({
+          ...s,
+          loadedCustomerFirstName: parts[0] || '',
+          loadedCustomerLastName: parts.slice(1).join(' ') || '',
+          userExists: null,
+        }));
         setOrderEditLoading(false);
       })
       .catch((e: any) => {
@@ -188,7 +271,9 @@ export default function OrderPage() {
         setOrderEditLoading(false);
         setOrderEditError(e?.response?.data?.message || e?.message || 'خطا در بارگذاری سفارش');
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [editingOrderId, token]);
 
   // Load card terminal profiles
@@ -196,9 +281,18 @@ export default function OrderPage() {
     const load = async () => {
       try {
         const cfg = await window.electronAPI?.getCardTerminalConfig?.();
-        const profiles = (cfg?.profiles || []).map((p: any) => ({ id: String(p.id), name: String(p.name || 'کارتخوان') }));
-        setModalState((s) => ({ ...s, cardTerminalProfiles: profiles, selectedCardTerminalId: String(cfg?.defaultProfileId || profiles[0]?.id || '') }));
-      } catch { setModalState((s) => ({ ...s, cardTerminalProfiles: [], selectedCardTerminalId: '' })); }
+        const profiles = (cfg?.profiles || []).map((p: any) => ({
+          id: String(p.id),
+          name: String(p.name || 'کارتخوان'),
+        }));
+        setModalState((s) => ({
+          ...s,
+          cardTerminalProfiles: profiles,
+          selectedCardTerminalId: String(cfg?.defaultProfileId || profiles[0]?.id || ''),
+        }));
+      } catch {
+        setModalState((s) => ({ ...s, cardTerminalProfiles: [], selectedCardTerminalId: '' }));
+      }
     };
     load();
   }, []);
@@ -210,14 +304,20 @@ export default function OrderPage() {
         const { accountingDb } = await import('../../services/accountingLocalDb');
         const rid = user?.restaurants?.[0]?.id;
         if (!rid) return;
-        const accounts = await accountingDb.cashBankAccounts.where('restaurantId').equals(Number(rid))
-          .filter((a: any) => a.accountType === 'cashbox' || a.accountType === 'cash').toArray();
+        const accounts = await accountingDb.cashBankAccounts
+          .where('restaurantId')
+          .equals(Number(rid))
+          .filter((a: any) => a.accountType === 'cashbox' || a.accountType === 'cash')
+          .toArray();
         setModalState((s) => ({
-          ...s, cashBoxAccounts: accounts || [],
+          ...s,
+          cashBoxAccounts: accounts || [],
           selectedCashBoxId: accounts?.[0]?.id ?? null,
           selectedCashBoxName: accounts?.[0]?.name || 'صندوق',
         }));
-      } catch { setModalState((s) => ({ ...s, cashBoxAccounts: [] })); }
+      } catch {
+        setModalState((s) => ({ ...s, cashBoxAccounts: [] }));
+      }
     };
     load();
   }, [user?.restaurants]);
@@ -226,7 +326,9 @@ export default function OrderPage() {
   useEffect(() => {
     if (!scaleModalOpen || !window.electronAPI?.onScaleWeightUpdate) return;
     const unsub = window.electronAPI.onScaleWeightUpdate((weight) => {
-      setScaleWeight(weight); setScaleReading(false); setScaleError('');
+      setScaleWeight(weight);
+      setScaleReading(false);
+      setScaleError('');
     });
     return () => unsub?.();
   }, [scaleModalOpen]);
@@ -262,15 +364,21 @@ export default function OrderPage() {
           token,
         );
         if (cancelled) return;
-        const data = Array.isArray(response) ? response : Array.isArray(response?.data) ? response.data : [];
-        useOrderNavStore.getState().setOrderIds(
-          data.map((o: any) => o?.id).filter((id: any) => id != null),
-        );
+        const data = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+            ? response.data
+            : [];
+        useOrderNavStore
+          .getState()
+          .setOrderIds(data.map((o: any) => o?.id).filter((id: any) => id != null));
       } catch {
         /* آفلاین یا خطای شبکه — میانبر پیمایش صرفاً غیرفعال می‌ماند */
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [token, user?.restaurants]);
 
   // پیمایش بین فاکتور قبلی/بعدی با ← / → — هم از صفحهٔ خالی «ثبت سفارش» (وقتی سبد خالی
@@ -289,7 +397,8 @@ export default function OrderPage() {
       if (orderIds.length === 0) return;
       const currentIndex = editingOrderId != null ? orderIds.indexOf(editingOrderId) : -1;
       const max = orderIds.length - 1;
-      const nextIndex = e.key === 'ArrowRight' ? Math.min(currentIndex + 1, max) : Math.max(currentIndex - 1, 0);
+      const nextIndex =
+        e.key === 'ArrowRight' ? Math.min(currentIndex + 1, max) : Math.max(currentIndex - 1, 0);
       if (currentIndex !== -1 && nextIndex === currentIndex) return;
       e.preventDefault();
       navigate(`/order?edit=${orderIds[nextIndex]}`);
@@ -300,7 +409,10 @@ export default function OrderPage() {
 
   useEffect(() => {
     const onShortcut = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'Backspace') { e.preventDefault(); resetSession(); }
+      if (e.ctrlKey && e.shiftKey && e.key === 'Backspace') {
+        e.preventDefault();
+        resetSession();
+      }
     };
     window.addEventListener('keydown', onShortcut);
     return () => window.removeEventListener('keydown', onShortcut);
@@ -313,7 +425,12 @@ export default function OrderPage() {
   });
 
   // Error toasts
-  useEffect(() => { if (orderEditError) { toast.error(orderEditError); setOrderEditError(''); } }, [orderEditError]);
+  useEffect(() => {
+    if (orderEditError) {
+      toast.error(orderEditError);
+      setOrderEditError('');
+    }
+  }, [orderEditError]);
 
   const resetSession = (options?: { skipConfirm?: boolean }) => {
     if ((cart.length > 0 || editingOrderId != null) && !options?.skipConfirm) {
@@ -329,26 +446,57 @@ export default function OrderPage() {
 
   // نوار اکشن سریع — هر دکمه به یک مسیر/حالت واقعی همین صفحه وصل است
   const handleQuickSale = () => resetSession();
-  const handleTableOrder = () => { setServiceType('dine_in'); setModalState((s) => ({ ...s, isOpen: true })); };
-  const handleCustomerOrder = () => { setServiceType('takeaway'); setModalState((s) => ({ ...s, isOpen: true })); };
+  const handleTableOrder = () => {
+    setServiceType('dine_in');
+    setModalState((s) => ({ ...s, isOpen: true }));
+  };
+  const handleCustomerOrder = () => {
+    setServiceType('takeaway');
+    setModalState((s) => ({ ...s, isOpen: true }));
+  };
   const handlePreInvoice = () => {
-    if (cart.length === 0) { toast.error('سبد خرید خالی است'); return; }
+    if (cart.length === 0) {
+      toast.error('سبد خرید خالی است');
+      return;
+    }
     setModalState((s) => ({ ...s, isOpen: true }));
   };
   const handleQuickSearch = () => searchInputRef.current?.focus();
   // نوار اکشن سریع فعلاً در JSX کامنت شده؛ مرجع‌ها را نگه می‌داریم تا کد از بین نرود و noUnusedLocals خطا ندهد.
-  void [OrderQuickActionsRail, handleQuickSale, handleTableOrder, handleCustomerOrder, handlePreInvoice, handleQuickSearch];  void [OrderQuickActionsRail, handleQuickSale, handleTableOrder, handleCustomerOrder, handlePreInvoice, handleQuickSearch];
+  void [
+    OrderQuickActionsRail,
+    handleQuickSale,
+    handleTableOrder,
+    handleCustomerOrder,
+    handlePreInvoice,
+    handleQuickSearch,
+  ];
+  void [
+    OrderQuickActionsRail,
+    handleQuickSale,
+    handleTableOrder,
+    handleCustomerOrder,
+    handlePreInvoice,
+    handleQuickSearch,
+  ];
 
   const openScaleModal = async (product: any) => {
-    setScaleModalProduct(product); setScaleWeight(null); setScaleError(''); setScaleModalOpen(true); setScaleReading(true);
+    setScaleModalProduct(product);
+    setScaleWeight(null);
+    setScaleError('');
+    setScaleModalOpen(true);
+    setScaleReading(true);
     try {
       await window.electronAPI?.scaleClearWeight?.();
       await window.electronAPI?.scaleRequestWeight?.();
       const result = await window.electronAPI?.scaleReadWeight?.();
       if (result?.success && result.weight != null) setScaleWeight(result.weight);
       else setScaleError(result?.error || 'وزنی دریافت نشد');
-    } catch (err: any) { setScaleError(String(err?.message || 'خطا')); }
-    finally { setScaleReading(false); }
+    } catch (err: any) {
+      setScaleError(String(err?.message || 'خطا'));
+    } finally {
+      setScaleReading(false);
+    }
   };
 
   const { addToCart, updateCartQuantity } = useOrderStore();
@@ -358,31 +506,60 @@ export default function OrderPage() {
     const qty = scaleModalProduct.unit === 'گرم' ? Math.round(scaleWeight * 1000) : scaleWeight;
     const existing = cart.find((i: any) => i.productId === scaleModalProduct.id);
     if (existing) updateCartQuantity(scaleModalProduct.id, existing.quantity + qty);
-    else { addToCart(scaleModalProduct); updateCartQuantity(scaleModalProduct.id, qty); }
-    setScaleModalOpen(false); setScaleModalProduct(null); setScaleWeight(null);
+    else {
+      addToCart(scaleModalProduct);
+      updateCartQuantity(scaleModalProduct.id, qty);
+    }
+    setScaleModalOpen(false);
+    setScaleModalProduct(null);
+    setScaleWeight(null);
   };
 
   const handleProductClick = (product: any) => {
-    if (product.useScaleForWeight && productLoader.isScaleIntegrationEnabled && canUseScale) void openScaleModal(product);
+    if (product.useScaleForWeight && productLoader.isScaleIntegrationEnabled && canUseScale)
+      void openScaleModal(product);
     else addToCart(product);
   };
 
   const handleBarcodeAdd = async (code: string) => {
-    const normalizeBarcode = (v: string) => String(v || '').replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).replace(/\s+/g, '').trim();
+    const normalizeBarcode = (v: string) =>
+      String(v || '')
+        .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+        .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+        .replace(/\s+/g, '')
+        .trim();
     const normalizedCode = normalizeBarcode(code);
-    const matched = productLoader.products.find((p: any) => normalizeBarcode(String(p?.barcode || '')) === normalizedCode);
+    const matched = productLoader.products.find(
+      (p: any) => normalizeBarcode(String(p?.barcode || '')) === normalizedCode,
+    );
     if (!matched) {
       playScanBeep(false);
-      setNewProductForm({ name_fa: '', name: '', price: '', category_id: '', barcode: normalizedCode, unit: 'عدد' });
+      setNewProductForm({
+        name_fa: '',
+        name: '',
+        price: '',
+        category_id: '',
+        barcode: normalizedCode,
+        unit: 'عدد',
+      });
       setIsCheckingMasterProduct(true);
       setShowCreateProductModal(true);
       try {
         const master = await getMasterProductByBarcode(normalizedCode, token || undefined);
         if (master) {
-          const matchedCat = productLoader.productCategories.find((c: any) => (c.name_fa || c.name || '').toLowerCase() === (master.category || '').toLowerCase());
-          setNewProductForm((f) => ({ ...f, name_fa: master.name || '', category_id: matchedCat ? String(matchedCat.id) : '' }));
+          const matchedCat = productLoader.productCategories.find(
+            (c: any) =>
+              (c.name_fa || c.name || '').toLowerCase() === (master.category || '').toLowerCase(),
+          );
+          setNewProductForm((f) => ({
+            ...f,
+            name_fa: master.name || '',
+            category_id: matchedCat ? String(matchedCat.id) : '',
+          }));
         }
-      } finally { setIsCheckingMasterProduct(false); }
+      } finally {
+        setIsCheckingMasterProduct(false);
+      }
       return;
     }
     addToCart(matched);
@@ -391,19 +568,41 @@ export default function OrderPage() {
 
   const submitCreateProduct = async () => {
     if (!token) return;
-    if (!newProductForm.name_fa.trim()) { toast.error('نام فارسی محصول الزامی است'); return; }
-    if (!(Number(newProductForm.price) > 0)) { toast.error('قیمت محصول باید بیشتر از صفر باشد'); return; }
-    if (!(Number(newProductForm.category_id) > 0)) { toast.error('دسته‌بندی محصول را انتخاب کنید'); return; }
+    if (!newProductForm.name_fa.trim()) {
+      toast.error('نام فارسی محصول الزامی است');
+      return;
+    }
+    if (!(Number(newProductForm.price) > 0)) {
+      toast.error('قیمت محصول باید بیشتر از صفر باشد');
+      return;
+    }
+    if (!(Number(newProductForm.category_id) > 0)) {
+      toast.error('دسته‌بندی محصول را انتخاب کنید');
+      return;
+    }
     setCreatingProduct(true);
     try {
-      const created = await createProduct({
-        name_fa: newProductForm.name_fa.trim(), name: newProductForm.name.trim() || undefined,
-        price: Number(newProductForm.price), category_id: Number(newProductForm.category_id),
-        barcode: newProductForm.barcode.trim() || undefined, unit: newProductForm.unit || 'عدد',
-        isAvailable: true, restaurantId: user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined,
-      }, token);
-      const catObj = productLoader.productCategories.find((c: any) => String(c.id) === String(newProductForm.category_id));
-      const createdProduct = { ...(created || { id: Date.now(), ...newProductForm, price: Number(newProductForm.price) }), category: catObj || created?.category || {}, unit: newProductForm.unit || 'عدد' };
+      const created = await createProduct(
+        {
+          name_fa: newProductForm.name_fa.trim(),
+          name: newProductForm.name.trim() || undefined,
+          price: Number(newProductForm.price),
+          category_id: Number(newProductForm.category_id),
+          barcode: newProductForm.barcode.trim() || undefined,
+          unit: newProductForm.unit || 'عدد',
+          isAvailable: true,
+          restaurantId: user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined,
+        },
+        token,
+      );
+      const catObj = productLoader.productCategories.find(
+        (c: any) => String(c.id) === String(newProductForm.category_id),
+      );
+      const createdProduct = {
+        ...(created || { id: Date.now(), ...newProductForm, price: Number(newProductForm.price) }),
+        category: catObj || created?.category || {},
+        unit: newProductForm.unit || 'عدد',
+      };
       productLoader.setProducts((prev) => [createdProduct, ...prev]);
       addToCart(createdProduct);
       setShowCreateProductModal(false);
@@ -412,31 +611,75 @@ export default function OrderPage() {
     } catch (err: any) {
       playScanBeep(false);
       toast.error(err?.response?.data?.message || err?.message || 'ثبت محصول ناموفق بود');
-    } finally { setCreatingProduct(false); }
+    } finally {
+      setCreatingProduct(false);
+    }
   };
 
   const handleSendToCardTerminal = async () => {
     const restaurantId = user?.restaurants?.[0]?.id ? Number(user.restaurants[0].id) : undefined;
     const { getFinalAmount, customerPhone: phone } = useOrderStore.getState();
-    if (productLoader.isMobileRequired && !phone.trim()) { setModalState((s) => ({ ...s, cardTerminalStatus: 'failed', cardTerminalError: 'ابتدا شماره تماس مشتری را وارد کنید.' })); return; }
-    if (!window.electronAPI?.sendAmountToCardTerminal) { setModalState((s) => ({ ...s, cardTerminalStatus: 'failed', cardTerminalError: 'نسخه پنل از کارتخوان پشتیبانی نمی‌کند.' })); return; }
+    if (productLoader.isMobileRequired && !phone.trim()) {
+      setModalState((s) => ({
+        ...s,
+        cardTerminalStatus: 'failed',
+        cardTerminalError: 'ابتدا شماره تماس مشتری را وارد کنید.',
+      }));
+      return;
+    }
+    if (!window.electronAPI?.sendAmountToCardTerminal) {
+      setModalState((s) => ({
+        ...s,
+        cardTerminalStatus: 'failed',
+        cardTerminalError: 'نسخه پنل از کارتخوان پشتیبانی نمی‌کند.',
+      }));
+      return;
+    }
     const amount = Number(getFinalAmount() || 0);
-    if (!(amount > 0)) { setModalState((s) => ({ ...s, cardTerminalStatus: 'failed', cardTerminalError: 'مبلغ باید بیشتر از صفر باشد.' })); return; }
+    if (!(amount > 0)) {
+      setModalState((s) => ({
+        ...s,
+        cardTerminalStatus: 'failed',
+        cardTerminalError: 'مبلغ باید بیشتر از صفر باشد.',
+      }));
+      return;
+    }
     const requestId = ++cardTerminalRequestIdRef.current;
-    setModalState((s) => ({ ...s, cardTerminalStatus: 'sending', cardTerminalError: '', cardTerminalRefId: '' }));
+    setModalState((s) => ({
+      ...s,
+      cardTerminalStatus: 'sending',
+      cardTerminalError: '',
+      cardTerminalRefId: '',
+    }));
     try {
-      const result = await window.electronAPI!.sendAmountToCardTerminal({ amount, restaurantId, terminalProfileId: modalState.selectedCardTerminalId || undefined });
+      const result = await window.electronAPI!.sendAmountToCardTerminal({
+        amount,
+        restaurantId,
+        terminalProfileId: modalState.selectedCardTerminalId || undefined,
+      });
       // اگر اپراتور در این فاصله دکمهٔ لغو را زده، جواب دیرهنگام کارتخوان دیگر معتبر نیست
       if (cardTerminalRequestIdRef.current !== requestId) return;
       if (result?.success) {
-        setModalState((s) => ({ ...s, cardTerminalStatus: 'approved', cardTerminalRefId: result.refId || '' }));
+        setModalState((s) => ({
+          ...s,
+          cardTerminalStatus: 'approved',
+          cardTerminalRefId: result.refId || '',
+        }));
         await handleOrderSubmit();
       } else {
-        setModalState((s) => ({ ...s, cardTerminalStatus: 'failed', cardTerminalError: result?.error || 'کارتخوان جواب مثبت نداد.' }));
+        setModalState((s) => ({
+          ...s,
+          cardTerminalStatus: 'failed',
+          cardTerminalError: result?.error || 'کارتخوان جواب مثبت نداد.',
+        }));
       }
     } catch (err: any) {
       if (cardTerminalRequestIdRef.current !== requestId) return;
-      setModalState((s) => ({ ...s, cardTerminalStatus: 'failed', cardTerminalError: err?.message || 'خطا در ارتباط با کارتخوان' }));
+      setModalState((s) => ({
+        ...s,
+        cardTerminalStatus: 'failed',
+        cardTerminalError: err?.message || 'خطا در ارتباط با کارتخوان',
+      }));
     }
   };
 
@@ -444,7 +687,11 @@ export default function OrderPage() {
       (تلاش مجدد یا ثبت دستی) — جواب دیرهنگام کارتخوان توسط requestId نادیده گرفته می‌شود */
   const handleCancelCardTerminal = () => {
     cardTerminalRequestIdRef.current += 1;
-    setModalState((s) => ({ ...s, cardTerminalStatus: 'failed', cardTerminalError: 'ارتباط با کارتخوان توسط اپراتور لغو شد.' }));
+    setModalState((s) => ({
+      ...s,
+      cardTerminalStatus: 'failed',
+      cardTerminalError: 'ارتباط با کارتخوان توسط اپراتور لغو شد.',
+    }));
   };
 
   const handleOrderSubmit = async () => {
@@ -496,18 +743,26 @@ export default function OrderPage() {
           />
         </div>
         {editingOrderId != null && (
-          <Button variant="flat" color="warning" onPress={() => navigate('/orders')}>انصراف از ویرایش</Button>
+          <Button variant="flat" color="warning" onPress={() => navigate('/orders')}>
+            انصراف از ویرایش
+          </Button>
         )}
       </header>
 
       {/* Access warnings */}
       {productLoader.isScaleIntegrationEnabled && !canUseScale && (
-        <div className="px-6 py-3 bg-warning-soft text-warning-soft-foreground border-b border-warning/30 text-center" role="alert">
+        <div
+          className="px-6 py-3 bg-warning-soft text-warning-soft-foreground border-b border-warning/30 text-center"
+          role="alert"
+        >
           اتصال ترازو برای این کاربر غیرفعال است.
         </div>
       )}
       {productLoader.isCardTerminalEnabled && !canUseCardTerminal && (
-        <div className="px-6 py-3 bg-warning-soft text-warning-soft-foreground border-b border-warning/30 text-center" role="alert">
+        <div
+          className="px-6 py-3 bg-warning-soft text-warning-soft-foreground border-b border-warning/30 text-center"
+          role="alert"
+        >
           دسترسی کارتخوان برای این کاربر غیرفعال است.
         </div>
       )}
@@ -572,7 +827,10 @@ export default function OrderPage() {
         cartItemOptions={productLoader.cartItemOptions}
         onSubmit={handleOrderSubmit}
         onSendToCardTerminal={handleSendToCardTerminal}
-        onCardManualConfirm={async () => { setModalState((s) => ({ ...s, cardTerminalStatus: 'idle', cardTerminalError: '' })); await handleOrderSubmit(); }}
+        onCardManualConfirm={async () => {
+          setModalState((s) => ({ ...s, cardTerminalStatus: 'idle', cardTerminalError: '' }));
+          await handleOrderSubmit();
+        }}
         onCancelCardTerminal={handleCancelCardTerminal}
         onClose={() => setModalState((s) => ({ ...s, isOpen: false }))}
       />
@@ -582,50 +840,120 @@ export default function OrderPage() {
         <ModalShell size="lg">
           <ModalHeader>افزودن محصول جدید با بارکد</ModalHeader>
           <ModalBody className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {isCheckingMasterProduct && <p className="text-muted text-sm text-center col-span-2 py-1">در حال جستجو در محصولات پایه...</p>}
-            <Input label="بارکد" value={newProductForm.barcode} readOnly onValueChange={(v) => setNewProductForm((f) => ({ ...f, barcode: v }))} />
+            {isCheckingMasterProduct && (
+              <p className="text-muted text-sm text-center col-span-2 py-1">
+                در حال جستجو در محصولات پایه...
+              </p>
+            )}
+            <Input
+              label="بارکد"
+              value={newProductForm.barcode}
+              readOnly
+              onValueChange={(v) => setNewProductForm((f) => ({ ...f, barcode: v }))}
+            />
             <NameAutocomplete
-              value={newProductForm.name_fa} autoFocus={!isCheckingMasterProduct} isDisabled={isCheckingMasterProduct}
+              value={newProductForm.name_fa}
+              autoFocus={!isCheckingMasterProduct}
+              isDisabled={isCheckingMasterProduct}
               onValueChange={(v) => {
                 setNewProductForm((f) => ({ ...f, name_fa: v }));
                 if (nameSuggestTimerRef.current) clearTimeout(nameSuggestTimerRef.current);
-                if (!v.trim()) { setNameSuggestions([]); return; }
+                if (!v.trim()) {
+                  setNameSuggestions([]);
+                  return;
+                }
                 nameSuggestTimerRef.current = setTimeout(async () => {
                   const results = await searchMasterProducts(v, token || undefined);
                   setNameSuggestions(results);
                 }, 300);
               }}
               suggestions={nameSuggestions}
-              onSelect={(s) => { setNewProductForm((f) => ({ ...f, name_fa: s.name, name: f.name || s.name, barcode: f.barcode || s.barcode || '' })); setNameSuggestions([]); }}
+              onSelect={(s) => {
+                setNewProductForm((f) => ({
+                  ...f,
+                  name_fa: s.name,
+                  name: f.name || s.name,
+                  barcode: f.barcode || s.barcode || '',
+                }));
+                setNameSuggestions([]);
+              }}
             />
-            <Input label="نام انگلیسی (اختیاری)" value={newProductForm.name} isDisabled={isCheckingMasterProduct} onValueChange={(v) => setNewProductForm((f) => ({ ...f, name: v }))} />
-            <Input label="قیمت (ریال)" type="text" inputMode="numeric"
-              value={formatPriceInput(newProductForm.price)} isDisabled={isCheckingMasterProduct}
-              onValueChange={(v) => setNewProductForm((f) => ({ ...f, price: normalizePriceInput(v) }))} />
-            <Select label="دسته‌بندی"
+            <Input
+              label="نام انگلیسی (اختیاری)"
+              value={newProductForm.name}
+              isDisabled={isCheckingMasterProduct}
+              onValueChange={(v) => setNewProductForm((f) => ({ ...f, name: v }))}
+            />
+            <Input
+              label="قیمت (ریال)"
+              type="text"
+              inputMode="numeric"
+              value={formatPriceInput(newProductForm.price)}
+              isDisabled={isCheckingMasterProduct}
+              onValueChange={(v) =>
+                setNewProductForm((f) => ({ ...f, price: normalizePriceInput(v) }))
+              }
+            />
+            <Select
+              label="دسته‌بندی"
               selectedKeys={newProductForm.category_id ? [newProductForm.category_id] : []}
               isDisabled={isCheckingMasterProduct}
-              onSelectionChange={(keys) => setNewProductForm((f) => ({ ...f, category_id: String(Array.from(keys)[0] || '') }))}>
-              {productLoader.productCategories.map((c: any) => <SelectItem key={String(c.id)}>{c.name_fa || c.name}</SelectItem>)}
+              onSelectionChange={(keys) =>
+                setNewProductForm((f) => ({ ...f, category_id: String(Array.from(keys)[0] || '') }))
+              }
+            >
+              {productLoader.productCategories.map((c: any) => (
+                <SelectItem key={String(c.id)}>{c.name_fa || c.name}</SelectItem>
+              ))}
             </Select>
-            <Select label="واحد شمارش" selectedKeys={[newProductForm.unit || 'عدد']} isDisabled={isCheckingMasterProduct}
-              onSelectionChange={(keys) => setNewProductForm((f) => ({ ...f, unit: String(Array.from(keys)[0] || 'عدد') }))}>
-              {PRODUCT_UNITS.map((u) => <SelectItem key={u}>{u}</SelectItem>)}
+            <Select
+              label="واحد شمارش"
+              selectedKeys={[newProductForm.unit || 'عدد']}
+              isDisabled={isCheckingMasterProduct}
+              onSelectionChange={(keys) =>
+                setNewProductForm((f) => ({ ...f, unit: String(Array.from(keys)[0] || 'عدد') }))
+              }
+            >
+              {PRODUCT_UNITS.map((u) => (
+                <SelectItem key={u}>{u}</SelectItem>
+              ))}
             </Select>
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" onPress={() => setShowCreateProductModal(false)}>انصراف</Button>
-            <Button color="primary" isLoading={creatingProduct} isDisabled={isCheckingMasterProduct} onPress={submitCreateProduct}>ثبت و افزودن به سبد</Button>
+            <Button variant="light" onPress={() => setShowCreateProductModal(false)}>
+              انصراف
+            </Button>
+            <Button
+              color="primary"
+              isLoading={creatingProduct}
+              isDisabled={isCheckingMasterProduct}
+              onPress={submitCreateProduct}
+            >
+              ثبت و افزودن به سبد
+            </Button>
           </ModalFooter>
         </ModalShell>
       </Modal>
 
       {/* Scale modal */}
-      <Modal isOpen={scaleModalOpen} onOpenChange={(open) => { if (!open) { setScaleModalOpen(false); setScaleModalProduct(null); setScaleWeight(null); } }}>
+      <Modal
+        isOpen={scaleModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setScaleModalOpen(false);
+            setScaleModalProduct(null);
+            setScaleWeight(null);
+          }
+        }}
+      >
         <ModalShell size="sm">
           <ModalHeader>خواندن وزن از ترازو</ModalHeader>
           <ModalBody className="text-center space-y-4 py-4">
-            {scaleModalProduct && <p className="font-semibold text-foreground">{scaleModalProduct.name_fa || scaleModalProduct.name}</p>}
+            {scaleModalProduct && (
+              <p className="font-semibold text-foreground">
+                {scaleModalProduct.name_fa || scaleModalProduct.name}
+              </p>
+            )}
             {scaleReading ? (
               <div className="flex flex-col items-center gap-2 text-muted">
                 <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
@@ -634,17 +962,27 @@ export default function OrderPage() {
             ) : scaleError ? (
               <div className="text-danger text-sm space-y-2">
                 <p>{scaleError}</p>
-                <Button size="sm" variant="flat" onPress={async () => {
-                  setScaleError(''); setScaleReading(true);
-                  try {
-                    await window.electronAPI?.scaleClearWeight?.();
-                    await window.electronAPI?.scaleRequestWeight?.();
-                    const r = await window.electronAPI?.scaleReadWeight?.();
-                    if (r?.success && r.weight != null) setScaleWeight(r.weight);
-                    else setScaleError(r?.error || 'وزنی دریافت نشد');
-                  } catch (e: any) { setScaleError(String(e?.message || 'خطا')); }
-                  finally { setScaleReading(false); }
-                }}>تلاش مجدد</Button>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  onPress={async () => {
+                    setScaleError('');
+                    setScaleReading(true);
+                    try {
+                      await window.electronAPI?.scaleClearWeight?.();
+                      await window.electronAPI?.scaleRequestWeight?.();
+                      const r = await window.electronAPI?.scaleReadWeight?.();
+                      if (r?.success && r.weight != null) setScaleWeight(r.weight);
+                      else setScaleError(r?.error || 'وزنی دریافت نشد');
+                    } catch (e: any) {
+                      setScaleError(String(e?.message || 'خطا'));
+                    } finally {
+                      setScaleReading(false);
+                    }
+                  }}
+                >
+                  تلاش مجدد
+                </Button>
               </div>
             ) : scaleWeight != null ? (
               <div className="space-y-1">
@@ -654,14 +992,35 @@ export default function OrderPage() {
                     : `${scaleWeight.toFixed(3)} کیلوگرم`}
                 </p>
                 <p className="text-sm text-muted">
-                  مبلغ: {formatPrice(staffCartUnitPrice(scaleModalProduct) * (scaleModalProduct?.unit === 'گرم' ? Math.round(scaleWeight * 1000) : scaleWeight))}
+                  مبلغ:{' '}
+                  {formatPrice(
+                    staffCartUnitPrice(scaleModalProduct) *
+                      (scaleModalProduct?.unit === 'گرم'
+                        ? Math.round(scaleWeight * 1000)
+                        : scaleWeight),
+                  )}
                 </p>
               </div>
             ) : null}
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" onPress={() => { setScaleModalOpen(false); setScaleModalProduct(null); setScaleWeight(null); }}>انصراف</Button>
-            <Button color="primary" isDisabled={scaleWeight == null || scaleReading} onPress={handleScaleConfirm}>تأیید و افزودن به فاکتور</Button>
+            <Button
+              variant="light"
+              onPress={() => {
+                setScaleModalOpen(false);
+                setScaleModalProduct(null);
+                setScaleWeight(null);
+              }}
+            >
+              انصراف
+            </Button>
+            <Button
+              color="primary"
+              isDisabled={scaleWeight == null || scaleReading}
+              onPress={handleScaleConfirm}
+            >
+              تأیید و افزودن به فاکتور
+            </Button>
           </ModalFooter>
         </ModalShell>
       </Modal>

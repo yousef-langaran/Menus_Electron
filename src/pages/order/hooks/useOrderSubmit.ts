@@ -10,7 +10,10 @@ import {
   applyReferralCodePos,
 } from '../../../services/api';
 import { isValidIranMobile, normalizeIranMobile } from '../../../utils/iranMobile';
-import { saveReceiptNumbersToStorage, getNextReceiptNumberBrowser } from '../../../utils/receiptNumbersStorage';
+import {
+  saveReceiptNumbersToStorage,
+  getNextReceiptNumberBrowser,
+} from '../../../utils/receiptNumbersStorage';
 import { buildPrinterJobs, loadPrintTemplateSources } from '../../../utils/printTemplates';
 import { toast } from '../../../utils/toast';
 import { pulseCashDrawer } from '../../../utils/cashDrawer';
@@ -41,10 +44,24 @@ export function useOrderSubmit() {
   const navigate = useNavigate();
   const { user, token } = useAuthStore();
   const {
-    cart, customerPhone, serviceType, tableNumber, tableId, customerAddress,
-    paymentMethod, notes, splitCash, splitCard, splitOnline, cashbackRedeemAmount,
-    getTotalAmount, getFinalAmount, getDiscountAmount, getVatAmount,
-    submitOrder, restoreDraft,
+    cart,
+    customerPhone,
+    serviceType,
+    tableNumber,
+    tableId,
+    customerAddress,
+    paymentMethod,
+    notes,
+    splitCash,
+    splitCard,
+    splitOnline,
+    cashbackRedeemAmount,
+    getTotalAmount,
+    getFinalAmount,
+    getDiscountAmount,
+    getVatAmount,
+    submitOrder,
+    restoreDraft,
   } = useOrderStore();
   const { enabledPrinters, getPrinterReceipts } = usePrinterSettingsStore((s) => ({
     enabledPrinters: Object.values(s.configs).filter((c) => c.enabled),
@@ -54,16 +71,23 @@ export function useOrderSubmit() {
 
   const formatPrice = (price: number) => new Intl.NumberFormat('fa-IR').format(price) + ' ریال';
 
-  const runPrint = (orderData: any, orderKeys: string[], options: { printOption: 'all' | 'none' | 'select'; selectedPrinterNames: string[] }) => {
+  const runPrint = (
+    orderData: any,
+    orderKeys: string[],
+    options: { printOption: 'all' | 'none' | 'select'; selectedPrinterNames: string[] },
+  ) => {
     const { printOption: opt, selectedPrinterNames: names } = options;
     (async () => {
       try {
         if (window.electronAPI) {
           let receiptNumber = 0;
           const shouldPrint = opt !== 'none';
-          const printersToUse = opt === 'select' && names.length > 0
-            ? enabledPrinters.filter((p) => names.includes(p.name))
-            : opt === 'all' ? enabledPrinters : [];
+          const printersToUse =
+            opt === 'select' && names.length > 0
+              ? enabledPrinters.filter((p) => names.includes(p.name))
+              : opt === 'all'
+                ? enabledPrinters
+                : [];
           if (shouldPrint && printersToUse.length > 0) {
             const { templatesMap, defaultTemplate } = await loadPrintTemplateSources();
             const printerJobs = buildPrinterJobs(
@@ -82,25 +106,40 @@ export function useOrderSubmit() {
           } else {
             receiptNumber = await window.electronAPI!.assignReceiptNumberForOrder(orderKeys);
           }
-          if (receiptNumber > 0 && orderKeys.length) saveReceiptNumbersToStorage(orderKeys, receiptNumber);
+          if (receiptNumber > 0 && orderKeys.length)
+            saveReceiptNumbersToStorage(orderKeys, receiptNumber);
         } else {
           saveReceiptNumbersToStorage(orderKeys, getNextReceiptNumberBrowser());
         }
       } catch (err) {
-        toast.error(`خطا در چاپ رسید (${err instanceof Error ? err.message : 'PRINT_UNKNOWN_ERROR'})`);
+        toast.error(
+          `خطا در چاپ رسید (${err instanceof Error ? err.message : 'PRINT_UNKNOWN_ERROR'})`,
+        );
       }
     })();
   };
 
   const handleSubmit = async (opts: SubmitOptions) => {
     const {
-      editingOrderId, isMobileRequired, cardTerminalRefId,
-      selectedCashBoxName, selectedCardTerminalId, cardTerminalProfiles,
-      printOption, selectedPrinterNames,
-      loadedCustomerFirstName, loadedCustomerLastName,
-      customerFirstNameInput, customerLastNameInput, referralCode,
-      userExists, customerAddresses, selectedAddressId,
-      onSuccess, onError, onEditSuccess,
+      editingOrderId,
+      isMobileRequired,
+      cardTerminalRefId,
+      selectedCashBoxName,
+      selectedCardTerminalId,
+      cardTerminalProfiles,
+      printOption,
+      selectedPrinterNames,
+      loadedCustomerFirstName,
+      loadedCustomerLastName,
+      customerFirstNameInput,
+      customerLastNameInput,
+      referralCode,
+      userExists,
+      customerAddresses,
+      selectedAddressId,
+      onSuccess,
+      onError,
+      onEditSuccess,
     } = opts;
 
     const normalizedPhone = normalizeIranMobile(customerPhone.trim());
@@ -128,10 +167,17 @@ export function useOrderSubmit() {
             { firstName: trimmedFirstName, lastName: trimmedLastName },
             token,
           );
-        } else if (userExists === false && (trimmedFirstName || trimmedLastName || trimmedReferralCode)) {
+        } else if (
+          userExists === false &&
+          (trimmedFirstName || trimmedLastName || trimmedReferralCode)
+        ) {
           const { user: createdUser } = await addCustomer(
             { restaurantId, restaurantName },
-            { mobile: normalizedPhone, firstName: trimmedFirstName || undefined, lastName: trimmedLastName || undefined },
+            {
+              mobile: normalizedPhone,
+              firstName: trimmedFirstName || undefined,
+              lastName: trimmedLastName || undefined,
+            },
             token,
           );
           // باید پیش از ثبت سفارش اعمال شود — سرور با شمارش سفارش‌های قبلی این
@@ -162,7 +208,12 @@ export function useOrderSubmit() {
 
     const snapshot = {
       customerPhone: normalizedPhone || customerPhone,
-      serviceType, tableNumber, tableId, customerAddress, paymentMethod, notes,
+      serviceType,
+      tableNumber,
+      tableId,
+      customerAddress,
+      paymentMethod,
+      notes,
       discountAmount: getDiscountAmount(),
       vatAmount: getVatAmount(),
       totalAmount: getTotalAmount(),
@@ -181,17 +232,34 @@ export function useOrderSubmit() {
     const isEditingInvoice = editingOrderId != null;
     const restaurantNameForPrint = user?.restaurants?.[0]?.name_fa || restaurantName || '';
 
-    const onOrderCreated = async (res: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean; order?: any }) => {
+    const onOrderCreated = async (res: {
+      orderId: number;
+      orderNumber?: string;
+      receiptCallNumber?: number;
+      offline?: boolean;
+      order?: any;
+    }) => {
       if (isEditingInvoice) return;
-      const fullName = [trimmedFirstName || loadedCustomerFirstName, trimmedLastName || loadedCustomerLastName].filter(Boolean).join(' ').trim();
+      const fullName = [
+        trimmedFirstName || loadedCustomerFirstName,
+        trimmedLastName || loadedCustomerLastName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
       const orderData = {
-        id: res.orderId, orderNumber: res.orderNumber ?? `ORD-${res.orderId}`,
+        id: res.orderId,
+        orderNumber: res.orderNumber ?? `ORD-${res.orderId}`,
         receiptCallNumber: res.receiptCallNumber,
         restaurantName: restaurantNameForPrint,
-        customerPhone: snapshot.customerPhone, customerName: fullName || snapshot.customerPhone,
-        serviceType: snapshot.serviceType, tableNumber: snapshot.tableNumber,
-        customerAddress: snapshot.customerAddress, paymentMethod: snapshot.paymentMethod,
-        notes: snapshot.notes, items: snapshot.items,
+        customerPhone: snapshot.customerPhone,
+        customerName: fullName || snapshot.customerPhone,
+        serviceType: snapshot.serviceType,
+        tableNumber: snapshot.tableNumber,
+        customerAddress: snapshot.customerAddress,
+        paymentMethod: snapshot.paymentMethod,
+        notes: snapshot.notes,
+        items: snapshot.items,
         // totalAmount/discountAmount/finalAmount باید همگی از یک منبع بیایند، وگرنه
         // در رسید چاپی «جمع کل» و «مبلغ نهایی» حتی بدون تخفیف می‌توانند متفاوت باشند —
         // مثلاً وقتی سرور قیمت واحد را برای کاربر staff بازمحاسبه می‌کند
@@ -202,36 +270,51 @@ export function useOrderSubmit() {
         vatAmount: Number(res.order?.vatAmount ?? snapshot.vatAmount ?? 0),
         finalAmount: Number(res.order?.finalAmount ?? snapshot.finalAmount ?? snapshot.totalAmount),
         cashbackEarnedAmount: Number(res.order?.cashbackEarnedAmount ?? 0),
-        cashbackRedeemedAmount: Number(res.order?.cashbackRedeemedAmount ?? snapshot.cashbackRedeemedAmount ?? 0),
+        cashbackRedeemedAmount: Number(
+          res.order?.cashbackRedeemedAmount ?? snapshot.cashbackRedeemedAmount ?? 0,
+        ),
       };
       const orderKeys = res.offline
         ? [`offline-${res.orderId}`]
-        : [String(res.orderId), res.orderNumber, orderData.orderNumber].filter((k): k is string => Boolean(k));
+        : [String(res.orderId), res.orderNumber, orderData.orderNumber].filter((k): k is string =>
+            Boolean(k),
+          );
       runPrint(orderData, orderKeys, { printOption, selectedPrinterNames });
 
       // فروش نقدی (کامل یا بخشی از پرداخت ترکیبی) — کشوی پول را بی‌صدا باز کن؛
       // شکست این پالس هرگز نباید ثبت سفارش را متوقف کند (fire-and-forget).
-      const hasCashPortion = paymentMethod === 'cash' || (paymentMethod === 'mixed' && splitCash > 0);
+      const hasCashPortion =
+        paymentMethod === 'cash' || (paymentMethod === 'mixed' && splitCash > 0);
       if (hasCashPortion) {
         pulseCashDrawer().catch(() => {});
       }
 
       // Record cash transactions
       try {
-        const { recordOrderPaymentTransactions } = await import('../../../services/accountingLocalDb');
+        const { recordOrderPaymentTransactions } = await import(
+          '../../../services/accountingLocalDb'
+        );
         const rid = restaurantId;
-        const mixedHasCredit = paymentMethod === 'mixed' &&
-          (splitCash + splitCard + splitOnline) < getFinalAmount() &&
-          (splitCash + splitCard + splitOnline) > 0;
+        const mixedHasCredit =
+          paymentMethod === 'mixed' &&
+          splitCash + splitCard + splitOnline < getFinalAmount() &&
+          splitCash + splitCard + splitOnline > 0;
         if (rid) {
           await recordOrderPaymentTransactions({
-            restaurantId: Number(rid), orderId: res.orderId, orderNumber: res.orderNumber,
+            restaurantId: Number(rid),
+            orderId: res.orderId,
+            orderNumber: res.orderNumber,
             customerPhone: snapshot.customerPhone || undefined,
             paymentMethod: paymentMethod as any,
-            finalAmount: snapshot.finalAmount, splitCash, splitCard, splitOnline,
-            mixedHasCredit, referenceCode: cardTerminalRefId || undefined,
+            finalAmount: snapshot.finalAmount,
+            splitCash,
+            splitCard,
+            splitOnline,
+            mixedHasCredit,
+            referenceCode: cardTerminalRefId || undefined,
             cashAccountName: selectedCashBoxName,
-            cardAccountName: cardTerminalProfiles.find((p) => p.id === selectedCardTerminalId)?.name || 'کارتخوان',
+            cardAccountName:
+              cardTerminalProfiles.find((p) => p.id === selectedCardTerminalId)?.name || 'کارتخوان',
           });
         }
       } catch {}
@@ -241,31 +324,54 @@ export function useOrderSubmit() {
       onError(errorMessage);
       restoreDraft({
         cart: snapshot.items.map((item) => ({
-          productId: item.product.id, product: item.product,
-          quantity: item.quantity, price: item.price,
-          totalPrice: item.quantity * item.price, itemOption: String(item.itemOption ?? ''),
+          productId: item.product.id,
+          product: item.product,
+          quantity: item.quantity,
+          price: item.price,
+          totalPrice: item.quantity * item.price,
+          itemOption: String(item.itemOption ?? ''),
         })),
-        customerPhone: snapshot.customerPhone, serviceType: snapshot.serviceType,
-        tableNumber: snapshot.tableNumber, tableId: snapshot.tableId,
+        customerPhone: snapshot.customerPhone,
+        serviceType: snapshot.serviceType,
+        tableNumber: snapshot.tableNumber,
+        tableId: snapshot.tableId,
         customerAddress: snapshot.customerAddress,
-        paymentMethod: snapshot.paymentMethod, notes: snapshot.notes,
+        paymentMethod: snapshot.paymentMethod,
+        notes: snapshot.notes,
       });
     };
 
-    const result = await submitOrder({ editingOrderId: editingOrderId ?? undefined, onOrderCreated, onOrderFailed });
+    const result = await submitOrder({
+      editingOrderId: editingOrderId ?? undefined,
+      onOrderCreated,
+      onOrderFailed,
+    });
 
     if (result.success) {
       if (isEditingInvoice) {
-        const fullName = [trimmedFirstName || loadedCustomerFirstName, trimmedLastName || loadedCustomerLastName].filter(Boolean).join(' ').trim();
+        const fullName = [
+          trimmedFirstName || loadedCustomerFirstName,
+          trimmedLastName || loadedCustomerLastName,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
         const editedOrderData = {
-          id: editingOrderId, orderNumber: `ORD-${editingOrderId}`,
+          id: editingOrderId,
+          orderNumber: `ORD-${editingOrderId}`,
           restaurantName: restaurantNameForPrint,
-          customerPhone: snapshot.customerPhone, customerName: fullName || snapshot.customerPhone,
-          serviceType: snapshot.serviceType, tableNumber: snapshot.tableNumber,
-          customerAddress: snapshot.customerAddress, paymentMethod: snapshot.paymentMethod,
-          notes: snapshot.notes, items: snapshot.items,
-          totalAmount: snapshot.totalAmount, discountAmount: snapshot.discountAmount,
-          vatAmount: snapshot.vatAmount, finalAmount: snapshot.finalAmount,
+          customerPhone: snapshot.customerPhone,
+          customerName: fullName || snapshot.customerPhone,
+          serviceType: snapshot.serviceType,
+          tableNumber: snapshot.tableNumber,
+          customerAddress: snapshot.customerAddress,
+          paymentMethod: snapshot.paymentMethod,
+          notes: snapshot.notes,
+          items: snapshot.items,
+          totalAmount: snapshot.totalAmount,
+          discountAmount: snapshot.discountAmount,
+          vatAmount: snapshot.vatAmount,
+          finalAmount: snapshot.finalAmount,
         };
         runPrint(editedOrderData, [String(editingOrderId)], { printOption, selectedPrinterNames });
         onEditSuccess();
@@ -274,10 +380,14 @@ export function useOrderSubmit() {
       }
 
       // Save new delivery address
-      const addressIsNew = snapshot.serviceType === 'takeaway' && snapshot.customerAddress?.trim() &&
+      const addressIsNew =
+        snapshot.serviceType === 'takeaway' &&
+        snapshot.customerAddress?.trim() &&
         (selectedAddressId === 'new' || customerAddresses.length === 0);
       if (addressIsNew && token) {
-        const isOnline = window.electronAPI ? await window.electronAPI.checkOnline() : navigator.onLine;
+        const isOnline = window.electronAPI
+          ? await window.electronAPI.checkOnline()
+          : navigator.onLine;
         if (isOnline) {
           const normalized = normalizeIranMobile(snapshot.customerPhone.trim());
           if ((restaurantId || restaurantName) && isValidIranMobile(normalized)) {

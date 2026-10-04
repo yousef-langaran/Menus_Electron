@@ -1,10 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { API_BASE_URL } from './api';
 import { autoPrintNewOrder } from './autoPrintOrder';
-import {
-  handleIncomingWaiterCall,
-  handleUpdatedWaiterCall,
-} from './waiterCallNotifications';
+import { handleIncomingWaiterCall, handleUpdatedWaiterCall } from './waiterCallNotifications';
 
 const SOCKET_NAMESPACE = '/orders';
 
@@ -93,4 +90,3 @@ export const disconnectOrdersSocket = () => {
 };
 
 export const getOrdersSocket = () => socket;
-

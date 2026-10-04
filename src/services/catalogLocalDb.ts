@@ -4,7 +4,7 @@ import { normalizeNameFa } from '../utils/persian';
 export type CatalogSyncStatus = 'synced' | 'pending_create' | 'pending_update' | 'failed';
 
 export interface LocalCategory {
-  id: number;           // سرور ID (مثبت) یا temp ID (منفی = offline-created)
+  id: number; // سرور ID (مثبت) یا temp ID (منفی = offline-created)
   restaurantId: number;
   name: string;
   name_fa: string;
@@ -18,13 +18,13 @@ export interface LocalCategory {
 }
 
 export interface LocalProduct {
-  id: number;           // سرور ID (مثبت) یا temp ID (منفی = offline-created)
+  id: number; // سرور ID (مثبت) یا temp ID (منفی = offline-created)
   restaurantId: number;
   name: string;
   name_fa: string;
   barcode?: string | null;
   price: number;
-  category_id: number;  // می‌تواند temp (منفی) باشد اگر دسته offline ساخته شده
+  category_id: number; // می‌تواند temp (منفی) باشد اگر دسته offline ساخته شده
   unit: string;
   useScaleForWeight?: boolean;
   isAvailable: boolean;
@@ -91,10 +91,7 @@ export async function setCatalogSyncMeta(key: string, value: string): Promise<vo
 // ─── categories ─────────────────────────────────────────────────────────────
 
 export async function getLocalCategories(restaurantId: number): Promise<LocalCategory[]> {
-  return catalogDb.categories
-    .where('restaurantId')
-    .equals(restaurantId)
-    .toArray();
+  return catalogDb.categories.where('restaurantId').equals(restaurantId).toArray();
 }
 
 export async function createCategoryLocal(input: {
@@ -144,7 +141,12 @@ export async function resolveCategoryTempId(tempId: number, serverId: number): P
   const existing = await catalogDb.categories.get(tempId);
   if (!existing) return;
   await catalogDb.categories.delete(tempId);
-  await catalogDb.categories.put({ ...existing, id: serverId, _syncStatus: 'synced', _syncError: null });
+  await catalogDb.categories.put({
+    ...existing,
+    id: serverId,
+    _syncStatus: 'synced',
+    _syncError: null,
+  });
   // به‌روزرسانی محصولاتی که به این دسته اشاره دارند
   const dependentProducts = await catalogDb.products.where('category_id').equals(tempId).toArray();
   await Promise.all(
@@ -166,14 +168,16 @@ export async function deleteCategoryLocal(id: number): Promise<void> {
 
 export async function getPendingCategories(restaurantId: number): Promise<LocalCategory[]> {
   const all = await catalogDb.categories.where('restaurantId').equals(restaurantId).toArray();
-  return all.filter((c) => c._syncStatus === 'pending_create' || c._syncStatus === 'pending_update' || c._syncStatus === 'failed');
+  return all.filter(
+    (c) =>
+      c._syncStatus === 'pending_create' ||
+      c._syncStatus === 'pending_update' ||
+      c._syncStatus === 'failed',
+  );
 }
 
 /** upsert دسته‌بندی‌های دریافت‌شده از سرور — فقط ردیف‌های synced به‌روز می‌شوند */
-export async function bulkUpsertCategories(
-  categories: any[],
-  restaurantId: number,
-): Promise<void> {
+export async function bulkUpsertCategories(categories: any[], restaurantId: number): Promise<void> {
   const pendingIds = new Set(
     (await catalogDb.categories.where('restaurantId').equals(restaurantId).toArray())
       .filter((c) => c._syncStatus !== 'synced')
@@ -256,7 +260,19 @@ export async function createProductLocal(input: {
 
 export async function updateProductLocal(
   id: number,
-  patch: Partial<Pick<LocalProduct, 'name_fa' | 'name' | 'price' | 'category_id' | 'barcode' | 'unit' | 'isAvailable' | 'useScaleForWeight'>>,
+  patch: Partial<
+    Pick<
+      LocalProduct,
+      | 'name_fa'
+      | 'name'
+      | 'price'
+      | 'category_id'
+      | 'barcode'
+      | 'unit'
+      | 'isAvailable'
+      | 'useScaleForWeight'
+    >
+  >,
 ): Promise<LocalProduct | null> {
   const existing = await catalogDb.products.get(id);
   if (!existing) return null;
@@ -289,19 +305,26 @@ export async function resolveProductTempId(tempId: number, serverId: number): Pr
   const existing = await catalogDb.products.get(tempId);
   if (!existing) return;
   await catalogDb.products.delete(tempId);
-  await catalogDb.products.put({ ...existing, id: serverId, _syncStatus: 'synced', _syncError: null });
+  await catalogDb.products.put({
+    ...existing,
+    id: serverId,
+    _syncStatus: 'synced',
+    _syncError: null,
+  });
 }
 
 export async function getPendingProducts(restaurantId: number): Promise<LocalProduct[]> {
   const all = await catalogDb.products.where('restaurantId').equals(restaurantId).toArray();
-  return all.filter((p) => p._syncStatus === 'pending_create' || p._syncStatus === 'pending_update' || p._syncStatus === 'failed');
+  return all.filter(
+    (p) =>
+      p._syncStatus === 'pending_create' ||
+      p._syncStatus === 'pending_update' ||
+      p._syncStatus === 'failed',
+  );
 }
 
 /** upsert محصولات دریافت‌شده از سرور — فقط ردیف‌های synced به‌روز می‌شوند */
-export async function bulkUpsertProducts(
-  products: any[],
-  restaurantId: number,
-): Promise<void> {
+export async function bulkUpsertProducts(products: any[], restaurantId: number): Promise<void> {
   const allLocal = await catalogDb.products.where('restaurantId').equals(restaurantId).toArray();
   const pendingIds = new Set(allLocal.filter((p) => p._syncStatus !== 'synced').map((p) => p.id));
   // نگه‌داری فیلدهای local-only مثل useScaleForWeight

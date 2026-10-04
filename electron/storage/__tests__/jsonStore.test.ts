@@ -68,9 +68,7 @@ describe('writeJsonFile', () => {
     expect(mkdir).toHaveBeenCalledWith(expect.stringContaining('userData'), {
       recursive: true,
     });
-    expect(mkdir.mock.invocationCallOrder[0]).toBeLessThan(
-      writeFile.mock.invocationCallOrder[0],
-    );
+    expect(mkdir.mock.invocationCallOrder[0]).toBeLessThan(writeFile.mock.invocationCallOrder[0]);
   });
 
   it('writes pretty-printed JSON so the queue stays inspectable', async () => {

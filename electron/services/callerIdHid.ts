@@ -58,12 +58,12 @@ const VID = 0x16c0;
 const PID = 0x05da;
 
 // HID GET_REPORT request parameters
-const BM_REQUEST_TYPE  = 0xa1;   // D2H | Class | Interface
-const B_REQUEST        = 0x01;   // GET_REPORT
-const W_VALUE_INPUT    = 0x0100; // type=Input(1), ID=0  → RingsCount live
-const W_VALUE_FEATURE  = 0x0300; // type=Feature(3), ID=0 → Missed Call post-event
-const W_INDEX          = 0;      // interface 0
-const REPORT_LENGTH    = 80;
+const BM_REQUEST_TYPE = 0xa1; // D2H | Class | Interface
+const B_REQUEST = 0x01; // GET_REPORT
+const W_VALUE_INPUT = 0x0100; // type=Input(1), ID=0  → RingsCount live
+const W_VALUE_FEATURE = 0x0300; // type=Feature(3), ID=0 → Missed Call post-event
+const W_INDEX = 0; // interface 0
+const REPORT_LENGTH = 80;
 
 const POLL_INTERVAL_MS = 200;
 // After connecting, ignore data for this many ms to flush old buffered events
@@ -88,15 +88,18 @@ function parseRecord(buf: Buffer): CallerRecord {
   while (len > 0 && buf[len - 1] === 0) len--;
 
   const text = buf.slice(0, len).toString('ascii');
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
 
   if (lines.length === 0) return { kind: 'noise' };
 
   const first = lines[0];
 
   if (first.startsWith('~OK TILDA KISH')) return { kind: 'noise' };
-  if (first.startsWith('L1:On-hook'))     return { kind: 'idle' };
-  if (first.startsWith('L2:Off-hook'))    return { kind: 'off-hook' };
+  if (first.startsWith('L1:On-hook')) return { kind: 'idle' };
+  if (first.startsWith('L2:Off-hook')) return { kind: 'off-hook' };
 
   // ── PRIMARY: L1:CallerID:PHONENUMBER DATE TIME EEE ───────────────────────
   // This is the main CID record sent when the device decodes a full Caller ID.
@@ -193,18 +196,26 @@ class CallerIdHidService {
     return () => this.callEndedCallbacks.delete(cb);
   }
 
-  setAutoReconnect(enabled: boolean) { this.autoReconnect = enabled; }
-  shouldAutoReconnect() { return this.autoReconnect; }
+  setAutoReconnect(enabled: boolean) {
+    this.autoReconnect = enabled;
+  }
+  shouldAutoReconnect() {
+    return this.autoReconnect;
+  }
 
   private emit(phone: string) {
     this.callbacks.forEach((cb) => {
-      try { cb(phone); } catch {}
+      try {
+        cb(phone);
+      } catch {}
     });
   }
 
   private emitCallEnded() {
     this.callEndedCallbacks.forEach((cb) => {
-      try { cb(); } catch {}
+      try {
+        cb();
+      } catch {}
     });
   }
 
@@ -214,12 +225,11 @@ class CallerIdHidService {
       const usb = require('usb');
       const devices: any[] = usb.getDeviceList ? usb.getDeviceList() : [];
       return devices
-        .filter((d: any) =>
-          d.deviceDescriptor?.idVendor  === VID &&
-          d.deviceDescriptor?.idProduct === PID
+        .filter(
+          (d: any) => d.deviceDescriptor?.idVendor === VID && d.deviceDescriptor?.idProduct === PID,
         )
         .map((d: any) => ({
-          vendorId:  d.deviceDescriptor.idVendor,
+          vendorId: d.deviceDescriptor.idVendor,
           productId: d.deviceDescriptor.idProduct,
         }));
     } catch {
@@ -260,18 +270,23 @@ class CallerIdHidService {
       iface = device.interface(0);
       iface.claim();
     } catch (e: any) {
-      try { device.close(); } catch {}
+      try {
+        device.close();
+      } catch {}
       return { success: false, error: 'خطا در claim کردن interface: ' + (e?.message || e) };
     }
 
     this.usbDevice = device;
-    this.iface    = iface;
+    this.iface = iface;
     this._connected = true;
     this.connectTime = Date.now();
     this.lastEmittedCallerHex = '';
     this.lastEmittedTime = 0;
     this.lastKind = 'idle';
-    if (this.callEndTimer) { clearTimeout(this.callEndTimer); this.callEndTimer = null; }
+    if (this.callEndTimer) {
+      clearTimeout(this.callEndTimer);
+      this.callEndTimer = null;
+    }
 
     // start polling
     this.startPolling();
@@ -282,20 +297,29 @@ class CallerIdHidService {
 
   // ── disconnect ────────────────────────────────────────────────────────────
   async disconnect(): Promise<void> {
-    if (this.callEndTimer) { clearTimeout(this.callEndTimer); this.callEndTimer = null; }
+    if (this.callEndTimer) {
+      clearTimeout(this.callEndTimer);
+      this.callEndTimer = null;
+    }
     this.stopPolling();
     if (this.iface) {
-      try { this.iface.release(true, () => {}); } catch {}
+      try {
+        this.iface.release(true, () => {});
+      } catch {}
       this.iface = null;
     }
     if (this.usbDevice) {
-      try { this.usbDevice.close(); } catch {}
+      try {
+        this.usbDevice.close();
+      } catch {}
       this.usbDevice = null;
     }
     this._connected = false;
   }
 
-  isConnected() { return this._connected; }
+  isConnected() {
+    return this._connected;
+  }
 
   // ── polling ───────────────────────────────────────────────────────────────
   private startPolling() {
@@ -346,7 +370,7 @@ class CallerIdHidService {
           const rec = parseRecord(data);
           this.handleRecord(rec, wValue, data.toString('hex'));
         } catch {}
-      }
+      },
     );
   }
 
@@ -363,7 +387,9 @@ class CallerIdHidService {
   // Plus this 8-second ringing timeout as a fallback (covers edge cases where
   // none of the above records arrive, e.g. very brief calls).
   private resetCallEndTimer() {
-    if (this.callEndTimer) { clearTimeout(this.callEndTimer); }
+    if (this.callEndTimer) {
+      clearTimeout(this.callEndTimer);
+    }
     this.callEndTimer = setTimeout(() => {
       this.callEndTimer = null;
       if (this.lastEmittedCallerHex !== '') {
@@ -375,7 +401,10 @@ class CallerIdHidService {
   }
 
   private triggerCallEnded(reason: string) {
-    if (this.callEndTimer) { clearTimeout(this.callEndTimer); this.callEndTimer = null; }
+    if (this.callEndTimer) {
+      clearTimeout(this.callEndTimer);
+      this.callEndTimer = null;
+    }
     if (this.lastEmittedCallerHex !== '') {
       console.log(`[CallerID-HID] 📵 call ended (${reason})`);
       this.lastEmittedCallerHex = '';
@@ -432,7 +461,8 @@ class CallerIdHidService {
       const phone = rec.phone || '';
       const digitCount = phone.replace(/\D/g, '').length;
       if (!phone || digitCount < 7) {
-        if (phone) console.warn(`[CallerID-HID] ignoring short phone (${phone}) — stale/partial data`);
+        if (phone)
+          console.warn(`[CallerID-HID] ignoring short phone (${phone}) — stale/partial data`);
         return;
       }
 
@@ -487,10 +517,7 @@ export function setupCallerIdHid(
 
       // Detach: clean up state
       usb.on('detach', (det: any) => {
-        if (
-          det.deviceDescriptor?.idVendor  === VID &&
-          det.deviceDescriptor?.idProduct === PID
-        ) {
+        if (det.deviceDescriptor?.idVendor === VID && det.deviceDescriptor?.idProduct === PID) {
           console.log('[CallerID-HID] device detached');
           callerIdHidService.disconnect().catch(() => {});
         }
@@ -498,22 +525,22 @@ export function setupCallerIdHid(
 
       // Attach: re-connect when device is plugged back in (if enabled)
       usb.on('attach', (att: any) => {
-        if (
-          att.deviceDescriptor?.idVendor  === VID &&
-          att.deviceDescriptor?.idProduct === PID
-        ) {
+        if (att.deviceDescriptor?.idVendor === VID && att.deviceDescriptor?.idProduct === PID) {
           console.log('[CallerID-HID] device attached — attempting auto-reconnect');
           if (!callerIdHidService.shouldAutoReconnect()) return;
           // Small delay so the OS finishes USB enumeration before we open the device
           setTimeout(() => {
             if (!callerIdHidService.shouldAutoReconnect()) return;
-            callerIdHidService.connect().then((res) => {
-              if (res.success) {
-                console.log('[CallerID-HID] auto-reconnected successfully');
-              } else {
-                console.error('[CallerID-HID] auto-reconnect failed:', res.error);
-              }
-            }).catch(() => {});
+            callerIdHidService
+              .connect()
+              .then((res) => {
+                if (res.success) {
+                  console.log('[CallerID-HID] auto-reconnected successfully');
+                } else {
+                  console.error('[CallerID-HID] auto-reconnect failed:', res.error);
+                }
+              })
+              .catch(() => {});
           }, 1_500);
         }
       });

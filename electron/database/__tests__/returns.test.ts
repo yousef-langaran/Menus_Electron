@@ -14,13 +14,8 @@ vi.mock('fs', () => ({
   promises: { mkdir, readFile, writeFile },
 }));
 
-const {
-  saveOfflineReturn,
-  getOfflineReturns,
-  getAllReturns,
-  markReturnAsSynced,
-  deleteReturn,
-} = await import('../returns');
+const { saveOfflineReturn, getOfflineReturns, getAllReturns, markReturnAsSynced, deleteReturn } =
+  await import('../returns');
 
 const enoent = () => Object.assign(new Error('not found'), { code: 'ENOENT' });
 

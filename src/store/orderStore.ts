@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { saveOfflineOrder } from '../services/offlineStorage';
 import { createOrder, updateOrder, API_BASE_URL } from '../services/api';
 import { useAuthStore } from './authStore';
-import {getCachedMenu} from "@/services/cache.ts";
+import { getCachedMenu } from '@/services/cache.ts';
 import { isValidIranMobile, normalizeIranMobile } from '../utils/iranMobile';
 import { calculateVatAmount } from '../utils/vat';
 
@@ -18,110 +18,110 @@ function extractApiErrorMessage(error: any): string {
 
 /** نتیجهٔ ثبت کد تخفیف (بعد از اعتبارسنجی) */
 export interface AppliedDiscountCode {
-    code: string;
-    discountAmount: number;
+  code: string;
+  discountAmount: number;
 }
 
 export interface CartItem {
-    productId: number;
-    product: any;
-    quantity: number;
-    price: number;
-    totalPrice: number;
-    itemOption?: string;
-    /**
-     * فقط روی خطِ جایزهٔ «محصول رایگان» ست می‌شود (free_item_category/
-     * free_specific_item از کاتالوگ امتیاز) — آیدی تیر جایزه‌ای که این واحد را
-     * رایگان کرد. این خط عمداً از خط عادی/پولیِ همان محصول جداست (حتی اگر
-     * productId یکسان باشد) تا «قبلاً ۲ تا پولی داشت، یکی‌شان رایگان شد» قابل
-     * نمایش/محاسبه بماند؛ نگاه کنید addFreeRewardToCart.
-     */
-    freeRewardTierId?: number;
-    /**
-     * آیدیِ مصرف(های) بک‌اند (`PointsRewardRedemption.id`) پشتِ واحدهای این
-     * خط رایگان — طولش با quantity یکی است. لازم است تا وقتی این خط از سبد
-     * حذف می‌شود، بشود امتیازِ کسرشده را با `cancelPointsReward` برگرداند؛
-     * نگاه کنید OrderCart.tsx#handleRemoveFreeLine.
-     */
-    freeRedemptionIds?: number[];
+  productId: number;
+  product: any;
+  quantity: number;
+  price: number;
+  totalPrice: number;
+  itemOption?: string;
+  /**
+   * فقط روی خطِ جایزهٔ «محصول رایگان» ست می‌شود (free_item_category/
+   * free_specific_item از کاتالوگ امتیاز) — آیدی تیر جایزه‌ای که این واحد را
+   * رایگان کرد. این خط عمداً از خط عادی/پولیِ همان محصول جداست (حتی اگر
+   * productId یکسان باشد) تا «قبلاً ۲ تا پولی داشت، یکی‌شان رایگان شد» قابل
+   * نمایش/محاسبه بماند؛ نگاه کنید addFreeRewardToCart.
+   */
+  freeRewardTierId?: number;
+  /**
+   * آیدیِ مصرف(های) بک‌اند (`PointsRewardRedemption.id`) پشتِ واحدهای این
+   * خط رایگان — طولش با quantity یکی است. لازم است تا وقتی این خط از سبد
+   * حذف می‌شود، بشود امتیازِ کسرشده را با `cancelPointsReward` برگرداند؛
+   * نگاه کنید OrderCart.tsx#handleRemoveFreeLine.
+   */
+  freeRedemptionIds?: number[];
 }
 
 type DiscountType = 'percentage' | 'fixed' | 'code';
 
 export interface CartSession {
-    id: string;
-    label: string;
-    cart: CartItem[];
-    customerPhone: string;
-    serviceType: 'dine_in' | 'takeaway' | 'delivery';
-    tableNumber: string;
-    /** شناسهٔ میز از «مدیریت میزها» — null یعنی میز متنی یا تعریف‌نشده */
-    tableId: number | null;
-    customerAddress: string;
-    deliveryLocation: { lat: number; lng: number } | null;
-    deliveryFeeOverride: number | null;
-    deliveryFeeReason: string;
-    paymentMethod: 'cash' | 'card' | 'online' | 'mixed' | 'credit';
-    notes: string;
-    discountAmount: number;
-    discountType: DiscountType;
-    discountCode: string;
-    appliedDiscountCode: AppliedDiscountCode | null;
-    /** مبلغی از کیف پول کش‌بک مشتری که برای همین سفارش خرج می‌شود (ریال) */
-    cashbackRedeemAmount: number;
-    splitCash: number;
-    splitCard: number;
-    splitOnline: number;
+  id: string;
+  label: string;
+  cart: CartItem[];
+  customerPhone: string;
+  serviceType: 'dine_in' | 'takeaway' | 'delivery';
+  tableNumber: string;
+  /** شناسهٔ میز از «مدیریت میزها» — null یعنی میز متنی یا تعریف‌نشده */
+  tableId: number | null;
+  customerAddress: string;
+  deliveryLocation: { lat: number; lng: number } | null;
+  deliveryFeeOverride: number | null;
+  deliveryFeeReason: string;
+  paymentMethod: 'cash' | 'card' | 'online' | 'mixed' | 'credit';
+  notes: string;
+  discountAmount: number;
+  discountType: DiscountType;
+  discountCode: string;
+  appliedDiscountCode: AppliedDiscountCode | null;
+  /** مبلغی از کیف پول کش‌بک مشتری که برای همین سفارش خرج می‌شود (ریال) */
+  cashbackRedeemAmount: number;
+  splitCash: number;
+  splitCard: number;
+  splitOnline: number;
 }
 
 const MAX_SESSIONS = 3;
 
 function createEmptySession(id: string, label: string): CartSession {
-    return {
-        id,
-        label,
-        cart: [],
-        customerPhone: '',
-        serviceType: 'dine_in',
-        tableNumber: '',
-        tableId: null,
-        customerAddress: '',
-        deliveryLocation: null,
-        deliveryFeeOverride: null,
-        deliveryFeeReason: '',
-        paymentMethod: 'cash',
-        notes: '',
-        discountAmount: 0,
-        discountType: 'fixed',
-        discountCode: '',
-        appliedDiscountCode: null,
-        cashbackRedeemAmount: 0,
-        splitCash: 0,
-        splitCard: 0,
-        splitOnline: 0,
-    };
+  return {
+    id,
+    label,
+    cart: [],
+    customerPhone: '',
+    serviceType: 'dine_in',
+    tableNumber: '',
+    tableId: null,
+    customerAddress: '',
+    deliveryLocation: null,
+    deliveryFeeOverride: null,
+    deliveryFeeReason: '',
+    paymentMethod: 'cash',
+    notes: '',
+    discountAmount: 0,
+    discountType: 'fixed',
+    discountCode: '',
+    appliedDiscountCode: null,
+    cashbackRedeemAmount: 0,
+    splitCash: 0,
+    splitCard: 0,
+    splitOnline: 0,
+  };
 }
 
 function getActiveSession(sessions: CartSession[], activeSessionId: string): CartSession {
-    return sessions.find(s => s.id === activeSessionId) ?? sessions[0];
+  return sessions.find((s) => s.id === activeSessionId) ?? sessions[0];
 }
 
 function calcTotalAmount(session: CartSession): number {
-    return session.cart.reduce((sum, item) => sum + item.totalPrice, 0);
+  return session.cart.reduce((sum, item) => sum + item.totalPrice, 0);
 }
 
 function calcDiscountAmount(session: CartSession): number {
-    if (session.discountType === 'code') {
-        return session.appliedDiscountCode ? session.appliedDiscountCode.discountAmount : 0;
-    }
-    const total = calcTotalAmount(session);
-    const discountValue = session.discountAmount;
-    if (!discountValue || discountValue <= 0) return 0;
-    if (session.discountType === 'percentage') {
-        const pct = Math.min(discountValue, 100);
-        return Math.min(total, (total * pct) / 100);
-    }
-    return Math.min(total, discountValue);
+  if (session.discountType === 'code') {
+    return session.appliedDiscountCode ? session.appliedDiscountCode.discountAmount : 0;
+  }
+  const total = calcTotalAmount(session);
+  const discountValue = session.discountAmount;
+  if (!discountValue || discountValue <= 0) return 0;
+  if (session.discountType === 'percentage') {
+    const pct = Math.min(discountValue, 100);
+    return Math.min(total, (total * pct) / 100);
+  }
+  return Math.min(total, discountValue);
 }
 
 /**
@@ -130,15 +130,15 @@ function calcDiscountAmount(session: CartSession): number {
  * پرداخت افزوده می‌شود.
  */
 function calcVatAmount(session: CartSession, vatRate: number | null): number {
-    return calculateVatAmount(
-        session.cart.map((item) => ({
-            lineTotal: item.totalPrice,
-            hasVat: Boolean(item.product?.category?.hasVat),
-        })),
-        calcTotalAmount(session),
-        calcDiscountAmount(session),
-        vatRate,
-    );
+  return calculateVatAmount(
+    session.cart.map((item) => ({
+      lineTotal: item.totalPrice,
+      hasVat: Boolean(item.product?.category?.hasVat),
+    })),
+    calcTotalAmount(session),
+    calcDiscountAmount(session),
+    vatRate,
+  );
 }
 
 /**
@@ -146,10 +146,10 @@ function calcVatAmount(session: CartSession, vatRate: number | null): number {
  * است نه تخفیف روی قیمت کالا، دقیقاً همان فرمول سمت سرور در orders.service.ts
  */
 function calcFinalAmount(session: CartSession, vatRate: number | null): number {
-    const beforeCashback =
-        Math.max(0, calcTotalAmount(session) - calcDiscountAmount(session)) +
-        calcVatAmount(session, vatRate);
-    return Math.max(0, beforeCashback - (session.cashbackRedeemAmount || 0));
+  const beforeCashback =
+    Math.max(0, calcTotalAmount(session) - calcDiscountAmount(session)) +
+    calcVatAmount(session, vatRate);
+  return Math.max(0, beforeCashback - (session.cashbackRedeemAmount || 0));
 }
 
 interface OrderState {
@@ -234,7 +234,13 @@ interface OrderState {
   }) => void;
   submitOrder: (options?: {
     editingOrderId?: number;
-    onOrderCreated?: (result: { orderId: number; orderNumber?: string; receiptCallNumber?: number; offline?: boolean; order?: any }) => void;
+    onOrderCreated?: (result: {
+      orderId: number;
+      orderNumber?: string;
+      receiptCallNumber?: number;
+      offline?: boolean;
+      order?: any;
+    }) => void;
     onOrderFailed?: (error: string) => void;
   }) => Promise<{
     success: boolean;
@@ -255,11 +261,29 @@ interface OrderState {
 
 const INITIAL_SESSION_ID = 'session-1';
 
-function syncActiveFieldsFromSession(session: CartSession): Pick<OrderState,
-  'cart' | 'customerPhone' | 'serviceType' | 'tableNumber' | 'tableId' | 'customerAddress' |
-  'deliveryLocation' | 'deliveryFeeOverride' | 'deliveryFeeReason' |
-  'paymentMethod' | 'notes' | 'discountAmount' | 'discountType' | 'discountCode' |
-  'appliedDiscountCode' | 'cashbackRedeemAmount' | 'splitCash' | 'splitCard' | 'splitOnline'
+function syncActiveFieldsFromSession(
+  session: CartSession,
+): Pick<
+  OrderState,
+  | 'cart'
+  | 'customerPhone'
+  | 'serviceType'
+  | 'tableNumber'
+  | 'tableId'
+  | 'customerAddress'
+  | 'deliveryLocation'
+  | 'deliveryFeeOverride'
+  | 'deliveryFeeReason'
+  | 'paymentMethod'
+  | 'notes'
+  | 'discountAmount'
+  | 'discountType'
+  | 'discountCode'
+  | 'appliedDiscountCode'
+  | 'cashbackRedeemAmount'
+  | 'splitCash'
+  | 'splitCard'
+  | 'splitOnline'
 > {
   return {
     cart: session.cart,
@@ -292,8 +316,8 @@ export const useOrderStore = create<OrderState>()(
       /** به‌روزرسانی session فعال و sync کردن flat fields */
       const updateActive = (updater: (s: CartSession) => CartSession) => {
         const { sessions, activeSessionId } = get();
-        const updated = sessions.map(s => s.id === activeSessionId ? updater(s) : s);
-        const active = updated.find(s => s.id === activeSessionId) ?? updated[0];
+        const updated = sessions.map((s) => (s.id === activeSessionId ? updater(s) : s));
+        const active = updated.find((s) => s.id === activeSessionId) ?? updated[0];
         set({ sessions: updated, ...syncActiveFieldsFromSession(active) });
       };
 
@@ -323,96 +347,133 @@ export const useOrderStore = create<OrderState>()(
         removeSession: (id) => {
           const { sessions, activeSessionId } = get();
           if (sessions.length <= 1) return;
-          const remaining = sessions.filter(s => s.id !== id);
+          const remaining = sessions.filter((s) => s.id !== id);
           const relabeled = remaining.map((s, i) => ({ ...s, label: `سبد ${i + 1}` }));
-          const newActiveId = activeSessionId === id ? relabeled[relabeled.length - 1].id : activeSessionId;
-          const newActive = relabeled.find(s => s.id === newActiveId) ?? relabeled[0];
-          set({ sessions: relabeled, activeSessionId: newActiveId, ...syncActiveFieldsFromSession(newActive) });
+          const newActiveId =
+            activeSessionId === id ? relabeled[relabeled.length - 1].id : activeSessionId;
+          const newActive = relabeled.find((s) => s.id === newActiveId) ?? relabeled[0];
+          set({
+            sessions: relabeled,
+            activeSessionId: newActiveId,
+            ...syncActiveFieldsFromSession(newActive),
+          });
         },
 
         switchSession: (id) => {
           const { sessions } = get();
-          const target = sessions.find(s => s.id === id);
+          const target = sessions.find((s) => s.id === id);
           if (!target) return;
           set({ activeSessionId: id, ...syncActiveFieldsFromSession(target) });
         },
 
         // ─── cart actions ───────────────────────────────────────────────────
         addToCart: (product) => {
-          updateActive(s => {
+          updateActive((s) => {
             // خطِ رایگانِ همین محصول (اگر باشد) نباید با کلیک روی محصول در گرید
             // زیاد شود — فقط addFreeRewardToCart آن را دست می‌زند.
-            const existing = s.cart.find(item => item.productId === product.id && !item.freeRewardTierId);
+            const existing = s.cart.find(
+              (item) => item.productId === product.id && !item.freeRewardTierId,
+            );
             if (existing) {
               return {
                 ...s,
-                cart: s.cart.map(item =>
+                cart: s.cart.map((item) =>
                   item === existing
-                    ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * item.price }
-                    : item
+                    ? {
+                        ...item,
+                        quantity: item.quantity + 1,
+                        totalPrice: (item.quantity + 1) * item.price,
+                      }
+                    : item,
                 ),
               };
             }
             const unit = Number(product.price || 0);
             return {
               ...s,
-              cart: [...s.cart, { productId: product.id, product, quantity: 1, price: unit, totalPrice: unit, itemOption: '' }],
+              cart: [
+                ...s.cart,
+                {
+                  productId: product.id,
+                  product,
+                  quantity: 1,
+                  price: unit,
+                  totalPrice: unit,
+                  itemOption: '',
+                },
+              ],
             };
           });
         },
 
         updateCartQuantity: (productId, quantity) => {
-          updateActive(s => ({
+          updateActive((s) => ({
             ...s,
-            cart: quantity <= 0
-              ? s.cart.filter(item => !(item.productId === productId && !item.freeRewardTierId))
-              : s.cart.map(item =>
-                  item.productId === productId && !item.freeRewardTierId
-                    ? { ...item, quantity, totalPrice: quantity * item.price }
-                    : item
-                ),
+            cart:
+              quantity <= 0
+                ? s.cart.filter((item) => !(item.productId === productId && !item.freeRewardTierId))
+                : s.cart.map((item) =>
+                    item.productId === productId && !item.freeRewardTierId
+                      ? { ...item, quantity, totalPrice: quantity * item.price }
+                      : item,
+                  ),
           }));
         },
 
         updateCartItemOption: (productId, itemOption) => {
-          updateActive(s => ({
+          updateActive((s) => ({
             ...s,
-            cart: s.cart.map(item =>
-              item.productId === productId && !item.freeRewardTierId ? { ...item, itemOption: itemOption || '' } : item
+            cart: s.cart.map((item) =>
+              item.productId === productId && !item.freeRewardTierId
+                ? { ...item, itemOption: itemOption || '' }
+                : item,
             ),
           }));
         },
 
         removeFromCart: (productId, freeRewardTierId) => {
-          updateActive(s => ({
+          updateActive((s) => ({
             ...s,
-            cart: s.cart.filter(item => !(item.productId === productId && item.freeRewardTierId === freeRewardTierId)),
+            cart: s.cart.filter(
+              (item) =>
+                !(item.productId === productId && item.freeRewardTierId === freeRewardTierId),
+            ),
           }));
         },
 
         addFreeRewardToCart: (product, freeRewardTierId, redemptionId) => {
-          updateActive(s => {
+          updateActive((s) => {
             const existingFreeLine = s.cart.find(
-              item => item.productId === product.id && item.freeRewardTierId === freeRewardTierId,
+              (item) => item.productId === product.id && item.freeRewardTierId === freeRewardTierId,
             );
             if (existingFreeLine) {
               // مصرف دوبارهٔ همین جایزه روی همین محصول — فقط تعداد خط رایگان زیاد می‌شود
               return {
                 ...s,
-                cart: s.cart.map(item => item === existingFreeLine
-                  ? {
-                      ...item,
-                      quantity: item.quantity + 1,
-                      freeRedemptionIds: [...(item.freeRedemptionIds ?? []), redemptionId],
-                    }
-                  : item),
+                cart: s.cart.map((item) =>
+                  item === existingFreeLine
+                    ? {
+                        ...item,
+                        quantity: item.quantity + 1,
+                        freeRedemptionIds: [...(item.freeRedemptionIds ?? []), redemptionId],
+                      }
+                    : item,
+                ),
               };
             }
             const newFreeLine: CartItem = {
-              productId: product.id, product, quantity: 1, price: 0, totalPrice: 0,
-              itemOption: 'رایگان (جایزهٔ امتیازی)', freeRewardTierId, freeRedemptionIds: [redemptionId],
+              productId: product.id,
+              product,
+              quantity: 1,
+              price: 0,
+              totalPrice: 0,
+              itemOption: 'رایگان (جایزهٔ امتیازی)',
+              freeRewardTierId,
+              freeRedemptionIds: [redemptionId],
             };
-            const paidLine = s.cart.find(item => item.productId === product.id && !item.freeRewardTierId);
+            const paidLine = s.cart.find(
+              (item) => item.productId === product.id && !item.freeRewardTierId,
+            );
             if (!paidLine) {
               return { ...s, cart: [...s.cart, newFreeLine] };
             }
@@ -421,46 +482,58 @@ export const useOrderStore = create<OrderState>()(
               return {
                 ...s,
                 cart: [
-                  ...s.cart.map(item =>
+                  ...s.cart.map((item) =>
                     item === paidLine
                       ? { ...item, quantity: remainingQty, totalPrice: remainingQty * item.price }
-                      : item
+                      : item,
                   ),
                   newFreeLine,
                 ],
               };
             }
             // تنها واحد پولی موجود بود — همان خط جای خود را به خط رایگان می‌دهد
-            return { ...s, cart: s.cart.map(item => item === paidLine ? newFreeLine : item) };
+            return { ...s, cart: s.cart.map((item) => (item === paidLine ? newFreeLine : item)) };
           });
         },
 
-        setCustomerPhone: (customerPhone) => updateActive(s => ({ ...s, customerPhone })),
-        setServiceType: (serviceType) => updateActive(s => ({ ...s, serviceType })),
-        setTableNumber: (tableNumber) => updateActive(s => ({ ...s, tableNumber, tableId: null })),
-        setTable: (table) => updateActive(s => ({
-          ...s,
-          tableId: table?.id ?? null,
-          tableNumber: table?.name ?? '',
-        })),
-        setCustomerAddress: (customerAddress) => updateActive(s => ({ ...s, customerAddress })),
-        setDeliveryLocation: (deliveryLocation) => updateActive(s => ({ ...s, deliveryLocation })),
-        setDeliveryFeeOverride: (deliveryFeeOverride) => updateActive(s => ({ ...s, deliveryFeeOverride })),
-        setDeliveryFeeReason: (deliveryFeeReason) => updateActive(s => ({ ...s, deliveryFeeReason })),
-        setPaymentMethod: (paymentMethod) => updateActive(s => ({ ...s, paymentMethod })),
-        setNotes: (notes) => updateActive(s => ({ ...s, notes })),
-        setDiscountAmount: (discountAmount) => updateActive(s => ({ ...s, discountAmount })),
-        setDiscountType: (discountType) => updateActive(s => ({
-          ...s,
-          discountType,
-          ...(discountType !== 'code' ? { appliedDiscountCode: null } : {}),
-        })),
-        setDiscountCode: (code) => updateActive(s => ({ ...s, discountCode: (code || '').trim() })),
-        setAppliedDiscountCode: (appliedDiscountCode) => updateActive(s => ({ ...s, appliedDiscountCode })),
-        setCashbackRedeemAmount: (cashbackRedeemAmount) => updateActive(s => ({ ...s, cashbackRedeemAmount: Math.max(0, cashbackRedeemAmount) })),
-        setSplitCash: (splitCash) => updateActive(s => ({ ...s, splitCash: Math.max(0, splitCash) })),
-        setSplitCard: (splitCard) => updateActive(s => ({ ...s, splitCard: Math.max(0, splitCard) })),
-        setSplitOnline: (splitOnline) => updateActive(s => ({ ...s, splitOnline: Math.max(0, splitOnline) })),
+        setCustomerPhone: (customerPhone) => updateActive((s) => ({ ...s, customerPhone })),
+        setServiceType: (serviceType) => updateActive((s) => ({ ...s, serviceType })),
+        setTableNumber: (tableNumber) =>
+          updateActive((s) => ({ ...s, tableNumber, tableId: null })),
+        setTable: (table) =>
+          updateActive((s) => ({
+            ...s,
+            tableId: table?.id ?? null,
+            tableNumber: table?.name ?? '',
+          })),
+        setCustomerAddress: (customerAddress) => updateActive((s) => ({ ...s, customerAddress })),
+        setDeliveryLocation: (deliveryLocation) =>
+          updateActive((s) => ({ ...s, deliveryLocation })),
+        setDeliveryFeeOverride: (deliveryFeeOverride) =>
+          updateActive((s) => ({ ...s, deliveryFeeOverride })),
+        setDeliveryFeeReason: (deliveryFeeReason) =>
+          updateActive((s) => ({ ...s, deliveryFeeReason })),
+        setPaymentMethod: (paymentMethod) => updateActive((s) => ({ ...s, paymentMethod })),
+        setNotes: (notes) => updateActive((s) => ({ ...s, notes })),
+        setDiscountAmount: (discountAmount) => updateActive((s) => ({ ...s, discountAmount })),
+        setDiscountType: (discountType) =>
+          updateActive((s) => ({
+            ...s,
+            discountType,
+            ...(discountType !== 'code' ? { appliedDiscountCode: null } : {}),
+          })),
+        setDiscountCode: (code) =>
+          updateActive((s) => ({ ...s, discountCode: (code || '').trim() })),
+        setAppliedDiscountCode: (appliedDiscountCode) =>
+          updateActive((s) => ({ ...s, appliedDiscountCode })),
+        setCashbackRedeemAmount: (cashbackRedeemAmount) =>
+          updateActive((s) => ({ ...s, cashbackRedeemAmount: Math.max(0, cashbackRedeemAmount) })),
+        setSplitCash: (splitCash) =>
+          updateActive((s) => ({ ...s, splitCash: Math.max(0, splitCash) })),
+        setSplitCard: (splitCard) =>
+          updateActive((s) => ({ ...s, splitCard: Math.max(0, splitCard) })),
+        setSplitOnline: (splitOnline) =>
+          updateActive((s) => ({ ...s, splitOnline: Math.max(0, splitOnline) })),
 
         getSplitCreditAmount: () => {
           const { splitCash, splitCard, splitOnline } = get();
@@ -468,7 +541,7 @@ export const useOrderStore = create<OrderState>()(
         },
 
         restoreDraft: (draft) => {
-          updateActive(s => ({
+          updateActive((s) => ({
             ...s,
             cart: draft.cart,
             customerPhone: draft.customerPhone ?? '',
@@ -482,7 +555,7 @@ export const useOrderStore = create<OrderState>()(
         },
 
         clearCart: () => {
-          updateActive(s => ({
+          updateActive((s) => ({
             ...s,
             cart: [],
             customerPhone: '',
@@ -541,10 +614,24 @@ export const useOrderStore = create<OrderState>()(
           const { sessions, activeSessionId } = state;
           const session = getActiveSession(sessions, activeSessionId);
           const {
-            cart, customerPhone, serviceType, tableNumber, tableId, customerAddress,
-            deliveryLocation, deliveryFeeOverride, deliveryFeeReason,
-            paymentMethod, notes, discountType, discountCode, appliedDiscountCode,
-            cashbackRedeemAmount, splitCash, splitCard, splitOnline,
+            cart,
+            customerPhone,
+            serviceType,
+            tableNumber,
+            tableId,
+            customerAddress,
+            deliveryLocation,
+            deliveryFeeOverride,
+            deliveryFeeReason,
+            paymentMethod,
+            notes,
+            discountType,
+            discountCode,
+            appliedDiscountCode,
+            cashbackRedeemAmount,
+            splitCash,
+            splitCard,
+            splitOnline,
           } = session;
 
           if (!token) return { success: false, error: 'لطفاً ابتدا وارد شوید' };
@@ -581,11 +668,15 @@ export const useOrderStore = create<OrderState>()(
           // بفرستیم دوبار حساب می‌شود.
           const finalAmountBeforeVat = Math.max(0, finalAmount - vatAmount);
 
-          const mixedHasCredit = paymentMethod === 'mixed' &&
-            (splitCash + splitCard + splitOnline) < finalAmount &&
-            (splitCash + splitCard + splitOnline) > 0;
+          const mixedHasCredit =
+            paymentMethod === 'mixed' &&
+            splitCash + splitCard + splitOnline < finalAmount &&
+            splitCash + splitCard + splitOnline > 0;
 
-          if ((isMobileRequiredInElectronPanel || paymentMethod === 'credit' || mixedHasCredit) && !customerPhone.trim()) {
+          if (
+            (isMobileRequiredInElectronPanel || paymentMethod === 'credit' || mixedHasCredit) &&
+            !customerPhone.trim()
+          ) {
             return { success: false, error: 'برای سفارش دارای نسیه، شماره تماس مشتری الزامی است' };
           }
           if (customerPhone.trim() && !isValidIranMobile(customerPhone)) {
@@ -596,8 +687,13 @@ export const useOrderStore = create<OrderState>()(
           }
           if (paymentMethod === 'mixed') {
             const total = splitCash + splitCard + splitOnline;
-            if (total === 0) return { success: false, error: 'برای پرداخت ترکیبی، مبالغ روش‌های پرداخت را وارد کنید' };
-            if (total > finalAmount) return { success: false, error: 'مجموع مبالغ پرداختی از مبلغ نهایی سفارش بیشتر است' };
+            if (total === 0)
+              return {
+                success: false,
+                error: 'برای پرداخت ترکیبی، مبالغ روش‌های پرداخت را وارد کنید',
+              };
+            if (total > finalAmount)
+              return { success: false, error: 'مجموع مبالغ پرداختی از مبلغ نهایی سفارش بیشتر است' };
           }
           if (paymentMethod === 'credit') {
             if (splitCash + splitCard + splitOnline > finalAmount) {
@@ -607,7 +703,9 @@ export const useOrderStore = create<OrderState>()(
 
           set({ isSubmitting: true });
 
-          const useDiscountCode = discountType === 'code' && (appliedDiscountCode?.code ?? discountCode.trim()).length > 0;
+          const useDiscountCode =
+            discountType === 'code' &&
+            (appliedDiscountCode?.code ?? discountCode.trim()).length > 0;
           const editingOrderId = options?.editingOrderId;
 
           const orderData: Record<string, unknown> = {
@@ -645,7 +743,7 @@ export const useOrderStore = create<OrderState>()(
                 : finalAmount,
             discountAmount: useDiscountCode ? 0 : discountAmount,
             ...(useDiscountCode
-              ? { discountCode: (appliedDiscountCode?.code ?? discountCode.trim()) }
+              ? { discountCode: appliedDiscountCode?.code ?? discountCode.trim() }
               : editingOrderId != null
                 ? { manualDiscountAmount: discountAmount }
                 : {
@@ -663,15 +761,17 @@ export const useOrderStore = create<OrderState>()(
             splitCard: splitCard > 0 ? splitCard : undefined,
             splitOnline: splitOnline > 0 ? splitOnline : undefined,
             // فقط برای سفارش تازه — مسیر ویرایش سفارش این فیلد را نمی‌شناسد
-            ...(editingOrderId == null && cashbackRedeemAmount > 0
-              ? { cashbackRedeemAmount }
-              : {}),
-            items: cart.map(item => ({
+            ...(editingOrderId == null && cashbackRedeemAmount > 0 ? { cashbackRedeemAmount } : {}),
+            items: cart.map((item) => ({
               productId: item.productId,
-              ...(editingOrderId == null ? {
-                productName: item.product?.name_fa || item.product?.name || undefined,
-                product: item.product ? { name_fa: item.product.name_fa, unit: item.product.unit } : undefined,
-              } : {}),
+              ...(editingOrderId == null
+                ? {
+                    productName: item.product?.name_fa || item.product?.name || undefined,
+                    product: item.product
+                      ? { name_fa: item.product.name_fa, unit: item.product.unit }
+                      : undefined,
+                  }
+                : {}),
               quantity: item.quantity,
               price: item.price,
               itemNote: item.itemOption?.trim() || undefined,
@@ -680,7 +780,9 @@ export const useOrderStore = create<OrderState>()(
           if (editingOrderId == null) orderData.status = 'confirmed';
 
           try {
-            const isOnline = window.electronAPI ? await window.electronAPI.checkOnline() : navigator.onLine;
+            const isOnline = window.electronAPI
+              ? await window.electronAPI.checkOnline()
+              : navigator.onLine;
 
             if (isOnline) {
               const latestToken = useAuthStore.getState().token;
@@ -693,8 +795,15 @@ export const useOrderStore = create<OrderState>()(
                 try {
                   const response = await updateOrder(editingOrderId, orderData, latestToken);
                   const order = (response as any)?.data ?? response;
-                  const acctWarn = typeof order?.accountingWarning === 'string' ? order.accountingWarning.trim() : '';
-                  if (acctWarn) { onOrderFailed?.(acctWarn); set({ isSubmitting: false }); return { success: false, error: acctWarn }; }
+                  const acctWarn =
+                    typeof order?.accountingWarning === 'string'
+                      ? order.accountingWarning.trim()
+                      : '';
+                  if (acctWarn) {
+                    onOrderFailed?.(acctWarn);
+                    set({ isSubmitting: false });
+                    return { success: false, error: acctWarn };
+                  }
                   set({ isSubmitting: false });
                   return { success: true, orderId: order.id ?? editingOrderId };
                 } catch (error: any) {
@@ -710,8 +819,14 @@ export const useOrderStore = create<OrderState>()(
               createOrder(orderData, latestToken)
                 .then(async (response) => {
                   const order = (response as any)?.data ?? response;
-                  const acctWarn = typeof order?.accountingWarning === 'string' ? order.accountingWarning.trim() : '';
-                  if (acctWarn) { onOrderFailed?.(acctWarn); return; }
+                  const acctWarn =
+                    typeof order?.accountingWarning === 'string'
+                      ? order.accountingWarning.trim()
+                      : '';
+                  if (acctWarn) {
+                    onOrderFailed?.(acctWarn);
+                    return;
+                  }
                   onOrderCreated?.({
                     orderId: order.id,
                     orderNumber: order.orderNumber,
@@ -723,19 +838,34 @@ export const useOrderStore = create<OrderState>()(
                 .catch(async (error: any) => {
                   const status = Number(error?.response?.status || 0);
                   const errorMessage = extractApiErrorMessage(error) || 'خطا در ثبت سفارش';
-                  if (status === 401) { console.warn('Online submission failed with 401:', errorMessage); return; }
-                  if (status === 400) { onOrderFailed?.(errorMessage); return; }
+                  if (status === 401) {
+                    console.warn('Online submission failed with 401:', errorMessage);
+                    return;
+                  }
+                  if (status === 400) {
+                    onOrderFailed?.(errorMessage);
+                    return;
+                  }
                   console.warn('Online submission failed, saving offline:', errorMessage);
                   try {
                     if (window.electronAPI) {
                       const freshToken = useAuthStore.getState().token || latestToken;
-                      const res = await window.electronAPI.saveOfflineOrder(orderData, freshToken, API_BASE_URL);
-                      if (res.success && res.orderId) { onOrderCreated?.({ orderId: res.orderId, offline: true }); return; }
+                      const res = await window.electronAPI.saveOfflineOrder(
+                        orderData,
+                        freshToken,
+                        API_BASE_URL,
+                      );
+                      if (res.success && res.orderId) {
+                        onOrderCreated?.({ orderId: res.orderId, offline: true });
+                        return;
+                      }
                     }
                     const freshToken = useAuthStore.getState().token || latestToken;
                     const orderId = await saveOfflineOrder(orderData, freshToken, API_BASE_URL);
                     onOrderCreated?.({ orderId, offline: true });
-                  } catch (_) { /* ignore */ }
+                  } catch (_) {
+                    /* ignore */
+                  }
                 });
               set({ isSubmitting: false });
               return { success: true, pending: true };
@@ -752,7 +882,11 @@ export const useOrderStore = create<OrderState>()(
             let orderId: number;
             if (window.electronAPI) {
               const latestToken = useAuthStore.getState().token || token;
-              const result = await window.electronAPI.saveOfflineOrder(orderData, latestToken, API_BASE_URL);
+              const result = await window.electronAPI.saveOfflineOrder(
+                orderData,
+                latestToken,
+                API_BASE_URL,
+              );
               if (result.success && result.orderId) {
                 orderId = result.orderId;
               } else {
@@ -782,11 +916,11 @@ export const useOrderStore = create<OrderState>()(
         if (!state) return;
         // sync flat fields after rehydrate
         const { sessions, activeSessionId } = state;
-        const active = sessions.find(s => s.id === activeSessionId) ?? sessions[0];
+        const active = sessions.find((s) => s.id === activeSessionId) ?? sessions[0];
         if (active) {
           Object.assign(state, syncActiveFieldsFromSession(active));
         }
       },
-    }
-  )
+    },
+  ),
 );

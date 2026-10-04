@@ -28,7 +28,11 @@ import {
 import { serviceJobsDb } from './serviceJobsLocalDb';
 
 /** برای صفحهٔ جزئیات: وقتی آنلاینیم، آخرین نسخهٔ پرونده (با آیتم‌ها/پیوست‌ها/تایم‌لاین) را از سرور می‌گیرد و محلی هم به‌روزرسانی می‌کند */
-export async function refreshServiceJobDetail(jobId: number, restaurantId: number, token: string): Promise<any> {
+export async function refreshServiceJobDetail(
+  jobId: number,
+  restaurantId: number,
+  token: string,
+): Promise<any> {
   const serverJob = await getServiceJobRemote(jobId, restaurantId, token);
   await applyServerJobFields(jobId, serverJob);
   return serverJob;
@@ -49,7 +53,11 @@ export function resolveOnlineStatus(): Promise<boolean> {
   return Promise.resolve(typeof navigator !== 'undefined' ? navigator.onLine : true);
 }
 
-async function concurrentMap<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+async function concurrentMap<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
   const results: R[] = [];
   for (let i = 0; i < items.length; i += limit) {
     const chunk = items.slice(i, i + limit);
@@ -74,7 +82,8 @@ async function applyServerJobFields(jobId: number, serverJob: any): Promise<void
     customerPhone: serverJob.customerPhone ?? undefined,
     assigneeId: serverJob.assignee_id ?? undefined,
     assigneeName: serverJob.assignee
-      ? (`${serverJob.assignee.firstName ?? ''} ${serverJob.assignee.lastName ?? ''}`.trim() || serverJob.assignee.phone)
+      ? `${serverJob.assignee.firstName ?? ''} ${serverJob.assignee.lastName ?? ''}`.trim() ||
+        serverJob.assignee.phone
       : undefined,
     priority: serverJob.priority ?? undefined,
     dueDate: serverJob.dueDate ?? undefined,
@@ -122,7 +131,12 @@ async function pushJobOps(
           break;
         }
         case 'move': {
-          serverJob = await moveServiceJobStatusRemote(currentJobId, restaurantId, op.payload.statusId, token);
+          serverJob = await moveServiceJobStatusRemote(
+            currentJobId,
+            restaurantId,
+            op.payload.statusId,
+            token,
+          );
           break;
         }
         case 'item_add': {
@@ -138,7 +152,13 @@ async function pushJobOps(
         case 'item_update': {
           const itemId = itemIdMap.get(op.payload.itemId) ?? op.payload.itemId;
           const { itemId: _drop, ...itemPayload } = op.payload;
-          serverJob = await updateServiceJobItemRemote(currentJobId, itemId, restaurantId, itemPayload, token);
+          serverJob = await updateServiceJobItemRemote(
+            currentJobId,
+            itemId,
+            restaurantId,
+            itemPayload,
+            token,
+          );
           break;
         }
         case 'item_remove': {
@@ -165,7 +185,10 @@ async function pushJobOps(
 // تا روی صف عملیات هم‌پوشانی پیش نیاید (مثلاً ساخت دوبار یک پرونده روی سرور).
 let syncInFlight: Promise<ServiceJobsSyncResult> | null = null;
 
-export async function runServiceJobsSync(args: { restaurantId: number; token: string }): Promise<ServiceJobsSyncResult> {
+export async function runServiceJobsSync(args: {
+  restaurantId: number;
+  token: string;
+}): Promise<ServiceJobsSyncResult> {
   if (syncInFlight) return syncInFlight;
   syncInFlight = runServiceJobsSyncInternal(args);
   try {
@@ -240,7 +263,10 @@ async function runServiceJobsSyncInternal(args: {
       cachedAt: new Date().toISOString(),
     }));
     await upsertLocalServiceBoards(boards);
-    await deleteStaleBoards(restaurantId, boards.map((b) => b.id));
+    await deleteStaleBoards(
+      restaurantId,
+      boards.map((b) => b.id),
+    );
     boardsPulled = boards.length;
   } catch {
     // pull خطا داد — push را خراب نمی‌کند
@@ -264,7 +290,10 @@ async function runServiceJobsSyncInternal(args: {
       );
       const allJobs = [first.data, ...remaining.map((r) => r.data)].flat();
       await bulkUpsertServerJobs(allJobs, restaurantId);
-      await deleteStaleServerJobs(restaurantId, allJobs.map((j) => Number(j.id)));
+      await deleteStaleServerJobs(
+        restaurantId,
+        allJobs.map((j) => Number(j.id)),
+      );
       jobsPulled = allJobs.length;
       await setSjSyncMeta(jobsMetaKey, new Date().toISOString());
     } catch {

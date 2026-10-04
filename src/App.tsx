@@ -1,4 +1,12 @@
-import { HashRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import {
+  HashRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import { I18nProvider } from 'react-aria-components';
 import { Toast } from '@heroui/react';
 import { lazy, Suspense, useEffect } from 'react';
@@ -38,7 +46,9 @@ const AccountingPurchaseDraftsPage = lazy(() => import('./pages/accounting/Purch
 const AccountingServerPurchasesPage = lazy(() => import('./pages/accounting/ServerPurchases'));
 const AccountingPurchaseReturnsPage = lazy(() => import('./pages/accounting/PurchaseReturns'));
 const AccountingExpensesPage = lazy(() => import('./pages/accounting/Expenses'));
-const AccountingRawMaterialCategoriesPage = lazy(() => import('./pages/accounting/RawMaterialCategories'));
+const AccountingRawMaterialCategoriesPage = lazy(
+  () => import('./pages/accounting/RawMaterialCategories'),
+);
 const AccountingExpenseCategoriesPage = lazy(() => import('./pages/accounting/ExpenseCategories'));
 const AccountingKardexPage = lazy(() => import('./pages/accounting/Kardex'));
 const CashAccountsPage = lazy(() => import('./pages/accounting/CashAccounts'));
@@ -123,7 +133,10 @@ function DeepLinkListener() {
         const parsed = new URL(url);
         const isOrderLink = parsed.hostname === 'order' || parsed.pathname.startsWith('/order/');
         const rawId = isOrderLink
-          ? (parsed.hostname === 'order' ? parsed.pathname : parsed.pathname.replace('/order', '')).replace(/^\/+/, '')
+          ? (parsed.hostname === 'order'
+              ? parsed.pathname
+              : parsed.pathname.replace('/order', '')
+            ).replace(/^\/+/, '')
           : '';
         const orderId = rawId.split('/')[0];
         if (orderId) {
@@ -189,12 +202,15 @@ function AppRoutes() {
       <OrdersSocketManager />
       <CallerIdManager />
       <CallerIdOverlay />
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background" dir="rtl"><p className="text-muted text-sm animate-pulse">در حال بارگذاری...</p></div>}>
+      <Suspense
+        fallback={
+          <div className="min-h-screen flex items-center justify-center bg-background" dir="rtl">
+            <p className="text-muted text-sm animate-pulse">در حال بارگذاری...</p>
+          </div>
+        }
+      >
         <Routes>
-          <Route
-            path="/login"
-            element={user ? <Navigate to="/order" replace /> : <LoginPage />}
-          />
+          <Route path="/login" element={user ? <Navigate to="/order" replace /> : <LoginPage />} />
           <Route element={<RequireAuth />}>
             <Route element={<AppShellLayout />}>
               <Route element={<RoutePermissionGuard />}>
@@ -210,13 +226,28 @@ function AppRoutes() {
                 <Route path="/accounting" element={<AccountingPage />} />
                 <Route path="/accounting/raw-materials" element={<AccountingRawMaterialsPage />} />
                 <Route path="/accounting/suppliers" element={<AccountingSuppliersPage />} />
-                <Route path="/accounting/purchase-drafts" element={<AccountingPurchaseDraftsPage />} />
-                <Route path="/accounting/server-purchases" element={<AccountingServerPurchasesPage />} />
+                <Route
+                  path="/accounting/purchase-drafts"
+                  element={<AccountingPurchaseDraftsPage />}
+                />
+                <Route
+                  path="/accounting/server-purchases"
+                  element={<AccountingServerPurchasesPage />}
+                />
                 <Route path="/accounting/expenses" element={<AccountingExpensesPage />} />
-                <Route path="/accounting/raw-material-categories" element={<AccountingRawMaterialCategoriesPage />} />
-                <Route path="/accounting/expense-categories" element={<AccountingExpenseCategoriesPage />} />
+                <Route
+                  path="/accounting/raw-material-categories"
+                  element={<AccountingRawMaterialCategoriesPage />}
+                />
+                <Route
+                  path="/accounting/expense-categories"
+                  element={<AccountingExpenseCategoriesPage />}
+                />
                 <Route path="/accounting/cash-accounts" element={<CashAccountsPage />} />
-                <Route path="/accounting/purchase-returns" element={<AccountingPurchaseReturnsPage />} />
+                <Route
+                  path="/accounting/purchase-returns"
+                  element={<AccountingPurchaseReturnsPage />}
+                />
                 <Route path="/accounting/kardex" element={<AccountingKardexPage />} />
                 <Route path="/card-terminals" element={<CardTerminalsPage />} />
                 <Route path="/call-history" element={<CallHistoryPage />} />

@@ -14,7 +14,7 @@ export const MODULES = {
   WAITER_CALLS: 'waiter_calls',
 } as const;
 
-export type ModuleKey = typeof MODULES[keyof typeof MODULES];
+export type ModuleKey = (typeof MODULES)[keyof typeof MODULES];
 
 export const ACTIONS = {
   READ: 'read',
@@ -24,7 +24,7 @@ export const ACTIONS = {
   MANAGE: 'manage',
 } as const;
 
-export type ActionKey = typeof ACTIONS[keyof typeof ACTIONS];
+export type ActionKey = (typeof ACTIONS)[keyof typeof ACTIONS];
 
 // ─── User & Auth ──────────────────────────────────────────────────────────────
 

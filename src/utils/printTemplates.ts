@@ -110,7 +110,8 @@ export function buildPrinterJobs(
           receiptType: receipt.type,
           copies: receipt.copies,
         };
-        if (typeof template?.contentWidthMm === 'number') job.contentWidthMm = template.contentWidthMm;
+        if (typeof template?.contentWidthMm === 'number')
+          job.contentWidthMm = template.contentWidthMm;
         if (typeof template?.shiftLeftMm === 'number') job.shiftLeftMm = template.shiftLeftMm;
         if (layout) job.layout = layout;
         return job;
@@ -127,7 +128,8 @@ export async function loadPrintTemplateSources(): Promise<{
     (window.electronAPI?.getPrintTemplatesMap?.() ?? Promise.resolve({})) as Promise<
       Record<string, PrintTemplateSnapshot | null>
     >,
-    (window.electronAPI?.getDefaultPrintTemplate?.() ?? Promise.resolve(null)) as Promise<PrintTemplateSnapshot | null>,
+    (window.electronAPI?.getDefaultPrintTemplate?.() ??
+      Promise.resolve(null)) as Promise<PrintTemplateSnapshot | null>,
   ]);
   return { templatesMap: templatesMap ?? {}, defaultTemplate: defaultTemplate ?? null };
 }

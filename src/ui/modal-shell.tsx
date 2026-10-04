@@ -22,7 +22,12 @@ export type ModalShellProps = {
 };
 
 /** جایگزین `ModalContent` نسخهٔ ۲: Backdrop → Container → Dialog */
-export function ModalShell({ size = 'md', scrollBehavior = 'inside', dialogClassName, children }: ModalShellProps) {
+export function ModalShell({
+  size = 'md',
+  scrollBehavior = 'inside',
+  dialogClassName,
+  children,
+}: ModalShellProps) {
   const mapped = SIZE_MAP[String(size)] ?? 'md';
   return (
     <Modal.Backdrop>

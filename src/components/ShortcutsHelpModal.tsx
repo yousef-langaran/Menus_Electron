@@ -19,7 +19,12 @@ export function ShortcutsHelpModal() {
   const close = useShortcutsHelpStore((s) => s.close);
 
   return (
-    <Modal isOpen={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
+    <Modal
+      isOpen={isOpen}
+      onOpenChange={(open) => {
+        if (!open) close();
+      }}
+    >
       <ModalShell size="lg" scrollBehavior="inside">
         <ModalHeader className="flex flex-col gap-1 text-right">
           راهنمای میانبرهای کیبورد
@@ -29,7 +34,10 @@ export function ShortcutsHelpModal() {
             <h3 className="text-sm font-bold text-foreground/70 mb-2">رفتن به صفحات</h3>
             <div className="flex flex-col gap-1.5">
               {NAV_SHORTCUTS.map((s) => (
-                <div key={s.keys} className="flex items-center justify-between gap-3 py-1 border-b border-border last:border-0">
+                <div
+                  key={s.keys}
+                  className="flex items-center justify-between gap-3 py-1 border-b border-border last:border-0"
+                >
                   <span className="text-sm text-foreground">{s.label}</span>
                   <KeyChip keys={s.keys} />
                 </div>
@@ -41,7 +49,10 @@ export function ShortcutsHelpModal() {
             <h3 className="text-sm font-bold text-foreground/70 mb-2">عملیات پرکاربرد</h3>
             <div className="flex flex-col gap-1.5">
               {OPERATION_SHORTCUTS.map((s, i) => (
-                <div key={`${s.keys}-${i}`} className="flex items-center justify-between gap-3 py-1 border-b border-border last:border-0">
+                <div
+                  key={`${s.keys}-${i}`}
+                  className="flex items-center justify-between gap-3 py-1 border-b border-border last:border-0"
+                >
                   <span className="text-sm text-foreground">
                     {s.label}
                     <span className="block text-xs text-muted">{s.scope}</span>
@@ -53,7 +64,9 @@ export function ShortcutsHelpModal() {
           </section>
         </ModalBody>
         <ModalFooter className="gap-2">
-          <Button variant="flat" onPress={close}>بستن</Button>
+          <Button variant="flat" onPress={close}>
+            بستن
+          </Button>
         </ModalFooter>
       </ModalShell>
     </Modal>

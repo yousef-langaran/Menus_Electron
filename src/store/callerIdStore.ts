@@ -68,26 +68,34 @@ interface CallerIdState {
 
 export const useCallerIdStore = create<CallerIdState>((set, get) => ({
   activeCall: null,
-  callHistory: readHistory(),   // ← بارگذاری فوری از localStorage هنگام ساخت store
+  callHistory: readHistory(), // ← بارگذاری فوری از localStorage هنگام ساخت store
   settings: null,
   settingsLoaded: false,
 
   handleIncomingCall: async (phone, timestamp, restaurantId, token) => {
-    const call: IncomingCall = { phone, timestamp, lookupResult: null, isLoading: true, error: null };
+    const call: IncomingCall = {
+      phone,
+      timestamp,
+      lookupResult: null,
+      isLoading: true,
+      error: null,
+    };
     set({ activeCall: call });
 
     try {
       const result = await callerLookup({ restaurantId, phone }, token);
       set((s) => ({
-        activeCall: s.activeCall?.phone === phone
-          ? { ...s.activeCall, lookupResult: result, isLoading: false }
-          : s.activeCall,
+        activeCall:
+          s.activeCall?.phone === phone
+            ? { ...s.activeCall, lookupResult: result, isLoading: false }
+            : s.activeCall,
       }));
     } catch (err: any) {
       set((s) => ({
-        activeCall: s.activeCall?.phone === phone
-          ? { ...s.activeCall, isLoading: false, error: String(err?.message || err) }
-          : s.activeCall,
+        activeCall:
+          s.activeCall?.phone === phone
+            ? { ...s.activeCall, isLoading: false, error: String(err?.message || err) }
+            : s.activeCall,
       }));
     }
   },
@@ -95,12 +103,12 @@ export const useCallerIdStore = create<CallerIdState>((set, get) => ({
   dismissCall: () => {
     const { activeCall, callHistory } = get();
     if (!activeCall) return;
-    const newHistory = [
-      { ...activeCall, isLoading: false },
-      ...callHistory,
-    ].slice(0, HISTORY_LIMIT);
+    const newHistory = [{ ...activeCall, isLoading: false }, ...callHistory].slice(
+      0,
+      HISTORY_LIMIT,
+    );
     set({ activeCall: null, callHistory: newHistory });
-    writeHistory(newHistory);   // ← ذخیره synchronous
+    writeHistory(newHistory); // ← ذخیره synchronous
   },
 
   createNewOrder: (navigate) => {
@@ -111,12 +119,14 @@ export const useCallerIdStore = create<CallerIdState>((set, get) => ({
       ? `${activeCall.lookupResult.customer.firstName} ${activeCall.lookupResult.customer.lastName}`.trim()
       : '';
     const defaultAddress =
-      activeCall.lookupResult?.addresses?.find((a) => a.isDefault)?.address
-      ?? activeCall.lookupResult?.addresses?.[0]?.address
-      ?? '';
+      activeCall.lookupResult?.addresses?.find((a) => a.isDefault)?.address ??
+      activeCall.lookupResult?.addresses?.[0]?.address ??
+      '';
     get().dismissCall();
     navigate('/order', {
-      state: { prefill: { customerPhone: phone, customerName: name, customerAddress: defaultAddress } },
+      state: {
+        prefill: { customerPhone: phone, customerName: name, customerAddress: defaultAddress },
+      },
     });
   },
 
@@ -127,9 +137,10 @@ export const useCallerIdStore = create<CallerIdState>((set, get) => ({
       await addCustomer({ restaurantId }, { mobile: activeCall.phone, firstName, lastName }, token);
       const result = await callerLookup({ restaurantId, phone: activeCall.phone }, token);
       set((s) => ({
-        activeCall: s.activeCall?.phone === activeCall.phone
-          ? { ...s.activeCall, lookupResult: result }
-          : s.activeCall,
+        activeCall:
+          s.activeCall?.phone === activeCall.phone
+            ? { ...s.activeCall, lookupResult: result }
+            : s.activeCall,
       }));
       return { success: true };
     } catch (err: any) {

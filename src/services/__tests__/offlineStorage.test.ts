@@ -40,7 +40,9 @@ describe('offlineStorage (renderer-side offline order queue)', () => {
     });
 
     it('falls back to localStorage when the electron bridge call throws', async () => {
-      (window.electronAPI as any).saveOfflineOrder = vi.fn().mockRejectedValue(new Error('IPC down'));
+      (window.electronAPI as any).saveOfflineOrder = vi
+        .fn()
+        .mockRejectedValue(new Error('IPC down'));
 
       const id = await saveOfflineOrder({ items: [{ id: 2 }] }, 'tok');
 
@@ -51,9 +53,7 @@ describe('offlineStorage (renderer-side offline order queue)', () => {
     });
 
     it('falls back to localStorage when the electron bridge reports failure without a orderId', async () => {
-      (window.electronAPI as any).saveOfflineOrder = vi
-        .fn()
-        .mockResolvedValue({ success: false });
+      (window.electronAPI as any).saveOfflineOrder = vi.fn().mockResolvedValue({ success: false });
 
       const id = await saveOfflineOrder({ items: [{ id: 3 }] }, 'tok');
 
@@ -80,7 +80,9 @@ describe('offlineStorage (renderer-side offline order queue)', () => {
         'offlineOrders',
         JSON.stringify([{ id: 1, orderData: {}, token: 't', createdAt: 'x', synced: false }]),
       );
-      (window.electronAPI as any).saveOfflineOrder = vi.fn().mockRejectedValue(new Error('IPC down'));
+      (window.electronAPI as any).saveOfflineOrder = vi
+        .fn()
+        .mockRejectedValue(new Error('IPC down'));
 
       await saveOfflineOrder({ items: [{ id: 5 }] }, 'tok');
 
@@ -98,7 +100,9 @@ describe('offlineStorage (renderer-side offline order queue)', () => {
     });
 
     it('falls back to the localStorage queue when the electron bridge call throws', async () => {
-      (window.electronAPI as any).getOfflineOrders = vi.fn().mockRejectedValue(new Error('IPC down'));
+      (window.electronAPI as any).getOfflineOrders = vi
+        .fn()
+        .mockRejectedValue(new Error('IPC down'));
       const orders = [{ id: 2, orderData: {}, token: 't', createdAt: 'x', synced: false }];
       localStorage.setItem('offlineOrders', JSON.stringify(orders));
 

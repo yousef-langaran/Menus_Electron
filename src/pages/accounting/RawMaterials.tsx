@@ -15,7 +15,12 @@ import {
   updateRawMaterialLocal,
   listRawMaterialCategoriesLocal,
 } from '../../services/accountingLocalDb';
-import { listRawMaterialCategories, listUnits, RawMaterialCategoryRow, UnitRow } from '../../services/api';
+import {
+  listRawMaterialCategories,
+  listUnits,
+  RawMaterialCategoryRow,
+  UnitRow,
+} from '../../services/api';
 import { toast } from '../../utils/toast';
 
 export default function AccountingRawMaterialsPage() {
@@ -83,7 +88,9 @@ export default function AccountingRawMaterialsPage() {
     if (!q) return rows;
     return rows.filter(
       (x) =>
-        String(x.name || '').toLowerCase().includes(q) ||
+        String(x.name || '')
+          .toLowerCase()
+          .includes(q) ||
         String(x.barcode || '').includes(q) ||
         smartSearchMatch(x.name, search),
     );
@@ -107,10 +114,7 @@ export default function AccountingRawMaterialsPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-bold">مواد اولیه</h1>
         <div className="flex gap-2">
-          <Button
-            variant="flat"
-            onPress={() => navigate('/accounting/raw-material-categories')}
-          >
+          <Button variant="flat" onPress={() => navigate('/accounting/raw-material-categories')}>
             دسته‌بندی‌ها
           </Button>
           <Button variant="flat" onPress={() => navigate('/accounting')}>
@@ -141,9 +145,7 @@ export default function AccountingRawMaterialsPage() {
           <Input placeholder="جستجو (نام/بارکد)" value={search} onValueChange={setSearch} />
 
           {filtered.length === 0 && (
-            <p className="text-center text-sm text-muted py-6">
-              ماده اولیه‌ای ثبت نشده است.
-            </p>
+            <p className="text-center text-sm text-muted py-6">ماده اولیه‌ای ثبت نشده است.</p>
           )}
 
           {filtered.map((m) => (
@@ -158,13 +160,9 @@ export default function AccountingRawMaterialsPage() {
                   <span>حداقل: {m.minStock}</span>
                   <span>واحد: {m.unit || '—'}</span>
                   {catName(m.rawMaterialCategoryId) && (
-                    <span className="text-accent">
-                      دسته: {catName(m.rawMaterialCategoryId)}
-                    </span>
+                    <span className="text-accent">دسته: {catName(m.rawMaterialCategoryId)}</span>
                   )}
-                  {!m.rawMaterialCategoryId && (
-                    <span className="text-warning">بدون دسته</span>
-                  )}
+                  {!m.rawMaterialCategoryId && <span className="text-warning">بدون دسته</span>}
                 </div>
               </div>
               <div className="flex gap-1 shrink-0">
@@ -174,7 +172,9 @@ export default function AccountingRawMaterialsPage() {
                   onPress={() => {
                     setEditId(m.id);
                     setEditName(m.name);
-                    setEditCategoryId(m.rawMaterialCategoryId ? String(m.rawMaterialCategoryId) : '');
+                    setEditCategoryId(
+                      m.rawMaterialCategoryId ? String(m.rawMaterialCategoryId) : '',
+                    );
                     setEditOpen(true);
                   }}
                 >

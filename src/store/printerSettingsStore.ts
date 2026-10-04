@@ -69,7 +69,9 @@ const persistConfigs = (configs: Record<string, PrinterConfig>) => {
   if (hasElectronBridge() && window.electronAPI?.savePrinterConfigs) {
     window.electronAPI
       .savePrinterConfigs(configs)
-      .catch((error) => console.error('Failed to save printer configs via electron bridge:', error));
+      .catch((error) =>
+        console.error('Failed to save printer configs via electron bridge:', error),
+      );
   }
 };
 
@@ -160,16 +162,14 @@ export const usePrinterSettingsStore = create<PrinterSettingsState>((set, get) =
     set((state) => {
       const existing = state.configs[printerName];
       if (!existing) return state;
-      
+
       const receipts = existing.receipts || [
         { type: 'full', enabled: true, copies: 1 },
         { type: 'kitchen', enabled: false, copies: 1 },
       ];
-      
-      const updatedReceipts = receipts.map(r => 
-        r.type === receiptType ? { ...r, enabled } : r
-      );
-      
+
+      const updatedReceipts = receipts.map((r) => (r.type === receiptType ? { ...r, enabled } : r));
+
       const updated = {
         ...state.configs,
         [printerName]: {
@@ -186,16 +186,16 @@ export const usePrinterSettingsStore = create<PrinterSettingsState>((set, get) =
     set((state) => {
       const existing = state.configs[printerName];
       if (!existing) return state;
-      
+
       const receipts = existing.receipts || [
         { type: 'full', enabled: true, copies: 1 },
         { type: 'kitchen', enabled: false, copies: 1 },
       ];
-      
-      const updatedReceipts = receipts.map(r => 
-        r.type === receiptType ? { ...r, copies: Math.max(1, Math.min(5, copies)) } : r
+
+      const updatedReceipts = receipts.map((r) =>
+        r.type === receiptType ? { ...r, copies: Math.max(1, Math.min(5, copies)) } : r,
       );
-      
+
       const updated = {
         ...state.configs,
         [printerName]: {
@@ -216,11 +216,11 @@ export const usePrinterSettingsStore = create<PrinterSettingsState>((set, get) =
   getPrinterReceipts: (printerName) => {
     const config = get().configs[printerName];
     if (!config) return [];
-    return config.receipts || [
-      { type: 'full', enabled: true, copies: 1 },
-      { type: 'kitchen', enabled: false, copies: 1 },
-    ];
+    return (
+      config.receipts || [
+        { type: 'full', enabled: true, copies: 1 },
+        { type: 'kitchen', enabled: false, copies: 1 },
+      ]
+    );
   },
 }));
-
-

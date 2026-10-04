@@ -10,7 +10,11 @@ function parse(value: string | Date | null | undefined): Date | null {
 export function toShamsiDate(value: string | Date | null | undefined): string {
   const d = parse(value);
   if (!d) return '-';
-  return new Intl.DateTimeFormat(PERSIAN, { year: 'numeric', month: 'long', day: 'numeric' }).format(d);
+  return new Intl.DateTimeFormat(PERSIAN, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(d);
 }
 
 /** ۱۴۰۴ خرداد ۹،‏ ۱۴:۳۰ */
@@ -18,8 +22,11 @@ export function toShamsiDateTime(value: string | Date | null | undefined): strin
   const d = parse(value);
   if (!d) return '-';
   return new Intl.DateTimeFormat(PERSIAN, {
-    year: 'numeric', month: 'long', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(d);
 }
 

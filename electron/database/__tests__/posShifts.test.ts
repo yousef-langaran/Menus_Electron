@@ -137,7 +137,9 @@ describe('markShiftActionSynced', () => {
   });
 
   it('is a no-op (no write) when the ID is not found', async () => {
-    readFile.mockResolvedValue(JSON.stringify([{ id: 1, ...openAction(), createdAt: 'a', synced: false }]));
+    readFile.mockResolvedValue(
+      JSON.stringify([{ id: 1, ...openAction(), createdAt: 'a', synced: false }]),
+    );
 
     await markShiftActionSynced(999);
     expect(writeFile).not.toHaveBeenCalled();
@@ -165,8 +167,24 @@ describe('resolveServerShiftIdForKey', () => {
   it('fills serverShiftId on every pending action for the given clientShiftKey', async () => {
     readFile.mockResolvedValue(
       JSON.stringify([
-        { id: 1, ...openAction(), type: 'close', clientShiftKey: 'key-1', serverShiftId: null, createdAt: 'a', synced: false },
-        { id: 2, ...openAction(), type: 'close', clientShiftKey: 'key-1', serverShiftId: null, createdAt: 'b', synced: false },
+        {
+          id: 1,
+          ...openAction(),
+          type: 'close',
+          clientShiftKey: 'key-1',
+          serverShiftId: null,
+          createdAt: 'a',
+          synced: false,
+        },
+        {
+          id: 2,
+          ...openAction(),
+          type: 'close',
+          clientShiftKey: 'key-1',
+          serverShiftId: null,
+          createdAt: 'b',
+          synced: false,
+        },
         { id: 3, ...openAction(), clientShiftKey: 'key-2', createdAt: 'c', synced: false },
       ]),
     );
@@ -196,7 +214,9 @@ describe('deleteShiftAction', () => {
   });
 
   it('is a no-op (no write) when the ID is not found', async () => {
-    readFile.mockResolvedValue(JSON.stringify([{ id: 1, ...openAction(), createdAt: 'a', synced: false }]));
+    readFile.mockResolvedValue(
+      JSON.stringify([{ id: 1, ...openAction(), createdAt: 'a', synced: false }]),
+    );
 
     await deleteShiftAction(999);
     expect(writeFile).not.toHaveBeenCalled();

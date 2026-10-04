@@ -74,8 +74,7 @@ export function hasModuleAccess(
 export function canManageHardwareSettings(user: ElectronUser): boolean {
   const rid = getPrimaryRestaurantId(user);
   return (
-    isOwnerOrAdmin(user) ||
-    hasModuleAccess(user, MODULES.ELECTRON_PANEL, [ACTIONS.MANAGE], rid)
+    isOwnerOrAdmin(user) || hasModuleAccess(user, MODULES.ELECTRON_PANEL, [ACTIONS.MANAGE], rid)
   );
 }
 
@@ -130,18 +129,33 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
 
   if (p === '/waiter-calls') {
     return (
-      hasModuleAccess(user, MODULES.WAITER_CALLS, [ACTIONS.READ, ACTIONS.UPDATE, ACTIONS.MANAGE], rid) ||
+      hasModuleAccess(
+        user,
+        MODULES.WAITER_CALLS,
+        [ACTIONS.READ, ACTIONS.UPDATE, ACTIONS.MANAGE],
+        rid,
+      ) ||
       hasModuleAccess(user, MODULES.ORDERS_MANAGEMENT, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
       hasModuleAccess(user, MODULES.ORDERS_LIST, [ACTIONS.READ, ACTIONS.MANAGE], rid)
     );
   }
 
   if (p === '/products') {
-    return hasModuleAccess(user, MODULES.PRODUCTS, [ACTIONS.READ, ACTIONS.CREATE, ACTIONS.UPDATE, ACTIONS.MANAGE], rid);
+    return hasModuleAccess(
+      user,
+      MODULES.PRODUCTS,
+      [ACTIONS.READ, ACTIONS.CREATE, ACTIONS.UPDATE, ACTIONS.MANAGE],
+      rid,
+    );
   }
 
   if (p === '/categories') {
-    return hasModuleAccess(user, MODULES.CATEGORIES, [ACTIONS.READ, ACTIONS.CREATE, ACTIONS.UPDATE, ACTIONS.MANAGE], rid);
+    return hasModuleAccess(
+      user,
+      MODULES.CATEGORIES,
+      [ACTIONS.READ, ACTIONS.CREATE, ACTIONS.UPDATE, ACTIONS.MANAGE],
+      rid,
+    );
   }
 
   if (p === '/settings') {
@@ -163,21 +177,33 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
     );
   }
 
-  if (p === '/accounting/raw-materials' || p === '/accounting/raw-material-categories' || p === '/accounting/kardex') {
+  if (
+    p === '/accounting/raw-materials' ||
+    p === '/accounting/raw-material-categories' ||
+    p === '/accounting/kardex'
+  ) {
     return (
       hasModuleAccess(user, MODULES.INVENTORY, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
       hasModuleAccess(user, MODULES.ACCOUNTING, [ACTIONS.READ, ACTIONS.MANAGE], rid)
     );
   }
 
-  if (p === '/accounting/suppliers' || p === '/accounting/purchase-drafts' || p === '/accounting/purchase-returns') {
+  if (
+    p === '/accounting/suppliers' ||
+    p === '/accounting/purchase-drafts' ||
+    p === '/accounting/purchase-returns'
+  ) {
     return (
       hasModuleAccess(user, MODULES.PURCHASES, [ACTIONS.READ, ACTIONS.MANAGE], rid) ||
       hasModuleAccess(user, MODULES.ACCOUNTING, [ACTIONS.READ, ACTIONS.MANAGE], rid)
     );
   }
 
-  if (p === '/accounting/expenses' || p === '/accounting/cash-accounts' || p === '/accounting/expense-categories') {
+  if (
+    p === '/accounting/expenses' ||
+    p === '/accounting/cash-accounts' ||
+    p === '/accounting/expense-categories'
+  ) {
     return hasModuleAccess(user, MODULES.ACCOUNTING, [ACTIONS.READ, ACTIONS.MANAGE], rid);
   }
 
@@ -189,7 +215,12 @@ export function canAccessRoute(user: ElectronUser, pathname: string): boolean {
   }
 
   if (p === '/service-jobs') {
-    return hasModuleAccess(user, MODULES.SERVICE_JOBS, [ACTIONS.READ, ACTIONS.CREATE, ACTIONS.MANAGE], rid);
+    return hasModuleAccess(
+      user,
+      MODULES.SERVICE_JOBS,
+      [ACTIONS.READ, ACTIONS.CREATE, ACTIONS.MANAGE],
+      rid,
+    );
   }
 
   return false;

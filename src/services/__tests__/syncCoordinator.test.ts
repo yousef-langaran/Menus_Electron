@@ -134,30 +134,27 @@ describe('syncCoordinator ordering guarantee', () => {
   // guaranteed to have registered their pending task before either is ever
   // inspected — this is a structural guarantee of the JS run-to-completion
   // model, not a timing-dependent delay.
-  it(
-    'FIXED (T-0021): ordering guarantee holds when accounting is scheduled a tick before catalog',
-    async () => {
-      const acc = deferredTask('acc', order);
-      const cat = deferredTask('cat', order);
+  it('FIXED (T-0021): ordering guarantee holds when accounting is scheduled a tick before catalog', async () => {
+    const acc = deferredTask('acc', order);
+    const cat = deferredTask('cat', order);
 
-      // Accounting scheduled FIRST, catalog scheduled immediately after —
-      // both in the same synchronous turn, no await between them.
-      scheduleAccountingSync(acc.task);
-      scheduleCatalogSync(cat.task);
+    // Accounting scheduled FIRST, catalog scheduled immediately after —
+    // both in the same synchronous turn, no await between them.
+    scheduleAccountingSync(acc.task);
+    scheduleCatalogSync(cat.task);
 
-      await flush();
-      // Desired behavior: catalog should already be running (or at least
-      // accounting should not have started) regardless of call order.
-      expect(order).not.toContain('acc-start');
-      expect(order).toContain('cat-start');
+    await flush();
+    // Desired behavior: catalog should already be running (or at least
+    // accounting should not have started) regardless of call order.
+    expect(order).not.toContain('acc-start');
+    expect(order).toContain('cat-start');
 
-      // Drain whatever actually got scheduled so the module doesn't leak a
-      // pending task into later tests.
-      acc.resolve();
-      cat.resolve();
-      await flush(4);
-    },
-  );
+    // Drain whatever actually got scheduled so the module doesn't leak a
+    // pending task into later tests.
+    acc.resolve();
+    cat.resolve();
+    await flush(4);
+  });
 
   // ─── RESIDUAL LIMITATION (T-0025) — cross-macrotask interleaving ─────────
   //

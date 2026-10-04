@@ -19,7 +19,8 @@ const electronAPI = {
   syncReturns: (token?: string) => ipcRenderer.invoke('sync-returns', token),
   syncPosShifts: (token?: string) => ipcRenderer.invoke('sync-pos-shifts', token),
   openCashDrawer: (printerName: string) => ipcRenderer.invoke('open-cash-drawer', printerName),
-  saveOfflinePosShiftAction: (action: any) => ipcRenderer.invoke('save-offline-pos-shift-action', action),
+  saveOfflinePosShiftAction: (action: any) =>
+    ipcRenderer.invoke('save-offline-pos-shift-action', action),
   getOfflinePosShiftActions: () => ipcRenderer.invoke('get-offline-pos-shift-actions'),
   saveOfflineReturn: (returnData: any, token: string, baseURL?: string) =>
     ipcRenderer.invoke('save-offline-return', returnData, token, baseURL),
@@ -31,8 +32,16 @@ const electronAPI = {
   saveOfflineOrder: (orderData: any, token: string, baseURL?: string) =>
     ipcRenderer.invoke('save-offline-order', orderData, token, baseURL),
   getOfflineOrders: () => ipcRenderer.invoke('get-offline-orders'),
-  generateReceiptPreview: (orderData: any, options?: { paperWidth?: number; margin?: number; contentWidthMm?: number; receiptType?: 'full' | 'kitchen'; layout?: any }) =>
-    ipcRenderer.invoke('generate-receipt-preview', { orderData, options }),
+  generateReceiptPreview: (
+    orderData: any,
+    options?: {
+      paperWidth?: number;
+      margin?: number;
+      contentWidthMm?: number;
+      receiptType?: 'full' | 'kitchen';
+      layout?: any;
+    },
+  ) => ipcRenderer.invoke('generate-receipt-preview', { orderData, options }),
   onOnlineStatusChange: (callback: (isOnline: boolean) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, isOnline: boolean) => callback(isOnline);
     ipcRenderer.on('online-status-changed', handler);
@@ -49,10 +58,14 @@ const electronAPI = {
   savePrinterConfigs: (configs: Record<string, any>) =>
     ipcRenderer.invoke('save-printer-configs', configs),
   getDefaultPrintTemplate: () => ipcRenderer.invoke('get-default-print-template'),
-  setDefaultPrintTemplate: (template: any) => ipcRenderer.invoke('set-default-print-template', template),
+  setDefaultPrintTemplate: (template: any) =>
+    ipcRenderer.invoke('set-default-print-template', template),
   getPrintTemplatesMap: () => ipcRenderer.invoke('get-print-templates-map'),
-  setPrintTemplateForPrinter: (printerName: string, template: any, receiptType?: 'full' | 'kitchen') =>
-    ipcRenderer.invoke('set-print-template-for-printer', printerName, template, receiptType),
+  setPrintTemplateForPrinter: (
+    printerName: string,
+    template: any,
+    receiptType?: 'full' | 'kitchen',
+  ) => ipcRenderer.invoke('set-print-template-for-printer', printerName, template, receiptType),
   refreshCachedPrintTemplates: (freshTemplates: any[]) =>
     ipcRenderer.invoke('refresh-cached-print-templates', freshTemplates),
   getReceiptNumberSettings: () => ipcRenderer.invoke('get-receipt-number-settings'),
@@ -66,10 +79,18 @@ const electronAPI = {
     ipcRenderer.invoke('save-card-terminal-settings', settings),
   getCardTerminalConfig: () => ipcRenderer.invoke('get-card-terminal-config'),
   saveCardTerminalConfig: (config: any) => ipcRenderer.invoke('save-card-terminal-config', config),
-  testCardTerminalConnection: (payload: { amount?: number; restaurantId?: number; orderId?: number; terminalProfileId?: string }) =>
-    ipcRenderer.invoke('test-card-terminal-connection', payload),
-  sendAmountToCardTerminal: (payload: { amount: number; orderId?: number; restaurantId?: number; terminalProfileId?: string }) =>
-    ipcRenderer.invoke('send-amount-to-card-terminal', payload),
+  testCardTerminalConnection: (payload: {
+    amount?: number;
+    restaurantId?: number;
+    orderId?: number;
+    terminalProfileId?: string;
+  }) => ipcRenderer.invoke('test-card-terminal-connection', payload),
+  sendAmountToCardTerminal: (payload: {
+    amount: number;
+    orderId?: number;
+    restaurantId?: number;
+    terminalProfileId?: string;
+  }) => ipcRenderer.invoke('send-amount-to-card-terminal', payload),
   getReceiptNumbersMap: () => ipcRenderer.invoke('get-receipt-numbers-map'),
   assignReceiptNumberForOrder: (orderKeys: string[]) =>
     ipcRenderer.invoke('assign-receipt-number-for-order', orderKeys),
@@ -118,11 +139,16 @@ const electronAPI = {
     };
   },
   onUpdateDownloadProgress: (
-    callback: (progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void
+    callback: (progress: {
+      percent: number;
+      bytesPerSecond: number;
+      transferred: number;
+      total: number;
+    }) => void,
   ) => {
     const handler = (
       _e: Electron.IpcRendererEvent,
-      progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }
+      progress: { percent: number; bytesPerSecond: number; transferred: number; total: number },
     ) => callback(progress);
     ipcRenderer.on('update-download-progress', handler);
     return () => {
@@ -142,7 +168,8 @@ const electronAPI = {
   getPosWarehouseId: () => ipcRenderer.invoke('pos:get-warehouse-id'),
   savePosWarehouseId: (id: number | null) => ipcRenderer.invoke('pos:save-warehouse-id', id),
   callerIdSerialListPorts: () => ipcRenderer.invoke('caller-id:serial-list-ports'),
-  callerIdSerialConnect: (settings: any) => ipcRenderer.invoke('caller-id:serial-connect', settings),
+  callerIdSerialConnect: (settings: any) =>
+    ipcRenderer.invoke('caller-id:serial-connect', settings),
   callerIdSerialDisconnect: () => ipcRenderer.invoke('caller-id:serial-disconnect'),
   callerIdSerialStatus: () => ipcRenderer.invoke('caller-id:serial-status'),
   callerIdHidListDevices: () => ipcRenderer.invoke('caller-id:hid-list-devices'),
@@ -150,8 +177,10 @@ const electronAPI = {
   callerIdHidDisconnect: () => ipcRenderer.invoke('caller-id:hid-disconnect'),
   callerIdHidStatus: () => ipcRenderer.invoke('caller-id:hid-status'),
   onIncomingCall: (callback: (payload: { phone: string; timestamp: string }) => void) => {
-    const handler = (_e: Electron.IpcRendererEvent, payload: { phone: string; timestamp: string }) =>
-      callback(payload);
+    const handler = (
+      _e: Electron.IpcRendererEvent,
+      payload: { phone: string; timestamp: string },
+    ) => callback(payload);
     ipcRenderer.on('caller-id:incoming-call', handler);
     return () => {
       ipcRenderer.removeListener('caller-id:incoming-call', handler);
@@ -182,4 +211,3 @@ contextBridge.exposeInMainWorld('electronAPI', electronAPI);
 // forced src/vite-env.d.ts to hand-maintain a parallel, drifting copy of this
 // shape; exporting the real inferred type lets the two stay in sync.
 export type ElectronAPI = typeof electronAPI;
-

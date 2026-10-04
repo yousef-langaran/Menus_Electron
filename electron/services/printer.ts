@@ -138,14 +138,21 @@ async function resolveImageForPrint(url: string): Promise<string> {
       const bytes = fs.readFileSync(filePath);
       const dataUri = `data:${mime};base64,${bytes.toString('base64')}`;
       printImageDataUriCache.set(url, dataUri);
-      logPrintDebug(`resolveImageForPrint: OK, cached at ${filePath} (${bytes.length} bytes) -> data URI (${dataUri.length} chars) for ${url}`);
+      logPrintDebug(
+        `resolveImageForPrint: OK, cached at ${filePath} (${bytes.length} bytes) -> data URI (${dataUri.length} chars) for ${url}`,
+      );
       return dataUri;
     }
     console.error(`[PRINT] ✗ Image caching returned no file, printing without image: ${url}`);
     logPrintDebug(`resolveImageForPrint: FAILED (cacheImage returned no path) for ${url}`);
   } catch (error) {
-    console.error(`[PRINT] ✗ Failed to load image for printing, printing without image: ${url}`, error);
-    logPrintDebug(`resolveImageForPrint: FAILED for ${url} — ${error instanceof Error ? (error.stack || error.message) : String(error)}`);
+    console.error(
+      `[PRINT] ✗ Failed to load image for printing, printing without image: ${url}`,
+      error,
+    );
+    logPrintDebug(
+      `resolveImageForPrint: FAILED for ${url} — ${error instanceof Error ? error.stack || error.message : String(error)}`,
+    );
   }
   return url;
 }
@@ -231,7 +238,10 @@ let globalPrintChain: Promise<void> = Promise.resolve();
 const globalPrintLock = async <T>(task: () => Promise<T>): Promise<T> => {
   const previous = globalPrintChain;
   const runTask = previous.catch(() => undefined).then(task);
-  globalPrintChain = runTask.then(() => undefined, () => undefined);
+  globalPrintChain = runTask.then(
+    () => undefined,
+    () => undefined,
+  );
   return runTask;
 };
 
@@ -245,7 +255,11 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, errorMsg: string
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const toStatusText = (raw: RawPrinter): string => {
-  const fields = [raw.status, raw.options?.['printer-state'], raw.options?.['printer-state-message']];
+  const fields = [
+    raw.status,
+    raw.options?.['printer-state'],
+    raw.options?.['printer-state-message'],
+  ];
   return fields
     .filter((value) => value != null)
     .map((value) => String(value).toLowerCase())
@@ -254,7 +268,11 @@ const toStatusText = (raw: RawPrinter): string => {
 
 const inferPrinterStatusCode = (raw: RawPrinter): PrinterStatusCode => {
   const statusText = toStatusText(raw);
-  if (statusText.includes('offline') || statusText.includes('stopped') || statusText.includes('unavailable')) {
+  if (
+    statusText.includes('offline') ||
+    statusText.includes('stopped') ||
+    statusText.includes('unavailable')
+  ) {
     return 'PRINTER_OFFLINE';
   }
   return 'PRINTER_READY';
@@ -279,17 +297,22 @@ const enqueuePrinterTask = async <T>(printerName: string, task: () => Promise<T>
   printerQueueSizes.set(printerName, pending + 1);
   const previous = printerQueueChains.get(printerName) ?? Promise.resolve();
   const runTask = previous.catch(() => undefined).then(task);
-  const queueTail = runTask.then(() => undefined, () => undefined).finally(() => {
-    if (printerQueueChains.get(printerName) === queueTail) {
-      printerQueueChains.delete(printerName);
-    }
-    const current = printerQueueSizes.get(printerName) ?? 1;
-    if (current <= 1) {
-      printerQueueSizes.delete(printerName);
-    } else {
-      printerQueueSizes.set(printerName, current - 1);
-    }
-  });
+  const queueTail = runTask
+    .then(
+      () => undefined,
+      () => undefined,
+    )
+    .finally(() => {
+      if (printerQueueChains.get(printerName) === queueTail) {
+        printerQueueChains.delete(printerName);
+      }
+      const current = printerQueueSizes.get(printerName) ?? 1;
+      if (current <= 1) {
+        printerQueueSizes.delete(printerName);
+      } else {
+        printerQueueSizes.set(printerName, current - 1);
+      }
+    });
   printerQueueChains.set(printerName, queueTail);
   return runTask;
 };
@@ -315,10 +338,10 @@ export async function detectPrinters(): Promise<PrinterDiscoveryItem[]> {
     }
     const mapped = printers
       .map((rawPrinter) => ({
-      name: rawPrinter.name || '',
-      displayName: rawPrinter.displayName || rawPrinter.name || '',
-      description: rawPrinter.description || '',
-      statusCode: inferPrinterStatusCode(rawPrinter),
+        name: rawPrinter.name || '',
+        displayName: rawPrinter.displayName || rawPrinter.name || '',
+        description: rawPrinter.description || '',
+        statusCode: inferPrinterStatusCode(rawPrinter),
       }))
       .filter((printer) => Boolean(printer.name));
 
@@ -356,12 +379,18 @@ export async function detectPrinters(): Promise<PrinterDiscoveryItem[]> {
 // همین فایل.
 const DRAWER_KICK_ESC_POS = Buffer.from([0x1b, 0x70, 0x00, 0x19, 0xfa]);
 
-function runHidden(command: string, args: string[], input?: Buffer): Promise<{ code: number | null; stderr: string }> {
+function runHidden(
+  command: string,
+  args: string[],
+  input?: Buffer,
+): Promise<{ code: number | null; stderr: string }> {
   return new Promise((resolve) => {
     try {
       const child = spawn(command, args, { windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] });
       let stderr = '';
-      child.stderr?.on('data', (chunk) => { stderr += String(chunk); });
+      child.stderr?.on('data', (chunk) => {
+        stderr += String(chunk);
+      });
       child.on('error', (err) => resolve({ code: -1, stderr: String(err?.message || err) }));
       child.on('close', (code) => resolve({ code, stderr }));
       if (input) child.stdin?.end(input);
@@ -436,7 +465,9 @@ try {
  * پالس باز کردن کشوی پول — روی همان پرینتری که کشو به آن وصل است (اکثراً پرینتر
  * فیش کامل). فراخوان باید silent باشد و هرگز دیالوگ سیستم‌عامل باز نکند.
  */
-export async function openCashDrawer(printerName: string): Promise<{ success: boolean; error?: string }> {
+export async function openCashDrawer(
+  printerName: string,
+): Promise<{ success: boolean; error?: string }> {
   if (!printerName || !printerName.trim()) {
     return { success: false, error: 'DRAWER_NO_PRINTER_SELECTED' };
   }
@@ -448,11 +479,16 @@ export async function openCashDrawer(printerName: string): Promise<{ success: bo
       const result = await runHidden('powershell.exe', [
         '-NoProfile',
         '-NonInteractive',
-        '-ExecutionPolicy', 'Bypass',
-        '-Command', script,
+        '-ExecutionPolicy',
+        'Bypass',
+        '-Command',
+        script,
       ]);
       if (result.code === 0) return { success: true };
-      return { success: false, error: result.stderr?.trim() || `DRAWER_KICK_FAILED (exit ${result.code})` };
+      return {
+        success: false,
+        error: result.stderr?.trim() || `DRAWER_KICK_FAILED (exit ${result.code})`,
+      };
     }
 
     // لینوکس/مک: چاپ خام CUPS
@@ -461,7 +497,10 @@ export async function openCashDrawer(printerName: string): Promise<{ success: bo
     try {
       const result = await runHidden('lp', ['-d', printerName, '-o', 'raw', tmpFile]);
       if (result.code === 0) return { success: true };
-      return { success: false, error: result.stderr?.trim() || `DRAWER_KICK_FAILED (exit ${result.code})` };
+      return {
+        success: false,
+        error: result.stderr?.trim() || `DRAWER_KICK_FAILED (exit ${result.code})`,
+      };
     } finally {
       fs.promises.unlink(tmpFile).catch(() => {});
     }
@@ -474,7 +513,7 @@ const printCopyWithRetry = async (
   printWindow: BrowserWindow,
   printOptions: Record<string, unknown>,
   printerName: string,
-  receiptType: ReceiptType
+  receiptType: ReceiptType,
 ): Promise<void> => {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
@@ -487,24 +526,31 @@ const printCopyWithRetry = async (
                 console.log(`[PRINT] ✓ Print success: "${printerName}" (${receiptType})`);
                 resolve();
               } else {
-                console.error(`[PRINT] ✗ Print failed: "${printerName}" (${receiptType}), reason: ${failureReason}`);
+                console.error(
+                  `[PRINT] ✗ Print failed: "${printerName}" (${receiptType}), reason: ${failureReason}`,
+                );
                 reject(new PrintOperationError(mapFailureReasonToCode(failureReason), []));
               }
-            }
+            },
           );
         }),
         30000,
-        `Print timeout after 30s for printer "${printerName}"`
+        `Print timeout after 30s for printer "${printerName}"`,
       );
       return;
     } catch (error) {
       if (attempt === 2) {
-        console.error(`[PRINT] ✗ All retries exhausted for "${printerName}" (${receiptType})`, error);
+        console.error(
+          `[PRINT] ✗ All retries exhausted for "${printerName}" (${receiptType})`,
+          error,
+        );
         throw error instanceof PrintOperationError
           ? error
           : new PrintOperationError('PRINT_JOB_FAILED');
       }
-      console.warn(`[PRINT] Retry ${attempt + 1} failed for "${printerName}", waiting 600ms before retry...`);
+      console.warn(
+        `[PRINT] Retry ${attempt + 1} failed for "${printerName}", waiting 600ms before retry...`,
+      );
       await sleep(600);
     }
   }
@@ -514,9 +560,11 @@ const runPrinterJobs = async (
   orderData: any,
   printerName: string,
   jobs: PrinterJob[],
-  receiptNumber: number
+  receiptNumber: number,
 ): Promise<PrintFailureDetail[]> => {
-  console.log(`[PRINT] Starting runPrinterJobs for "${printerName}", ${jobs.length} job(s), receipt #${receiptNumber}`);
+  console.log(
+    `[PRINT] Starting runPrinterJobs for "${printerName}", ${jobs.length} job(s), receipt #${receiptNumber}`,
+  );
   const printWindow = createPrintWindow();
   const failures: PrintFailureDetail[] = [];
   const defaultConfig = jobs[0];
@@ -544,7 +592,8 @@ const runPrinterJobs = async (
     if (!printWindow.isDestroyed()) {
       printWindow.close();
     }
-    const code = error instanceof PrintOperationError ? error.code : 'PRINT_PRINTER_DISCOVERY_FAILED';
+    const code =
+      error instanceof PrintOperationError ? error.code : 'PRINT_PRINTER_DISCOVERY_FAILED';
     return jobs.map((job) => ({ printerName, receiptType: job.receiptType || 'full', code }));
   }
 
@@ -555,7 +604,8 @@ const runPrinterJobs = async (
       try {
         const paperWidth = job.paperWidth ?? defaultConfig?.paperWidth ?? 80;
         const isNarrow = paperWidth <= 62;
-        const shiftLeftMm = typeof job.shiftLeftMm === 'number' ? job.shiftLeftMm : isNarrow ? 4 : 6;
+        const shiftLeftMm =
+          typeof job.shiftLeftMm === 'number' ? job.shiftLeftMm : isNarrow ? 4 : 6;
         const contentWidthMm =
           typeof job.contentWidthMm === 'number'
             ? job.contentWidthMm
@@ -576,11 +626,13 @@ const runPrinterJobs = async (
             ? generateKitchenReceiptHTML(orderData, opts)
             : generateReceiptHTML(orderData, opts);
 
-        console.log(`[PRINT] Loading HTML for "${printerName}" (${receiptType}), length: ${receiptHTML.length} chars`);
+        console.log(
+          `[PRINT] Loading HTML for "${printerName}" (${receiptType}), length: ${receiptHTML.length} chars`,
+        );
         await withTimeout(
           printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHTML)}`),
           10000,
-          `HTML load timeout for printer "${printerName}"`
+          `HTML load timeout for printer "${printerName}"`,
         );
         // تصاویر رسید از قبل به data URI کش شده‌اند (imageCache)، پس بعد از
         // did-finish-load چیزی async باقی نمی‌ماند که منتظرش بمانیم؛ فقط یک
@@ -602,30 +654,40 @@ const runPrinterJobs = async (
         }
 
         for (let copyIndex = 0; copyIndex < copies; copyIndex += 1) {
-          console.log(`[PRINT] Printing copy ${copyIndex + 1}/${copies} for "${printerName}" (${receiptType})`);
-          await printCopyWithRetry(printWindow, {
-            silent: true,
-            printBackground: true,
-            deviceName: printerName,
-            copies: 1,
-            margins: {
-              marginType: 'custom',
-              top: marginTop,
-              bottom: marginBottom,
-              left: marginSame,
-              right: marginSame,
-            } as any,
-            pageSize: {
-              width,
-              height,
+          console.log(
+            `[PRINT] Printing copy ${copyIndex + 1}/${copies} for "${printerName}" (${receiptType})`,
+          );
+          await printCopyWithRetry(
+            printWindow,
+            {
+              silent: true,
+              printBackground: true,
+              deviceName: printerName,
+              copies: 1,
+              margins: {
+                marginType: 'custom',
+                top: marginTop,
+                bottom: marginBottom,
+                left: marginSame,
+                right: marginSame,
+              } as any,
+              pageSize: {
+                width,
+                height,
+              },
             },
-          }, printerName, receiptType);
+            printerName,
+            receiptType,
+          );
           await sleep(150);
         }
         console.log(`[PRINT] ✓ Job completed: "${printerName}" (${receiptType})`);
       } catch (error) {
         const code = error instanceof PrintOperationError ? error.code : 'PRINT_UNKNOWN_ERROR';
-        console.error(`[PRINT] ✗ Job failed: "${printerName}" (${receiptType}), code: ${code}`, error);
+        console.error(
+          `[PRINT] ✗ Job failed: "${printerName}" (${receiptType}), code: ${code}`,
+          error,
+        );
         failures.push({ printerName, receiptType, code });
       }
     }
@@ -641,19 +703,22 @@ const runPrinterJobs = async (
 export async function printReceipt(
   orderData: any,
   printerJobs: PrinterJob[],
-  orderKeys?: string | string[]
+  orderKeys?: string | string[],
 ): Promise<number> {
   const orderNumber = orderData?.orderNumber || orderData?.order_number || orderData?.id || 'N/A';
   console.log(`[PRINT] ===== Starting print job for order #${orderNumber} =====`);
   console.log(`[PRINT] Total printer jobs: ${printerJobs.length}`);
-  
+
   if (!printerJobs || printerJobs.length === 0) {
     console.error('[PRINT] ✗ No printers selected');
     throw new PrintOperationError('PRINT_NO_PRINTER_SELECTED');
   }
 
   const detectedPrinters = await detectPrinters();
-  console.log(`[PRINT] Detected ${detectedPrinters.length} printer(s):`, detectedPrinters.map(p => `${p.name} (${p.statusCode})`).join(', '));
+  console.log(
+    `[PRINT] Detected ${detectedPrinters.length} printer(s):`,
+    detectedPrinters.map((p) => `${p.name} (${p.statusCode})`).join(', '),
+  );
   const discoveredMap = new Map(detectedPrinters.map((printer) => [printer.name, printer]));
 
   let keys: string[] = Array.isArray(orderKeys) ? [...orderKeys] : orderKeys ? [orderKeys] : [];
@@ -675,7 +740,10 @@ export async function printReceipt(
         ? existingReceiptNumber
         : await getNextReceiptNumber();
   if (keys.length) {
-    setReceiptNumbersForOrder(keys.map((k) => String(k)), receiptNumber);
+    setReceiptNumbersForOrder(
+      keys.map((k) => String(k)),
+      receiptNumber,
+    );
   }
 
   // گروه‌بندی jobها بر اساس پرینتر و نوع رسید
@@ -713,22 +781,22 @@ export async function printReceipt(
       continue;
     }
     queuedPrintTasks.push(
-      enqueuePrinterTask(printerName, () => runPrinterJobs(orderData, printerName, jobs, receiptNumber)).catch(
-        (error) => {
-          if (error instanceof PrintOperationError) {
-            return jobs.map((job) => ({
-              printerName,
-              receiptType: job.receiptType || 'full',
-              code: error.code,
-            }));
-          }
+      enqueuePrinterTask(printerName, () =>
+        runPrinterJobs(orderData, printerName, jobs, receiptNumber),
+      ).catch((error) => {
+        if (error instanceof PrintOperationError) {
           return jobs.map((job) => ({
             printerName,
             receiptType: job.receiptType || 'full',
-            code: 'PRINT_UNKNOWN_ERROR' as PrintErrorCode,
+            code: error.code,
           }));
         }
-      )
+        return jobs.map((job) => ({
+          printerName,
+          receiptType: job.receiptType || 'full',
+          code: 'PRINT_UNKNOWN_ERROR' as PrintErrorCode,
+        }));
+      }),
     );
   }
 
@@ -760,7 +828,10 @@ const BRAND_FOOTER_TEXT = 'با تشکر از انتخاب شما نرم افز�
  * فوتر برند + تاریخ؛ در همهٔ قالب‌ها (پیش‌فرض، آشپزخانه و قالب‌های سرور) یکسان است.
  * اگر قالب خودش بلوک «تشکر» داشته باشد، فقط نام نرم‌افزار چاپ می‌شود تا تکراری نشود.
  */
-function renderBrandFooterHtml(date: string, options: { thanksAlreadyShown?: boolean } = {}): string {
+function renderBrandFooterHtml(
+  date: string,
+  options: { thanksAlreadyShown?: boolean } = {},
+): string {
   const text = options.thanksAlreadyShown ? 'نرم افزار سکه secoin.ir' : BRAND_FOOTER_TEXT;
   return `<div class="brand-footer"><div>${text}</div><div style="margin-top:4px">${date}</div></div>`;
 }
@@ -835,13 +906,14 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
 
   const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
   const printerMargin = typeof options.margin === 'number' ? Math.max(0, options.margin) : 5;
-  const printableWidth = typeof options.contentWidthMm === 'number'
+  const printableWidth =
+    typeof options.contentWidthMm === 'number'
       ? options.contentWidthMm
       : Math.max(30, paperWidth - printerMargin * 2);
   const shiftLeftMm = typeof options.shiftLeftMm === 'number' ? options.shiftLeftMm : 0;
   const contentPadding = 2;
   const receiptNumber =
-      options && typeof options.receiptNumber === 'number' ? options.receiptNumber : 0;
+    options && typeof options.receiptNumber === 'number' ? options.receiptNumber : 0;
 
   return `
 <!DOCTYPE html>
@@ -967,20 +1039,22 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
         </tr>
       </thead>
       <tbody>
-      ${items.map((item: any) => {
-    const title = item.product?.name_fa || item.productName || 'محصول';
-    const desc = getProductDescription(item);
-    const lineNote = getLineItemNote(item);
-    return `
+      ${items
+        .map((item: any) => {
+          const title = item.product?.name_fa || item.productName || 'محصول';
+          const desc = getProductDescription(item);
+          const lineNote = getLineItemNote(item);
+          return `
         <tr>
           <td>
             <span class="item-name">${title}</span>
             ${lineNote ? `<div class="item-details">${lineNote}</div>` : desc ? `<div class="item-details">${desc}</div>` : ''}
           </td>
           <td class="col-qty">${item.quantity}${item.product?.unit && item.product.unit !== 'عدد' ? ` ${item.product.unit}` : ''}</td>
-          <td class="col-price">${formatPrice(+item.price* +item.quantity)}</td>
+          <td class="col-price">${formatPrice(+item.price * +item.quantity)}</td>
         </tr>`;
-  }).join('')}
+        })
+        .join('')}
       </tbody>
     </table>
 
@@ -991,18 +1065,26 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
         <span>جمع کل:</span>
         <span>${formatPrice(totalAmount)}</span>
       </div>
-      ${discountAmount > 0 ? `
+      ${
+        discountAmount > 0
+          ? `
       <div class="total-row">
         <span>تخفیف:</span>
         <span>-${formatPrice(discountAmount)}</span>
       </div>
-      ` : ''}
-      ${vatAmount > 0 ? `
+      `
+          : ''
+      }
+      ${
+        vatAmount > 0
+          ? `
       <div class="total-row">
         <span>ارزش افزوده:</span>
         <span>+${formatPrice(vatAmount)}</span>
       </div>
-      ` : ''}
+      `
+          : ''
+      }
       <div class="total-row final">
         <span>مبلغ نهایی:</span>
         <span>${formatPrice(finalAmount)}</span>
@@ -1020,10 +1102,9 @@ export function generateReceiptHTML(orderData: any, options: ReceiptTemplateOpti
 
 export async function renderReceiptPreview(
   orderData: any,
-  options: ReceiptTemplateOptions = {}
+  options: ReceiptTemplateOptions = {},
 ): Promise<{ html: string; imageDataUrl?: string }> {
-  const priceDisplayUnit =
-    options.priceDisplayUnit ?? (await loadReceiptPriceDisplayUnit());
+  const priceDisplayUnit = options.priceDisplayUnit ?? (await loadReceiptPriceDisplayUnit());
   const resolvedOptions: ReceiptTemplateOptions = { ...options, priceDisplayUnit };
   const receiptType = resolvedOptions.receiptType || 'full';
   const layout = normalizeReceiptLayout(resolvedOptions.layout);
@@ -1035,7 +1116,7 @@ export async function renderReceiptPreview(
   // برای پیش‌نمایش حاشیهٔ چپ و راست اضافه می‌کنیم تا محتوا از هیچ طرف بریده نشود
   const previewHtml = html.replace(
     '</head>',
-    '<style id="preview-padding">html, body { padding-left: 24px !important; padding-right: 24px !important; box-sizing: border-box; }</style></head>'
+    '<style id="preview-padding">html, body { padding-left: 24px !important; padding-right: 24px !important; box-sizing: border-box; }</style></head>',
   );
 
   const previewWindow = new BrowserWindow({
@@ -1055,8 +1136,9 @@ export async function renderReceiptPreview(
   let imageDataUrl: string | undefined;
   try {
     // از getBoundingClientRect بدنه دقیقاً همان ناحیه‌ای را ضبط می‌کنیم که رسید رندر شده (با حاشیه امن)
-    const rect = await previewWindow.webContents.executeJavaScript(
-      `(function() {
+    const rect = (await previewWindow.webContents
+      .executeJavaScript(
+        `(function() {
         var body = document.body;
         var r = body.getBoundingClientRect();
         var pad = 16;
@@ -1066,8 +1148,14 @@ export async function renderReceiptPreview(
           width: Math.round(r.width) + pad * 2,
           height: Math.round(r.height) + pad * 2
         };
-      })()`
-    ).catch(() => ({ x: 0, y: 0, width: 400, height: 900 })) as { x: number; y: number; width: number; height: number };
+      })()`,
+      )
+      .catch(() => ({ x: 0, y: 0, width: 400, height: 900 }))) as {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
 
     const x = Math.max(0, rect.x);
     const y = Math.max(0, rect.y);
@@ -1091,7 +1179,7 @@ export async function renderReceiptPreview(
 export async function showSystemPrintDialog(
   orderData: any,
   options: ReceiptTemplateOptions & { receiptType?: ReceiptType } = {},
-  printerName?: string
+  printerName?: string,
 ): Promise<void> {
   const receiptType = options.receiptType || 'full';
   const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
@@ -1099,7 +1187,10 @@ export async function showSystemPrintDialog(
   const isNarrow = paperWidth <= 62;
   const marginSame = 5;
   const shiftLeftMm = isNarrow ? 12 : 14;
-  const contentWidthMm = typeof options.contentWidthMm === 'number' ? options.contentWidthMm : Math.max(32, paperWidth - marginSame * 2 - shiftLeftMm);
+  const contentWidthMm =
+    typeof options.contentWidthMm === 'number'
+      ? options.contentWidthMm
+      : Math.max(32, paperWidth - marginSame * 2 - shiftLeftMm);
   const marginTop = 0;
   const marginBottom = 3;
 
@@ -1192,7 +1283,11 @@ function getPaymentMethodText(method: string): string {
   return methods[method] || method;
 }
 
-function getValueForLayoutModule(type: string, orderData: any, module?: ReceiptLayoutModule): { value: string | number; isEmpty: boolean } {
+function getValueForLayoutModule(
+  type: string,
+  orderData: any,
+  module?: ReceiptLayoutModule,
+): { value: string | number; isEmpty: boolean } {
   switch (type) {
     case 'call_number': {
       const callNumber = Number(orderData?.receiptCallNumber ?? 0);
@@ -1202,7 +1297,10 @@ function getValueForLayoutModule(type: string, orderData: any, module?: ReceiptL
     case 'restaurant_name':
       return { value: orderData?.restaurantName ?? '', isEmpty: !orderData?.restaurantName };
     case 'order_number':
-      return { value: orderData?.orderNumber ?? orderData?.id ?? '—', isEmpty: !orderData?.orderNumber && orderData?.id == null };
+      return {
+        value: orderData?.orderNumber ?? orderData?.id ?? '—',
+        isEmpty: !orderData?.orderNumber && orderData?.id == null,
+      };
     case 'date_time':
       return { value: new Date().toLocaleString('fa-IR'), isEmpty: false };
     case 'customer_name':
@@ -1215,7 +1313,8 @@ function getValueForLayoutModule(type: string, orderData: any, module?: ReceiptL
       const st = orderData?.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر';
       const parts = [`نوع: ${st}`];
       if (orderData?.tableNumber) parts.push(`میز: ${orderData.tableNumber}`);
-      if (orderData?.paymentMethod) parts.push(`پرداخت: ${getPaymentMethodText(orderData.paymentMethod)}`);
+      if (orderData?.paymentMethod)
+        parts.push(`پرداخت: ${getPaymentMethodText(orderData.paymentMethod)}`);
       return { value: parts.join(' | '), isEmpty: false };
     }
     case 'items':
@@ -1225,7 +1324,10 @@ function getValueForLayoutModule(type: string, orderData: any, module?: ReceiptL
     case 'footer':
       return { value: 'با تشکر از انتخاب شما', isEmpty: false };
     case 'custom_text':
-      return { value: (module?.options?.customText as string) ?? '', isEmpty: !(module?.options?.customText) };
+      return {
+        value: (module?.options?.customText as string) ?? '',
+        isEmpty: !module?.options?.customText,
+      };
     case 'divider':
       return { value: '—', isEmpty: false };
     case 'image':
@@ -1296,41 +1398,58 @@ function renderLayoutModuleHtml(
       const striped = opt.itemsStriped === true;
       const showTotalPrice = opt.showTotalPrice !== false;
       const headerCss = `border:${cellBorder};font-size:0.85em`;
-      const rows = orderData.items.map((item: any, i: number) => {
+      const rows = orderData.items
+        .map((item: any, i: number) => {
+          const name = item.product?.name_fa || item.productName || 'محصول';
+          const desc = showDesc ? getProductDescription(item) : '';
+          const lineNote = showLineNote ? getLineItemNote(item) : '';
+          const notePart = lineNote ? ` (${lineNote})` : '';
+          const descBlock = desc
+            ? `<div style="font-size:0.85em;margin-top:2px;line-height:1.3">${desc}</div>`
+            : '';
+          const price = showPrice
+            ? `<td style="padding:2px 4px;white-space:nowrap;vertical-align:top;border:${cellBorder}">${formatPriceValue(item.price)}</td>`
+            : '';
+          const total = showTotalPrice
+            ? `<td style="padding:2px 4px;white-space:nowrap;vertical-align:top;font-weight:bold;border:${cellBorder}">${formatPriceValue(+item.price * +item.quantity)}</td>`
+            : '';
+          const rowBg = striped && i % 2 === 1 ? 'background:#f2f2f2' : '';
+          const titleCell = `<span>${name}</span>${notePart}${descBlock}`;
+          return `<tr style="${rowBg}"><td style="padding:2px 4px;vertical-align:top;border:${cellBorder};word-break:break-word;overflow-wrap:anywhere">${titleCell}</td><td style="padding:2px 4px;white-space:nowrap;vertical-align:top;text-align:center;border:${cellBorder}">${item.quantity}</td>${price}${total}</tr>`;
+        })
+        .join('');
+      const showPriceUnit = opt.showPriceUnit !== false;
+      const unitLabelHtml = showPriceUnit
+        ? ` <span style="font-size:0.75em;font-weight:normal">(${priceUnitLabel})</span>`
+        : '';
+      const priceHeader = showPrice
+        ? `<th style="padding:4px;white-space:nowrap;width:24%;${headerCss}">قیمت${unitLabelHtml}</th>`
+        : '';
+      const totalHeader = showTotalPrice
+        ? `<th style="padding:4px;white-space:nowrap;width:24%;${headerCss}">قیمت کل${unitLabelHtml}</th>`
+        : '';
+      return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse;border:${cellBorder};table-layout:fixed"><thead><tr style="background:#f2f2f2"><th style="padding:4px;${headerCss}">نام کالا</th><th style="padding:4px;white-space:nowrap;width:14%;${headerCss}">تعداد</th>${priceHeader}${totalHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+
+    const rows = orderData.items
+      .map((item: any) => {
         const name = item.product?.name_fa || item.productName || 'محصول';
         const desc = showDesc ? getProductDescription(item) : '';
         const lineNote = showLineNote ? getLineItemNote(item) : '';
         const notePart = lineNote ? ` (${lineNote})` : '';
         const descBlock = desc
-          ? `<div style="font-size:0.85em;margin-top:2px;line-height:1.3">${desc}</div>`
+          ? `<div style="font-size:9pt;margin-top:2px;line-height:1.3">${desc}</div>`
           : '';
-        const price = showPrice ? `<td style="padding:2px 4px;white-space:nowrap;vertical-align:top;border:${cellBorder}">${formatPriceValue(item.price)}</td>` : '';
-        const total = showTotalPrice ? `<td style="padding:2px 4px;white-space:nowrap;vertical-align:top;font-weight:bold;border:${cellBorder}">${formatPriceValue(+item.price * +item.quantity)}</td>` : '';
-        const rowBg = striped && i % 2 === 1 ? 'background:#f2f2f2' : '';
+        const price = showPrice
+          ? `<td style="padding:2px 4px;vertical-align:top">${formatPrice(item.price)}</td>`
+          : '';
+        const border = tableStyle === 'bordered' ? 'border-bottom:1px solid #000' : '';
         const titleCell = `<span>${name}</span>${notePart}${descBlock}`;
-        return `<tr style="${rowBg}"><td style="padding:2px 4px;vertical-align:top;border:${cellBorder};word-break:break-word;overflow-wrap:anywhere">${titleCell}</td><td style="padding:2px 4px;white-space:nowrap;vertical-align:top;text-align:center;border:${cellBorder}">${item.quantity}</td>${price}${total}</tr>`;
-      }).join('');
-      const showPriceUnit = opt.showPriceUnit !== false;
-      const unitLabelHtml = showPriceUnit ? ` <span style="font-size:0.75em;font-weight:normal">(${priceUnitLabel})</span>` : '';
-      const priceHeader = showPrice ? `<th style="padding:4px;white-space:nowrap;width:24%;${headerCss}">قیمت${unitLabelHtml}</th>` : '';
-      const totalHeader = showTotalPrice ? `<th style="padding:4px;white-space:nowrap;width:24%;${headerCss}">قیمت کل${unitLabelHtml}</th>` : '';
-      return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse;border:${cellBorder};table-layout:fixed"><thead><tr style="background:#f2f2f2"><th style="padding:4px;${headerCss}">نام کالا</th><th style="padding:4px;white-space:nowrap;width:14%;${headerCss}">تعداد</th>${priceHeader}${totalHeader}</tr></thead><tbody>${rows}</tbody></table></div>`;
-    }
-
-    const rows = orderData.items.map((item: any) => {
-      const name = item.product?.name_fa || item.productName || 'محصول';
-      const desc = showDesc ? getProductDescription(item) : '';
-      const lineNote = showLineNote ? getLineItemNote(item) : '';
-      const notePart = lineNote ? ` (${lineNote})` : '';
-      const descBlock = desc
-        ? `<div style="font-size:9pt;margin-top:2px;line-height:1.3">${desc}</div>`
-        : '';
-      const price = showPrice ? `<td style="padding:2px 4px;vertical-align:top">${formatPrice(item.price)}</td>` : '';
-      const border = tableStyle === 'bordered' ? 'border-bottom:1px solid #000' : '';
-      const titleCell = `<span>${name}</span>${notePart}${descBlock}`;
-      const unitStr = item.product?.unit && item.product.unit !== 'عدد' ? ` ${item.product.unit}` : '';
-      return `<tr style="${border}"><td style="padding:2px 4px;vertical-align:top">${titleCell}</td><td style="padding:2px 4px;white-space:nowrap;vertical-align:top">${item.quantity}${unitStr} ×</td>${price}</tr>`;
-    }).join('');
+        const unitStr =
+          item.product?.unit && item.product.unit !== 'عدد' ? ` ${item.product.unit}` : '';
+        return `<tr style="${border}"><td style="padding:2px 4px;vertical-align:top">${titleCell}</td><td style="padding:2px 4px;white-space:nowrap;vertical-align:top">${item.quantity}${unitStr} ×</td>${price}</tr>`;
+      })
+      .join('');
     return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse"><tbody>${rows}</tbody></table></div>`;
   }
 
@@ -1352,17 +1471,24 @@ function renderLayoutModuleHtml(
 
     if (totalsStyle === 'table') {
       const cellBorder = '1px solid #999';
-      const bodyRows = rowsData.map((r, i) => {
-        const rowBg = striped && i % 2 === 1 ? 'background:#f2f2f2' : '';
-        return `<tr style="${rowBg}"><td style="padding:2px 4px;border:${cellBorder}">${r.label}</td><td style="padding:2px 4px;white-space:nowrap;border:${cellBorder}">${r.sign}${formatPriceValue(r.value)} <span style="font-size:0.75em;font-weight:normal">${priceUnitLabel}</span></td></tr>`;
-      }).join('');
+      const bodyRows = rowsData
+        .map((r, i) => {
+          const rowBg = striped && i % 2 === 1 ? 'background:#f2f2f2' : '';
+          return `<tr style="${rowBg}"><td style="padding:2px 4px;border:${cellBorder}">${r.label}</td><td style="padding:2px 4px;white-space:nowrap;border:${cellBorder}">${r.sign}${formatPriceValue(r.value)} <span style="font-size:0.75em;font-weight:normal">${priceUnitLabel}</span></td></tr>`;
+        })
+        .join('');
       const finalRow = `<tr style="font-weight:bold;font-size:${finalScale}em"><td style="padding:4px;border:${cellBorder}">مبلغ نهایی:</td><td style="padding:4px;white-space:nowrap;border:${cellBorder}">${formatPriceValue(final)}</td></tr>`;
       return `<div style="${style}"><table style="width:100%;text-align:right;border-collapse:collapse;border:${cellBorder}"><tbody>${bodyRows}${finalRow}</tbody></table></div>`;
     }
 
-    let html = `<div style="${style}">` + rowsData.map((r) =>
-      `<div style="display:flex;justify-content:space-between;padding:2px 0">${r.label} ${r.sign}${formatPriceValue(r.value)} <span style="font-size:0.75em;font-weight:normal">${priceUnitLabel}</span></div>`
-    ).join('');
+    let html =
+      `<div style="${style}">` +
+      rowsData
+        .map(
+          (r) =>
+            `<div style="display:flex;justify-content:space-between;padding:2px 0">${r.label} ${r.sign}${formatPriceValue(r.value)} <span style="font-size:0.75em;font-weight:normal">${priceUnitLabel}</span></div>`,
+        )
+        .join('');
     html += `<div style="display:flex;justify-content:space-between;padding:4px 0;font-weight:bold;font-size:${finalScale}em;border-top:2px solid #000;margin-top:4px">مبلغ نهایی: ${formatPriceValue(final)}</div></div>`;
     return html;
   }
@@ -1387,7 +1513,7 @@ function renderLayoutModuleHtml(
 export async function generateReceiptHTMLFromLayout(
   orderData: any,
   layout: ReceiptLayoutV2,
-  options: ReceiptTemplateOptions = {}
+  options: ReceiptTemplateOptions = {},
 ): Promise<string> {
   const priceUnit = options.priceDisplayUnit ?? 'rial';
   const formatPrice = createFormatPrice(priceUnit);
@@ -1395,7 +1521,10 @@ export async function generateReceiptHTMLFromLayout(
   const priceUnitLabel = getPriceUnitLabel(priceUnit);
   const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
   const margin = typeof options.margin === 'number' ? Math.max(0, options.margin) : 5;
-  const printableWidth = typeof options.contentWidthMm === 'number' ? options.contentWidthMm : Math.max(30, paperWidth - margin * 2);
+  const printableWidth =
+    typeof options.contentWidthMm === 'number'
+      ? options.contentWidthMm
+      : Math.max(30, paperWidth - margin * 2);
   const shiftLeftMm = typeof options.shiftLeftMm === 'number' ? options.shiftLeftMm : 0;
   const contentPadding = 2;
 
@@ -1416,27 +1545,43 @@ export async function generateReceiptHTMLFromLayout(
   );
   const imageModules = allModules.filter((m) => m?.type === 'image');
   if (imageModules.length === 0) {
-    logPrintDebug('generateReceiptHTMLFromLayout: no "image" module in this layout at all (template has no logo block, or a different template is active than expected)');
+    logPrintDebug(
+      'generateReceiptHTMLFromLayout: no "image" module in this layout at all (template has no logo block, or a different template is active than expected)',
+    );
   } else {
     for (const m of imageModules) {
       const rawUrl = m.options?.imageUrl;
-      logPrintDebug(`generateReceiptHTMLFromLayout: found image module "${m.id}" visible=${m.visible} hideWhenEmpty=${m.options?.hideWhenEmpty} imageUrl=${rawUrl ? JSON.stringify(rawUrl) : '(empty)'}`);
+      logPrintDebug(
+        `generateReceiptHTMLFromLayout: found image module "${m.id}" visible=${m.visible} hideWhenEmpty=${m.options?.hideWhenEmpty} imageUrl=${rawUrl ? JSON.stringify(rawUrl) : '(empty)'}`,
+      );
     }
   }
   const resolvedImages = new Map<string, string>();
   if (imageUrls.length > 0) {
-    await Promise.all(imageUrls.map(async (url) => {
-      resolvedImages.set(url, await resolveImageForPrint(url));
-    }));
+    await Promise.all(
+      imageUrls.map(async (url) => {
+        resolvedImages.set(url, await resolveImageForPrint(url));
+      }),
+    );
   }
 
   const rows = (layout.rows || []).slice().sort((a, b) => a.order - b.order);
   const parts: string[] = [];
   for (const row of rows) {
     if (row.type === 'single') {
-      const blocks = Array.isArray(row.blocks) && !Array.isArray(row.blocks[0]) ? (row.blocks as ReceiptLayoutModule[]) : [];
+      const blocks =
+        Array.isArray(row.blocks) && !Array.isArray(row.blocks[0])
+          ? (row.blocks as ReceiptLayoutModule[])
+          : [];
       for (const m of blocks) {
-        const html = renderLayoutModuleHtml(m, orderData, formatPrice, formatPriceValue, priceUnitLabel, resolvedImages);
+        const html = renderLayoutModuleHtml(
+          m,
+          orderData,
+          formatPrice,
+          formatPriceValue,
+          priceUnitLabel,
+          resolvedImages,
+        );
         if (html) parts.push(html);
       }
     } else if (row.type === 'columns' && Array.isArray(row.blocks)) {
@@ -1444,11 +1589,22 @@ export async function generateReceiptHTMLFromLayout(
       const gridCols = row.columnWidths?.length
         ? row.columnWidths.map((w) => w + 'fr').join(' ')
         : 'repeat(' + (row.columnCount || cols.length) + ',1fr)';
-      parts.push('<div style="display:grid;grid-template-columns:' + gridCols + ';gap:6px;margin-bottom:4px">');
+      parts.push(
+        '<div style="display:grid;grid-template-columns:' +
+          gridCols +
+          ';gap:6px;margin-bottom:4px">',
+      );
       for (const col of cols) {
         parts.push('<div>');
         for (const m of col) {
-          const html = renderLayoutModuleHtml(m, orderData, formatPrice, formatPriceValue, priceUnitLabel, resolvedImages);
+          const html = renderLayoutModuleHtml(
+            m,
+            orderData,
+            formatPrice,
+            formatPriceValue,
+            priceUnitLabel,
+            resolvedImages,
+          );
           if (html) parts.push(html);
         }
         parts.push('</div>');
@@ -1463,7 +1619,9 @@ export async function generateReceiptHTMLFromLayout(
   });
   const bodyContent =
     parts.join('') +
-    renderBrandFooterHtml(new Date().toLocaleString('fa-IR'), { thanksAlreadyShown: hasFooterModule });
+    renderBrandFooterHtml(new Date().toLocaleString('fa-IR'), {
+      thanksAlreadyShown: hasFooterModule,
+    });
 
   return `<!DOCTYPE html>
 <html dir="rtl" lang="fa">
@@ -1498,7 +1656,10 @@ export async function generateReceiptHTMLFromLayout(
 </html>`;
 }
 
-export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTemplateOptions = {}): string {
+export function generateKitchenReceiptHTML(
+  orderData: any,
+  options: ReceiptTemplateOptions = {},
+): string {
   const items = orderData.items || [];
   const orderNumber = orderData.orderNumber || orderData.order_number || orderData.id || 'N/A';
   const serviceType = orderData.serviceType === 'dine_in' ? 'داخل سالن' : 'بیرون‌بر';
@@ -1509,7 +1670,8 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
 
   const paperWidth = typeof options.paperWidth === 'number' ? options.paperWidth : 80;
   const printerMargin = typeof options.margin === 'number' ? Math.max(0, options.margin) : 5;
-  const printableWidth = typeof options.contentWidthMm === 'number'
+  const printableWidth =
+    typeof options.contentWidthMm === 'number'
       ? options.contentWidthMm
       : Math.max(30, paperWidth - printerMargin * 2);
   const shiftLeftMm = typeof options.shiftLeftMm === 'number' ? options.shiftLeftMm : 0;
@@ -1608,20 +1770,25 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
       ${customerAddress ? `<div><strong>آدرس:</strong> ${customerAddress}</div>` : ''}
     </div>
 
-    ${notes ? `
+    ${
+      notes
+        ? `
     <div class="notes">
       ${notes} 
     </div>
-    ` : ''}
+    `
+        : ''
+    }
 
     <div class="divider-solid"></div>
 
     <div class="items">
-      ${items.map((item: any) => {
-    const title = item.product?.name_fa || item.productName || 'محصول';
-    const desc = getProductDescription(item);
-    const lineNote = getLineItemNote(item);
-    return `
+      ${items
+        .map((item: any) => {
+          const title = item.product?.name_fa || item.productName || 'محصول';
+          const desc = getProductDescription(item);
+          const lineNote = getLineItemNote(item);
+          return `
         <div class="item">
           <div class="item-name-col">
             <span class="item-name">${title}</span>
@@ -1630,7 +1797,8 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
           <div class="item-quantity">${item.quantity}${item.product?.unit && item.product.unit !== 'عدد' ? ` ${item.product.unit}` : ''} ×</div>
         </div>
       `;
-  }).join('')}
+        })
+        .join('')}
     </div>
 
     ${renderBrandFooterHtml(date)}
@@ -1639,4 +1807,3 @@ export function generateKitchenReceiptHTML(orderData: any, options: ReceiptTempl
 </html>
   `;
 }
-

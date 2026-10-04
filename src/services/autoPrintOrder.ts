@@ -18,7 +18,9 @@ function normalizeOrderForAutoPrint(order: Record<string, unknown>): Record<stri
  * فقط وقتی «چاپ خودکار» در تنظیمات فعال باشد اجرا می‌شود؛ رسیدها و پرینترهای
  * مقصد همان‌هایی هستند که کاربر در صفحهٔ تنظیمات پرینتر فعال کرده است.
  */
-export async function autoPrintNewOrder(order: Record<string, unknown> | null | undefined): Promise<void> {
+export async function autoPrintNewOrder(
+  order: Record<string, unknown> | null | undefined,
+): Promise<void> {
   if (!order || typeof window === 'undefined' || !window.electronAPI?.printReceipt) {
     return;
   }
@@ -36,13 +38,25 @@ export async function autoPrintNewOrder(order: Record<string, unknown> | null | 
 
   try {
     const { templatesMap, defaultTemplate } = await loadPrintTemplateSources();
-    const printerJobs = buildPrinterJobs(enabledPrinters, getPrinterReceipts, templatesMap, defaultTemplate);
+    const printerJobs = buildPrinterJobs(
+      enabledPrinters,
+      getPrinterReceipts,
+      templatesMap,
+      defaultTemplate,
+    );
     if (printerJobs.length === 0) {
       return;
     }
 
-    const orderKeys = [order.id != null ? String(order.id) : '', order.orderNumber as string].filter(Boolean);
-    const res = await window.electronAPI.printReceipt(normalizeOrderForAutoPrint(order), printerJobs, orderKeys);
+    const orderKeys = [
+      order.id != null ? String(order.id) : '',
+      order.orderNumber as string,
+    ].filter(Boolean);
+    const res = await window.electronAPI.printReceipt(
+      normalizeOrderForAutoPrint(order),
+      printerJobs,
+      orderKeys,
+    );
     if (res?.status !== 'PRINT_OK') {
       console.warn('[autoPrintNewOrder] print did not complete successfully', res);
     }

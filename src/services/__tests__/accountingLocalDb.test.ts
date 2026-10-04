@@ -68,7 +68,12 @@ describe('upsertPulledEntities — bigint id normalization', () => {
   });
 
   it('does not resurrect a row with an unconfirmed queued delete', async () => {
-    await accountingDb.operationalExpenses.put({ id: 555, restaurantId: RID, amount: 1, expenseCategoryId: 1 });
+    await accountingDb.operationalExpenses.put({
+      id: 555,
+      restaurantId: RID,
+      amount: 1,
+      expenseCategoryId: 1,
+    });
     await deleteOperationalExpenseLocal({ id: 555, restaurantId: RID });
     expect(await accountingDb.operationalExpenses.get(555)).toBeUndefined();
 
@@ -83,7 +88,12 @@ describe('upsertPulledEntities — bigint id normalization', () => {
 
 describe('deleteOperationalExpenseLocal — dual-key delete', () => {
   it('removes a legacy string-keyed row even though the caller passes a numeric id', async () => {
-    await accountingDb.operationalExpenses.put({ id: '777' as any, restaurantId: RID, amount: 1, expenseCategoryId: 1 });
+    await accountingDb.operationalExpenses.put({
+      id: '777' as any,
+      restaurantId: RID,
+      amount: 1,
+      expenseCategoryId: 1,
+    });
 
     await deleteOperationalExpenseLocal({ id: 777, restaurantId: RID });
 

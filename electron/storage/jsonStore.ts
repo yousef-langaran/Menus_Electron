@@ -45,4 +45,3 @@ export async function deleteJsonFile(fileName: string): Promise<void> {
     }
   }
 }
-

@@ -26,8 +26,18 @@ function loadEnv() {
       dotenvConfig({ path: p, override: true });
     }
   }
-  if (app.isPackaged && !process.env.API_BASE_URL && !process.env.NEXT_PUBLIC_API_BASE_URL && !process.env.VITE_API_BASE_URL) {
-    console.warn('[Menus] برای حالت build یک فایل .env قرار بده. مسیرهای چک‌شده: کنار exe =', exeDir, 'یا در userData =', userDataDir);
+  if (
+    app.isPackaged &&
+    !process.env.API_BASE_URL &&
+    !process.env.NEXT_PUBLIC_API_BASE_URL &&
+    !process.env.VITE_API_BASE_URL
+  ) {
+    console.warn(
+      '[Menus] برای حالت build یک فایل .env قرار بده. مسیرهای چک‌شده: کنار exe =',
+      exeDir,
+      'یا در userData =',
+      userDataDir,
+    );
   }
 }
 loadEnv();
@@ -81,7 +91,11 @@ import {
   loadPosWarehouseId,
   savePosWarehouseId,
 } from './database/preferences';
-import { startCallerIdWebhook, stopCallerIdWebhook, getWebhookStatus } from './services/callerIdWebhook';
+import {
+  startCallerIdWebhook,
+  stopCallerIdWebhook,
+  getWebhookStatus,
+} from './services/callerIdWebhook';
 import { callerIdSerialService, setupCallerIdSerial } from './services/callerIdSerial';
 import { callerIdHidService, setupCallerIdHid, listHidDevices } from './services/callerIdHid';
 import { getApiConfig } from './config/api';
@@ -332,7 +346,9 @@ app.whenReady().then(() => {
         ...details.responseHeaders,
         'Access-Control-Allow-Origin': ['*'],
         'Access-Control-Allow-Methods': ['GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS'],
-        'Access-Control-Allow-Headers': ['Content-Type, Authorization, x-client, x-client-version, x-restaurant-name, x-selected-restaurant-id, x-domain-type'],
+        'Access-Control-Allow-Headers': [
+          'Content-Type, Authorization, x-client, x-client-version, x-restaurant-name, x-selected-restaurant-id, x-domain-type',
+        ],
         'Content-Security-Policy': [buildContentSecurityPolicy()],
       },
     });
@@ -340,18 +356,27 @@ app.whenReady().then(() => {
 
   createWindow();
   setupAutoUpdater(mainWindow);
-  loadCallerIdSettings().then((s) => {
-    if (s.inputMode === 'serial') {
-      setupCallerIdSerial(
-        { enabled: s.enabled, portName: s.serialPortName, baudRate: s.serialBaudRate, format: s.serialFormat },
-        () => mainWindow,
-      );
-    } else if (s.inputMode === 'hid') {
-      setupCallerIdHid({ enabled: s.enabled }, () => mainWindow);
-    } else {
-      startCallerIdWebhook(() => mainWindow).catch((e) => console.error('[CallerID] webhook start error:', e));
-    }
-  }).catch(() => {});
+  loadCallerIdSettings()
+    .then((s) => {
+      if (s.inputMode === 'serial') {
+        setupCallerIdSerial(
+          {
+            enabled: s.enabled,
+            portName: s.serialPortName,
+            baudRate: s.serialBaudRate,
+            format: s.serialFormat,
+          },
+          () => mainWindow,
+        );
+      } else if (s.inputMode === 'hid') {
+        setupCallerIdHid({ enabled: s.enabled }, () => mainWindow);
+      } else {
+        startCallerIdWebhook(() => mainWindow).catch((e) =>
+          console.error('[CallerID] webhook start error:', e),
+        );
+      }
+    })
+    .catch(() => {});
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -448,22 +473,30 @@ async function sendAmountUsingCardTerminalSettings(
       withHandshake: settings.serialWithHandshake,
     });
     return result.success
-      ? { success: true, message: 'مبلغ با موفقیت به کارتخوان ارسال شد', refId: result.rrn || result.traceNumber }
+      ? {
+          success: true,
+          message: 'مبلغ با موفقیت به کارتخوان ارسال شد',
+          refId: result.rrn || result.traceNumber,
+        }
       : { success: false, error: result.error || 'ارسال به کارتخوان ناموفق بود' };
   }
 
   if (settings.connectionType === 'asan-pardakht') {
     const orderId = Number(payload?.orderId || 0);
-    const result = await sendPaymentViaAsanPardakht(amountToSend, {
-      mode: settings.asanPardakhtMode,
-      ip: settings.asanPardakhtIp,
-      port: settings.asanPardakhtPort,
-      comPort: settings.asanPardakhtComPort,
-      baudRate: settings.asanPardakhtBaudRate,
-      bridgeExePath: getAssetPath('pos-bridge', 'PosBridge.exe'),
-    }, {
-      invoiceNumber: orderId > 0 ? String(orderId) : undefined,
-    });
+    const result = await sendPaymentViaAsanPardakht(
+      amountToSend,
+      {
+        mode: settings.asanPardakhtMode,
+        ip: settings.asanPardakhtIp,
+        port: settings.asanPardakhtPort,
+        comPort: settings.asanPardakhtComPort,
+        baudRate: settings.asanPardakhtBaudRate,
+        bridgeExePath: getAssetPath('pos-bridge', 'PosBridge.exe'),
+      },
+      {
+        invoiceNumber: orderId > 0 ? String(orderId) : undefined,
+      },
+    );
     return result.success
       ? { success: true, message: 'پرداخت با موفقیت انجام شد', refId: result.rrn || result.stan }
       : { success: false, error: result.error || 'پرداخت توسط کارتخوان ناموفق بود' };
@@ -519,7 +552,9 @@ async function sendAmountUsingCardTerminalSettings(
   };
 }
 
-async function resolveCardTerminalSettingsByProfile(profileId?: string): Promise<CardTerminalSettings> {
+async function resolveCardTerminalSettingsByProfile(
+  profileId?: string,
+): Promise<CardTerminalSettings> {
   const config = await loadCardTerminalConfig();
   const selected =
     (profileId ? config.profiles.find((p) => p.id === profileId) : undefined) ||
@@ -572,15 +607,18 @@ ipcMain.handle('get-card-terminal-config', async () => {
   }
 });
 
-ipcMain.handle('save-card-terminal-settings', async (_event, settings: Partial<CardTerminalSettings>) => {
-  try {
-    const saved = await saveCardTerminalSettings(settings || {});
-    return { success: true, settings: saved };
-  } catch (error) {
-    console.error('save-card-terminal-settings error:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-});
+ipcMain.handle(
+  'save-card-terminal-settings',
+  async (_event, settings: Partial<CardTerminalSettings>) => {
+    try {
+      const saved = await saveCardTerminalSettings(settings || {});
+      return { success: true, settings: saved };
+    } catch (error) {
+      console.error('save-card-terminal-settings error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
+);
 
 ipcMain.handle('save-card-terminal-config', async (_event, config: any) => {
   try {
@@ -596,7 +634,12 @@ ipcMain.handle(
   'test-card-terminal-connection',
   async (
     _event,
-    payload: { amount?: number; orderId?: number; restaurantId?: number; terminalProfileId?: string },
+    payload: {
+      amount?: number;
+      orderId?: number;
+      restaurantId?: number;
+      terminalProfileId?: string;
+    },
   ) => {
     try {
       const settings = await resolveCardTerminalSettingsByProfile(payload?.terminalProfileId);
@@ -910,29 +953,33 @@ ipcMain.handle('get-print-templates-map', async () => {
   }
 });
 
-ipcMain.handle('set-print-template-for-printer', async (
-  _event,
-  printerName: string,
-  template: any,
-  receiptType?: 'full' | 'kitchen'
-) => {
-  try {
-    // undefined = ارث‌بری از سطح بالاتر (کلید پاک می‌شود)، null = صراحتاً بدون قالب
-    await setPrintTemplateForPrinter(printerName ?? '', template, receiptType);
-    return { success: true };
-  } catch (error) {
-    console.error('Set print template for printer error:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-});
+ipcMain.handle(
+  'set-print-template-for-printer',
+  async (_event, printerName: string, template: any, receiptType?: 'full' | 'kitchen') => {
+    try {
+      // undefined = ارث‌بری از سطح بالاتر (کلید پاک می‌شود)، null = صراحتاً بدون قالب
+      await setPrintTemplateForPrinter(printerName ?? '', template, receiptType);
+      return { success: true };
+    } catch (error) {
+      console.error('Set print template for printer error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
+);
 
 ipcMain.handle('refresh-cached-print-templates', async (_event, freshTemplates: any[]) => {
   try {
-    const changed = await refreshCachedPrintTemplates(Array.isArray(freshTemplates) ? freshTemplates : []);
+    const changed = await refreshCachedPrintTemplates(
+      Array.isArray(freshTemplates) ? freshTemplates : [],
+    );
     return { success: true, changed };
   } catch (error) {
     console.error('Refresh cached print templates error:', error);
-    return { success: false, changed: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    return {
+      success: false,
+      changed: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
   }
 });
 
@@ -941,7 +988,13 @@ ipcMain.handle('get-receipt-number-settings', async () => {
     return await loadReceiptNumberSettings();
   } catch (error) {
     console.error('Load receipt number settings error:', error);
-    return { nextNumber: 1, resetPolicy: 'never', startNumber: 1, lastResetDate: '', dailyResetTime: '00:00' };
+    return {
+      nextNumber: 1,
+      resetPolicy: 'never',
+      startNumber: 1,
+      lastResetDate: '',
+      dailyResetTime: '00:00',
+    };
   }
 });
 
@@ -1147,7 +1200,12 @@ ipcMain.handle('caller-id:save-settings', async (_event, settings: any) => {
       await stopCallerIdWebhook();
       await callerIdHidService.disconnect();
       setupCallerIdSerial(
-        { enabled: saved.enabled, portName: saved.serialPortName, baudRate: saved.serialBaudRate, format: saved.serialFormat },
+        {
+          enabled: saved.enabled,
+          portName: saved.serialPortName,
+          baudRate: saved.serialBaudRate,
+          format: saved.serialFormat,
+        },
         () => mainWindow,
       );
     } else if (saved.inputMode === 'hid') {

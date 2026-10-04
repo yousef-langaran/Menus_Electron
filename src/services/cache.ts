@@ -34,7 +34,8 @@ export async function cacheMenu(
     isScaleIntegrationEnabled: isScaleIntegrationEnabled || false,
     restrictScaleAccessToElectronManagers: restrictScaleAccessToElectronManagers !== false,
     isCardTerminalEnabled: isCardTerminalEnabled || false,
-    restrictCardTerminalAccessToElectronManagers: restrictCardTerminalAccessToElectronManagers !== false,
+    restrictCardTerminalAccessToElectronManagers:
+      restrictCardTerminalAccessToElectronManagers !== false,
     allowDirectSendAmountToCardTerminal: allowDirectSendAmountToCardTerminal || false,
     lastUpdatedAt: lastUpdatedAt ?? null,
     vatRate: vatRate ?? null,
@@ -187,4 +188,3 @@ export async function clearUserCache() {
     console.error('Failed to clear user cache:', error);
   }
 }
-

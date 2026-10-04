@@ -8,7 +8,9 @@ import { usePrinterSettingsStore } from '../store/printerSettingsStore';
 function resolveDefaultDrawerPrinterName(): string | undefined {
   const configs = usePrinterSettingsStore.getState().configs;
   const enabled = Object.values(configs).filter((c) => c.enabled);
-  const withFullReceipt = enabled.find((c) => (c.receipts || []).some((r) => r.type === 'full' && r.enabled));
+  const withFullReceipt = enabled.find((c) =>
+    (c.receipts || []).some((r) => r.type === 'full' && r.enabled),
+  );
   return (withFullReceipt || enabled[0])?.name;
 }
 
@@ -17,7 +19,9 @@ function resolveDefaultDrawerPrinterName(): string | undefined {
  * electron/services/printer.ts::openCashDrawer). هم از دکمهٔ دستی «باز کردن
  * کشو» و هم به‌صورت خودکار بعد از تکمیل فروش نقدی فراخوانی می‌شود.
  */
-export async function pulseCashDrawer(printerName?: string): Promise<{ success: boolean; error?: string }> {
+export async function pulseCashDrawer(
+  printerName?: string,
+): Promise<{ success: boolean; error?: string }> {
   if (typeof window === 'undefined' || !window.electronAPI?.openCashDrawer) {
     return { success: false, error: 'ELECTRON_BRIDGE_UNAVAILABLE' };
   }

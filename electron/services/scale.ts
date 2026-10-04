@@ -49,7 +49,9 @@ async function getSerialPort(): Promise<any | null> {
   }
 }
 
-export async function listSerialPorts(): Promise<Array<{ path: string; manufacturer?: string; friendlyName?: string }>> {
+export async function listSerialPorts(): Promise<
+  Array<{ path: string; manufacturer?: string; friendlyName?: string }>
+> {
   try {
     const sp = await getSerialPort();
     if (!sp) return [];
@@ -86,7 +88,9 @@ class ScaleService {
       if (w !== null) {
         this.latestWeight = w;
         for (const cb of this.weightCallbacks) {
-          try { cb(w); } catch {}
+          try {
+            cb(w);
+          } catch {}
         }
       }
     }
@@ -118,12 +122,17 @@ class ScaleService {
     }
   }
 
-  private async connectSerial(settings: ScaleSettings): Promise<{ success: boolean; error?: string }> {
+  private async connectSerial(
+    settings: ScaleSettings,
+  ): Promise<{ success: boolean; error?: string }> {
     return new Promise(async (resolve) => {
       try {
         const sp = await getSerialPort();
         if (!sp) {
-          resolve({ success: false, error: 'ماژول serialport نصب نیست. دستور "npm run rebuild" را اجرا کنید.' });
+          resolve({
+            success: false,
+            error: 'ماژول serialport نصب نیست. دستور "npm run rebuild" را اجرا کنید.',
+          });
           return;
         }
         const { SerialPort } = sp;
@@ -146,7 +155,9 @@ class ScaleService {
             console.warn('[Scale] serial error:', e.message);
             this._connected = false;
           });
-          port.on('close', () => { this._connected = false; });
+          port.on('close', () => {
+            this._connected = false;
+          });
 
           resolve({ success: true });
         });
@@ -181,7 +192,9 @@ class ScaleService {
           console.warn('[Scale] tcp error:', e.message);
           this._connected = false;
         });
-        socket.on('close', () => { this._connected = false; });
+        socket.on('close', () => {
+          this._connected = false;
+        });
         finish({ success: true });
       });
 
@@ -205,7 +218,9 @@ class ScaleService {
     }
 
     if (this.tcpSocket) {
-      try { this.tcpSocket.destroy(); } catch {}
+      try {
+        this.tcpSocket.destroy();
+      } catch {}
       this.tcpSocket = null;
     }
 

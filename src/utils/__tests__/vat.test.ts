@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  DEFAULT_VAT_RATE,
-  resolveVatRate,
-  calculateVatAmount,
-  type VatLine,
-} from '../vat';
+import { DEFAULT_VAT_RATE, resolveVatRate, calculateVatAmount, type VatLine } from '../vat';
 
 const line = (lineTotal: number, hasVat: boolean): VatLine => ({ lineTotal, hasVat });
 
@@ -91,10 +86,7 @@ describe('calculateVatAmount', () => {
   });
 
   it('treats a non-numeric lineTotal as zero rather than producing NaN', () => {
-    const lines = [
-      { lineTotal: 'abc' as unknown as number, hasVat: true },
-      line(100_000, true),
-    ];
+    const lines = [{ lineTotal: 'abc' as unknown as number, hasVat: true }, line(100_000, true)];
 
     expect(calculateVatAmount(lines, 100_000, 0, 10)).toBe(10_000);
   });

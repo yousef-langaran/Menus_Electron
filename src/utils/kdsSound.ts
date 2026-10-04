@@ -12,7 +12,8 @@ let sharedAudioContext: AudioContext | null = null;
 function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
   const Ctor: AudioContextCtor | undefined =
-    window.AudioContext || (window as unknown as { webkitAudioContext?: AudioContextCtor }).webkitAudioContext;
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext?: AudioContextCtor }).webkitAudioContext;
   if (!Ctor) return null;
   if (!sharedAudioContext || sharedAudioContext.state === 'closed') {
     try {

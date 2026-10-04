@@ -2,8 +2,18 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { LocalServiceJob } from '../../services/serviceJobsLocalDb';
 
-const PRIORITY_LABEL: Record<string, string> = { low: 'کم', normal: 'معمولی', high: 'زیاد', urgent: 'فوری' };
-const PRIORITY_COLOR: Record<string, string> = { low: '#6b7280', normal: '#3b82f6', high: '#f59e0b', urgent: '#ef4444' };
+const PRIORITY_LABEL: Record<string, string> = {
+  low: 'کم',
+  normal: 'معمولی',
+  high: 'زیاد',
+  urgent: 'فوری',
+};
+const PRIORITY_COLOR: Record<string, string> = {
+  low: '#6b7280',
+  normal: '#3b82f6',
+  high: '#f59e0b',
+  urgent: '#ef4444',
+};
 
 interface JobCardProps {
   job: LocalServiceJob;
@@ -32,14 +42,22 @@ export function JobCard({ job, opState, onClick }: JobCardProps) {
       style={style}
       {...attributes}
       {...listeners}
-      onClick={() => { if (!isDragging) onClick(); }}
+      onClick={() => {
+        if (!isDragging) onClick();
+      }}
       className={`bg-surface rounded-xl border shadow-sm hover:shadow-md transition-shadow select-none p-3 space-y-2 ${
-        opState?.hasFailed ? 'border-danger/40' : opState?.hasPending ? 'border-warning/40' : 'border-border'
+        opState?.hasFailed
+          ? 'border-danger/40'
+          : opState?.hasPending
+            ? 'border-warning/40'
+            : 'border-border'
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground/90 line-clamp-2 leading-snug">{job.title}</p>
+          <p className="text-sm font-medium text-foreground/90 line-clamp-2 leading-snug">
+            {job.title}
+          </p>
           {job.jobNumber && <p className="text-xs text-muted mt-0.5 font-mono">{job.jobNumber}</p>}
         </div>
         <span
@@ -59,14 +77,23 @@ export function JobCard({ job, opState, onClick }: JobCardProps) {
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {opState?.hasFailed && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-danger-soft text-danger-soft-foreground">ناموفق</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-danger-soft text-danger-soft-foreground">
+              ناموفق
+            </span>
           )}
           {opState?.hasPending && !opState?.hasFailed && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning-soft text-warning-soft-foreground">در صف</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning-soft text-warning-soft-foreground">
+              در صف
+            </span>
           )}
           {job.dueDate && (
-            <span className={`text-xs px-1.5 py-0.5 rounded-md ${isOverdue ? 'bg-danger-soft text-danger' : 'bg-default-soft text-muted'}`}>
-              {new Date(job.dueDate).toLocaleDateString('fa-IR', { month: 'short', day: 'numeric' })}
+            <span
+              className={`text-xs px-1.5 py-0.5 rounded-md ${isOverdue ? 'bg-danger-soft text-danger' : 'bg-default-soft text-muted'}`}
+            >
+              {new Date(job.dueDate).toLocaleDateString('fa-IR', {
+                month: 'short',
+                day: 'numeric',
+              })}
             </span>
           )}
           {job.estimatedAmount > 0 && (

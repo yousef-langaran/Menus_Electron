@@ -34,7 +34,9 @@ export function useProductLoader() {
   // آینهٔ همزمانِ state محصولات — برای تصمیم‌هایی که نمی‌توانند منتظر re-render بمانند
   // (مثل «آیا الان محصولی روی صفحه هست؟» قبل از بازنویسی کش/Dexie).
   const productsRef = useRef<any[]>([]);
-  useEffect(() => { productsRef.current = products; }, [products]);
+  useEffect(() => {
+    productsRef.current = products;
+  }, [products]);
 
   // Restaurant settings
   const [isMobileRequired, setIsMobileRequired] = useState(true);
@@ -42,7 +44,8 @@ export function useProductLoader() {
   const [restrictScaleAccess, setRestrictScaleAccess] = useState(true);
   const [isCardTerminalEnabled, setIsCardTerminalEnabled] = useState(false);
   const [restrictCardTerminalAccess, setRestrictCardTerminalAccess] = useState(true);
-  const [allowDirectSendAmountToCardTerminal, setAllowDirectSendAmountToCardTerminal] = useState(false);
+  const [allowDirectSendAmountToCardTerminal, setAllowDirectSendAmountToCardTerminal] =
+    useState(false);
 
   // The fresh server fetch in loadProducts() (step 6) and the Dexie catalog-sync
   // handler below both replace the whole `products` array on a timer/network delay
@@ -55,12 +58,16 @@ export function useProductLoader() {
       // جایگزین کند — پاسخ خالی وقتی محصول روی صفحه داریم تقریباً همیشه یعنی پاسخ
       // ناقص/اشتباه سرور یا Dexie، نه حذف واقعی همهٔ محصولات.
       if (fresh.length === 0 && prev.length > 0) {
-        log(`${source}: incoming list is EMPTY while ${prev.length} products are on screen — KEEPING current list`);
+        log(
+          `${source}: incoming list is EMPTY while ${prev.length} products are on screen — KEEPING current list`,
+        );
         return prev;
       }
       log(`${source}: replacing product list ${prev.length} → ${fresh.length}`);
       const mediaMap = new Map(prev.map((pp) => [pp.id, pp.multiMedia]));
-      return fresh.map((p) => (p.multiMedia?.url ? p : { ...p, multiMedia: mediaMap.get(p.id) ?? p.multiMedia }));
+      return fresh.map((p) =>
+        p.multiMedia?.url ? p : { ...p, multiMedia: mediaMap.get(p.id) ?? p.multiMedia },
+      );
     });
   };
 
@@ -76,14 +83,20 @@ export function useProductLoader() {
   }) => {
     if (settings.cartItemOptions !== undefined) setCartItemOptions(settings.cartItemOptions);
     if (settings.isMobileRequired !== undefined) setIsMobileRequired(settings.isMobileRequired);
-    if (settings.isScaleIntegrationEnabled !== undefined) setIsScaleIntegrationEnabled(settings.isScaleIntegrationEnabled);
-    if (settings.restrictScaleAccess !== undefined) setRestrictScaleAccess(settings.restrictScaleAccess);
-    if (settings.isCardTerminalEnabled !== undefined) setIsCardTerminalEnabled(settings.isCardTerminalEnabled);
-    if (settings.restrictCardTerminalAccess !== undefined) setRestrictCardTerminalAccess(settings.restrictCardTerminalAccess);
-    if (settings.allowDirectSendAmountToCardTerminal !== undefined) setAllowDirectSendAmountToCardTerminal(settings.allowDirectSendAmountToCardTerminal);
+    if (settings.isScaleIntegrationEnabled !== undefined)
+      setIsScaleIntegrationEnabled(settings.isScaleIntegrationEnabled);
+    if (settings.restrictScaleAccess !== undefined)
+      setRestrictScaleAccess(settings.restrictScaleAccess);
+    if (settings.isCardTerminalEnabled !== undefined)
+      setIsCardTerminalEnabled(settings.isCardTerminalEnabled);
+    if (settings.restrictCardTerminalAccess !== undefined)
+      setRestrictCardTerminalAccess(settings.restrictCardTerminalAccess);
+    if (settings.allowDirectSendAmountToCardTerminal !== undefined)
+      setAllowDirectSendAmountToCardTerminal(settings.allowDirectSendAmountToCardTerminal);
     // نرخ ارزش افزوده در store سفارش نگه داشته می‌شود تا محاسبهٔ مبلغ قابل
     // پرداخت (و رسید آفلاین) بدون رفت‌وبرگشت به سرور ممکن باشد.
-    if (settings.vatRate !== undefined) useOrderStore.getState().setVatRate(settings.vatRate ?? null);
+    if (settings.vatRate !== undefined)
+      useOrderStore.getState().setVatRate(settings.vatRate ?? null);
   };
 
   const loadProducts = async () => {
@@ -102,7 +115,9 @@ export function useProductLoader() {
         log(`cache paint: ${productsData.length} products (restaurant ${restaurantId})`);
         setProducts(productsData);
         setCategories(cached.categories);
-        setProductCategories(Array.isArray(cached.productCategories) ? cached.productCategories : []);
+        setProductCategories(
+          Array.isArray(cached.productCategories) ? cached.productCategories : [],
+        );
         applyRestaurantSettings({
           cartItemOptions: Array.isArray(cached.cartItemOptions) ? cached.cartItemOptions : [],
           isMobileRequired: cached.isMobileRequiredInElectronPanel ?? true,
@@ -149,7 +164,8 @@ export function useProductLoader() {
         : navigator.onLine;
 
       if (!token || !isOnline) {
-        if (!cached && !hasDexieFallback) setError('اتصال به سرور برقرار نیست و منو در حافظه ذخیره نشده است.');
+        if (!cached && !hasDexieFallback)
+          setError('اتصال به سرور برقرار نیست و منو در حافظه ذخیره نشده است.');
         return;
       }
 
@@ -161,15 +177,19 @@ export function useProductLoader() {
         try {
           const { lastUpdatedAt } = await getProductsLastUpdatedAt(Number(restaurantId), token);
           serverLastUpdatedAt = lastUpdatedAt;
-          if (lastUpdatedAt && lastUpdatedAt === cached?.lastUpdatedAt) productMetadataChanged = false;
+          if (lastUpdatedAt && lastUpdatedAt === cached?.lastUpdatedAt)
+            productMetadataChanged = false;
         } catch {}
       }
 
       // 5. Parallel fetch categories + restaurant
-      const categoriesPromise = getCategories(restaurantName, restaurantId, token).catch(() => null);
-      const restaurantPromise = (restaurantId
-        ? getRestaurantById(Number(restaurantId), token)
-        : getRestaurantByName(restaurantName || '', token)
+      const categoriesPromise = getCategories(restaurantName, restaurantId, token).catch(
+        () => null,
+      );
+      const restaurantPromise = (
+        restaurantId
+          ? getRestaurantById(Number(restaurantId), token)
+          : getRestaurantByName(restaurantName || '', token)
       ).catch(() => null);
 
       // 6. Paginated product fetch — collect ALL pages then setProducts once atomically.
@@ -177,10 +197,13 @@ export function useProductLoader() {
       {
         const CHUNK = 100;
         const firstChunk = await getProductsPublicPaginated(
-          { restaurantId, restaurantName, page: 1, limit: CHUNK }, token,
+          { restaurantId, restaurantName, page: 1, limit: CHUNK },
+          token,
         );
         productsData = firstChunk.data;
-        log(`server refetch: page 1 → ${firstChunk.data.length} products, total=${firstChunk.total}`);
+        log(
+          `server refetch: page 1 → ${firstChunk.data.length} products, total=${firstChunk.total}`,
+        );
 
         // No cached data yet — show the first page immediately so the screen isn't
         // blank while the remaining pages load.
@@ -192,7 +215,8 @@ export function useProductLoader() {
         const totalPages = Math.ceil(firstChunk.total / CHUNK);
         for (let pg = 2; pg <= totalPages; pg++) {
           const chunk = await getProductsPublicPaginated(
-            { restaurantId, restaurantName, page: pg, limit: CHUNK }, token,
+            { restaurantId, restaurantName, page: pg, limit: CHUNK },
+            token,
           );
           productsData = [...productsData, ...chunk.data];
         }
@@ -207,8 +231,12 @@ export function useProductLoader() {
       }
 
       // 7. Apply results
-      const [categoriesResult, restaurantResult] = await Promise.all([categoriesPromise, restaurantPromise]);
-      if (categoriesResult) setProductCategories(Array.isArray(categoriesResult) ? categoriesResult : []);
+      const [categoriesResult, restaurantResult] = await Promise.all([
+        categoriesPromise,
+        restaurantPromise,
+      ]);
+      if (categoriesResult)
+        setProductCategories(Array.isArray(categoriesResult) ? categoriesResult : []);
 
       let settings = {
         cartItemOptions: cached?.cartItemOptions ?? [],
@@ -225,7 +253,9 @@ export function useProductLoader() {
         const raw = restaurantResult.cartItemOptions;
         const ps = restaurantResult.panelSettings;
         settings = {
-          cartItemOptions: Array.isArray(raw) ? raw.filter((s: any) => s != null && String(s).trim()) : [],
+          cartItemOptions: Array.isArray(raw)
+            ? raw.filter((s: any) => s != null && String(s).trim())
+            : [],
           isMobileRequired: ps?.isMobileRequiredInElectronPanel ?? true,
           isScaleIntegrationEnabled: Boolean(ps?.isScaleIntegrationEnabled),
           restrictScaleAccess: ps?.restrictScaleAccessToElectronManagers !== false,
@@ -243,20 +273,30 @@ export function useProductLoader() {
       } else {
         const uniqueCategories = productMetadataChanged
           ? Array.from(new Set(productsData.map((p) => p.category?.name_fa).filter(Boolean)))
-          : (Array.isArray(cached?.categories) ? cached.categories : []) as string[];
+          : ((Array.isArray(cached?.categories) ? cached.categories : []) as string[]);
 
         if (productMetadataChanged) setCategories(uniqueCategories);
 
         await cacheMenu(
-          restaurantId || 0, restaurantName || '', productsData,
-          uniqueCategories, settings.cartItemOptions,
-          settings.isMobileRequired, settings.isScaleIntegrationEnabled,
-          settings.restrictScaleAccess, settings.isCardTerminalEnabled,
-          settings.restrictCardTerminalAccess, settings.allowDirectSendAmountToCardTerminal,
+          restaurantId || 0,
+          restaurantName || '',
+          productsData,
+          uniqueCategories,
+          settings.cartItemOptions,
+          settings.isMobileRequired,
+          settings.isScaleIntegrationEnabled,
+          settings.restrictScaleAccess,
+          settings.isCardTerminalEnabled,
+          settings.restrictCardTerminalAccess,
+          settings.allowDirectSendAmountToCardTerminal,
           serverLastUpdatedAt,
           productMetadataChanged
-            ? (Array.isArray(categoriesResult) ? categoriesResult : [])
-            : (Array.isArray(cached?.productCategories) ? cached.productCategories : []),
+            ? Array.isArray(categoriesResult)
+              ? categoriesResult
+              : []
+            : Array.isArray(cached?.productCategories)
+              ? cached.productCategories
+              : [],
           settings.vatRate,
         );
       }
@@ -311,7 +351,9 @@ export function useProductLoader() {
         ]);
         const syncedProds = localProds.filter((p) => p._syncStatus === 'synced');
         const syncedCats = localCats.filter((c) => c._syncStatus === 'synced');
-        log(`catalog:synced fired — Dexie: ${localProds.length} products (${syncedProds.length} synced), ${localCats.length} categories (${syncedCats.length} synced)`);
+        log(
+          `catalog:synced fired — Dexie: ${localProds.length} products (${syncedProds.length} synced), ${localCats.length} categories (${syncedCats.length} synced)`,
+        );
         if (syncedProds.length === 0) {
           log('catalog:synced: no synced Dexie products — keeping current list');
           return;
@@ -320,10 +362,13 @@ export function useProductLoader() {
         // Dexie's LocalProduct has no multiMedia field — setProductsKeepingMedia carries
         // over the image from the previously loaded (server/cache) product so a catalog
         // sync doesn't wipe photos.
-        setProductsKeepingMedia(syncedProds.map((p) => ({
-          ...p,
-          category: catMap.get(p.category_id) || { id: p.category_id, name_fa: '' },
-        })), 'catalog:synced');
+        setProductsKeepingMedia(
+          syncedProds.map((p) => ({
+            ...p,
+            category: catMap.get(p.category_id) || { id: p.category_id, name_fa: '' },
+          })),
+          'catalog:synced',
+        );
         setProductCategories(syncedCats);
         setCategories(Array.from(new Set(syncedCats.map((c) => c.name_fa).filter(Boolean))));
       } catch (e) {
@@ -335,14 +380,18 @@ export function useProductLoader() {
   }, [user]);
 
   return {
-    products, setProducts,
+    products,
+    setProducts,
     categories,
     productCategories,
     cartItemOptions,
-    isLoading, error,
+    isLoading,
+    error,
     isMobileRequired,
-    isScaleIntegrationEnabled, restrictScaleAccess,
-    isCardTerminalEnabled, restrictCardTerminalAccess,
+    isScaleIntegrationEnabled,
+    restrictScaleAccess,
+    isCardTerminalEnabled,
+    restrictCardTerminalAccess,
     allowDirectSendAmountToCardTerminal,
     loadProducts,
   };

@@ -11,8 +11,7 @@ const printer = { name: 'EPSON-TM-T20', displayName: 'صندوق' };
 const storedConfigs = (): Record<string, PrinterConfig> =>
   JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
 
-const enable = (p = printer) =>
-  usePrinterSettingsStore.getState().setPrinterEnabled(p, true);
+const enable = (p = printer) => usePrinterSettingsStore.getState().setPrinterEnabled(p, true);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -104,7 +103,15 @@ describe('updatePrinterConfig', () => {
 
   it('backfills the receipt list when an older config lacks one', () => {
     usePrinterSettingsStore.setState({
-      configs: { legacy: { name: 'legacy', paperWidth: 80, paperLength: 200, margin: 5, enabled: true } as PrinterConfig },
+      configs: {
+        legacy: {
+          name: 'legacy',
+          paperWidth: 80,
+          paperLength: 200,
+          margin: 5,
+          enabled: true,
+        } as PrinterConfig,
+      },
     });
 
     usePrinterSettingsStore.getState().updatePrinterConfig('legacy', { margin: 3 });
@@ -195,7 +202,15 @@ describe('getPrinterReceipts', () => {
 
   it('falls back to the default pair for a config saved before receipts existed', () => {
     usePrinterSettingsStore.setState({
-      configs: { legacy: { name: 'legacy', paperWidth: 80, paperLength: 200, margin: 5, enabled: true } as PrinterConfig },
+      configs: {
+        legacy: {
+          name: 'legacy',
+          paperWidth: 80,
+          paperLength: 200,
+          margin: 5,
+          enabled: true,
+        } as PrinterConfig,
+      },
     });
 
     expect(usePrinterSettingsStore.getState().getPrinterReceipts('legacy')).toEqual([
@@ -208,7 +223,14 @@ describe('getPrinterReceipts', () => {
 describe('loadFromStorage', () => {
   it('prefers the configs held by the main process', async () => {
     loadPrinterConfigs.mockResolvedValue({
-      remote: { name: 'remote', paperWidth: 58, paperLength: 100, margin: 1, enabled: true, receipts: [] },
+      remote: {
+        name: 'remote',
+        paperWidth: 58,
+        paperLength: 100,
+        margin: 1,
+        enabled: true,
+        receipts: [],
+      },
     });
 
     await usePrinterSettingsStore.getState().loadFromStorage();
@@ -218,7 +240,14 @@ describe('loadFromStorage', () => {
 
   it('caches the main-process configs into localStorage', async () => {
     loadPrinterConfigs.mockResolvedValue({
-      remote: { name: 'remote', paperWidth: 58, paperLength: 100, margin: 1, enabled: true, receipts: [] },
+      remote: {
+        name: 'remote',
+        paperWidth: 58,
+        paperLength: 100,
+        margin: 1,
+        enabled: true,
+        receipts: [],
+      },
     });
 
     await usePrinterSettingsStore.getState().loadFromStorage();

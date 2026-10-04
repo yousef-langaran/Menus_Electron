@@ -50,11 +50,18 @@ const writeToDisk = async (returns: OfflineReturn[]) => {
 let returnsLock: Promise<void> = Promise.resolve();
 const withReturnsLock = <T>(fn: () => Promise<T>): Promise<T> => {
   const next = returnsLock.then(() => fn());
-  returnsLock = next.then(() => {}, () => {});
+  returnsLock = next.then(
+    () => {},
+    () => {},
+  );
   return next;
 };
 
-export async function saveOfflineReturn(returnData: any, token: string, baseURL?: string): Promise<number> {
+export async function saveOfflineReturn(
+  returnData: any,
+  token: string,
+  baseURL?: string,
+): Promise<number> {
   return withReturnsLock(async () => {
     const returns = await readFromDisk();
     const id = generateId();

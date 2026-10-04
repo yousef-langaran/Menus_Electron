@@ -206,8 +206,12 @@ export async function runCatalogSync(args: {
 
   try {
     const cachedCatUpdatedAt = await getCatalogSyncMeta(catMetaKey);
-    const { lastUpdatedAt: serverCatUpdatedAt } = await getCategoriesLastUpdatedAt(restaurantId, token);
-    const shouldPullCategories = needsFullCatalogSync || (serverCatUpdatedAt && serverCatUpdatedAt !== cachedCatUpdatedAt);
+    const { lastUpdatedAt: serverCatUpdatedAt } = await getCategoriesLastUpdatedAt(
+      restaurantId,
+      token,
+    );
+    const shouldPullCategories =
+      needsFullCatalogSync || (serverCatUpdatedAt && serverCatUpdatedAt !== cachedCatUpdatedAt);
 
     if (shouldPullCategories) {
       const serverCategories = await getCategories(restaurantName, restaurantId, token);
@@ -223,7 +227,10 @@ export async function runCatalogSync(args: {
   // ─── PULL: محصولات ────────────────────────────────────────────────────────
   try {
     const cachedProdUpdatedAt = await getCatalogSyncMeta(prodMetaKey);
-    const { lastUpdatedAt: serverProdUpdatedAt } = await getProductsLastUpdatedAt(restaurantId, token);
+    const { lastUpdatedAt: serverProdUpdatedAt } = await getProductsLastUpdatedAt(
+      restaurantId,
+      token,
+    );
     // Skip pull when lastUpdatedAt already matches — even on forceFullSync — because
     // useProductLoader writes Dexie + updates this key after every server fetch, so a
     // matching timestamp means Dexie is already up-to-date with fresh data.
@@ -233,16 +240,17 @@ export async function runCatalogSync(args: {
 
     if (shouldPullProducts) {
       const CHUNK = 100;
-      const first = await getProductsAdmin({ restaurantId, restaurantName, page: 1, limit: CHUNK }, token);
+      const first = await getProductsAdmin(
+        { restaurantId, restaurantName, page: 1, limit: CHUNK },
+        token,
+      );
       const totalPages = Math.ceil(first.total / CHUNK);
       const remainingPages = Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => i + 2);
       // قبلاً همهٔ صفحات با Promise.all بدون محدودیت هم‌زمان درخواست می‌شدند —
       // با کاتالوگ‌های بزرگ این یعنی ده‌ها درخواست هم‌زمان به سرور، که هم بار
       // غیرضروری ایجاد می‌کند هم ریسک پاسخ ناقص/تایم‌اوت زیر بار را بالا می‌برد.
-      const remaining = await concurrentMap(
-        remainingPages,
-        5,
-        (pg) => getProductsAdmin({ restaurantId, restaurantName, page: pg, limit: CHUNK }, token),
+      const remaining = await concurrentMap(remainingPages, 5, (pg) =>
+        getProductsAdmin({ restaurantId, restaurantName, page: pg, limit: CHUNK }, token),
       );
       const allProducts = [first.data, ...remaining.map((r) => r.data)].flat();
       await bulkUpsertProducts(allProducts, restaurantId);

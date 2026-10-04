@@ -78,8 +78,7 @@ export async function getAccountingQueueStats(restaurantId: number) {
     const rows = await accountingDb.syncOperations.toArray();
     pendingOps = rows.filter(
       (row) =>
-        row.restaurantId === restaurantId &&
-        (row.status === 'pending' || row.status === 'failed'),
+        row.restaurantId === restaurantId && (row.status === 'pending' || row.status === 'failed'),
     ).length;
     failedOps = rows.filter(
       (row) => row.restaurantId === restaurantId && row.status === 'failed',
@@ -234,8 +233,7 @@ export async function runAccountingSync(args: {
       const lineItems = await getPurchaseInvoiceItemsByInvoiceId(draft.id);
       const invoiceNumber = String(draft.invoiceNumber || `DRAFT-${draft.id}`);
       const purchaseDate =
-        String(draft.purchaseDate || '').slice(0, 10) ||
-        new Date().toISOString().slice(0, 10);
+        String(draft.purchaseDate || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
       const itemsPayload = (lineItems || []).map((x) => ({
         ...(x.rawMaterialId ? { rawMaterialId: Number(x.rawMaterialId) } : {}),
         ...(x.finalProductId ? { finalProductId: Number(x.finalProductId) } : {}),
@@ -306,12 +304,15 @@ export async function runAccountingSync(args: {
     try {
       await markPurchaseReturnSyncState(draft.id, 'syncing');
       const items = await accountingDb.purchaseReturnItems
-        .where('purchaseReturnId').equals(draft.id).toArray();
+        .where('purchaseReturnId')
+        .equals(draft.id)
+        .toArray();
       const response = await createPurchaseReturn(
         {
           restaurantId,
           purchaseInvoiceId: Number(draft.purchaseInvoiceId),
-          returnDate: String(draft.returnDate || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
+          returnDate:
+            String(draft.returnDate || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
           notes: draft.notes || undefined,
           items: (items || []).map((x: any) => ({
             ...(x.rawMaterialId ? { rawMaterialId: Number(x.rawMaterialId) } : {}),
@@ -322,10 +323,15 @@ export async function runAccountingSync(args: {
         },
         token,
       );
-      await markPurchaseReturnSyncState(draft.id, 'synced', { serverReturnId: response?.id, syncError: null });
+      await markPurchaseReturnSyncState(draft.id, 'synced', {
+        serverReturnId: response?.id,
+        syncError: null,
+      });
     } catch (error: any) {
       const rawMsg = error?.response?.data?.message;
-      const syncError = Array.isArray(rawMsg) ? rawMsg.join('؛ ') : rawMsg || error?.message || 'خطا در ارسال مرجوعی';
+      const syncError = Array.isArray(rawMsg)
+        ? rawMsg.join('؛ ')
+        : rawMsg || error?.message || 'خطا در ارسال مرجوعی';
       await markPurchaseReturnSyncState(draft.id, 'failed', { syncError });
     }
   });
@@ -345,7 +351,7 @@ export async function runAccountingSync(args: {
     !since ||
     !lastFullSync ||
     Date.now() - new Date(lastFullSync).getTime() > MS_4H;
-  const effectiveSince = needsFullSync ? undefined : (since || undefined);
+  const effectiveSince = needsFullSync ? undefined : since || undefined;
 
   // هر موجودیت جداگانه با همین سقف از سرور کش می‌شود (getChangedRows، مرتب‌شده
   // بر اساس updatedAt صعودی) — اگر تعداد رکوردهای واقعی یک موجودیت برای این
@@ -394,19 +400,29 @@ export async function runAccountingSync(args: {
   // Categories are always fetched in full — reconcile on every successful call.
   await Promise.allSettled([
     expenseCategoriesFromServer !== null
-      ? reconcileDeletedEntities(restaurantId, 'expense_category',
-          new Set(expenseCategoriesFromServer.map((r: any) => Number(r.id))))
+      ? reconcileDeletedEntities(
+          restaurantId,
+          'expense_category',
+          new Set(expenseCategoriesFromServer.map((r: any) => Number(r.id))),
+        )
       : Promise.resolve(),
     rawMaterialCategoriesFromServer !== null
-      ? reconcileDeletedEntities(restaurantId, 'raw_material_category',
-          new Set(rawMaterialCategoriesFromServer.map((r: any) => Number(r.id))))
+      ? reconcileDeletedEntities(
+          restaurantId,
+          'raw_material_category',
+          new Set(rawMaterialCategoriesFromServer.map((r: any) => Number(r.id))),
+        )
       : Promise.resolve(),
   ]);
 
   // After a full pull, reconcile deletions for entities that can be deleted from server.
   if (needsFullSync) {
-    const serverWarehouseIds = new Set((pullResult.data.warehouses || []).map((r: any) => Number(r.id)));
-    const serverPurchaseInvoiceIds = new Set((pullResult.data.purchaseInvoices || []).map((r: any) => Number(r.id)));
+    const serverWarehouseIds = new Set(
+      (pullResult.data.warehouses || []).map((r: any) => Number(r.id)),
+    );
+    const serverPurchaseInvoiceIds = new Set(
+      (pullResult.data.purchaseInvoices || []).map((r: any) => Number(r.id)),
+    );
 
     // لاگ تشخیصی موقت — همراه با لاگ داخل reconcileDeletedEntities، برای فهمیدن اینکه
     // آیا سقف PULL_LIMIT واقعاً رد شده یا حذف هزینه‌ها دلیل دیگری دارد.
@@ -437,29 +453,61 @@ export async function runAccountingSync(args: {
       // واقعی مشاهده‌شده: یک خطای موقت سرور روی operationalExpenses باعث شد
       // نتیجه خالی برگردد و تمام هزینه‌های محلی پاک شوند).
       isReconcileSafe('suppliers', suppliersBatch)
-        ? reconcileDeletedEntities(restaurantId, 'supplier', new Set(suppliersBatch.map((r: any) => Number(r.id))))
+        ? reconcileDeletedEntities(
+            restaurantId,
+            'supplier',
+            new Set(suppliersBatch.map((r: any) => Number(r.id))),
+          )
         : Promise.resolve(),
       isReconcileSafe('rawMaterials', rawMaterialsBatch)
-        ? reconcileDeletedEntities(restaurantId, 'raw_material', new Set(rawMaterialsBatch.map((r: any) => Number(r.id))))
+        ? reconcileDeletedEntities(
+            restaurantId,
+            'raw_material',
+            new Set(rawMaterialsBatch.map((r: any) => Number(r.id))),
+          )
         : Promise.resolve(),
       isReconcileSafe('finalProducts', finalProductsBatch)
-        ? reconcileDeletedEntities(restaurantId, 'final_product', new Set(finalProductsBatch.map((r: any) => Number(r.id))))
+        ? reconcileDeletedEntities(
+            restaurantId,
+            'final_product',
+            new Set(finalProductsBatch.map((r: any) => Number(r.id))),
+          )
         : Promise.resolve(),
       isReconcileSafe('cashBankAccounts', cashBankAccountsBatch)
-        ? reconcileDeletedEntities(restaurantId, 'cash_bank_account', new Set(cashBankAccountsBatch.map((r: any) => Number(r.id))))
+        ? reconcileDeletedEntities(
+            restaurantId,
+            'cash_bank_account',
+            new Set(cashBankAccountsBatch.map((r: any) => Number(r.id))),
+          )
         : Promise.resolve(),
       isReconcileSafe('recipes', recipesBatch)
-        ? reconcileDeletedEntities(restaurantId, 'recipe_item', new Set(recipesBatch.map((r: any) => Number(r.id))))
+        ? reconcileDeletedEntities(
+            restaurantId,
+            'recipe_item',
+            new Set(recipesBatch.map((r: any) => Number(r.id))),
+          )
         : Promise.resolve(),
       isReconcileSafe('operationalExpenses', operationalExpensesBatch)
-        ? reconcileDeletedEntities(restaurantId, 'operational_expense', new Set(operationalExpensesBatch.map((r: any) => Number(r.id))))
+        ? reconcileDeletedEntities(
+            restaurantId,
+            'operational_expense',
+            new Set(operationalExpensesBatch.map((r: any) => Number(r.id))),
+          )
         : Promise.resolve(),
       // Warehouses are read-only pulled entities — reconcile inline.
       isReconcileSafe('warehouses', pullResult.data.warehouses || [])
-        ? accountingDb.warehouses.where('restaurantId').equals(restaurantId).toArray().then((local) => {
-            const toDelete = local.filter((w) => !serverWarehouseIds.has(Number(w.id))).map((w) => w.id);
-            return toDelete.length ? accountingDb.warehouses.bulkDelete(toDelete) : Promise.resolve();
-          })
+        ? accountingDb.warehouses
+            .where('restaurantId')
+            .equals(restaurantId)
+            .toArray()
+            .then((local) => {
+              const toDelete = local
+                .filter((w) => !serverWarehouseIds.has(Number(w.id)))
+                .map((w) => w.id);
+              return toDelete.length
+                ? accountingDb.warehouses.bulkDelete(toDelete)
+                : Promise.resolve();
+            })
         : Promise.resolve(),
       // فاکتورهای خرید که سرور دیگر برنمی‌گرداند (چون ویرایش و با فاکتور جدید
       // جایگزین شده‌اند) را از Dexie محلی حذف کن — وگرنه فاکتور قدیمی برای همیشه
@@ -468,12 +516,22 @@ export async function runAccountingSync(args: {
       // فقط وقتی pull به سقف 1000 محدود نشده اجرا کن — وگرنه فاکتورهای واقعی
       // خارج از این batch (رستوران‌های خیلی بزرگ) اشتباهی حذف می‌شوند.
       (pullResult.data.purchaseInvoices || []).length < PULL_LIMIT
-        ? accountingDb.purchaseInvoices.where('restaurantId').equals(restaurantId).toArray().then((local) => {
-            const toDelete = local
-              .filter((inv) => inv.serverInvoiceId != null && !serverPurchaseInvoiceIds.has(Number(inv.serverInvoiceId)))
-              .map((inv) => inv.id);
-            return toDelete.length ? accountingDb.purchaseInvoices.bulkDelete(toDelete) : Promise.resolve();
-          })
+        ? accountingDb.purchaseInvoices
+            .where('restaurantId')
+            .equals(restaurantId)
+            .toArray()
+            .then((local) => {
+              const toDelete = local
+                .filter(
+                  (inv) =>
+                    inv.serverInvoiceId != null &&
+                    !serverPurchaseInvoiceIds.has(Number(inv.serverInvoiceId)),
+                )
+                .map((inv) => inv.id);
+              return toDelete.length
+                ? accountingDb.purchaseInvoices.bulkDelete(toDelete)
+                : Promise.resolve();
+            })
         : Promise.resolve(),
     ]);
     await setSyncMeta(lastFullSyncKey, new Date().toISOString());
@@ -515,7 +573,10 @@ export async function runAccountingSync(args: {
   };
 }
 
-export async function pushPendingCashTransactions(restaurantId: number, token: string): Promise<void> {
+export async function pushPendingCashTransactions(
+  restaurantId: number,
+  token: string,
+): Promise<void> {
   const pending = await getPendingCashTransactions(restaurantId, 100);
   if (!pending.length) return;
 

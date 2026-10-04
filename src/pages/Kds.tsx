@@ -92,8 +92,12 @@ export default function KdsPage() {
   // آیتم‌های «بامپ‌شده» (آمادهٔ تحویل) به تفکیک سفارش — کاملاً سمت کلاینت، فقط
   // برای هماهنگی کار در آشپزخانه؛ مستقل از وضعیت کل سفارش که هنوز whole-order است
   const [bumpedItemIds, setBumpedItemIds] = useState<Record<number, Set<number>>>({});
-  const { muted: audioMuted, agingThresholdMinutes, setMuted: setAudioMuted, setAgingThresholdMinutes } =
-    useKdsAudioStore();
+  const {
+    muted: audioMuted,
+    agingThresholdMinutes,
+    setMuted: setAudioMuted,
+    setAgingThresholdMinutes,
+  } = useKdsAudioStore();
   // شناسهٔ سفارش‌هایی که قبلاً برایشان هشدار دیرکرد پخش شده — تا هر ۱۵ ثانیه دوباره پخش نشود
   const agingAlertedOrderIdsRef = useRef<Set<number>>(new Set());
 
@@ -367,10 +371,15 @@ export default function KdsPage() {
       ) : (
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-3 gap-4 overflow-hidden">
           {BOARD_STATUSES.map((status) => (
-            <div key={status} className="flex flex-col min-h-0 bg-default-soft rounded-xl border border-border">
+            <div
+              key={status}
+              className="flex flex-col min-h-0 bg-default-soft rounded-xl border border-border"
+            >
               <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                 <h2 className="font-semibold text-foreground">{COLUMN_LABELS[status]}</h2>
-                <Chip size="sm" variant="soft">{columns[status].length}</Chip>
+                <Chip size="sm" variant="soft">
+                  {columns[status].length}
+                </Chip>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3">
                 {columns[status].length === 0 && (
@@ -390,7 +399,9 @@ export default function KdsPage() {
                           </Chip>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted">
-                          <span>{SERVICE_TYPE_LABELS[order.serviceType || ''] || order.serviceType}</span>
+                          <span>
+                            {SERVICE_TYPE_LABELS[order.serviceType || ''] || order.serviceType}
+                          </span>
                           {order.tableNumber && <span>· میز {order.tableNumber}</span>}
                         </div>
                         <div className="flex flex-col gap-1">
@@ -408,8 +419,12 @@ export default function KdsPage() {
                                   dimmed ? 'opacity-35' : ''
                                 } ${bumped ? 'line-through text-muted' : ''}`}
                               >
-                                <span className="font-semibold text-foreground">{bumped ? '✓' : '○'}</span>
-                                <span className="font-semibold text-foreground">{item.quantity}×</span>
+                                <span className="font-semibold text-foreground">
+                                  {bumped ? '✓' : '○'}
+                                </span>
+                                <span className="font-semibold text-foreground">
+                                  {item.quantity}×
+                                </span>
                                 <span className="text-foreground">{productLabel(item)}</span>
                                 {item.itemNote && (
                                   <span className="text-xs text-muted">({item.itemNote})</span>

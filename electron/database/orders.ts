@@ -50,11 +50,18 @@ const writeOrdersToDisk = async (orders: OfflineOrder[]) => {
 let ordersLock: Promise<void> = Promise.resolve();
 const withOrdersLock = <T>(fn: () => Promise<T>): Promise<T> => {
   const next = ordersLock.then(() => fn());
-  ordersLock = next.then(() => {}, () => {});
+  ordersLock = next.then(
+    () => {},
+    () => {},
+  );
   return next;
 };
 
-export async function saveOfflineOrder(orderData: any, token: string, baseURL?: string): Promise<number> {
+export async function saveOfflineOrder(
+  orderData: any,
+  token: string,
+  baseURL?: string,
+): Promise<number> {
   return withOrdersLock(async () => {
     const orders = await readOrdersFromDisk();
     const id = generateId();
@@ -102,4 +109,3 @@ export async function deleteOrder(id: number): Promise<void> {
     }
   });
 }
-

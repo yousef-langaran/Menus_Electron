@@ -12,7 +12,14 @@ type ChipBase = ComponentProps<typeof HeroChip>;
 type V3Variant = 'primary' | 'secondary' | 'tertiary' | 'soft';
 type V3Color = 'accent' | 'danger' | 'default' | 'success' | 'warning';
 type LegacyVariant = 'solid' | 'flat' | 'bordered' | 'light' | 'faded' | 'shadow' | 'dot';
-type LegacyColor = 'primary' | 'secondary' | 'default' | 'success' | 'warning' | 'danger' | 'accent';
+type LegacyColor =
+  | 'primary'
+  | 'secondary'
+  | 'default'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'accent';
 
 export type CompatChipProps = Omit<ChipBase, 'variant' | 'color'> & {
   variant?: V3Variant | LegacyVariant;

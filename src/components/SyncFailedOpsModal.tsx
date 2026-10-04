@@ -196,11 +196,7 @@ export function SyncFailedOpsModal({ isOpen, onClose }: Props) {
               >
                 حذف همه عملیات ناموفق
               </Button>
-              <Button
-                color="warning"
-                isLoading={retrying}
-                onPress={handleRetryAll}
-              >
+              <Button color="warning" isLoading={retrying} onPress={handleRetryAll}>
                 تلاش مجدد برای همه
               </Button>
             </>

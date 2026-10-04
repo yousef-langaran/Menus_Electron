@@ -3,9 +3,23 @@ import Dexie, { type Table } from 'dexie';
 export type ServiceJobPriority = 'low' | 'normal' | 'high' | 'urgent';
 export type ServiceStatusCategory = 'intake' | 'in_progress' | 'done' | 'cancelled';
 export type ServiceFormFieldType =
-  | 'text' | 'textarea' | 'number' | 'date' | 'select' | 'multiselect' | 'checkbox' | 'file' | 'phone';
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'date'
+  | 'select'
+  | 'multiselect'
+  | 'checkbox'
+  | 'file'
+  | 'phone';
 export type ServiceJobItemType = 'product' | 'service' | 'labor';
-export type ServiceJobOpType = 'create' | 'update' | 'move' | 'item_add' | 'item_update' | 'item_remove';
+export type ServiceJobOpType =
+  | 'create'
+  | 'update'
+  | 'move'
+  | 'item_add'
+  | 'item_update'
+  | 'item_remove';
 export type ServiceJobOpStatus = 'pending' | 'failed';
 
 export interface LocalBoardStatus {
@@ -194,7 +208,10 @@ export async function upsertLocalServiceBoards(boards: LocalServiceBoard[]): Pro
 
 export async function deleteStaleBoards(restaurantId: number, serverIds: number[]): Promise<void> {
   const serverIdSet = new Set(serverIds);
-  const local = await serviceJobsDb.serviceBoards.where('restaurantId').equals(restaurantId).toArray();
+  const local = await serviceJobsDb.serviceBoards
+    .where('restaurantId')
+    .equals(restaurantId)
+    .toArray();
   const toDelete = local.filter((b) => !serverIdSet.has(b.id)).map((b) => b.id);
   if (toDelete.length) await serviceJobsDb.serviceBoards.bulkDelete(toDelete);
 }
@@ -206,7 +223,12 @@ async function nextSeqForJob(jobLocalId: number): Promise<number> {
   return ops.length ? Math.max(...ops.map((o) => o.seq)) + 1 : 0;
 }
 
-async function enqueueOp(restaurantId: number, jobLocalId: number, opType: ServiceJobOpType, payload: any): Promise<void> {
+async function enqueueOp(
+  restaurantId: number,
+  jobLocalId: number,
+  opType: ServiceJobOpType,
+  payload: any,
+): Promise<void> {
   const seq = await nextSeqForJob(jobLocalId);
   await serviceJobsDb.serviceJobOps.add({
     restaurantId,
@@ -220,7 +242,9 @@ async function enqueueOp(restaurantId: number, jobLocalId: number, opType: Servi
   });
 }
 
-export async function getJobOpsState(jobLocalId: number): Promise<{ hasPending: boolean; hasFailed: boolean; errors: string[] }> {
+export async function getJobOpsState(
+  jobLocalId: number,
+): Promise<{ hasPending: boolean; hasFailed: boolean; errors: string[] }> {
   const ops = await serviceJobsDb.serviceJobOps.where('jobLocalId').equals(jobLocalId).toArray();
   return {
     hasPending: ops.some((o) => o.status === 'pending'),
@@ -230,8 +254,13 @@ export async function getJobOpsState(jobLocalId: number): Promise<{ hasPending: 
 }
 
 /** Map<jobLocalId, {hasPending, hasFailed}> برای کل رستوران — برای نشان وضعیت روی کارت‌ها بدون N کوئری */
-export async function getOpsStateMap(restaurantId: number): Promise<Map<number, { hasPending: boolean; hasFailed: boolean }>> {
-  const ops = await serviceJobsDb.serviceJobOps.where('restaurantId').equals(restaurantId).toArray();
+export async function getOpsStateMap(
+  restaurantId: number,
+): Promise<Map<number, { hasPending: boolean; hasFailed: boolean }>> {
+  const ops = await serviceJobsDb.serviceJobOps
+    .where('restaurantId')
+    .equals(restaurantId)
+    .toArray();
   const map = new Map<number, { hasPending: boolean; hasFailed: boolean }>();
   for (const op of ops) {
     const cur = map.get(op.jobLocalId) ?? { hasPending: false, hasFailed: false };
@@ -242,9 +271,12 @@ export async function getOpsStateMap(restaurantId: number): Promise<Map<number, 
   return map;
 }
 
-export async function getPendingOpsGroupedByJob(restaurantId: number): Promise<Map<number, LocalServiceJobOp[]>> {
+export async function getPendingOpsGroupedByJob(
+  restaurantId: number,
+): Promise<Map<number, LocalServiceJobOp[]>> {
   const ops = await serviceJobsDb.serviceJobOps
-    .where('restaurantId').equals(restaurantId)
+    .where('restaurantId')
+    .equals(restaurantId)
     .and((o) => o.status === 'pending' || o.status === 'failed')
     .toArray();
   const grouped = new Map<number, LocalServiceJobOp[]>();
@@ -267,34 +299,42 @@ export async function deleteOp(opId: number): Promise<void> {
 
 export async function retryFailedOps(restaurantId: number): Promise<void> {
   await serviceJobsDb.serviceJobOps
-    .where('restaurantId').equals(restaurantId)
+    .where('restaurantId')
+    .equals(restaurantId)
     .and((o) => o.status === 'failed')
     .modify({ status: 'pending', error: null });
 }
 
 /** وقتی id موقت یک پرونده به id واقعی سرور resolve می‌شود، همه ارجاعات را به‌روزرسانی کن */
 export async function reassignJobLocalId(oldId: number, newId: number): Promise<void> {
-  await serviceJobsDb.transaction('rw', [serviceJobsDb.serviceJobs, serviceJobsDb.serviceJobItems, serviceJobsDb.serviceJobOps], async () => {
-    const job = await serviceJobsDb.serviceJobs.get(oldId);
-    if (job) {
-      await serviceJobsDb.serviceJobs.delete(oldId);
-      await serviceJobsDb.serviceJobs.put({ ...job, id: newId });
-    }
-    const items = await serviceJobsDb.serviceJobItems.where('jobId').equals(oldId).toArray();
-    for (const it of items) {
-      await serviceJobsDb.serviceJobItems.delete(it.id);
-      await serviceJobsDb.serviceJobItems.put({ ...it, jobId: newId });
-    }
-    const ops = await serviceJobsDb.serviceJobOps.where('jobLocalId').equals(oldId).toArray();
-    for (const op of ops) {
-      await serviceJobsDb.serviceJobOps.update(op.id!, { jobLocalId: newId });
-    }
-  });
+  await serviceJobsDb.transaction(
+    'rw',
+    [serviceJobsDb.serviceJobs, serviceJobsDb.serviceJobItems, serviceJobsDb.serviceJobOps],
+    async () => {
+      const job = await serviceJobsDb.serviceJobs.get(oldId);
+      if (job) {
+        await serviceJobsDb.serviceJobs.delete(oldId);
+        await serviceJobsDb.serviceJobs.put({ ...job, id: newId });
+      }
+      const items = await serviceJobsDb.serviceJobItems.where('jobId').equals(oldId).toArray();
+      for (const it of items) {
+        await serviceJobsDb.serviceJobItems.delete(it.id);
+        await serviceJobsDb.serviceJobItems.put({ ...it, jobId: newId });
+      }
+      const ops = await serviceJobsDb.serviceJobOps.where('jobLocalId').equals(oldId).toArray();
+      for (const op of ops) {
+        await serviceJobsDb.serviceJobOps.update(op.id!, { jobLocalId: newId });
+      }
+    },
+  );
 }
 
 // ─── jobs ───────────────────────────────────────────────────────────────────
 
-export async function getLocalServiceJobs(restaurantId: number, boardId?: number): Promise<LocalServiceJob[]> {
+export async function getLocalServiceJobs(
+  restaurantId: number,
+  boardId?: number,
+): Promise<LocalServiceJob[]> {
   let coll = serviceJobsDb.serviceJobs.where('restaurantId').equals(restaurantId);
   const all = await coll.toArray();
   return (boardId ? all.filter((j) => j.boardId === boardId) : all).sort(
@@ -409,7 +449,13 @@ export async function updateServiceJobLocal(
 
 export async function moveServiceJobLocal(
   jobId: number,
-  newStatus: { id: number; label: string; color: string | null; category: ServiceStatusCategory; isFinal: boolean },
+  newStatus: {
+    id: number;
+    label: string;
+    color: string | null;
+    category: ServiceStatusCategory;
+    isFinal: boolean;
+  },
 ): Promise<void> {
   const job = await serviceJobsDb.serviceJobs.get(jobId);
   if (!job) return;
@@ -424,8 +470,13 @@ export async function moveServiceJobLocal(
   await enqueueOp(job.restaurantId, jobId, 'move', { statusId: newStatus.id });
 }
 
-export async function getPendingServiceJobsCount(restaurantId: number): Promise<{ pendingCount: number; failedCount: number }> {
-  const ops = await serviceJobsDb.serviceJobOps.where('restaurantId').equals(restaurantId).toArray();
+export async function getPendingServiceJobsCount(
+  restaurantId: number,
+): Promise<{ pendingCount: number; failedCount: number }> {
+  const ops = await serviceJobsDb.serviceJobOps
+    .where('restaurantId')
+    .equals(restaurantId)
+    .toArray();
   const jobIds = new Set(ops.map((o) => o.jobLocalId));
   let pendingCount = 0;
   let failedCount = 0;
@@ -461,7 +512,9 @@ export async function bulkUpsertServerJobs(jobs: any[], restaurantId: number): P
       customerName: j.customerName || null,
       customerPhone: j.customerPhone || null,
       assigneeId: j.assignee_id ?? null,
-      assigneeName: j.assignee ? `${j.assignee.firstName ?? ''} ${j.assignee.lastName ?? ''}`.trim() || j.assignee.phone : null,
+      assigneeName: j.assignee
+        ? `${j.assignee.firstName ?? ''} ${j.assignee.lastName ?? ''}`.trim() || j.assignee.phone
+        : null,
       priority: j.priority ?? 'normal',
       dueDate: j.dueDate ?? null,
       estimatedAmount: Number(j.estimatedAmount ?? 0),
@@ -477,9 +530,15 @@ export async function bulkUpsertServerJobs(jobs: any[], restaurantId: number): P
   if (rows.length > 0) await serviceJobsDb.serviceJobs.bulkPut(rows);
 }
 
-export async function deleteStaleServerJobs(restaurantId: number, serverIds: number[]): Promise<void> {
+export async function deleteStaleServerJobs(
+  restaurantId: number,
+  serverIds: number[],
+): Promise<void> {
   const serverIdSet = new Set(serverIds);
-  const local = await serviceJobsDb.serviceJobs.where('restaurantId').equals(restaurantId).toArray();
+  const local = await serviceJobsDb.serviceJobs
+    .where('restaurantId')
+    .equals(restaurantId)
+    .toArray();
   const toDelete = local.filter((j) => j.id > 0 && !serverIdSet.has(j.id)).map((j) => j.id);
   if (toDelete.length) await serviceJobsDb.serviceJobs.bulkDelete(toDelete);
 }
@@ -493,7 +552,13 @@ export async function getLocalServiceJobItems(jobId: number): Promise<LocalServi
 export async function addServiceJobItemLocal(
   restaurantId: number,
   jobId: number,
-  item: { itemType: ServiceJobItemType; description: string; quantity: number; unitPrice: number; deductFromInventory: boolean },
+  item: {
+    itemType: ServiceJobItemType;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    deductFromInventory: boolean;
+  },
 ): Promise<LocalServiceJobItem> {
   const row: LocalServiceJobItem = {
     id: nextTempId(),
@@ -515,7 +580,13 @@ export async function updateServiceJobItemLocal(
   restaurantId: number,
   jobId: number,
   itemId: number,
-  item: { itemType: ServiceJobItemType; description: string; quantity: number; unitPrice: number; deductFromInventory: boolean },
+  item: {
+    itemType: ServiceJobItemType;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    deductFromInventory: boolean;
+  },
 ): Promise<void> {
   await serviceJobsDb.serviceJobItems.update(itemId, {
     ...item,
@@ -524,13 +595,20 @@ export async function updateServiceJobItemLocal(
   await enqueueOp(restaurantId, jobId, 'item_update', { itemId, ...item });
 }
 
-export async function removeServiceJobItemLocal(restaurantId: number, jobId: number, itemId: number): Promise<void> {
+export async function removeServiceJobItemLocal(
+  restaurantId: number,
+  jobId: number,
+  itemId: number,
+): Promise<void> {
   await serviceJobsDb.serviceJobItems.delete(itemId);
   // اگر آیتم هنوز برای سرور ارسال نشده (id موقت)، فقط opهای مربوط به همان آیتم را از صف حذف کن
   if (itemId < 0) {
     const ops = await serviceJobsDb.serviceJobOps.where('jobLocalId').equals(jobId).toArray();
     for (const op of ops) {
-      if ((op.opType === 'item_add' && op.payload?.tempItemId === itemId) || (op.opType === 'item_update' && op.payload?.itemId === itemId)) {
+      if (
+        (op.opType === 'item_add' && op.payload?.tempItemId === itemId) ||
+        (op.opType === 'item_update' && op.payload?.itemId === itemId)
+      ) {
         await serviceJobsDb.serviceJobOps.delete(op.id!);
       }
     }

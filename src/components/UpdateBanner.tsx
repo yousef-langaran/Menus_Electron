@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 
-type DownloadProgress = { percent: number; bytesPerSecond: number; transferred: number; total: number };
+type DownloadProgress = {
+  percent: number;
+  bytesPerSecond: number;
+  transferred: number;
+  total: number;
+};
 
 type UpdateState =
   | { status: 'idle' }
@@ -167,8 +172,11 @@ export function UpdateBanner() {
         </div>
         {progress && (
           <span style={{ fontSize: '12px', color: '#1e3a8a' }}>
-            {formatBytes(progress.transferred)} از {formatBytes(progress.total)} · {formatSpeed(progress.bytesPerSecond)}
-            {Number.isFinite(etaSeconds) && etaSeconds > 0 ? ` · باقی‌مانده: ${formatEta(etaSeconds)}` : ''}
+            {formatBytes(progress.transferred)} از {formatBytes(progress.total)} ·{' '}
+            {formatSpeed(progress.bytesPerSecond)}
+            {Number.isFinite(etaSeconds) && etaSeconds > 0
+              ? ` · باقی‌مانده: ${formatEta(etaSeconds)}`
+              : ''}
           </span>
         )}
       </div>

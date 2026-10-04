@@ -89,7 +89,12 @@ async function runRemotePrintJob(payload: {
 
   const { templatesMap, defaultTemplate } = await loadPrintTemplateSources();
 
-  const printerJobs = buildPrinterJobs(printersToUse, getPrinterReceipts, templatesMap, defaultTemplate);
+  const printerJobs = buildPrinterJobs(
+    printersToUse,
+    getPrinterReceipts,
+    templatesMap,
+    defaultTemplate,
+  );
 
   if (printerJobs.length === 0) {
     throw new Error('PRINT_NO_PRINTER_SELECTED');

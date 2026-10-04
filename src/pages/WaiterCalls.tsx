@@ -26,7 +26,10 @@ import {
   listWaiterCallHistory,
 } from '../services/api';
 
-const STATUS_COLORS: Record<WaiterCallStatus, 'default' | 'accent' | 'success' | 'warning' | 'danger'> = {
+const STATUS_COLORS: Record<
+  WaiterCallStatus,
+  'default' | 'accent' | 'success' | 'warning' | 'danger'
+> = {
   pending: 'warning',
   accepted: 'success',
   done: 'default',
@@ -128,10 +131,7 @@ export default function WaiterCallsPage() {
     [restaurantId, token, mergeCall, load],
   );
 
-  const pendingCount = useMemo(
-    () => active.filter((c) => c.status === 'pending').length,
-    [active],
-  );
+  const pendingCount = useMemo(() => active.filter((c) => c.status === 'pending').length, [active]);
 
   return (
     <div className="min-h-screen bg-background p-4 space-y-4">
@@ -139,9 +139,7 @@ export default function WaiterCallsPage() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-xl font-bold">فراخوان گارسون</h1>
-            <p className="text-xs text-muted">
-              درخواست‌های مشتری از روی QR میز — بدون دستگاه پیجر
-            </p>
+            <p className="text-xs text-muted">درخواست‌های مشتری از روی QR میز — بدون دستگاه پیجر</p>
           </div>
           <div className="flex items-center gap-2">
             {pendingCount > 0 && (
@@ -157,9 +155,7 @@ export default function WaiterCallsPage() {
 
         {isLoading ? (
           <Card>
-            <CardContent className="py-10 text-center text-muted">
-              در حال بارگذاری…
-            </CardContent>
+            <CardContent className="py-10 text-center text-muted">در حال بارگذاری…</CardContent>
           </Card>
         ) : active.length === 0 ? (
           <Card>
@@ -258,9 +254,7 @@ export default function WaiterCallsPage() {
                   {call.acceptedByName ? (
                     <span className="text-xs text-muted">{call.acceptedByName}</span>
                   ) : null}
-                  <span className="text-xs text-muted ms-auto">
-                    {toShamsiTime(call.createdAt)}
-                  </span>
+                  <span className="text-xs text-muted ms-auto">{toShamsiTime(call.createdAt)}</span>
                 </div>
               ))}
             </CardContent>

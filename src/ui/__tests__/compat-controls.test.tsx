@@ -25,7 +25,9 @@ describe('SwitchCompat', () => {
 
   it('stays interactive without a label', () => {
     const onValueChange = vi.fn();
-    render(<SwitchCompat isSelected aria-label="فعال‌سازی کارتخوان" onValueChange={onValueChange} />);
+    render(
+      <SwitchCompat isSelected aria-label="فعال‌سازی کارتخوان" onValueChange={onValueChange} />,
+    );
 
     const control = screen.getByRole('switch', { name: 'فعال‌سازی کارتخوان' });
     expect(control).toBeChecked();

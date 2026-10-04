@@ -9,8 +9,16 @@ import { Textarea } from '../../ui/compat-textarea';
 import { CheckboxCompat } from '../../ui/compat-checkbox';
 import { ShamsiDatePicker } from '../../ui/ShamsiDatePicker';
 import { formatPriceInput, parseFormattedNumber } from '../../utils/money';
-import { createServiceJobLocal, type LocalServiceBoard, type ServiceJobPriority } from '../../services/serviceJobsLocalDb';
-import { getServiceJobStaffRemote, phoneLookupServiceJobRemote, registerServiceCustomerRemote } from '../../services/api';
+import {
+  createServiceJobLocal,
+  type LocalServiceBoard,
+  type ServiceJobPriority,
+} from '../../services/serviceJobsLocalDb';
+import {
+  getServiceJobStaffRemote,
+  phoneLookupServiceJobRemote,
+  registerServiceCustomerRemote,
+} from '../../services/api';
 import { resolveOnlineStatus } from '../../services/serviceJobsSync';
 import { toast } from '../../utils/toast';
 
@@ -31,9 +39,19 @@ interface Props {
   onCreated: () => void;
 }
 
-export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restaurantId, token, onCreated }: Props) {
+export function CreateJobModal({
+  isOpen,
+  onClose,
+  board,
+  defaultStatusId,
+  restaurantId,
+  token,
+  onCreated,
+}: Props) {
   const [title, setTitle] = useState('');
-  const [statusId, setStatusId] = useState<string>(String(defaultStatusId ?? board.statuses[0]?.id ?? ''));
+  const [statusId, setStatusId] = useState<string>(
+    String(defaultStatusId ?? board.statuses[0]?.id ?? ''),
+  );
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerFirstName, setCustomerFirstName] = useState('');
   const [customerLastName, setCustomerLastName] = useState('');
@@ -43,7 +61,11 @@ export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restau
   const [estimatedAmount, setEstimatedAmount] = useState('');
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [staff, setStaff] = useState<{ id: number; name: string }[]>([]);
-  const [lookupResult, setLookupResult] = useState<{ found: boolean; customerId?: number; name?: string } | null>(null);
+  const [lookupResult, setLookupResult] = useState<{
+    found: boolean;
+    customerId?: number;
+    name?: string;
+  } | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -52,7 +74,10 @@ export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restau
     if (!isOpen) return;
     setStatusId(String(defaultStatusId ?? board.statuses[0]?.id ?? ''));
     resolveOnlineStatus().then((online) => {
-      if (online) getServiceJobStaffRemote(restaurantId, token).then(setStaff).catch(() => {});
+      if (online)
+        getServiceJobStaffRemote(restaurantId, token)
+          .then(setStaff)
+          .catch(() => {});
     });
   }, [isOpen, defaultStatusId, board, restaurantId, token]);
 
@@ -64,7 +89,10 @@ export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restau
       setIsLookingUp(true);
       lookupTimer.current = setTimeout(async () => {
         const online = await resolveOnlineStatus();
-        if (!online) { setIsLookingUp(false); return; }
+        if (!online) {
+          setIsLookingUp(false);
+          return;
+        }
         try {
           const res = await phoneLookupServiceJobRemote(customerPhone.trim(), token);
           setLookupResult(res);
@@ -75,12 +103,22 @@ export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restau
         }
       }, 600);
     }
-    return () => { if (lookupTimer.current) clearTimeout(lookupTimer.current); };
+    return () => {
+      if (lookupTimer.current) clearTimeout(lookupTimer.current);
+    };
   }, [customerPhone, token]);
 
   const reset = () => {
-    setTitle(''); setCustomerPhone(''); setCustomerFirstName(''); setCustomerLastName(''); setAssigneeId('');
-    setPriority('normal'); setDueDate(''); setEstimatedAmount(''); setFormData({}); setLookupResult(null);
+    setTitle('');
+    setCustomerPhone('');
+    setCustomerFirstName('');
+    setCustomerLastName('');
+    setAssigneeId('');
+    setPriority('normal');
+    setDueDate('');
+    setEstimatedAmount('');
+    setFormData({});
+    setLookupResult(null);
   };
 
   const sortedFields = [...(board.formFields ?? [])].sort((a, b) => a.order - b.order);
@@ -88,7 +126,9 @@ export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restau
   const handleFieldChange = (key: string, value: any) => {
     setFormData((prev) => {
       const next = { ...prev, [key]: value };
-      sortedFields.forEach((f) => { if (f.dependsOnKey === key) delete next[f.key]; });
+      sortedFields.forEach((f) => {
+        if (f.dependsOnKey === key) delete next[f.key];
+      });
       return next;
     });
   };
@@ -102,7 +142,9 @@ export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restau
     if (!title.trim() || !statusId || nameMissing || pendingLookup) return;
     setIsSubmitting(true);
     try {
-      let resolvedCustomerId: number | null = lookupResult?.found ? (lookupResult.customerId ?? null) : null;
+      let resolvedCustomerId: number | null = lookupResult?.found
+        ? (lookupResult.customerId ?? null)
+        : null;
       let resolvedName: string | null = lookupResult?.found ? (lookupResult.name ?? null) : null;
 
       if (phoneEntered && !resolvedCustomerId) {
@@ -114,7 +156,11 @@ export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restau
         }
         const res = await registerServiceCustomerRemote(
           restaurantId,
-          { phone: customerPhone.trim(), firstName: customerFirstName.trim(), lastName: customerLastName.trim() },
+          {
+            phone: customerPhone.trim(),
+            firstName: customerFirstName.trim(),
+            lastName: customerLastName.trim(),
+          },
           token,
         );
         resolvedCustomerId = res.customerId;
@@ -155,18 +201,33 @@ export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restau
       <ModalShell size="lg">
         <ModalHeader>پرونده جدید — {board.name}</ModalHeader>
         <ModalBody className="space-y-3">
-          <Input label="عنوان پرونده *" value={title} onValueChange={setTitle} placeholder="مثال: تعمیر آیفون ۱۵" />
+          <Input
+            label="عنوان پرونده *"
+            value={title}
+            onValueChange={setTitle}
+            placeholder="مثال: تعمیر آیفون ۱۵"
+          />
 
           <Select
             label="وضعیت اولیه"
             selectedKeys={statusId ? [statusId] : []}
-            onSelectionChange={(keys) => { const v = Array.from(keys)[0]; if (v) setStatusId(v); }}
+            onSelectionChange={(keys) => {
+              const v = Array.from(keys)[0];
+              if (v) setStatusId(v);
+            }}
           >
-            {board.statuses.map((s) => <SelectItem key={String(s.id)}>{s.label}</SelectItem>)}
+            {board.statuses.map((s) => (
+              <SelectItem key={String(s.id)}>{s.label}</SelectItem>
+            ))}
           </Select>
 
           <div className="space-y-1">
-            <Input label="شماره موبایل مشتری" value={customerPhone} onValueChange={setCustomerPhone} dir="ltr" />
+            <Input
+              label="شماره موبایل مشتری"
+              value={customerPhone}
+              onValueChange={setCustomerPhone}
+              dir="ltr"
+            />
             {pendingLookup && <p className="text-xs text-muted px-1">در حال بررسی…</p>}
             {!pendingLookup && lookupResult?.found && (
               <p className="text-xs text-success px-1">✓ مشتری: {lookupResult.name}</p>
@@ -176,7 +237,11 @@ export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restau
           {needsNameEntry && (
             <div className="grid grid-cols-2 gap-3">
               <Input label="نام *" value={customerFirstName} onValueChange={setCustomerFirstName} />
-              <Input label="نام خانوادگی *" value={customerLastName} onValueChange={setCustomerLastName} />
+              <Input
+                label="نام خانوادگی *"
+                value={customerLastName}
+                onValueChange={setCustomerLastName}
+              />
             </div>
           )}
 
@@ -184,9 +249,14 @@ export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restau
             <Select
               label="اولویت"
               selectedKeys={[priority]}
-              onSelectionChange={(keys) => { const v = Array.from(keys)[0] as ServiceJobPriority; if (v) setPriority(v); }}
+              onSelectionChange={(keys) => {
+                const v = Array.from(keys)[0] as ServiceJobPriority;
+                if (v) setPriority(v);
+              }}
             >
-              {PRIORITY_OPTIONS.map((p) => <SelectItem key={p.key}>{p.label}</SelectItem>)}
+              {PRIORITY_OPTIONS.map((p) => (
+                <SelectItem key={p.key}>{p.label}</SelectItem>
+              ))}
             </Select>
             <ShamsiDatePicker label="تاریخ سررسید" value={dueDate} onChange={setDueDate} />
           </div>
@@ -195,26 +265,43 @@ export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restau
             <Select
               label="مسئول"
               selectedKeys={assigneeId ? [assigneeId] : []}
-              onSelectionChange={(keys) => setAssigneeId(Array.from(keys)[0] as string ?? '')}
+              onSelectionChange={(keys) => setAssigneeId((Array.from(keys)[0] as string) ?? '')}
             >
               <SelectItem key="">بدون مسئول</SelectItem>
-              {staff.map((s) => <SelectItem key={String(s.id)}>{s.name}</SelectItem>)}
+              {staff.map((s) => (
+                <SelectItem key={String(s.id)}>{s.name}</SelectItem>
+              ))}
             </Select>
           )}
 
           <Input
             label="مبلغ تخمینی (تومان)"
             value={formatPriceInput(estimatedAmount)}
-            onValueChange={(v) => setEstimatedAmount(v === '' ? '' : String(parseFormattedNumber(v)))}
+            onValueChange={(v) =>
+              setEstimatedAmount(v === '' ? '' : String(parseFormattedNumber(v)))
+            }
           />
 
           {sortedFields.map((field) => (
-            <DynamicField key={field.key} field={field} value={formData[field.key]} onChange={(v) => handleFieldChange(field.key, v)} formData={formData} />
+            <DynamicField
+              key={field.key}
+              field={field}
+              value={formData[field.key]}
+              onChange={(v) => handleFieldChange(field.key, v)}
+              formData={formData}
+            />
           ))}
         </ModalBody>
         <ModalFooter>
-          <Button variant="light" onPress={onClose} isDisabled={isSubmitting}>انصراف</Button>
-          <Button color="primary" onPress={handleSubmit} isLoading={isSubmitting} isDisabled={!title.trim() || nameMissing || pendingLookup}>
+          <Button variant="light" onPress={onClose} isDisabled={isSubmitting}>
+            انصراف
+          </Button>
+          <Button
+            color="primary"
+            onPress={handleSubmit}
+            isLoading={isSubmitting}
+            isDisabled={!title.trim() || nameMissing || pendingLookup}
+          >
             ایجاد پرونده
           </Button>
         </ModalFooter>
@@ -223,7 +310,10 @@ export function CreateJobModal({ isOpen, onClose, board, defaultStatusId, restau
   );
 }
 
-function getFieldOptions(field: LocalServiceBoard['formFields'][number], formData: Record<string, any>): string[] {
+function getFieldOptions(
+  field: LocalServiceBoard['formFields'][number],
+  formData: Record<string, any>,
+): string[] {
   if (!field.dependsOnKey) {
     return Array.isArray(field.options) ? field.options : [];
   }
@@ -233,7 +323,12 @@ function getFieldOptions(field: LocalServiceBoard['formFields'][number], formDat
   return (field.options as Record<string, string[]> | null)?.[parentValue] ?? [];
 }
 
-function DynamicField({ field, value, onChange, formData }: {
+function DynamicField({
+  field,
+  value,
+  onChange,
+  formData,
+}: {
   field: LocalServiceBoard['formFields'][number];
   value: any;
   onChange: (v: any) => void;
@@ -255,16 +350,27 @@ function DynamicField({ field, value, onChange, formData }: {
           label={label}
           selectedKeys={value ? [value] : []}
           isDisabled={parentNotChosenYet}
-          onSelectionChange={(keys) => { const v = Array.from(keys)[0]; if (v) onChange(String(v)); }}
+          onSelectionChange={(keys) => {
+            const v = Array.from(keys)[0];
+            if (v) onChange(String(v));
+          }}
         >
-          {opts.map((opt) => <SelectItem key={opt}>{opt}</SelectItem>)}
+          {opts.map((opt) => (
+            <SelectItem key={opt}>{opt}</SelectItem>
+          ))}
         </Select>
       );
     }
     case 'checkbox':
-      return <CheckboxCompat isSelected={!!value} onValueChange={onChange}>{field.label}</CheckboxCompat>;
+      return (
+        <CheckboxCompat isSelected={!!value} onValueChange={onChange}>
+          {field.label}
+        </CheckboxCompat>
+      );
     case 'phone':
-      return <Input label={label} type="tel" value={value ?? ''} onValueChange={onChange} dir="ltr" />;
+      return (
+        <Input label={label} type="tel" value={value ?? ''} onValueChange={onChange} dir="ltr" />
+      );
     default:
       return <Input label={label} value={value ?? ''} onValueChange={onChange} />;
   }

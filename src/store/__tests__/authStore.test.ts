@@ -144,9 +144,7 @@ describe('login', () => {
       apiLogin.mockResolvedValue({ user: { id: 1, mobile: 'x' }, access_token: 'tok-1' });
       fetchProfile.mockResolvedValue({ id: 1, mobile: 'x' });
 
-      await expect(useAuthStore.getState().login('x', 'pw')).rejects.toThrow(
-        /دسترسی ثبت سفارش/,
-      );
+      await expect(useAuthStore.getState().login('x', 'pw')).rejects.toThrow(/دسترسی ثبت سفارش/);
     });
 
     it('rejects a user whose orders permission is inactive', async () => {
@@ -165,9 +163,7 @@ describe('login', () => {
         access_token: 'tok-1',
       });
 
-      await expect(useAuthStore.getState().login('x', 'pw')).rejects.toThrow(
-        /دسترسی ثبت سفارش/,
-      );
+      await expect(useAuthStore.getState().login('x', 'pw')).rejects.toThrow(/دسترسی ثبت سفارش/);
     });
 
     it('rejects a permission granted on a different restaurant', async () => {
@@ -186,9 +182,7 @@ describe('login', () => {
         access_token: 'tok-1',
       });
 
-      await expect(useAuthStore.getState().login('x', 'pw')).rejects.toThrow(
-        /دسترسی ثبت سفارش/,
-      );
+      await expect(useAuthStore.getState().login('x', 'pw')).rejects.toThrow(/دسترسی ثبت سفارش/);
     });
 
     it('rejects a permission on another module', async () => {
@@ -207,9 +201,7 @@ describe('login', () => {
         access_token: 'tok-1',
       });
 
-      await expect(useAuthStore.getState().login('x', 'pw')).rejects.toThrow(
-        /دسترسی ثبت سفارش/,
-      );
+      await expect(useAuthStore.getState().login('x', 'pw')).rejects.toThrow(/دسترسی ثبت سفارش/);
     });
 
     it('accepts the broader "manage" action in place of "create"', async () => {
@@ -265,9 +257,10 @@ describe('login', () => {
       expect(localStorage.getItem(`subscription_check_${RESTAURANT_ID}`)).toBe(
         '2026-08-01T00:00:00.000Z',
       );
-      expect(
-        JSON.parse(localStorage.getItem(`subscription_data_${RESTAURANT_ID}`)!),
-      ).toEqual({ expiresAt: '2027-01-01T00:00:00.000Z', status: 'active' });
+      expect(JSON.parse(localStorage.getItem(`subscription_data_${RESTAURANT_ID}`)!)).toEqual({
+        expiresAt: '2027-01-01T00:00:00.000Z',
+        status: 'active',
+      });
     });
 
     it('exposes the expiry date so the UI can warn before it lapses', async () => {
@@ -367,9 +360,7 @@ describe('login', () => {
     it('reports a connectivity problem when the request never got a reply', async () => {
       apiLogin.mockRejectedValue({ request: {} });
 
-      await expect(useAuthStore.getState().login('x', 'pw')).rejects.toThrow(
-        /اتصال به سرور/,
-      );
+      await expect(useAuthStore.getState().login('x', 'pw')).rejects.toThrow(/اتصال به سرور/);
     });
 
     it('clears isLoading and marks the store hydrated after a failure', async () => {

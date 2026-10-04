@@ -79,7 +79,9 @@ export default function AccountingExpensesPage() {
       });
     };
     walk(null, 0);
-    categories.forEach((c) => { if (!visited.has(c.id)) options.push({ ...c, depth: 0 }); });
+    categories.forEach((c) => {
+      if (!visited.has(c.id)) options.push({ ...c, depth: 0 });
+    });
     return options;
   }, [categories]);
   const [search, setSearch] = useState('');
@@ -147,7 +149,11 @@ export default function AccountingExpensesPage() {
       await reloadLocal();
     } catch (error) {
       // لاگ تشخیصی موقت — برای ردیابی گزارش «صفحه‌ی هزینه‌ها کلاً خالی می‌شود»
-      console.warn('[Expenses] online fetch failed, falling back to local-only', { restaurantId, fiscalYearId, error });
+      console.warn('[Expenses] online fetch failed, falling back to local-only', {
+        restaurantId,
+        fiscalYearId,
+        error,
+      });
       setIsOnline(false);
     }
   }, [restaurantId, token, fiscalYearId, reloadLocal]);
@@ -172,10 +178,15 @@ export default function AccountingExpensesPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
-    return rows.filter((x) =>
-      String(x.description || '').toLowerCase().includes(q) ||
-      String(x.expenseDate || '').includes(q) ||
-      String(x.expenseCategory?.name || '').toLowerCase().includes(q),
+    return rows.filter(
+      (x) =>
+        String(x.description || '')
+          .toLowerCase()
+          .includes(q) ||
+        String(x.expenseDate || '').includes(q) ||
+        String(x.expenseCategory?.name || '')
+          .toLowerCase()
+          .includes(q),
     );
   }, [rows, search]);
 
@@ -222,24 +233,36 @@ export default function AccountingExpensesPage() {
         // همین فاصله همین عملیات را هم پوش کند و روی سرور یک هزینه‌ی تکراری بسازد.
         await markPendingSyncOpsInFlight('operational_expense', String(localRow.id));
         createOperationalExpenseOnline(
-          { restaurantId, expenseCategoryId: Number(categoryId), expenseDate, amount: parsedAmount, description: description.trim() || undefined },
+          {
+            restaurantId,
+            expenseCategoryId: Number(categoryId),
+            expenseDate,
+            amount: parsedAmount,
+            description: description.trim() || undefined,
+          },
           token,
-        ).then((serverRow) => {
-          // id سرور را جایگزین id محلی کن — سرور id را به صورت رشته برمی‌گرداند
-          // (ستون bigint)، این‌جا به number نرمالایزش می‌کنیم وگرنه primary key این
-          // رکورد در Dexie با چیزی که بقیه‌ی کد (مثلاً حذف) انتظار دارد یکی نمی‌شود.
-          accountingDb.operationalExpenses.delete(localRow.id);
-          accountingDb.operationalExpenses.put({ ...serverRow, id: Number(serverRow.id), restaurantId });
-          // عملیات صف‌شده برای همین رکورد را پاک کن — وگرنه سینک پس‌زمینه دوباره
-          // آن را (با id موقت محلی و بدون fiscalYearId) به سرور می‌فرستد و برای
-          // همیشه با خطای «requires expenseCategoryId and fiscalYearId» شکست می‌خورد.
-          void cancelPendingSyncOp('operational_expense', String(localRow.id));
-          void reloadLocal();
-        }).catch(() => {
-          // درخواست مستقیم شکست خورد — عملیات صف‌شده را برای تلاش مجدد توسط
-          // سینک پس‌زمینه به حالت 'pending' برگردان.
-          void restorePendingSyncOps('operational_expense', String(localRow.id));
-        });
+        )
+          .then((serverRow) => {
+            // id سرور را جایگزین id محلی کن — سرور id را به صورت رشته برمی‌گرداند
+            // (ستون bigint)، این‌جا به number نرمالایزش می‌کنیم وگرنه primary key این
+            // رکورد در Dexie با چیزی که بقیه‌ی کد (مثلاً حذف) انتظار دارد یکی نمی‌شود.
+            accountingDb.operationalExpenses.delete(localRow.id);
+            accountingDb.operationalExpenses.put({
+              ...serverRow,
+              id: Number(serverRow.id),
+              restaurantId,
+            });
+            // عملیات صف‌شده برای همین رکورد را پاک کن — وگرنه سینک پس‌زمینه دوباره
+            // آن را (با id موقت محلی و بدون fiscalYearId) به سرور می‌فرستد و برای
+            // همیشه با خطای «requires expenseCategoryId and fiscalYearId» شکست می‌خورد.
+            void cancelPendingSyncOp('operational_expense', String(localRow.id));
+            void reloadLocal();
+          })
+          .catch(() => {
+            // درخواست مستقیم شکست خورد — عملیات صف‌شده را برای تلاش مجدد توسط
+            // سینک پس‌زمینه به حالت 'pending' برگردان.
+            void restorePendingSyncOps('operational_expense', String(localRow.id));
+          });
       }
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'خطا در ثبت هزینه');
@@ -250,7 +273,15 @@ export default function AccountingExpensesPage() {
 
   // ─── ویرایش هزینه ────────────────────────────────────────────────────────
   const handleEdit = async () => {
-    if (!restaurantId || !token || !editingRow || !editCategoryId || !editAmount || !editExpenseDate) return;
+    if (
+      !restaurantId ||
+      !token ||
+      !editingRow ||
+      !editCategoryId ||
+      !editAmount ||
+      !editExpenseDate
+    )
+      return;
     const parsedAmount = parseFormattedNumber(editAmount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     setEditSaving(true);
@@ -276,12 +307,26 @@ export default function AccountingExpensesPage() {
       if (isOnline) {
         updateOperationalExpenseOnline(
           editId,
-          { restaurantId, expenseCategoryId: Number(editCategoryId), expenseDate: editExpenseDate, amount: parsedAmount, description: editDescription.trim() || undefined },
+          {
+            restaurantId,
+            expenseCategoryId: Number(editCategoryId),
+            expenseDate: editExpenseDate,
+            amount: parsedAmount,
+            description: editDescription.trim() || undefined,
+          },
           token,
-        ).then((serverRow) => {
-          accountingDb.operationalExpenses.put({ ...serverRow, id: Number(serverRow.id), restaurantId });
-          void reloadLocal();
-        }).catch(() => { /* sync بعداً انجام می‌شود */ });
+        )
+          .then((serverRow) => {
+            accountingDb.operationalExpenses.put({
+              ...serverRow,
+              id: Number(serverRow.id),
+              restaurantId,
+            });
+            void reloadLocal();
+          })
+          .catch(() => {
+            /* sync بعداً انجام می‌شود */
+          });
       }
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'خطا در ویرایش هزینه');
@@ -327,25 +372,36 @@ export default function AccountingExpensesPage() {
   // ─── UI ──────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background p-6 space-y-4">
-
       {/* هدر */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold">ثبت هزینه‌ها</h1>
           <span
             className={`text-xs rounded-full px-2 py-0.5 font-medium ${
-              isOnline
-                ? 'bg-success-soft text-success-soft-foreground'
-                : 'bg-default text-muted'
+              isOnline ? 'bg-success-soft text-success-soft-foreground' : 'bg-default text-muted'
             }`}
           >
             {isOnline ? '● آنلاین' : '○ آفلاین'}
           </span>
         </div>
         <div className="flex gap-2">
-          <Button variant="flat" onPress={() => navigate('/accounting')}>بازگشت</Button>
-          <Button variant="flat" color="secondary" onPress={() => navigate('/accounting/expense-categories')}>دسته‌بندی هزینه‌ها</Button>
-          <Button color="primary" onPress={() => { resetForm(); setCreateOpen(true); }}>
+          <Button variant="flat" onPress={() => navigate('/accounting')}>
+            بازگشت
+          </Button>
+          <Button
+            variant="flat"
+            color="secondary"
+            onPress={() => navigate('/accounting/expense-categories')}
+          >
+            دسته‌بندی هزینه‌ها
+          </Button>
+          <Button
+            color="primary"
+            onPress={() => {
+              resetForm();
+              setCreateOpen(true);
+            }}
+          >
             ثبت هزینه
           </Button>
         </div>
@@ -389,68 +445,67 @@ export default function AccountingExpensesPage() {
           </div>
 
           {loading && (
-            <p className="text-center text-sm text-muted py-6 animate-pulse">
-              در حال بارگذاری...
-            </p>
+            <p className="text-center text-sm text-muted py-6 animate-pulse">در حال بارگذاری...</p>
           )}
 
           {!loading && filtered.length === 0 && (
-            <p className="text-center text-sm text-muted py-6">
-              هزینه‌ای ثبت نشده است.
-            </p>
+            <p className="text-center text-sm text-muted py-6">هزینه‌ای ثبت نشده است.</p>
           )}
 
-          {!loading && filtered.map((e) => (
-            <div
-              key={e.id}
-              className="bg-default-soft border border-border rounded-lg p-3 text-sm"
-            >
-              <div className="flex justify-between items-start gap-2">
-                <div className="space-y-1 min-w-0">
-                  <div className="font-semibold text-foreground">
-                    {formatAmount(e.amount)} ریال
-                  </div>
-                  <div className="text-muted text-xs">
-                    دسته: {categoryName(e)}
-                  </div>
-                  {e.description && (
-                    <div className="text-foreground/70 text-xs truncate">{e.description}</div>
-                  )}
-                </div>
-                <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  <div className="text-xs text-muted whitespace-nowrap">
-                    {toShamsiDate(String(e.expenseDate || '').slice(0, 10))}
-                  </div>
-                  {isOnline && (
-                    <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="flat"
-                        onPress={() => {
-                          setEditingRow(e);
-                          setEditCategoryId(String(e.expenseCategory?.id || e.expenseCategoryId || ''));
-                          setEditAmount(String(e.amount || ''));
-                          setEditExpenseDate(String(e.expenseDate || '').slice(0, 10) || todayIso());
-                          setEditDescription(e.description || '');
-                          setEditOpen(true);
-                        }}
-                      >
-                        ویرایش
-                      </Button>
-                      <Button
-                        size="sm"
-                        color="danger"
-                        variant="light"
-                        onPress={() => void handleDelete(e)}
-                      >
-                        حذف
-                      </Button>
+          {!loading &&
+            filtered.map((e) => (
+              <div
+                key={e.id}
+                className="bg-default-soft border border-border rounded-lg p-3 text-sm"
+              >
+                <div className="flex justify-between items-start gap-2">
+                  <div className="space-y-1 min-w-0">
+                    <div className="font-semibold text-foreground">
+                      {formatAmount(e.amount)} ریال
                     </div>
-                  )}
+                    <div className="text-muted text-xs">دسته: {categoryName(e)}</div>
+                    {e.description && (
+                      <div className="text-foreground/70 text-xs truncate">{e.description}</div>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <div className="text-xs text-muted whitespace-nowrap">
+                      {toShamsiDate(String(e.expenseDate || '').slice(0, 10))}
+                    </div>
+                    {isOnline && (
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="flat"
+                          onPress={() => {
+                            setEditingRow(e);
+                            setEditCategoryId(
+                              String(e.expenseCategory?.id || e.expenseCategoryId || ''),
+                            );
+                            setEditAmount(String(e.amount || ''));
+                            setEditExpenseDate(
+                              String(e.expenseDate || '').slice(0, 10) || todayIso(),
+                            );
+                            setEditDescription(e.description || '');
+                            setEditOpen(true);
+                          }}
+                        >
+                          ویرایش
+                        </Button>
+                        <Button
+                          size="sm"
+                          color="danger"
+                          variant="light"
+                          onPress={() => void handleDelete(e)}
+                        >
+                          حذف
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
         </CardContent>
       </Card>
 
@@ -489,7 +544,9 @@ export default function AccountingExpensesPage() {
             />
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setCreateOpen(false)}>انصراف</Button>
+            <Button variant="flat" onPress={() => setCreateOpen(false)}>
+              انصراف
+            </Button>
             <Button
               color="primary"
               isLoading={saving}
@@ -537,11 +594,15 @@ export default function AccountingExpensesPage() {
             />
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setEditOpen(false)}>انصراف</Button>
+            <Button variant="flat" onPress={() => setEditOpen(false)}>
+              انصراف
+            </Button>
             <Button
               color="primary"
               isLoading={editSaving}
-              isDisabled={!editCategoryId || !editAmount || Number(editAmount) <= 0 || !editExpenseDate}
+              isDisabled={
+                !editCategoryId || !editAmount || Number(editAmount) <= 0 || !editExpenseDate
+              }
               onPress={handleEdit}
             >
               ذخیره
@@ -549,7 +610,6 @@ export default function AccountingExpensesPage() {
           </ModalFooter>
         </ModalShell>
       </Modal>
-
     </div>
   );
 }

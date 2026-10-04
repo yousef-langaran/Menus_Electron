@@ -93,9 +93,12 @@ describe('usePosShiftStore', () => {
     const saveOfflineAction = mockOfflineQueueBridge();
     (api.openPosShift as any).mockRejectedValue({ request: {}, response: undefined });
 
-    const result = await usePosShiftStore
-      .getState()
-      .openShift({ restaurantId: 7, openingFloatAmount: 300000, openingNotes: 'شروع شیفت صبح', token: 'tok' });
+    const result = await usePosShiftStore.getState().openShift({
+      restaurantId: 7,
+      openingFloatAmount: 300000,
+      openingNotes: 'شروع شیفت صبح',
+      token: 'tok',
+    });
 
     expect(result.success).toBe(true);
     expect(saveOfflineAction).toHaveBeenCalledTimes(1);
@@ -114,7 +117,9 @@ describe('usePosShiftStore', () => {
     setOnline(false);
     const saveOfflineAction = mockOfflineQueueBridge();
 
-    await usePosShiftStore.getState().openShift({ restaurantId: 7, openingFloatAmount: 200000, token: 'tok' });
+    await usePosShiftStore
+      .getState()
+      .openShift({ restaurantId: 7, openingFloatAmount: 200000, token: 'tok' });
 
     expect(api.openPosShift).not.toHaveBeenCalled();
     expect(saveOfflineAction).toHaveBeenCalledTimes(1);
@@ -122,14 +127,18 @@ describe('usePosShiftStore', () => {
   });
 
   it('rejects closing when there is no open shift', async () => {
-    const result = await usePosShiftStore.getState().closeShift({ countedCashAmount: 100000, token: 'tok' });
+    const result = await usePosShiftStore
+      .getState()
+      .closeShift({ countedCashAmount: 100000, token: 'tok' });
     expect(result.success).toBe(false);
   });
 
   it('closes an online, already-synced shift by calling the server and clears pendingSync', async () => {
     setOnline(true);
     (api.openPosShift as any).mockResolvedValue(sampleShiftRow());
-    await usePosShiftStore.getState().openShift({ restaurantId: 7, openingFloatAmount: 500000, token: 'tok' });
+    await usePosShiftStore
+      .getState()
+      .openShift({ restaurantId: 7, openingFloatAmount: 500000, token: 'tok' });
 
     (api.closePosShift as any).mockResolvedValue(
       sampleShiftRow({
@@ -141,7 +150,9 @@ describe('usePosShiftStore', () => {
       }),
     );
 
-    const result = await usePosShiftStore.getState().closeShift({ countedCashAmount: 520000, token: 'tok' });
+    const result = await usePosShiftStore
+      .getState()
+      .closeShift({ countedCashAmount: 520000, token: 'tok' });
 
     expect(result.success).toBe(true);
     const shift = usePosShiftStore.getState().currentShift;
@@ -153,14 +164,18 @@ describe('usePosShiftStore', () => {
   it('queues a close for a shift that was opened offline and never got a server id, even while online', async () => {
     setOnline(false);
     mockOfflineQueueBridge();
-    await usePosShiftStore.getState().openShift({ restaurantId: 7, openingFloatAmount: 400000, token: 'tok' });
+    await usePosShiftStore
+      .getState()
+      .openShift({ restaurantId: 7, openingFloatAmount: 400000, token: 'tok' });
     expect(usePosShiftStore.getState().currentShift?.id).toBeNull();
 
     // Cashier comes back online mid-shift, but the open itself has not synced yet
     setOnline(true);
     const saveOfflineAction = mockOfflineQueueBridge();
 
-    const result = await usePosShiftStore.getState().closeShift({ countedCashAmount: 410000, token: 'tok' });
+    const result = await usePosShiftStore
+      .getState()
+      .closeShift({ countedCashAmount: 410000, token: 'tok' });
 
     expect(result.success).toBe(true);
     expect(api.closePosShift).not.toHaveBeenCalled();
@@ -185,7 +200,9 @@ describe('usePosShiftStore', () => {
   it('fetchReport delegates to the API once a shift has a server id', async () => {
     setOnline(true);
     (api.openPosShift as any).mockResolvedValue(sampleShiftRow());
-    await usePosShiftStore.getState().openShift({ restaurantId: 7, openingFloatAmount: 500000, token: 'tok' });
+    await usePosShiftStore
+      .getState()
+      .openShift({ restaurantId: 7, openingFloatAmount: 500000, token: 'tok' });
 
     const fakeReport = { shiftId: 1 } as any;
     (api.getPosShiftReport as any).mockResolvedValue(fakeReport);
@@ -198,7 +215,9 @@ describe('usePosShiftStore', () => {
   it('loadCurrentShift preserves a pending offline shift instead of clearing it when the server has no open shift yet', async () => {
     setOnline(false);
     mockOfflineQueueBridge();
-    await usePosShiftStore.getState().openShift({ restaurantId: 7, openingFloatAmount: 250000, token: 'tok' });
+    await usePosShiftStore
+      .getState()
+      .openShift({ restaurantId: 7, openingFloatAmount: 250000, token: 'tok' });
 
     setOnline(true);
     (api.getCurrentPosShift as any).mockResolvedValue(null);

@@ -2,7 +2,16 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button, Dropdown, Header, Separator } from '@heroui/react';
 import { Chip } from '@/ui/compat-chip';
-import { ShoppingCart, LayoutGrid, Wallet, ClipboardList, SlidersHorizontal, ChevronDown, LogOut, UserRound } from 'lucide-react';
+import {
+  ShoppingCart,
+  LayoutGrid,
+  Wallet,
+  ClipboardList,
+  SlidersHorizontal,
+  ChevronDown,
+  LogOut,
+  UserRound,
+} from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useCallerIdStore } from '../store/callerIdStore';
 import { useSyncStore } from '../store/syncStore';
@@ -138,32 +147,88 @@ export function ElectronMenubar() {
 
   const catalogItems: NavLeaf[] = useMemo(
     () => [
-      { path: '/products', label: 'مدیریت محصولات', visible: (u) => canAccessRoute(u, '/products') },
-      { path: '/categories', label: 'مدیریت دسته‌بندی‌ها', visible: (u) => canAccessRoute(u, '/categories') },
+      {
+        path: '/products',
+        label: 'مدیریت محصولات',
+        visible: (u) => canAccessRoute(u, '/products'),
+      },
+      {
+        path: '/categories',
+        label: 'مدیریت دسته‌بندی‌ها',
+        visible: (u) => canAccessRoute(u, '/categories'),
+      },
     ],
     [],
   );
 
   const accountingItems: NavLeaf[] = useMemo(
     () => [
-      { path: '/accounting', label: 'داشبورد حسابداری', visible: (u) => canAccessRoute(u, '/accounting') },
-      { path: '/accounting/raw-materials', label: 'مواد اولیه', visible: (u) => canAccessRoute(u, '/accounting/raw-materials') },
-      { path: '/accounting/raw-material-categories', label: 'دسته‌بندی مواد اولیه', visible: (u) => canAccessRoute(u, '/accounting/raw-material-categories') },
-      { path: '/accounting/suppliers', label: 'تأمین‌کنندگان', visible: (u) => canAccessRoute(u, '/accounting/suppliers') },
-      { path: '/accounting/purchase-drafts', label: 'فاکتورهای خرید', visible: (u) => canAccessRoute(u, '/accounting/purchase-drafts') },
-      { path: '/accounting/purchase-returns', label: 'برگشت از خرید', visible: (u) => canAccessRoute(u, '/accounting/purchase-returns') },
-      { path: '/accounting/kardex', label: 'گزارش کاردکس کالا', visible: (u) => canAccessRoute(u, '/accounting/kardex') },
-      { path: '/accounting/expenses', label: 'ثبت هزینه', visible: (u) => canAccessRoute(u, '/accounting/expenses') },
-      { path: '/accounting/cash-accounts', label: 'صندوق و حساب‌ها', visible: (u) => canAccessRoute(u, '/accounting/cash-accounts') },
+      {
+        path: '/accounting',
+        label: 'داشبورد حسابداری',
+        visible: (u) => canAccessRoute(u, '/accounting'),
+      },
+      {
+        path: '/accounting/raw-materials',
+        label: 'مواد اولیه',
+        visible: (u) => canAccessRoute(u, '/accounting/raw-materials'),
+      },
+      {
+        path: '/accounting/raw-material-categories',
+        label: 'دسته‌بندی مواد اولیه',
+        visible: (u) => canAccessRoute(u, '/accounting/raw-material-categories'),
+      },
+      {
+        path: '/accounting/suppliers',
+        label: 'تأمین‌کنندگان',
+        visible: (u) => canAccessRoute(u, '/accounting/suppliers'),
+      },
+      {
+        path: '/accounting/purchase-drafts',
+        label: 'فاکتورهای خرید',
+        visible: (u) => canAccessRoute(u, '/accounting/purchase-drafts'),
+      },
+      {
+        path: '/accounting/purchase-returns',
+        label: 'برگشت از خرید',
+        visible: (u) => canAccessRoute(u, '/accounting/purchase-returns'),
+      },
+      {
+        path: '/accounting/kardex',
+        label: 'گزارش کاردکس کالا',
+        visible: (u) => canAccessRoute(u, '/accounting/kardex'),
+      },
+      {
+        path: '/accounting/expenses',
+        label: 'ثبت هزینه',
+        visible: (u) => canAccessRoute(u, '/accounting/expenses'),
+      },
+      {
+        path: '/accounting/cash-accounts',
+        label: 'صندوق و حساب‌ها',
+        visible: (u) => canAccessRoute(u, '/accounting/cash-accounts'),
+      },
     ],
     [],
   );
 
   const systemItems: NavLeaf[] = useMemo(
     () => [
-      { path: '/settings', label: 'تنظیمات و سخت‌افزار', visible: (u) => canAccessRoute(u, '/settings') },
-      { path: '/card-terminals', label: 'مدیریت کارتخوان‌ها', visible: (u) => canAccessRoute(u, '/card-terminals') },
-      { path: '/call-history', label: 'تاریخچه تماس‌ها', visible: (u) => callerIdEnabled && canAccessRoute(u, '/call-history') },
+      {
+        path: '/settings',
+        label: 'تنظیمات و سخت‌افزار',
+        visible: (u) => canAccessRoute(u, '/settings'),
+      },
+      {
+        path: '/card-terminals',
+        label: 'مدیریت کارتخوان‌ها',
+        visible: (u) => canAccessRoute(u, '/card-terminals'),
+      },
+      {
+        path: '/call-history',
+        label: 'تاریخچه تماس‌ها',
+        visible: (u) => callerIdEnabled && canAccessRoute(u, '/call-history'),
+      },
     ],
     [callerIdEnabled],
   );
@@ -179,15 +244,16 @@ export function ElectronMenubar() {
   const systemCallVis = systemVis.filter((i) => i.path === '/call-history');
 
   const userLabel =
-    [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
-    user?.mobile ||
-    'کاربر';
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.mobile || 'کاربر';
 
   const restaurantLabel = user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || '';
 
   const onMenuAction = (key: string | number) => {
     const path = String(key);
-    if (path === SHORTCUTS_HELP_KEY) { openShortcutsHelp(); return; }
+    if (path === SHORTCUTS_HELP_KEY) {
+      openShortcutsHelp();
+      return;
+    }
     if (path.startsWith('/')) navigate(path);
   };
 
@@ -204,11 +270,7 @@ export function ElectronMenubar() {
       aria-label="منوی اصلی برنامه"
     >
       <div className="flex items-center gap-2 pe-2">
-        <img
-          src="./branding/secoin-frontend-logo.png"
-          alt="سکه"
-          className="h-7 w-auto ps-1"
-        />
+        <img src="./branding/secoin-frontend-logo.png" alt="سکه" className="h-7 w-auto ps-1" />
         <Chip
           size="sm"
           variant="soft"
@@ -223,9 +285,7 @@ export function ElectronMenubar() {
 
       {salesVis.length > 0 ? (
         <Dropdown.Root>
-          <Dropdown.Trigger
-            className={menuBtnClass(salesGroupActive(pathname))}
-          >
+          <Dropdown.Trigger className={menuBtnClass(salesGroupActive(pathname))}>
             <span className="inline-flex items-center gap-1.5">
               <ShoppingCart className="h-4 w-4" aria-hidden />
               سفارش و فروش
@@ -291,7 +351,11 @@ export function ElectronMenubar() {
             </span>
           </Dropdown.Trigger>
           <Dropdown.Popover>
-            <Dropdown.Menu aria-label="حسابداری" className="max-h-[70vh] overflow-y-auto" onAction={onMenuAction}>
+            <Dropdown.Menu
+              aria-label="حسابداری"
+              className="max-h-[70vh] overflow-y-auto"
+              onAction={onMenuAction}
+            >
               {accountingDash.length > 0 ? (
                 <Dropdown.Section>
                   <Header className="px-3 py-1 text-xs opacity-60">کلیات</Header>
@@ -344,7 +408,9 @@ export function ElectronMenubar() {
       {systemVis.length > 0 ? (
         <Dropdown.Root>
           <Dropdown.Trigger
-            className={menuBtnClass(systemVis.some((i) => pathname === i.path || pathname.startsWith(i.path + '/')))}
+            className={menuBtnClass(
+              systemVis.some((i) => pathname === i.path || pathname.startsWith(i.path + '/')),
+            )}
           >
             <span className="inline-flex items-center gap-1.5">
               <SlidersHorizontal className="h-4 w-4" aria-hidden />
@@ -409,7 +475,12 @@ export function ElectronMenubar() {
 
       <div className="flex items-center gap-2 flex-wrap justify-end ms-auto">
         {restaurantLabel ? (
-          <Chip color={'accent'} size="sm" variant={'soft'} className="max-w-[140px] truncate text-xs">
+          <Chip
+            color={'accent'}
+            size="sm"
+            variant={'soft'}
+            className="max-w-[140px] truncate text-xs"
+          >
             <Chip.Label>{restaurantLabel}</Chip.Label>
           </Chip>
         ) : null}

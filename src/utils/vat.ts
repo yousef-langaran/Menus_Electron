@@ -37,10 +37,7 @@ export function calculateVatAmount(
   const rate = resolveVatRate(vatRate);
   if (rate <= 0) return 0;
 
-  const linesTotal = lines.reduce(
-    (sum, line) => sum + (Number(line.lineTotal) || 0),
-    0,
-  );
+  const linesTotal = lines.reduce((sum, line) => sum + (Number(line.lineTotal) || 0), 0);
   const eligibleTotal = lines.reduce(
     (sum, line) => sum + (line.hasVat ? Number(line.lineTotal) || 0 : 0),
     0,

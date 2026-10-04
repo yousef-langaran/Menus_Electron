@@ -83,11 +83,14 @@ export default function AccountingRawMaterialCategoriesPage() {
           .then((serverRow) => {
             accountingDb.rawMaterialCategories.delete(localRow.id);
             accountingDb.rawMaterialCategories.put({ ...serverRow, restaurantId });
-            setRows((prev) => prev.map((r) => r.id === localRow.id ? { ...serverRow, restaurantId } : r));
+            setRows((prev) =>
+              prev.map((r) => (r.id === localRow.id ? { ...serverRow, restaurantId } : r)),
+            );
             // عملیات صف‌شده برای همین رکورد را پاک کن — وگرنه سینک پس‌زمینه دوباره
             // آن را با id موقت محلی به سرور می‌فرستد و یک دسته‌بندی تکراری واقعی می‌سازد.
             void cancelPendingSyncOp('raw_material_category', String(localRow.id));
-          }).catch(() => {});
+          })
+          .catch(() => {});
       }
     } catch {
       toast.error('خطا در ثبت دسته‌بندی');
@@ -100,18 +103,27 @@ export default function AccountingRawMaterialCategoriesPage() {
     if (!editRow || !restaurantId || !token || !editName.trim()) return;
     setSaving(true);
     try {
-      await updateRawMaterialCategoryLocal({ id: editRow.id, restaurantId, patch: { name: editName.trim() } });
+      await updateRawMaterialCategoryLocal({
+        id: editRow.id,
+        restaurantId,
+        patch: { name: editName.trim() },
+      });
       toast.success('دسته‌بندی ویرایش شد');
-      setRows((prev) => prev.map((r) => r.id === editRow.id ? { ...r, name: editName.trim() } : r));
+      setRows((prev) =>
+        prev.map((r) => (r.id === editRow.id ? { ...r, name: editName.trim() } : r)),
+      );
       setEditOpen(false);
       setEditRow(null);
       if (isOnline) {
         updateRawMaterialCategory(editRow.id, { name: editName.trim() }, token)
           .then((serverRow) => {
             accountingDb.rawMaterialCategories.put({ ...serverRow, restaurantId });
-            setRows((prev) => prev.map((r) => r.id === editRow.id ? { ...serverRow, restaurantId } : r));
+            setRows((prev) =>
+              prev.map((r) => (r.id === editRow.id ? { ...serverRow, restaurantId } : r)),
+            );
             void cancelPendingSyncOp('raw_material_category', String(editRow.id));
-          }).catch(() => {});
+          })
+          .catch(() => {});
       }
     } catch {
       toast.error('خطا در ویرایش دسته‌بندی');
@@ -123,20 +135,27 @@ export default function AccountingRawMaterialCategoriesPage() {
   const handleToggleActive = async (row: RawMaterialCategoryRow) => {
     if (!restaurantId || !token) return;
     const newActive = !row.isActive;
-    setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, isActive: newActive } : r));
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, isActive: newActive } : r)));
     try {
-      await updateRawMaterialCategoryLocal({ id: row.id, restaurantId, patch: { isActive: newActive } });
+      await updateRawMaterialCategoryLocal({
+        id: row.id,
+        restaurantId,
+        patch: { isActive: newActive },
+      });
       toast.success(newActive ? 'فعال شد' : 'غیرفعال شد');
       if (isOnline) {
         updateRawMaterialCategory(row.id, { isActive: newActive }, token)
           .then((serverRow) => {
             accountingDb.rawMaterialCategories.put({ ...serverRow, restaurantId });
-            setRows((prev) => prev.map((r) => r.id === row.id ? { ...serverRow, restaurantId } : r));
+            setRows((prev) =>
+              prev.map((r) => (r.id === row.id ? { ...serverRow, restaurantId } : r)),
+            );
             void cancelPendingSyncOp('raw_material_category', String(row.id));
-          }).catch(() => {});
+          })
+          .catch(() => {});
       }
     } catch {
-      setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, isActive: row.isActive } : r));
+      setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, isActive: row.isActive } : r)));
       toast.error('خطا در تغییر وضعیت');
     }
   };
@@ -189,7 +208,13 @@ export default function AccountingRawMaterialCategoriesPage() {
           <Button variant="flat" onPress={() => navigate('/accounting/raw-materials')}>
             بازگشت
           </Button>
-          <Button color="primary" onPress={() => { setNewName(''); setCreateOpen(true); }}>
+          <Button
+            color="primary"
+            onPress={() => {
+              setNewName('');
+              setCreateOpen(true);
+            }}
+          >
             دسته‌بندی جدید
           </Button>
         </div>
@@ -197,7 +222,8 @@ export default function AccountingRawMaterialCategoriesPage() {
 
       {!isOnline && (
         <div className="bg-warning-soft border border-warning/30 rounded-lg p-3 text-sm text-warning-soft-foreground">
-          اتصال به سرور برقرار نیست — تغییرات ذخیره می‌شوند و پس از برقراری اتصال همگام‌سازی خواهند شد.
+          اتصال به سرور برقرار نیست — تغییرات ذخیره می‌شوند و پس از برقراری اتصال همگام‌سازی خواهند
+          شد.
         </div>
       )}
 
@@ -208,9 +234,7 @@ export default function AccountingRawMaterialCategoriesPage() {
           )}
 
           {!loading && rows.length === 0 && (
-            <p className="text-center text-sm text-muted py-6">
-              هنوز دسته‌بندی تعریف نشده است.
-            </p>
+            <p className="text-center text-sm text-muted py-6">هنوز دسته‌بندی تعریف نشده است.</p>
           )}
 
           {rows.map((row) => (
@@ -227,13 +251,31 @@ export default function AccountingRawMaterialCategoriesPage() {
                 )}
               </div>
               <div className="flex gap-1">
-                <Button size="sm" variant="flat" onPress={() => { setEditRow(row); setEditName(row.name); setEditOpen(true); }}>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  onPress={() => {
+                    setEditRow(row);
+                    setEditName(row.name);
+                    setEditOpen(true);
+                  }}
+                >
                   ویرایش
                 </Button>
-                <Button size="sm" variant="flat" color={row.isActive ? 'warning' : 'success'} onPress={() => void handleToggleActive(row)}>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color={row.isActive ? 'warning' : 'success'}
+                  onPress={() => void handleToggleActive(row)}
+                >
                   {row.isActive ? 'غیرفعال' : 'فعال'}
                 </Button>
-                <Button size="sm" color="danger" variant="light" onPress={() => void handleDelete(row)}>
+                <Button
+                  size="sm"
+                  color="danger"
+                  variant="light"
+                  onPress={() => void handleDelete(row)}
+                >
                   حذف
                 </Button>
               </div>
@@ -246,11 +288,26 @@ export default function AccountingRawMaterialCategoriesPage() {
         <ModalShell size="sm">
           <ModalHeader>دسته‌بندی جدید</ModalHeader>
           <ModalBody>
-            <Input label="نام دسته‌بندی" value={newName} onValueChange={setNewName} isRequired autoFocus />
+            <Input
+              label="نام دسته‌بندی"
+              value={newName}
+              onValueChange={setNewName}
+              isRequired
+              autoFocus
+            />
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setCreateOpen(false)}>انصراف</Button>
-            <Button color="primary" isLoading={saving} isDisabled={!newName.trim()} onPress={handleCreate}>ثبت</Button>
+            <Button variant="flat" onPress={() => setCreateOpen(false)}>
+              انصراف
+            </Button>
+            <Button
+              color="primary"
+              isLoading={saving}
+              isDisabled={!newName.trim()}
+              onPress={handleCreate}
+            >
+              ثبت
+            </Button>
           </ModalFooter>
         </ModalShell>
       </Modal>
@@ -259,11 +316,26 @@ export default function AccountingRawMaterialCategoriesPage() {
         <ModalShell size="sm">
           <ModalHeader>ویرایش دسته‌بندی</ModalHeader>
           <ModalBody>
-            <Input label="نام جدید" value={editName} onValueChange={setEditName} isRequired autoFocus />
+            <Input
+              label="نام جدید"
+              value={editName}
+              onValueChange={setEditName}
+              isRequired
+              autoFocus
+            />
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setEditOpen(false)}>انصراف</Button>
-            <Button color="primary" isLoading={saving} isDisabled={!editName.trim()} onPress={handleEdit}>ذخیره</Button>
+            <Button variant="flat" onPress={() => setEditOpen(false)}>
+              انصراف
+            </Button>
+            <Button
+              color="primary"
+              isLoading={saving}
+              isDisabled={!editName.trim()}
+              onPress={handleEdit}
+            >
+              ذخیره
+            </Button>
           </ModalFooter>
         </ModalShell>
       </Modal>

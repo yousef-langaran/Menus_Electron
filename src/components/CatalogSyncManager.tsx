@@ -49,8 +49,8 @@ export function CatalogSyncManager() {
 
     scheduleSync(true); // initial load = full sync
 
-    const onOnline = () => scheduleSync(true);  // back online = full sync
-    const onFocus = () => scheduleSync(false);  // focus = incremental
+    const onOnline = () => scheduleSync(true); // back online = full sync
+    const onFocus = () => scheduleSync(false); // focus = incremental
     window.addEventListener('online', onOnline);
     window.addEventListener('focus', onFocus);
     const interval = window.setInterval(() => scheduleSync(false), 60_000); // interval = incremental

@@ -9,7 +9,12 @@ import { useAuthStore } from '../store/authStore';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
 import { useThemeStore } from '../store/themeStore';
 import { useCatalogDisplayStore } from '../store/catalogDisplayStore';
-import { getReceiptNumberSettingsFromServer, getPrintTemplates, type PrintTemplateItem, WEB_PANEL_URL } from '../services/api';
+import {
+  getReceiptNumberSettingsFromServer,
+  getPrintTemplates,
+  type PrintTemplateItem,
+  WEB_PANEL_URL,
+} from '../services/api';
 import { printTemplateKey, resolveTemplateForPrinter } from '../utils/printTemplates';
 import { useSyncStore } from '../store/syncStore';
 import { toast } from '../utils/toast';
@@ -22,9 +27,23 @@ export default function SettingsPage() {
   const canManageHw = canManageHardwareSettings(user);
   const [isOnline, setIsOnline] = useState(true);
   const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
-  const [availablePrinters, setAvailablePrinters] = useState<Array<{ name: string; displayName?: string; description?: string }>>([]);
+  const [availablePrinters, setAvailablePrinters] = useState<
+    Array<{ name: string; displayName?: string; description?: string }>
+  >([]);
   const [printTemplates, setPrintTemplates] = useState<PrintTemplateItem[]>([]);
-  const [printerTemplatesMap, setPrinterTemplatesMap] = useState<Record<string, { id: number; name: string; paperWidth: number; paperLength: number; margin: number; layout?: unknown } | null>>({});
+  const [printerTemplatesMap, setPrinterTemplatesMap] = useState<
+    Record<
+      string,
+      {
+        id: number;
+        name: string;
+        paperWidth: number;
+        paperLength: number;
+        margin: number;
+        layout?: unknown;
+      } | null
+    >
+  >({});
   const [defaultTemplate, setDefaultTemplate] = useState<{ id: number; name: string } | null>(null);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [savingTemplateForPrinter, setSavingTemplateForPrinter] = useState<string | null>(null);
@@ -41,7 +60,10 @@ export default function SettingsPage() {
   } = usePrinterSettingsStore();
   const { theme, setTheme } = useThemeStore();
   const { showProductImages, setShowProductImages } = useCatalogDisplayStore();
-const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string, string> } | null>(null);
+  const [dataDir, setDataDir] = useState<{
+    userData: string;
+    files: Record<string, string>;
+  } | null>(null);
   const {
     isOnline: accountingOnline,
     isSyncing: accountingSyncing,
@@ -56,13 +78,17 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
   const [scaleBaudRate, setScaleBaudRate] = useState('9600');
   const [scaleHost, setScaleHost] = useState('');
   const [scaleTcpPort, setScaleTcpPort] = useState('8000');
-  const [scalePorts, setScalePorts] = useState<Array<{ path: string; manufacturer?: string; friendlyName?: string }>>([]);
+  const [scalePorts, setScalePorts] = useState<
+    Array<{ path: string; manufacturer?: string; friendlyName?: string }>
+  >([]);
   const [scaleConnected, setScaleConnected] = useState(false);
   const [scaleConnecting, setScaleConnecting] = useState(false);
   const [scaleSaving, setScaleSaving] = useState(false);
 
   const [posWarehouseId, setPosWarehouseId] = useState<number | null>(null);
-  const [posWarehouseList, setPosWarehouseList] = useState<Array<{ id: number; name: string; isDefault: boolean }>>([]);
+  const [posWarehouseList, setPosWarehouseList] = useState<
+    Array<{ id: number; name: string; isDefault: boolean }>
+  >([]);
   const [posWarehouseSaving, setPosWarehouseSaving] = useState(false);
 
   const [callerIdEnabled, setCallerIdEnabled] = useState(false);
@@ -75,7 +101,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
   const [callerIdSerialPort, setCallerIdSerialPort] = useState('');
   const [callerIdSerialBaud, setCallerIdSerialBaud] = useState('9600');
   const [callerIdSerialFormat, setCallerIdSerialFormat] = useState('auto');
-  const [callerIdSerialPorts, setCallerIdSerialPorts] = useState<Array<{ path: string; manufacturer?: string; friendlyName?: string }>>([]);
+  const [callerIdSerialPorts, setCallerIdSerialPorts] = useState<
+    Array<{ path: string; manufacturer?: string; friendlyName?: string }>
+  >([]);
   const [callerIdSerialConnected, setCallerIdSerialConnected] = useState(false);
   const [callerIdSerialConnecting, setCallerIdSerialConnecting] = useState(false);
   // HID (T-Line TK-202UH)
@@ -89,7 +117,10 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
   const [callerIdWebhookRunning, setCallerIdWebhookRunning] = useState(false);
 
   useEffect(() => {
-    window.electronAPI?.getDataDir?.().then(setDataDir).catch(() => {});
+    window.electronAPI
+      ?.getDataDir?.()
+      .then(setDataDir)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -152,7 +183,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
         api.callerIdHidListDevices?.() ?? Promise.resolve([]),
       ]);
       setCallerIdEnabled(Boolean(s.enabled));
-      setCallerIdMode(s.inputMode === 'serial' ? 'serial' : s.inputMode === 'hid' ? 'hid' : 'webhook');
+      setCallerIdMode(
+        s.inputMode === 'serial' ? 'serial' : s.inputMode === 'hid' ? 'hid' : 'webhook',
+      );
       setCallerIdHidConnected(Boolean(hidStatus?.connected));
       setCallerIdHidDeviceFound(Array.isArray(hidDevices) && hidDevices.length > 0);
       setCallerIdPort(String(s.webhookPort || 5055));
@@ -176,7 +209,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
       const ports = await api.callerIdSerialListPorts();
       setCallerIdSerialPorts(ports ?? []);
       if (!ports?.length) toast.info('دستگاه USB یافت نشد');
-    } catch { toast.error('خطا در خواندن پورت‌ها'); }
+    } catch {
+      toast.error('خطا در خواندن پورت‌ها');
+    }
   };
 
   const handleCallerIdSerialConnect = async () => {
@@ -196,8 +231,11 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
       } else {
         toast.error(`خطا: ${result.error || 'اتصال ناموفق'}`);
       }
-    } catch { toast.error('خطا در اتصال به دستگاه'); }
-    finally { setCallerIdSerialConnecting(false); }
+    } catch {
+      toast.error('خطا در اتصال به دستگاه');
+    } finally {
+      setCallerIdSerialConnecting(false);
+    }
   };
 
   const handleCallerIdSerialDisconnect = async () => {
@@ -207,7 +245,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
       await api.callerIdSerialDisconnect();
       setCallerIdSerialConnected(false);
       toast.info('دستگاه Caller ID قطع شد');
-    } catch { toast.error('خطا در قطع اتصال'); }
+    } catch {
+      toast.error('خطا در قطع اتصال');
+    }
   };
 
   // ── HID handlers ────────────────────────────────────────────────────────────
@@ -220,7 +260,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
       setCallerIdHidDeviceFound(found);
       if (found) toast.success('دستگاه T-Line TK-202UH پیدا شد!');
       else toast.info('دستگاه T-Line یافت نشد — USB را چک کنید');
-    } catch { toast.error('خطا در جستجوی دستگاه'); }
+    } catch {
+      toast.error('خطا در جستجوی دستگاه');
+    }
   };
 
   const handleCallerIdHidConnect = async () => {
@@ -235,8 +277,11 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
       } else {
         toast.error(`خطا: ${result.error || 'اتصال ناموفق'}`);
       }
-    } catch { toast.error('خطا در اتصال به دستگاه HID'); }
-    finally { setCallerIdHidConnecting(false); }
+    } catch {
+      toast.error('خطا در اتصال به دستگاه HID');
+    } finally {
+      setCallerIdHidConnecting(false);
+    }
   };
 
   const handleCallerIdHidDisconnect = async () => {
@@ -246,7 +291,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
       await api.callerIdHidDisconnect();
       setCallerIdHidConnected(false);
       toast.info('دستگاه T-Line قطع شد');
-    } catch { toast.error('خطا در قطع اتصال'); }
+    } catch {
+      toast.error('خطا در قطع اتصال');
+    }
   };
 
   const handleCallerIdSave = async () => {
@@ -386,7 +433,6 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
     };
   }, []);
 
-
   useEffect(() => {
     const loadTemplatesAndPerPrinter = async () => {
       const restaurantId = user?.restaurants?.[0]?.id;
@@ -437,7 +483,11 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
     const key = printTemplateKey(printerName, receiptType);
     setSavingTemplateForPrinter(key);
     const save = async (template: unknown) => {
-      const res = await window.electronAPI!.setPrintTemplateForPrinter(printerName, template, receiptType);
+      const res = await window.electronAPI!.setPrintTemplateForPrinter(
+        printerName,
+        template,
+        receiptType,
+      );
       if (res && res.success === false) {
         toast.error(`ذخیرهٔ قالب ناموفق بود: ${res.error ?? 'خطای نامشخص'}`);
       }
@@ -504,13 +554,19 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
 
   /** قالبی که واقعاً برای این رسید چاپ می‌شود (بعد از ارث‌بری) */
   const effectiveReceiptTemplateName = (printerName: string, receiptType: 'full' | 'kitchen') =>
-    resolveTemplateForPrinter(printerName, printerTemplatesMap, defaultTemplate, receiptType)?.name ??
-    'قالب پیش‌فرض برنامه';
+    resolveTemplateForPrinter(printerName, printerTemplatesMap, defaultTemplate, receiptType)
+      ?.name ?? 'قالب پیش‌فرض برنامه';
 
   useEffect(() => {
     const sync = async () => {
       const restaurantId = user?.restaurants?.[0]?.id;
-      if (!token || !restaurantId || !window.electronAPI?.getReceiptNumberSettings || !window.electronAPI?.saveReceiptNumberSettings) return;
+      if (
+        !token ||
+        !restaurantId ||
+        !window.electronAPI?.getReceiptNumberSettings ||
+        !window.electronAPI?.saveReceiptNumberSettings
+      )
+        return;
       try {
         const [local, server] = await Promise.all([
           window.electronAPI.getReceiptNumberSettings(),
@@ -518,23 +574,22 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
         ]);
         if (server && local) {
           const dailyResetTime =
-            server.dailyResetTime && /^\d{1,2}:\d{2}$/.test(server.dailyResetTime) ? server.dailyResetTime : '00:00';
+            server.dailyResetTime && /^\d{1,2}:\d{2}$/.test(server.dailyResetTime)
+              ? server.dailyResetTime
+              : '00:00';
           const mergedNextNumber = Math.max(
             1,
             Number(local.nextNumber) || 1,
             Number(server.nextNumber) || 1,
           );
-          const mergedStartNumber = Math.max(
-            1,
-            Number(server.startNumber) || 1,
-          );
+          const mergedStartNumber = Math.max(1, Number(server.startNumber) || 1);
           await window.electronAPI.saveReceiptNumberSettings({
             // اگر سمت سرور شماره بزرگ‌تری تنظیم شده باشد، روی دسکتاپ هم اعمال شود
             nextNumber: mergedNextNumber,
             lastResetDate:
               typeof server.lastResetDate === 'string'
                 ? server.lastResetDate
-                : local.lastResetDate ?? '',
+                : (local.lastResetDate ?? ''),
             resetPolicy: server.resetPolicy,
             startNumber: mergedStartNumber,
             dailyResetTime,
@@ -607,10 +662,14 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
       <div className="flex-1 overflow-auto p-6 max-w-3xl mx-auto w-full space-y-6">
         <Card>
           <CardContent className="gap-3">
-            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">اطلاعات کاربر</h2>
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">
+              اطلاعات کاربر
+            </h2>
             <div className="flex justify-between py-2 border-b border-border">
               <span className="text-muted">نام:</span>
-              <span>{user?.firstName} {user?.lastName}</span>
+              <span>
+                {user?.firstName} {user?.lastName}
+              </span>
             </div>
             <div className="flex justify-between py-2 border-b border-border">
               <span className="text-muted">موبایل:</span>
@@ -618,15 +677,18 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
             </div>
             <div className="flex justify-between py-2">
               <span className="text-muted">رستوران:</span>
-              <span>{user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || 'تعیین نشده'}</span>
+              <span>
+                {user?.restaurants?.[0]?.name_fa || user?.restaurants?.[0]?.name || 'تعیین نشده'}
+              </span>
             </div>
           </CardContent>
         </Card>
 
-
         <Card>
           <CardContent className="gap-3">
-            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">پنل وب</h2>
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">
+              پنل وب
+            </h2>
             <p className="text-sm text-muted">
               برای دسترسی به گزارش‌ها و تنظیمات کامل، پنل مدیریت وب را در مرورگر باز کنید.
             </p>
@@ -639,11 +701,18 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
         {window.electronAPI?.saveCardTerminalConfig && (
           <Card>
             <CardContent className="gap-3">
-              <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">کارتخوان‌ها</h2>
+              <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">
+                کارتخوان‌ها
+              </h2>
               <p className="text-sm text-muted">
                 مدیریت، افزودن و ویرایش کارتخوان‌ها از صفحه اختصاصی انجام می‌شود.
               </p>
-              <Button variant="flat" color="primary" size="sm" onPress={() => navigate('/card-terminals')}>
+              <Button
+                variant="flat"
+                color="primary"
+                size="sm"
+                onPress={() => navigate('/card-terminals')}
+              >
                 رفتن به مدیریت کارتخوان‌ها ←
               </Button>
             </CardContent>
@@ -652,7 +721,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
 
         <Card>
           <CardContent className="gap-3">
-            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">ظاهر</h2>
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">
+              ظاهر
+            </h2>
             <div className="flex justify-between items-center py-2 border-b border-border">
               <span className="text-muted">حالت تاریک (دارک)</span>
               <Switch
@@ -664,7 +735,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
             <div className="flex justify-between items-center py-2">
               <div className="flex flex-col">
                 <span className="text-foreground">نمایش عکس محصولات</span>
-                <span className="text-muted text-xs">در گرید ثبت سفارش و سبد خرید — غیرفعال کردن، صفحه را فشرده‌تر و سریع‌تر می‌کند.</span>
+                <span className="text-muted text-xs">
+                  در گرید ثبت سفارش و سبد خرید — غیرفعال کردن، صفحه را فشرده‌تر و سریع‌تر می‌کند.
+                </span>
               </div>
               <Switch
                 isSelected={showProductImages}
@@ -677,7 +750,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
 
         <Card>
           <CardContent className="gap-3">
-            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">وضعیت اتصال</h2>
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">
+              وضعیت اتصال
+            </h2>
             <div className="flex justify-between items-center py-2">
               <span className="text-muted">وضعیت:</span>
               <span className={isOnline ? 'text-success font-bold' : 'text-danger font-bold'}>
@@ -689,14 +764,22 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
 
         <Card>
           <CardContent className="gap-3">
-            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">همگام‌سازی</h2>
+            <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">
+              همگام‌سازی
+            </h2>
             <Button color="primary" onPress={handleSync} className="w-full">
               همگام‌سازی سفارشات آفلاین
             </Button>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="rounded-lg bg-default-soft p-2">آنلاین: {accountingOnline ? 'بله' : 'خیر'}</div>
-              <div className="rounded-lg bg-default-soft p-2">در حال سینک: {accountingSyncing ? 'بله' : 'خیر'}</div>
-              <div className="rounded-lg bg-default-soft p-2">عملیات صف: {accountingPendingOps}</div>
+              <div className="rounded-lg bg-default-soft p-2">
+                آنلاین: {accountingOnline ? 'بله' : 'خیر'}
+              </div>
+              <div className="rounded-lg bg-default-soft p-2">
+                در حال سینک: {accountingSyncing ? 'بله' : 'خیر'}
+              </div>
+              <div className="rounded-lg bg-default-soft p-2">
+                عملیات صف: {accountingPendingOps}
+              </div>
               <div className="rounded-lg bg-default-soft p-2">ناموفق: {accountingFailedOps}</div>
             </div>
             {accountingLastSyncedAt ? (
@@ -713,8 +796,12 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
         {window.electronAPI?.checkForUpdates && (
           <Card>
             <CardContent className="gap-3">
-              <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">بروزرسانی برنامه</h2>
-              <p className="text-muted text-sm">در صورت وجود نسخه جدید، بنر بروزرسانی در بالای صفحه نمایش داده می‌شود.</p>
+              <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">
+                بروزرسانی برنامه
+              </h2>
+              <p className="text-muted text-sm">
+                در صورت وجود نسخه جدید، بنر بروزرسانی در بالای صفحه نمایش داده می‌شود.
+              </p>
               <Button
                 color="primary"
                 variant="flat"
@@ -740,16 +827,21 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
         <Card>
           <CardContent className="gap-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">تنظیمات پرینتر</h2>
+              <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">
+                تنظیمات پرینتر
+              </h2>
               <Button size="sm" variant="light" color="primary" onPress={loadPrinters}>
                 بروزرسانی لیست
               </Button>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-border p-3">
               <div className="flex flex-col">
-                <span className="font-medium text-foreground">چاپ خودکار سفارش‌های آنلاین جدید</span>
+                <span className="font-medium text-foreground">
+                  چاپ خودکار سفارش‌های آنلاین جدید
+                </span>
                 <span className="text-sm text-muted">
-                  به‌محض رسیدن هر سفارش آنلاین جدید، رسیدهای فعال روی پرینترهای فعال بدون نیاز به کلیک دستی چاپ می‌شوند.
+                  به‌محض رسیدن هر سفارش آنلاین جدید، رسیدهای فعال روی پرینترهای فعال بدون نیاز به
+                  کلیک دستی چاپ می‌شوند.
                 </span>
               </div>
               <Switch isSelected={autoPrintOnNewOrder} onValueChange={setAutoPrintOnNewOrder} />
@@ -767,7 +859,10 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                   const fullReceipt = receipts.find((r) => r.type === 'full');
                   const kitchenReceipt = receipts.find((r) => r.type === 'kitchen');
                   // انتخاب صریح این پرینتر؛ اگر انتخابی نشده باشد قالب پیش‌فرض برنامه اعمال می‌شود
-                  const hasExplicitTemplate = Object.prototype.hasOwnProperty.call(printerTemplatesMap, printer.name);
+                  const hasExplicitTemplate = Object.prototype.hasOwnProperty.call(
+                    printerTemplatesMap,
+                    printer.name,
+                  );
                   const effectiveTemplate = hasExplicitTemplate
                     ? printerTemplatesMap[printer.name]
                     : defaultTemplate;
@@ -798,7 +893,10 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                 selectedKeys={[templateValue]}
                                 onSelectionChange={(keys) => {
                                   const v = Array.from(keys)[0] as string | undefined;
-                                  handlePrinterTemplateChange(printer.name, v === 'none' || !v ? null : v);
+                                  handlePrinterTemplateChange(
+                                    printer.name,
+                                    v === 'none' || !v ? null : v,
+                                  );
                                 }}
                                 isDisabled={savingTemplateForPrinter === printer.name}
                                 variant="bordered"
@@ -808,7 +906,10 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                   بدون قالب (تنظیمات دستی زیر)
                                 </SelectItem>
                                 {printTemplates.map((t) => (
-                                  <SelectItem key={String(t.id)} textValue={`${t.name} (${t.paperWidth}×${t.paperLength} mm)`}>
+                                  <SelectItem
+                                    key={String(t.id)}
+                                    textValue={`${t.name} (${t.paperWidth}×${t.paperLength} mm)`}
+                                  >
                                     {t.name} ({t.paperWidth}×{t.paperLength} mm)
                                   </SelectItem>
                                 ))}
@@ -816,7 +917,8 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                             )}
                             {!loadingTemplates && (
                               <p className="text-xs text-muted -mt-2">
-                                قالب پایهٔ این پرینتر؛ هر رسید می‌تواند در بخش «نوع رسید» قالب متفاوت خودش را داشته باشد.
+                                قالب پایهٔ این پرینتر؛ هر رسید می‌تواند در بخش «نوع رسید» قالب
+                                متفاوت خودش را داشته باشد.
                               </p>
                             )}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -824,7 +926,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                 type="number"
                                 label="عرض کاغذ (mm)"
                                 value={String(config?.paperWidth ?? 80)}
-                                onValueChange={(v) => updatePrinterConfig(printer.name, { paperWidth: Number(v) || 80 })}
+                                onValueChange={(v) =>
+                                  updatePrinterConfig(printer.name, { paperWidth: Number(v) || 80 })
+                                }
                                 min={40}
                                 max={120}
                                 variant="bordered"
@@ -834,7 +938,11 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                 type="number"
                                 label="طول کاغذ (mm)"
                                 value={String(config?.paperLength ?? 200)}
-                                onValueChange={(v) => updatePrinterConfig(printer.name, { paperLength: Number(v) || 200 })}
+                                onValueChange={(v) =>
+                                  updatePrinterConfig(printer.name, {
+                                    paperLength: Number(v) || 200,
+                                  })
+                                }
                                 min={80}
                                 max={800}
                                 variant="bordered"
@@ -844,7 +952,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                 type="number"
                                 label="حاشیه (mm)"
                                 value={String(config?.margin ?? 5)}
-                                onValueChange={(v) => updatePrinterConfig(printer.name, { margin: Number(v) || 5 })}
+                                onValueChange={(v) =>
+                                  updatePrinterConfig(printer.name, { margin: Number(v) || 5 })
+                                }
                                 min={0}
                                 max={20}
                                 variant="bordered"
@@ -858,7 +968,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                   <div className="flex flex-wrap items-center gap-3">
                                     <Checkbox
                                       isSelected={fullReceipt?.enabled ?? true}
-                                      onValueChange={(checked) => setReceiptEnabled(printer.name, 'full', checked)}
+                                      onValueChange={(checked) =>
+                                        setReceiptEnabled(printer.name, 'full', checked)
+                                      }
                                     >
                                       رسید کامل (با قیمت)
                                     </Checkbox>
@@ -870,7 +982,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                         min={1}
                                         max={5}
                                         value={String(fullReceipt?.copies ?? 1)}
-                                        onValueChange={(v) => setReceiptCopies(printer.name, 'full', Number(v) || 1)}
+                                        onValueChange={(v) =>
+                                          setReceiptCopies(printer.name, 'full', Number(v) || 1)
+                                        }
                                         aria-label="تعداد رسید کامل"
                                       />
                                     )}
@@ -882,9 +996,16 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                         selectedKeys={[receiptTemplateValue(printer.name, 'full')]}
                                         onSelectionChange={(keys) => {
                                           const v = Array.from(keys)[0] as string | undefined;
-                                          handlePrinterTemplateChange(printer.name, v ?? 'inherit', 'full');
+                                          handlePrinterTemplateChange(
+                                            printer.name,
+                                            v ?? 'inherit',
+                                            'full',
+                                          );
                                         }}
-                                        isDisabled={savingTemplateForPrinter === printTemplateKey(printer.name, 'full')}
+                                        isDisabled={
+                                          savingTemplateForPrinter ===
+                                          printTemplateKey(printer.name, 'full')
+                                        }
                                         variant="bordered"
                                         size="sm"
                                       >
@@ -895,13 +1016,18 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                           بدون قالب (تنظیمات دستی بالا)
                                         </SelectItem>
                                         {printTemplates.map((t) => (
-                                          <SelectItem key={String(t.id)} textValue={`${t.name} (${t.paperWidth}×${t.paperLength} mm)`}>
+                                          <SelectItem
+                                            key={String(t.id)}
+                                            textValue={`${t.name} (${t.paperWidth}×${t.paperLength} mm)`}
+                                          >
                                             {t.name} ({t.paperWidth}×{t.paperLength} mm)
                                           </SelectItem>
                                         ))}
                                       </Select>
                                       <p className="text-xs text-muted">
-                                        الان با «{effectiveReceiptTemplateName(printer.name, 'full')}» چاپ می‌شود
+                                        الان با «
+                                        {effectiveReceiptTemplateName(printer.name, 'full')}» چاپ
+                                        می‌شود
                                       </p>
                                     </div>
                                   )}
@@ -910,7 +1036,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                   <div className="flex flex-wrap items-center gap-3">
                                     <Checkbox
                                       isSelected={kitchenReceipt?.enabled ?? false}
-                                      onValueChange={(checked) => setReceiptEnabled(printer.name, 'kitchen', checked)}
+                                      onValueChange={(checked) =>
+                                        setReceiptEnabled(printer.name, 'kitchen', checked)
+                                      }
                                     >
                                       رسید آشپزخانه (بدون قیمت)
                                     </Checkbox>
@@ -922,7 +1050,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                         min={1}
                                         max={5}
                                         value={String(kitchenReceipt?.copies ?? 1)}
-                                        onValueChange={(v) => setReceiptCopies(printer.name, 'kitchen', Number(v) || 1)}
+                                        onValueChange={(v) =>
+                                          setReceiptCopies(printer.name, 'kitchen', Number(v) || 1)
+                                        }
                                         aria-label="تعداد رسید آشپزخانه"
                                       />
                                     )}
@@ -931,12 +1061,21 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                     <div className="flex flex-col gap-1">
                                       <Select
                                         label="قالب این رسید"
-                                        selectedKeys={[receiptTemplateValue(printer.name, 'kitchen')]}
+                                        selectedKeys={[
+                                          receiptTemplateValue(printer.name, 'kitchen'),
+                                        ]}
                                         onSelectionChange={(keys) => {
                                           const v = Array.from(keys)[0] as string | undefined;
-                                          handlePrinterTemplateChange(printer.name, v ?? 'inherit', 'kitchen');
+                                          handlePrinterTemplateChange(
+                                            printer.name,
+                                            v ?? 'inherit',
+                                            'kitchen',
+                                          );
                                         }}
-                                        isDisabled={savingTemplateForPrinter === printTemplateKey(printer.name, 'kitchen')}
+                                        isDisabled={
+                                          savingTemplateForPrinter ===
+                                          printTemplateKey(printer.name, 'kitchen')
+                                        }
                                         variant="bordered"
                                         size="sm"
                                       >
@@ -947,13 +1086,18 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                                           بدون قالب (تنظیمات دستی بالا)
                                         </SelectItem>
                                         {printTemplates.map((t) => (
-                                          <SelectItem key={String(t.id)} textValue={`${t.name} (${t.paperWidth}×${t.paperLength} mm)`}>
+                                          <SelectItem
+                                            key={String(t.id)}
+                                            textValue={`${t.name} (${t.paperWidth}×${t.paperLength} mm)`}
+                                          >
                                             {t.name} ({t.paperWidth}×{t.paperLength} mm)
                                           </SelectItem>
                                         ))}
                                       </Select>
                                       <p className="text-xs text-muted">
-                                        الان با «{effectiveReceiptTemplateName(printer.name, 'kitchen')}» چاپ می‌شود
+                                        الان با «
+                                        {effectiveReceiptTemplateName(printer.name, 'kitchen')}» چاپ
+                                        می‌شود
                                       </p>
                                     </div>
                                   )}
@@ -969,7 +1113,10 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
               </div>
             )}
             <p className="text-muted text-sm">
-              برای هر پرینتر می‌توانید قالب چاپ و نوع/تعداد رسید را جداگانه تنظیم کنید. اگر از یک پرینتر دو فیش می‌گیرید، برای هرکدام در بخش «نوع رسید» قالب دلخواه خودش را انتخاب کنید؛ در غیر این صورت هر دو با قالب پایهٔ پرینتر چاپ می‌شوند. این تنظیمات برای چاپ خودکار رسید هنگام ثبت سفارش استفاده می‌شود.
+              برای هر پرینتر می‌توانید قالب چاپ و نوع/تعداد رسید را جداگانه تنظیم کنید. اگر از یک
+              پرینتر دو فیش می‌گیرید، برای هرکدام در بخش «نوع رسید» قالب دلخواه خودش را انتخاب کنید؛
+              در غیر این صورت هر دو با قالب پایهٔ پرینتر چاپ می‌شوند. این تنظیمات برای چاپ خودکار
+              رسید هنگام ثبت سفارش استفاده می‌شود.
             </p>
           </CardContent>
         </Card>
@@ -977,12 +1124,17 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
         {/* مسیر ذخیره‌سازی داده‌ها */}
         <Card>
           <CardContent className="flex flex-col gap-3">
-            <h3 className="font-semibold text-foreground/80 text-sm">مسیر ذخیره‌سازی داده‌های برنامه</h3>
+            <h3 className="font-semibold text-foreground/80 text-sm">
+              مسیر ذخیره‌سازی داده‌های برنامه
+            </h3>
             {dataDir ? (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-col gap-1">
                   <span className="text-muted text-xs">پوشه داده‌ها (userData):</span>
-                  <code dir="ltr" className="block text-xs bg-default-soft px-2 py-1.5 rounded-lg break-all text-foreground/80 select-all">
+                  <code
+                    dir="ltr"
+                    className="block text-xs bg-default-soft px-2 py-1.5 rounded-lg break-all text-foreground/80 select-all"
+                  >
                     {dataDir.userData}
                   </code>
                 </div>
@@ -990,7 +1142,10 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                   {Object.entries(dataDir.files).map(([label, filePath]) => (
                     <div key={label} className="flex flex-col gap-0.5">
                       <span className="text-muted text-xs">{label}:</span>
-                      <code dir="ltr" className="block text-xs bg-default-soft px-2 py-1.5 rounded-lg break-all text-muted select-all">
+                      <code
+                        dir="ltr"
+                        className="block text-xs bg-default-soft px-2 py-1.5 rounded-lg break-all text-muted select-all"
+                      >
                         {filePath}
                       </code>
                     </div>
@@ -1008,7 +1163,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
             <CardContent className="gap-3">
               <div className="flex items-center justify-between border-b-2 border-accent pb-2">
                 <h2 className="text-lg font-semibold text-foreground">اتصال ترازو</h2>
-                <span className={`text-xs px-2 py-1 rounded-full font-medium ${scaleConnected ? 'bg-success-soft text-success-soft-foreground' : 'bg-default-soft text-muted'}`}>
+                <span
+                  className={`text-xs px-2 py-1 rounded-full font-medium ${scaleConnected ? 'bg-success-soft text-success-soft-foreground' : 'bg-default-soft text-muted'}`}
+                >
                   {scaleConnected ? 'متصل' : 'قطع'}
                 </span>
               </div>
@@ -1016,7 +1173,11 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
               <Select
                 label="نوع اتصال"
                 selectedKeys={[scaleConnectionType]}
-                onSelectionChange={(keys) => setScaleConnectionType(String(Array.from(keys)[0] || 'serial') as 'serial' | 'tcp')}
+                onSelectionChange={(keys) =>
+                  setScaleConnectionType(
+                    String(Array.from(keys)[0] || 'serial') as 'serial' | 'tcp',
+                  )
+                }
                 variant="bordered"
                 size="sm"
                 className="max-w-xs"
@@ -1030,7 +1191,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                   <Select
                     label="پورت COM"
                     selectedKeys={scalePortName ? [scalePortName] : []}
-                    onSelectionChange={(keys) => setScalePortName(String(Array.from(keys)[0] || ''))}
+                    onSelectionChange={(keys) =>
+                      setScalePortName(String(Array.from(keys)[0] || ''))
+                    }
                     variant="bordered"
                     size="sm"
                     className="flex-1 min-w-[140px]"
@@ -1038,7 +1201,12 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                   >
                     {scalePorts.map((p) => (
                       <SelectItem key={p.path} textValue={p.path}>
-                        {p.path}{p.friendlyName ? ` — ${p.friendlyName}` : p.manufacturer ? ` (${p.manufacturer})` : ''}
+                        {p.path}
+                        {p.friendlyName
+                          ? ` — ${p.friendlyName}`
+                          : p.manufacturer
+                            ? ` (${p.manufacturer})`
+                            : ''}
                       </SelectItem>
                     ))}
                   </Select>
@@ -1048,14 +1216,18 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                   <Select
                     label="Baud Rate"
                     selectedKeys={[scaleBaudRate]}
-                    onSelectionChange={(keys) => setScaleBaudRate(String(Array.from(keys)[0] || '9600'))}
+                    onSelectionChange={(keys) =>
+                      setScaleBaudRate(String(Array.from(keys)[0] || '9600'))
+                    }
                     variant="bordered"
                     size="sm"
                     className="w-32"
                   >
-                    {['1200', '2400', '4800', '9600', '19200', '38400', '57600', '115200'].map((b) => (
-                      <SelectItem key={b}>{b}</SelectItem>
-                    ))}
+                    {['1200', '2400', '4800', '9600', '19200', '38400', '57600', '115200'].map(
+                      (b) => (
+                        <SelectItem key={b}>{b}</SelectItem>
+                      ),
+                    )}
                   </Select>
                 </div>
               ) : (
@@ -1090,14 +1262,21 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                     قطع اتصال
                   </Button>
                 ) : (
-                  <Button size="sm" color="primary" variant="flat" isLoading={scaleConnecting} onPress={handleScaleConnect}>
+                  <Button
+                    size="sm"
+                    color="primary"
+                    variant="flat"
+                    isLoading={scaleConnecting}
+                    onPress={handleScaleConnect}
+                  >
                     اتصال و تست
                   </Button>
                 )}
               </div>
 
               <p className="text-xs text-muted">
-                پس از تنظیم، دکمه «اتصال و تست» را بزنید. اگر موفق شد ترازو آماده استفاده در فاکتور است.
+                پس از تنظیم، دکمه «اتصال و تست» را بزنید. اگر موفق شد ترازو آماده استفاده در فاکتور
+                است.
               </p>
             </CardContent>
           </Card>
@@ -1111,17 +1290,23 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                 {/* header + master toggle */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="font-semibold text-foreground">شناسایی تماس‌گیرنده (Caller ID)</h2>
+                    <h2 className="font-semibold text-foreground">
+                      شناسایی تماس‌گیرنده (Caller ID)
+                    </h2>
                     <p className="text-xs text-muted mt-0.5">
                       هنگام تماس ورودی، اطلاعات مشتری و سوابق سفارش نمایش داده می‌شود.
                     </p>
                   </div>
-                  <Switch isSelected={callerIdEnabled} onValueChange={setCallerIdEnabled} size="sm" aria-label="فعال‌سازی Caller ID" />
+                  <Switch
+                    isSelected={callerIdEnabled}
+                    onValueChange={setCallerIdEnabled}
+                    size="sm"
+                    aria-label="فعال‌سازی Caller ID"
+                  />
                 </div>
 
                 {callerIdEnabled && (
                   <div className="flex flex-col gap-4 border-t border-border pt-3">
-
                     {/* mode selector */}
                     <Tabs
                       selectedKey={callerIdMode}
@@ -1141,24 +1326,51 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                     {callerIdMode === 'webhook' && (
                       <div className="flex flex-col gap-3">
                         <div className="flex gap-2 flex-wrap items-end">
-                          <Input label="پورت webhook محلی" value={callerIdPort} onValueChange={setCallerIdPort}
-                            placeholder="5055" variant="bordered" size="sm" className="w-36"
-                            description="سیستم VOIP به این پورت POST می‌زند" />
-                          <Input label="نام فیلد شماره تماس" value={callerIdPhoneField} onValueChange={setCallerIdPhoneField}
-                            placeholder="caller" variant="bordered" size="sm" className="w-40"
-                            description='نام فیلد در body JSON' />
+                          <Input
+                            label="پورت webhook محلی"
+                            value={callerIdPort}
+                            onValueChange={setCallerIdPort}
+                            placeholder="5055"
+                            variant="bordered"
+                            size="sm"
+                            className="w-36"
+                            description="سیستم VOIP به این پورت POST می‌زند"
+                          />
+                          <Input
+                            label="نام فیلد شماره تماس"
+                            value={callerIdPhoneField}
+                            onValueChange={setCallerIdPhoneField}
+                            placeholder="caller"
+                            variant="bordered"
+                            size="sm"
+                            className="w-40"
+                            description="نام فیلد در body JSON"
+                          />
                         </div>
-                        <Input label="توکن احراز هویت (اختیاری)" value={callerIdSecret} onValueChange={setCallerIdSecret}
-                          placeholder="X-Secret یا Bearer token" variant="bordered" size="sm" type="password"
-                          description="اگر خالی باشد همه درخواست‌ها پذیرفته می‌شوند" />
+                        <Input
+                          label="توکن احراز هویت (اختیاری)"
+                          value={callerIdSecret}
+                          onValueChange={setCallerIdSecret}
+                          placeholder="X-Secret یا Bearer token"
+                          variant="bordered"
+                          size="sm"
+                          type="password"
+                          description="اگر خالی باشد همه درخواست‌ها پذیرفته می‌شوند"
+                        />
                         <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${callerIdWebhookRunning ? 'bg-green-500' : 'bg-gray-400'}`} />
+                          <span
+                            className={`w-2 h-2 rounded-full ${callerIdWebhookRunning ? 'bg-green-500' : 'bg-gray-400'}`}
+                          />
                           <span className="text-xs text-muted">
-                            {callerIdWebhookRunning ? `webhook فعال روی پورت ${callerIdPort}` : 'webhook غیرفعال'}
+                            {callerIdWebhookRunning
+                              ? `webhook فعال روی پورت ${callerIdPort}`
+                              : 'webhook غیرفعال'}
                           </span>
                         </div>
                         <div className="rounded-xl bg-default-soft p-3 text-xs text-muted flex flex-col gap-1">
-                          <p className="font-semibold text-foreground/70">نحوه اتصال VOIP / FXO Gateway</p>
+                          <p className="font-semibold text-foreground/70">
+                            نحوه اتصال VOIP / FXO Gateway
+                          </p>
                           <code className="bg-default rounded px-1.5 py-0.5 font-mono text-foreground/80 break-all">
                             POST http://127.0.0.1:{callerIdPort}/call
                           </code>
@@ -1185,15 +1397,26 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                             size="sm"
                             className="flex-1 min-w-[160px]"
                             selectedKeys={callerIdSerialPort ? [callerIdSerialPort] : []}
-                            onSelectionChange={(keys) => setCallerIdSerialPort(Array.from(keys)[0] as string)}
+                            onSelectionChange={(keys) =>
+                              setCallerIdSerialPort(Array.from(keys)[0] as string)
+                            }
                           >
                             {callerIdSerialPorts.map((p) => (
                               <SelectItem key={p.path} value={p.path}>
-                                {p.path}{p.friendlyName ? ` — ${p.friendlyName}` : p.manufacturer ? ` (${p.manufacturer})` : ''}
+                                {p.path}
+                                {p.friendlyName
+                                  ? ` — ${p.friendlyName}`
+                                  : p.manufacturer
+                                    ? ` (${p.manufacturer})`
+                                    : ''}
                               </SelectItem>
                             ))}
                           </Select>
-                          <Button size="sm" variant="flat" onPress={handleCallerIdSerialRefreshPorts}>
+                          <Button
+                            size="sm"
+                            variant="flat"
+                            onPress={handleCallerIdSerialRefreshPorts}
+                          >
                             رفرش پورت‌ها
                           </Button>
                         </div>
@@ -1205,9 +1428,20 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                             size="sm"
                             className="w-36"
                             selectedKeys={[callerIdSerialBaud]}
-                            onSelectionChange={(keys) => setCallerIdSerialBaud(Array.from(keys)[0] as string)}
+                            onSelectionChange={(keys) =>
+                              setCallerIdSerialBaud(Array.from(keys)[0] as string)
+                            }
                           >
-                            {['1200', '2400', '4800', '9600', '19200', '38400', '57600', '115200'].map((b) => (
+                            {[
+                              '1200',
+                              '2400',
+                              '4800',
+                              '9600',
+                              '19200',
+                              '38400',
+                              '57600',
+                              '115200',
+                            ].map((b) => (
                               <SelectItem key={b}>{b}</SelectItem>
                             ))}
                           </Select>
@@ -1217,7 +1451,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                             size="sm"
                             className="flex-1 min-w-[180px]"
                             selectedKeys={[callerIdSerialFormat]}
-                            onSelectionChange={(keys) => setCallerIdSerialFormat(Array.from(keys)[0] as string)}
+                            onSelectionChange={(keys) =>
+                              setCallerIdSerialFormat(Array.from(keys)[0] as string)
+                            }
                           >
                             <SelectItem key="auto">خودکار (تشخیص فرمت)</SelectItem>
                             <SelectItem key="at-clip">مودم AT — +CLIP</SelectItem>
@@ -1228,7 +1464,9 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${callerIdSerialConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
+                          <span
+                            className={`w-2 h-2 rounded-full ${callerIdSerialConnected ? 'bg-green-500' : 'bg-gray-400'}`}
+                          />
                           <span className="text-xs text-muted">
                             {callerIdSerialConnected ? `متصل روی ${callerIdSerialPort}` : 'قطع'}
                           </span>
@@ -1236,12 +1474,22 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
 
                         <div className="flex gap-2 flex-wrap">
                           {callerIdSerialConnected ? (
-                            <Button size="sm" color="danger" variant="flat" onPress={handleCallerIdSerialDisconnect}>
+                            <Button
+                              size="sm"
+                              color="danger"
+                              variant="flat"
+                              onPress={handleCallerIdSerialDisconnect}
+                            >
                               قطع اتصال دستگاه
                             </Button>
                           ) : (
-                            <Button size="sm" color="primary" variant="flat"
-                              isLoading={callerIdSerialConnecting} onPress={handleCallerIdSerialConnect}>
+                            <Button
+                              size="sm"
+                              color="primary"
+                              variant="flat"
+                              isLoading={callerIdSerialConnecting}
+                              onPress={handleCallerIdSerialConnect}
+                            >
                               اتصال و تست دستگاه
                             </Button>
                           )}
@@ -1249,8 +1497,14 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
 
                         <div className="rounded-xl bg-default-soft p-3 text-xs text-muted flex flex-col gap-1.5">
                           <p className="font-semibold text-foreground/70">دستگاه‌های USB سازگار</p>
-                          <p>اکثر جعبه‌های Caller ID موجود در بازار ایران با فرمت «خودکار» کار می‌کنند.</p>
-                          <p>اگر دستگاه شما از نوع مودم USB است (AT commands)، گزینه «مودم AT» را انتخاب کنید.</p>
+                          <p>
+                            اکثر جعبه‌های Caller ID موجود در بازار ایران با فرمت «خودکار» کار
+                            می‌کنند.
+                          </p>
+                          <p>
+                            اگر دستگاه شما از نوع مودم USB است (AT commands)، گزینه «مودم AT» را
+                            انتخاب کنید.
+                          </p>
                           <p>در صورت اتصال، هر تماس ورودی را با تست واقعی بررسی کنید.</p>
                         </div>
                       </div>
@@ -1260,23 +1514,32 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                     {callerIdMode === 'hid' && (
                       <div className="flex flex-col gap-3">
                         <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-xs flex flex-col gap-1.5">
-                          <p className="font-semibold text-blue-700 dark:text-blue-300">📞 T-Line TK-202UH</p>
-                          <p className="text-foreground/70">دستگاه USB Caller ID مدل TK-202UH تیلداکیش</p>
+                          <p className="font-semibold text-blue-700 dark:text-blue-300">
+                            📞 T-Line TK-202UH
+                          </p>
+                          <p className="text-foreground/70">
+                            دستگاه USB Caller ID مدل TK-202UH تیلداکیش
+                          </p>
                           <p className="text-muted">
-                            قبل از اتصال، مطمئن شوید درایور <strong>WinUSB</strong> از طریق <strong>Zadig</strong> روی این دستگاه نصب شده باشد.
-                            (منوی Options → List All Devices → T-Line TK-202UH → WinUSB → Replace Driver)
+                            قبل از اتصال، مطمئن شوید درایور <strong>WinUSB</strong> از طریق{' '}
+                            <strong>Zadig</strong> روی این دستگاه نصب شده باشد. (منوی Options → List
+                            All Devices → T-Line TK-202UH → WinUSB → Replace Driver)
                           </p>
                         </div>
 
                         <div className="flex items-center gap-3 flex-wrap">
                           <div className="flex items-center gap-2">
-                            <span className={`w-2.5 h-2.5 rounded-full ${callerIdHidDeviceFound ? 'bg-green-500' : 'bg-gray-400'}`} />
+                            <span
+                              className={`w-2.5 h-2.5 rounded-full ${callerIdHidDeviceFound ? 'bg-green-500' : 'bg-gray-400'}`}
+                            />
                             <span className="text-xs text-muted">
                               {callerIdHidDeviceFound ? 'دستگاه پیدا شد' : 'دستگاه یافت نشد'}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className={`w-2.5 h-2.5 rounded-full ${callerIdHidConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                            <span
+                              className={`w-2.5 h-2.5 rounded-full ${callerIdHidConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
+                            />
                             <span className="text-xs text-muted">
                               {callerIdHidConnected ? 'در حال پایش تماس‌ها' : 'قطع'}
                             </span>
@@ -1288,13 +1551,23 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                             🔍 شناسایی دستگاه
                           </Button>
                           {callerIdHidConnected ? (
-                            <Button size="sm" color="danger" variant="flat" onPress={handleCallerIdHidDisconnect}>
+                            <Button
+                              size="sm"
+                              color="danger"
+                              variant="flat"
+                              onPress={handleCallerIdHidDisconnect}
+                            >
                               قطع اتصال
                             </Button>
                           ) : (
-                            <Button size="sm" color="primary" variant="flat"
-                              isLoading={callerIdHidConnecting} onPress={handleCallerIdHidConnect}
-                              isDisabled={!callerIdHidDeviceFound}>
+                            <Button
+                              size="sm"
+                              color="primary"
+                              variant="flat"
+                              isLoading={callerIdHidConnecting}
+                              onPress={handleCallerIdHidConnect}
+                              isDisabled={!callerIdHidDeviceFound}
+                            >
                               اتصال و شروع پایش
                             </Button>
                           )}
@@ -1304,10 +1577,20 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                           <p className="font-semibold text-foreground/70">راهنمای نصب Zadig</p>
                           <ol className="list-decimal list-inside flex flex-col gap-0.5 pr-1">
                             <li>دستگاه TK-202UH را به USB وصل کنید</li>
-                            <li>Zadig را از <strong>zadig.akeo.ie</strong> دانلود و اجرا کنید</li>
-                            <li>از منوی Options گزینه <strong>List All Devices</strong> را فعال کنید</li>
-                            <li>دستگاه <strong>T-LINE</strong> یا <strong>TK-202UH</strong> را انتخاب کنید</li>
-                            <li>درایور را روی <strong>WinUSB</strong> تنظیم کنید و <strong>Replace Driver</strong> را بزنید</li>
+                            <li>
+                              Zadig را از <strong>zadig.akeo.ie</strong> دانلود و اجرا کنید
+                            </li>
+                            <li>
+                              از منوی Options گزینه <strong>List All Devices</strong> را فعال کنید
+                            </li>
+                            <li>
+                              دستگاه <strong>T-LINE</strong> یا <strong>TK-202UH</strong> را انتخاب
+                              کنید
+                            </li>
+                            <li>
+                              درایور را روی <strong>WinUSB</strong> تنظیم کنید و{' '}
+                              <strong>Replace Driver</strong> را بزنید
+                            </li>
                             <li>پس از نصب، «شناسایی دستگاه» را بزنید</li>
                           </ol>
                         </div>
@@ -1316,17 +1599,36 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
 
                     {/* ─── تنظیمات عمومی ─── */}
                     <div className="flex flex-col gap-2 border-t border-border pt-3">
-                      <Input label="مدت نمایش اعلان (ثانیه)" value={callerIdDuration} onValueChange={setCallerIdDuration}
-                        placeholder="30" variant="bordered" size="sm" className="w-44" />
+                      <Input
+                        label="مدت نمایش اعلان (ثانیه)"
+                        value={callerIdDuration}
+                        onValueChange={setCallerIdDuration}
+                        placeholder="30"
+                        variant="bordered"
+                        size="sm"
+                        className="w-44"
+                      />
                       <div className="flex items-center gap-2">
-                        <Switch isSelected={callerIdSound} onValueChange={setCallerIdSound} size="sm" aria-label="پخش صدا" />
-                        <span className="text-sm text-foreground/70">پخش صدای زنگ هنگام تماس ورودی</span>
+                        <Switch
+                          isSelected={callerIdSound}
+                          onValueChange={setCallerIdSound}
+                          size="sm"
+                          aria-label="پخش صدا"
+                        />
+                        <span className="text-sm text-foreground/70">
+                          پخش صدای زنگ هنگام تماس ورودی
+                        </span>
                       </div>
                     </div>
                   </div>
                 )}
 
-                <Button size="sm" variant="flat" isLoading={callerIdSaving} onPress={handleCallerIdSave}>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  isLoading={callerIdSaving}
+                  onPress={handleCallerIdSave}
+                >
                   ذخیره تنظیمات Caller ID
                 </Button>
               </div>
@@ -1352,7 +1654,8 @@ const [dataDir, setDataDir] = useState<{ userData: string; files: Record<string,
                 <SelectItem key="0">انبار پیش‌فرض (خودکار)</SelectItem>
                 {posWarehouseList.map((w) => (
                   <SelectItem key={String(w.id)}>
-                    {w.name}{w.isDefault ? ' (پیش‌فرض)' : ''}
+                    {w.name}
+                    {w.isDefault ? ' (پیش‌فرض)' : ''}
                   </SelectItem>
                 ))}
               </Select>

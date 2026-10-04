@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  stripNumberFormatting,
-  formatPriceInput,
-  parseFormattedNumber,
-} from '../money';
+import { stripNumberFormatting, formatPriceInput, parseFormattedNumber } from '../money';
 
 describe('stripNumberFormatting', () => {
   it('returns an empty string for nullish input', () => {

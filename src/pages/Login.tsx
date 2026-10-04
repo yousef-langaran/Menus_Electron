@@ -17,15 +17,39 @@ import { appVersionReady, getCachedClientVersion, getClientRequirements } from '
 import { isVersionOutdated } from '../utils/version';
 
 const EyeIcon = ({ className }: { className?: string }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+  <svg
+    className={className}
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    aria-hidden
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+    />
     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
 );
 
 const EyeSlashIcon = ({ className }: { className?: string }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+  <svg
+    className={className}
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    aria-hidden
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
+    />
   </svg>
 );
 
@@ -50,9 +74,7 @@ export default function LoginPage() {
       try {
         await appVersionReady;
         const current =
-          getCachedClientVersion() ||
-          (await (window as any).electronAPI?.getAppVersion?.()) ||
-          '';
+          getCachedClientVersion() || (await (window as any).electronAPI?.getAppVersion?.()) || '';
         const req = await getClientRequirements();
         const min = req?.minElectronVersion || '';
         if (!active) return;
@@ -87,9 +109,13 @@ export default function LoginPage() {
         return;
       }
       await (window as any).electronAPI?.startUpdateDownload?.();
-      toast.success('به‌روزرسانی', { description: 'در حال دریافت نسخه جدید... برنامه پس از دریافت، نصب می‌شود.' });
+      toast.success('به‌روزرسانی', {
+        description: 'در حال دریافت نسخه جدید... برنامه پس از دریافت، نصب می‌شود.',
+      });
     } catch {
-      toast.error('به‌روزرسانی', { description: 'دریافت به‌روزرسانی ناموفق بود. لطفاً اتصال اینترنت را بررسی کنید.' });
+      toast.error('به‌روزرسانی', {
+        description: 'دریافت به‌روزرسانی ناموفق بود. لطفاً اتصال اینترنت را بررسی کنید.',
+      });
       setIsUpdating(false);
     }
   };
@@ -97,7 +123,9 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isOutdated) {
-      toast.error('نیاز به به‌روزرسانی', { description: 'برای ورود، ابتدا نرم‌افزار را به‌روزرسانی کنید.' });
+      toast.error('نیاز به به‌روزرسانی', {
+        description: 'برای ورود، ابتدا نرم‌افزار را به‌روزرسانی کنید.',
+      });
       return;
     }
     setMobileError('');
@@ -129,7 +157,10 @@ export default function LoginPage() {
 
   if (isOutdated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6" dir="rtl">
+      <div
+        className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6"
+        dir="rtl"
+      >
         <Card className="w-full max-w-md shadow-lg">
           <CardHeader className="flex flex-col items-center gap-3 pt-8 pb-0">
             <img
@@ -139,7 +170,9 @@ export default function LoginPage() {
               draggable={false}
             />
             <div className="text-center">
-              <CardTitle className="text-xl font-semibold text-danger">نیاز به به‌روزرسانی</CardTitle>
+              <CardTitle className="text-xl font-semibold text-danger">
+                نیاز به به‌روزرسانی
+              </CardTitle>
               <CardDescription className="mt-1.5 text-muted">
                 نسخه نرم‌افزار شما قدیمی است. برای ادامه، لطفاً برنامه را به‌روزرسانی کنید.
               </CardDescription>
@@ -148,10 +181,14 @@ export default function LoginPage() {
           <CardContent className="flex flex-col gap-5 px-6 pb-8 pt-6 sm:px-8">
             <div className="rounded-lg bg-default-soft p-3 text-center text-sm text-foreground/70">
               {currentVersion && (
-                <div>نسخه فعلی: <span className="font-medium">{currentVersion}</span></div>
+                <div>
+                  نسخه فعلی: <span className="font-medium">{currentVersion}</span>
+                </div>
               )}
               {minVersion && (
-                <div>حداقل نسخه لازم: <span className="font-medium">{minVersion}</span></div>
+                <div>
+                  حداقل نسخه لازم: <span className="font-medium">{minVersion}</span>
+                </div>
               )}
             </div>
             <Button
@@ -160,7 +197,8 @@ export default function LoginPage() {
               size="lg"
               isLoading={isUpdating}
               onPress={handleUpdate}
-              className="w-full font-semibold">
+              className="w-full font-semibold"
+            >
               {isUpdating ? 'در حال دریافت به‌روزرسانی...' : 'دریافت و نصب به‌روزرسانی'}
             </Button>
             <p className="text-center text-xs text-muted">
@@ -173,7 +211,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6" dir="rtl">
+    <div
+      className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6"
+      dir="rtl"
+    >
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="flex flex-col items-center gap-3 pt-8 pb-0">
           <img
@@ -201,7 +242,12 @@ export default function LoginPage() {
               }}
               isRequired
               isInvalid={!!mobileError || (mobile.length > 0 && !isValidIranMobile(mobile))}
-              errorMessage={mobileError || (mobile.length > 0 && !isValidIranMobile(mobile) ? 'شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود' : undefined)}
+              errorMessage={
+                mobileError ||
+                (mobile.length > 0 && !isValidIranMobile(mobile)
+                  ? 'شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود'
+                  : undefined)
+              }
               size="lg"
               inputMode="numeric"
               classNames={{ input: 'text-right' }}
@@ -228,7 +274,8 @@ export default function LoginPage() {
                   variant="tertiary"
                   className="min-w-8 shrink-0"
                   onPress={() => setIsPasswordVisible((v) => !v)}
-                  aria-label={isPasswordVisible ? 'مخفی کردن رمز' : 'نمایش رمز'}>
+                  aria-label={isPasswordVisible ? 'مخفی کردن رمز' : 'نمایش رمز'}
+                >
                   {isPasswordVisible ? (
                     <EyeSlashIcon className="size-5 text-muted" />
                   ) : (
@@ -237,7 +284,13 @@ export default function LoginPage() {
                 </HeroButton>
               }
             />
-            <Button type="submit" color="primary" size="lg" isLoading={isLoading} className="w-full font-semibold">
+            <Button
+              type="submit"
+              color="primary"
+              size="lg"
+              isLoading={isLoading}
+              className="w-full font-semibold"
+            >
               {isLoading ? 'در حال ورود...' : 'ورود'}
             </Button>
           </form>

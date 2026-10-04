@@ -95,7 +95,9 @@ function sendToRenderer(channel: string, ...args: unknown[]): void {
 function applyFeedUrlFromEnv(): void {
   const base = getUpdateServerUrl();
   if (!base) {
-    console.info('[Updater] بدون آدرس صریح در env/api-config — از feed داخل app-update.yml استفاده می‌شود (در صورت وجود).');
+    console.info(
+      '[Updater] بدون آدرس صریح در env/api-config — از feed داخل app-update.yml استفاده می‌شود (در صورت وجود).',
+    );
     return;
   }
   if (isBlockedUpdateUrl(base)) {
@@ -128,7 +130,10 @@ function ensureAppUpdateConfigFile(): void {
     const yml = `provider: generic\nurl: ${feedUrl}\nupdaterCacheDirName: ${cacheName}\n`;
     fs.writeFileSync(out, yml, 'utf8');
     autoUpdater.updateConfigPath = out;
-    console.info('[Updater] app-update.yml در resources نبود؛ از فایل تولیدشده استفاده می‌شود:', out);
+    console.info(
+      '[Updater] app-update.yml در resources نبود؛ از فایل تولیدشده استفاده می‌شود:',
+      out,
+    );
   } catch (e) {
     console.warn('[Updater] نوشتن app-update.generated.yml ناموفق:', e);
   }
@@ -210,7 +215,8 @@ export async function checkForUpdates(): Promise<CheckForUpdatesResult> {
     return {
       ok: false,
       skipped: true,
-      message: 'بروزرسانی فقط در نسخهٔ نصب‌شده (خروجی electron-builder) فعال است؛ در حالت dev بررسی انجام نمی‌شود.',
+      message:
+        'بروزرسانی فقط در نسخهٔ نصب‌شده (خروجی electron-builder) فعال است؛ در حالت dev بررسی انجام نمی‌شود.',
     };
   }
   if (!isUpdateFeedConfigured()) {

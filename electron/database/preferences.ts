@@ -264,7 +264,10 @@ const writeCounterFile = async (data: ReceiptCounterFile): Promise<void> => {
 let receiptNumberLock: Promise<void> = Promise.resolve();
 const withReceiptNumberLock = <T>(fn: () => Promise<T>): Promise<T> => {
   const next = receiptNumberLock.then(() => fn());
-  receiptNumberLock = next.then(() => {}, () => {});
+  receiptNumberLock = next.then(
+    () => {},
+    () => {},
+  );
   return next;
 };
 
@@ -355,12 +358,15 @@ export async function loadCardTerminalSettings(): Promise<CardTerminalSettings> 
     ) || (prefs.cardTerminalProfiles || [])[0];
   const raw = selectedProfile?.settings || fallbackFromLegacy;
   const timeoutMs = Number((raw as any).timeoutMs);
-  const normalizedMethod = String((raw as any).httpMethod || 'POST').toUpperCase() === 'PUT' ? 'PUT' : 'POST';
+  const normalizedMethod =
+    String((raw as any).httpMethod || 'POST').toUpperCase() === 'PUT' ? 'PUT' : 'POST';
   const rawConnectionType = (raw as any).connectionType;
   return {
     enabled: Boolean((raw as any).enabled),
     connectionType:
-      rawConnectionType === 'serial-tlv' || rawConnectionType === 'asan-pardakht' ? rawConnectionType : 'http',
+      rawConnectionType === 'serial-tlv' || rawConnectionType === 'asan-pardakht'
+        ? rawConnectionType
+        : 'http',
     endpointUrl: String((raw as any).endpointUrl || '').trim(),
     httpMethod: normalizedMethod,
     timeoutMs: Number.isFinite(timeoutMs) ? Math.max(3000, Math.min(timeoutMs, 120000)) : 10000,
@@ -368,7 +374,8 @@ export async function loadCardTerminalSettings(): Promise<CardTerminalSettings> 
     orderIdFieldName: String((raw as any).orderIdFieldName || 'orderId').trim(),
     restaurantIdFieldName: String((raw as any).restaurantIdFieldName || 'restaurantId').trim(),
     sendAmountUnit: (raw as any).sendAmountUnit === 'rial' ? 'rial' : 'toman',
-    authHeaderName: String((raw as any).authHeaderName || 'Authorization').trim() || 'Authorization',
+    authHeaderName:
+      String((raw as any).authHeaderName || 'Authorization').trim() || 'Authorization',
     authToken: String((raw as any).authToken || '').trim(),
     successFieldPath: String((raw as any).successFieldPath || 'success').trim() || 'success',
     messageFieldPath: String((raw as any).messageFieldPath || 'message').trim() || 'message',
@@ -396,10 +403,11 @@ export async function loadCardTerminalConfig(): Promise<CardTerminalConfig> {
         ...(p.settings || {}),
       },
     }));
-    const defaultProfileId =
-      normalizedProfiles.some((x) => x.id === prefs.defaultCardTerminalProfileId)
-        ? String(prefs.defaultCardTerminalProfileId)
-        : normalizedProfiles[0].id;
+    const defaultProfileId = normalizedProfiles.some(
+      (x) => x.id === prefs.defaultCardTerminalProfileId,
+    )
+      ? String(prefs.defaultCardTerminalProfileId)
+      : normalizedProfiles[0].id;
     return { profiles: normalizedProfiles, defaultProfileId };
   }
   const legacy = await loadCardTerminalSettings();
@@ -415,7 +423,9 @@ export async function loadCardTerminalConfig(): Promise<CardTerminalConfig> {
   };
 }
 
-export async function saveCardTerminalConfig(config: Partial<CardTerminalConfig>): Promise<CardTerminalConfig> {
+export async function saveCardTerminalConfig(
+  config: Partial<CardTerminalConfig>,
+): Promise<CardTerminalConfig> {
   const prefs = await readPreferences();
   const incomingProfiles = Array.isArray(config.profiles) ? config.profiles : [];
   const profiles = incomingProfiles
@@ -495,17 +505,26 @@ export async function loadReceiptNumberSettings(): Promise<ReceiptNumberSettings
     s && typeof s.dailyResetTime === 'string' && /^\d{1,2}:\d{2}$/.test(s.dailyResetTime)
       ? s.dailyResetTime
       : '00:00';
-  const base = s && typeof s.nextNumber === 'number'
-    ? {
-        resetPolicy: ['never', 'minutely', 'daily', 'weekly', 'monthly'].includes(s.resetPolicy) ? s.resetPolicy : 'never',
-        startNumber: Math.max(1, typeof s.startNumber === 'number' ? s.startNumber : 1),
-        dailyResetTime,
-      }
-    : { ...DEFAULT_RECEIPT_SETTINGS, dailyResetTime: '00:00' };
+  const base =
+    s && typeof s.nextNumber === 'number'
+      ? {
+          resetPolicy: ['never', 'minutely', 'daily', 'weekly', 'monthly'].includes(s.resetPolicy)
+            ? s.resetPolicy
+            : 'never',
+          startNumber: Math.max(1, typeof s.startNumber === 'number' ? s.startNumber : 1),
+          dailyResetTime,
+        }
+      : { ...DEFAULT_RECEIPT_SETTINGS, dailyResetTime: '00:00' };
   return {
     ...base,
-    nextNumber: counter ? counter.nextNumber : (s?.nextNumber ?? DEFAULT_RECEIPT_SETTINGS.nextNumber),
-    lastResetDate: counter ? counter.lastResetDate : (typeof s?.lastResetDate === 'string' ? s.lastResetDate : ''),
+    nextNumber: counter
+      ? counter.nextNumber
+      : (s?.nextNumber ?? DEFAULT_RECEIPT_SETTINGS.nextNumber),
+    lastResetDate: counter
+      ? counter.lastResetDate
+      : typeof s?.lastResetDate === 'string'
+        ? s.lastResetDate
+        : '',
   };
 }
 
@@ -514,7 +533,9 @@ export async function loadDefaultPrintTemplate(): Promise<DefaultPrintTemplateSn
   return prefs.defaultPrintTemplate ?? null;
 }
 
-export async function saveDefaultPrintTemplate(template: DefaultPrintTemplateSnapshot | null): Promise<void> {
+export async function saveDefaultPrintTemplate(
+  template: DefaultPrintTemplateSnapshot | null,
+): Promise<void> {
   const prefs = await readPreferences();
   if (template) {
     prefs.defaultPrintTemplate = template;
@@ -524,7 +545,9 @@ export async function saveDefaultPrintTemplate(template: DefaultPrintTemplateSna
   await writePreferences(prefs);
 }
 
-export async function loadPrintTemplatesMap(): Promise<Record<string, DefaultPrintTemplateSnapshot | null>> {
+export async function loadPrintTemplatesMap(): Promise<
+  Record<string, DefaultPrintTemplateSnapshot | null>
+> {
   const prefs = await readPreferences();
   const map = prefs.printerTemplates ?? {};
   return { ...map };
@@ -546,7 +569,7 @@ export function printTemplateKey(printerName: string, receiptType?: 'full' | 'ki
 export async function setPrintTemplateForPrinter(
   printerName: string,
   template: DefaultPrintTemplateSnapshot | null | undefined,
-  receiptType?: 'full' | 'kitchen'
+  receiptType?: 'full' | 'kitchen',
 ): Promise<void> {
   const prefs = await readPreferences();
   if (!prefs.printerTemplates) prefs.printerTemplates = {};
@@ -605,9 +628,18 @@ export async function saveReceiptNumberSettings(settings: ReceiptNumberSettings)
 
   const current = readCounterFileSync();
   const currentNext = current?.nextNumber ?? 1;
-  const lastReset = typeof settings.lastResetDate === 'string' ? settings.lastResetDate : (current?.lastResetDate ?? '');
-  const requestedNext = typeof settings.nextNumber === 'number' && settings.nextNumber >= 1 ? settings.nextNumber : null;
-  const requestedStart = typeof settings.startNumber === 'number' && settings.startNumber >= 1 ? settings.startNumber : null;
+  const lastReset =
+    typeof settings.lastResetDate === 'string'
+      ? settings.lastResetDate
+      : (current?.lastResetDate ?? '');
+  const requestedNext =
+    typeof settings.nextNumber === 'number' && settings.nextNumber >= 1
+      ? settings.nextNumber
+      : null;
+  const requestedStart =
+    typeof settings.startNumber === 'number' && settings.startNumber >= 1
+      ? settings.startNumber
+      : null;
   const newNext = Math.max(currentNext, requestedNext ?? 0, requestedStart ?? 0);
   if (newNext >= currentNext) {
     writeCounterFileSync({ nextNumber: newNext, lastResetDate: lastReset });
@@ -678,16 +710,22 @@ export async function getNextReceiptNumber(): Promise<number> {
     const prefs = await readPreferences();
     const counter = readCounterFileSync();
     const s = prefs.receiptNumberSettings;
-    const policy = s && ['never', 'minutely', 'daily', 'weekly', 'monthly'].includes(s.resetPolicy) ? s.resetPolicy : 'never';
+    const policy =
+      s && ['never', 'minutely', 'daily', 'weekly', 'monthly'].includes(s.resetPolicy)
+        ? s.resetPolicy
+        : 'never';
     const startNumber = Math.max(1, s && typeof s.startNumber === 'number' ? s.startNumber : 1);
     const dailyResetTime =
-      s && typeof s.dailyResetTime === 'string' && /^\d{1,2}:\d{2}$/.test(s.dailyResetTime) ? s.dailyResetTime : '00:00';
+      s && typeof s.dailyResetTime === 'string' && /^\d{1,2}:\d{2}$/.test(s.dailyResetTime)
+        ? s.dailyResetTime
+        : '00:00';
 
     const lastReset = counter ? counter.lastResetDate : '';
     const now = new Date();
-    const receiptDayKey = policy === 'daily' ? getReceiptDayKey(now, dailyResetTime) : todayDateString();
+    const receiptDayKey =
+      policy === 'daily' ? getReceiptDayKey(now, dailyResetTime) : todayDateString();
     const needReset = shouldReset(lastReset, policy, dailyResetTime);
-    const next = needReset ? startNumber : (counter ? counter.nextNumber : startNumber);
+    const next = needReset ? startNumber : counter ? counter.nextNumber : startNumber;
 
     const numberToUse = Math.max(1, next);
     const newNextNumber = numberToUse + 1;
@@ -702,14 +740,19 @@ export async function getNextReceiptNumberPreview(): Promise<number> {
   const prefs = await readPreferences();
   const counter = readCounterFileSync();
   const s = prefs.receiptNumberSettings;
-  const policy = s && ['never', 'minutely', 'daily', 'weekly', 'monthly'].includes(s.resetPolicy) ? s.resetPolicy : 'never';
+  const policy =
+    s && ['never', 'minutely', 'daily', 'weekly', 'monthly'].includes(s.resetPolicy)
+      ? s.resetPolicy
+      : 'never';
   const startNumber = Math.max(1, s && typeof s.startNumber === 'number' ? s.startNumber : 1);
   const dailyResetTime =
-    s && typeof s.dailyResetTime === 'string' && /^\d{1,2}:\d{2}$/.test(s.dailyResetTime) ? s.dailyResetTime : '00:00';
+    s && typeof s.dailyResetTime === 'string' && /^\d{1,2}:\d{2}$/.test(s.dailyResetTime)
+      ? s.dailyResetTime
+      : '00:00';
   const lastReset = counter ? counter.lastResetDate : '';
   const now = new Date();
   const needReset = shouldReset(lastReset, policy, dailyResetTime);
-  const next = needReset ? startNumber : (counter ? counter.nextNumber : startNumber);
+  const next = needReset ? startNumber : counter ? counter.nextNumber : startNumber;
   return Math.max(1, next);
 }
 
@@ -776,9 +819,13 @@ export async function loadScaleSettings(): Promise<ScaleSettings> {
   return {
     connectionType: raw.connectionType === 'tcp' ? 'tcp' : 'serial',
     portName: String(raw.portName || ''),
-    baudRate: Number.isFinite(Number(raw.baudRate)) && Number(raw.baudRate) > 0 ? Number(raw.baudRate) : 9600,
+    baudRate:
+      Number.isFinite(Number(raw.baudRate)) && Number(raw.baudRate) > 0
+        ? Number(raw.baudRate)
+        : 9600,
     host: String(raw.host || ''),
-    tcpPort: Number.isFinite(Number(raw.tcpPort)) && Number(raw.tcpPort) > 0 ? Number(raw.tcpPort) : 8000,
+    tcpPort:
+      Number.isFinite(Number(raw.tcpPort)) && Number(raw.tcpPort) > 0 ? Number(raw.tcpPort) : 8000,
   };
 }
 
@@ -798,25 +845,36 @@ export async function loadCallerIdSettings(): Promise<CallerIdSettings> {
   const prefs = await readPreferences();
   const raw = prefs.callerIdSettings;
   if (!raw) return { ...DEFAULT_CALLER_ID_SETTINGS };
-  const validFormats: CallerIdSerialFormat[] = ['auto', 'at-clip', 'cid-nmbr', 'caller-field', 'raw-number'];
+  const validFormats: CallerIdSerialFormat[] = [
+    'auto',
+    'at-clip',
+    'cid-nmbr',
+    'caller-field',
+    'raw-number',
+  ];
   return {
     enabled: Boolean(raw.enabled),
     inputMode: raw.inputMode === 'serial' ? 'serial' : raw.inputMode === 'hid' ? 'hid' : 'webhook',
-    webhookPort: Number.isFinite(Number(raw.webhookPort)) && Number(raw.webhookPort) > 0
-      ? Number(raw.webhookPort)
-      : DEFAULT_CALLER_ID_SETTINGS.webhookPort,
+    webhookPort:
+      Number.isFinite(Number(raw.webhookPort)) && Number(raw.webhookPort) > 0
+        ? Number(raw.webhookPort)
+        : DEFAULT_CALLER_ID_SETTINGS.webhookPort,
     webhookSecret: String(raw.webhookSecret || ''),
-    phoneField: String(raw.phoneField || DEFAULT_CALLER_ID_SETTINGS.phoneField).trim() || DEFAULT_CALLER_ID_SETTINGS.phoneField,
+    phoneField:
+      String(raw.phoneField || DEFAULT_CALLER_ID_SETTINGS.phoneField).trim() ||
+      DEFAULT_CALLER_ID_SETTINGS.phoneField,
     serialPortName: String(raw.serialPortName || ''),
-    serialBaudRate: Number.isFinite(Number(raw.serialBaudRate)) && Number(raw.serialBaudRate) > 0
-      ? Number(raw.serialBaudRate)
-      : DEFAULT_CALLER_ID_SETTINGS.serialBaudRate,
+    serialBaudRate:
+      Number.isFinite(Number(raw.serialBaudRate)) && Number(raw.serialBaudRate) > 0
+        ? Number(raw.serialBaudRate)
+        : DEFAULT_CALLER_ID_SETTINGS.serialBaudRate,
     serialFormat: validFormats.includes(raw.serialFormat as CallerIdSerialFormat)
-      ? raw.serialFormat as CallerIdSerialFormat
+      ? (raw.serialFormat as CallerIdSerialFormat)
       : 'auto',
-    notifyDurationSec: Number.isFinite(Number(raw.notifyDurationSec)) && Number(raw.notifyDurationSec) > 0
-      ? Number(raw.notifyDurationSec)
-      : DEFAULT_CALLER_ID_SETTINGS.notifyDurationSec,
+    notifyDurationSec:
+      Number.isFinite(Number(raw.notifyDurationSec)) && Number(raw.notifyDurationSec) > 0
+        ? Number(raw.notifyDurationSec)
+        : DEFAULT_CALLER_ID_SETTINGS.notifyDurationSec,
     playSoundEnabled: raw.playSoundEnabled !== false,
   };
 }
@@ -861,7 +919,9 @@ export async function saveCallHistory(history: any[]): Promise<void> {
   await fs.promises.writeFile(filePath, JSON.stringify(history, null, 2), 'utf-8');
 }
 
-export async function saveCallerIdSettings(settings: Partial<CallerIdSettings>): Promise<CallerIdSettings> {
+export async function saveCallerIdSettings(
+  settings: Partial<CallerIdSettings>,
+): Promise<CallerIdSettings> {
   const prefs = await readPreferences();
   const merged: CallerIdSettings = {
     ...DEFAULT_CALLER_ID_SETTINGS,

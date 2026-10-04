@@ -40,12 +40,12 @@ export interface SyncMeta {
 // ─── Cash / Bank Account Transactions ────────────────────────────────────────
 
 export type CashTransactionType =
-  | 'sale_income'        // فروش (فاکتور فروش)
-  | 'credit_payment'     // دریافت وجه بابت نسیه
-  | 'expense_payment'    // پرداخت هزینه
-  | 'purchase_payment'   // پرداخت به تامین‌کننده
-  | 'manual_in'          // ورودی دستی
-  | 'manual_out';        // خروجی دستی
+  | 'sale_income' // فروش (فاکتور فروش)
+  | 'credit_payment' // دریافت وجه بابت نسیه
+  | 'expense_payment' // پرداخت هزینه
+  | 'purchase_payment' // پرداخت به تامین‌کننده
+  | 'manual_in' // ورودی دستی
+  | 'manual_out'; // خروجی دستی
 
 export type CashAccountType = 'cash' | 'card' | 'online' | 'bank';
 
@@ -53,17 +53,17 @@ export interface CashAccountTransaction {
   id?: number;
   restaurantId: number;
   accountType: CashAccountType;
-  accountName: string;    // 'صندوق' | 'کارتخوان' | 'آنلاین' | نام بانک
+  accountName: string; // 'صندوق' | 'کارتخوان' | 'آنلاین' | نام بانک
   transactionType: CashTransactionType;
-  amount: number;         // positive = ورودی, negative = خروجی
+  amount: number; // positive = ورودی, negative = خروجی
   orderId?: number;
   orderNumber?: string;
   customerPhone?: string;
   referenceCode?: string; // RRN / tracking code from card terminal
   description?: string;
-  date: string;           // YYYY-MM-DD
+  date: string; // YYYY-MM-DD
   createdAt: string;
-  localId?: string;       // unique local ID for server dedup
+  localId?: string; // unique local ID for server dedup
   syncStatus?: 'pending' | 'synced' | 'failed';
 }
 
@@ -421,7 +421,9 @@ export async function cancelPendingSyncOp(
     .filter((op) => op.entityId === entityId && op.status !== 'synced')
     .toArray();
   if (ops.length) {
-    await accountingDb.syncOperations.bulkDelete(ops.map((op) => op.id!).filter((id) => id !== undefined));
+    await accountingDb.syncOperations.bulkDelete(
+      ops.map((op) => op.id!).filter((id) => id !== undefined),
+    );
   }
 }
 
@@ -444,7 +446,9 @@ export async function markPendingSyncOpsInFlight(
     .toArray();
   const now = new Date().toISOString();
   await Promise.all(
-    ops.map((op) => accountingDb.syncOperations.update(op.id!, { status: 'syncing', updatedAt: now })),
+    ops.map((op) =>
+      accountingDb.syncOperations.update(op.id!, { status: 'syncing', updatedAt: now }),
+    ),
   );
 }
 
@@ -460,7 +464,9 @@ export async function restorePendingSyncOps(
     .toArray();
   const now = new Date().toISOString();
   await Promise.all(
-    ops.map((op) => accountingDb.syncOperations.update(op.id!, { status: 'pending', updatedAt: now })),
+    ops.map((op) =>
+      accountingDb.syncOperations.update(op.id!, { status: 'pending', updatedAt: now }),
+    ),
   );
 }
 
@@ -527,7 +533,8 @@ export async function upsertPulledEntities(entityType: SyncEntityType, rows: any
   // را برگردانده باشد — دوباره درجش نکن. وگرنه حذف خوش‌بینانه‌ی محلی توسط همین
   // pull پس‌زمینه لغو می‌شود و کاربر تا رفرش بعدی دوباره همان رکورد را می‌بیند.
   const pendingDeletes = await accountingDb.syncOperations
-    .where('entityType').equals(entityType)
+    .where('entityType')
+    .equals(entityType)
     .filter((op) => op.operationType === 'delete' && op.status !== 'synced')
     .toArray();
   const rowsToApply = pendingDeletes.length
@@ -541,9 +548,7 @@ export async function upsertPulledEntities(entityType: SyncEntityType, rows: any
     console.warn(
       `[upsertPulledEntities] skipped ${normalizedRows.length - rowsToApply.length} "${entityType}" row(s) present on server due to a pending/failed local delete op`,
       {
-        skippedIds: normalizedRows
-          .filter((r) => !rowsToApply.includes(r))
-          .map((r) => r.id),
+        skippedIds: normalizedRows.filter((r) => !rowsToApply.includes(r)).map((r) => r.id),
         pendingDeleteOps: pendingDeletes.map((op) => ({
           entityId: op.entityId,
           status: op.status,
@@ -571,7 +576,9 @@ export async function upsertPulledEntities(entityType: SyncEntityType, rows: any
     const ids = rowsToApply.map((r) => r.id);
     const existingArr = await table.bulkGet(ids);
     const existingMap = new Map<any, any>();
-    existingArr.forEach((e: any) => { if (e) existingMap.set(e.id, e); });
+    existingArr.forEach((e: any) => {
+      if (e) existingMap.set(e.id, e);
+    });
     const merged = rowsToApply.map((r) => {
       if (r.productId != null) return r;
       const local = existingMap.get(r.id);
@@ -594,7 +601,9 @@ export async function upsertPulledInvoices(restaurantId: number, serverInvoices:
 
   // Build a map: serverInvoiceId → local Dexie record id
   const localRows = await accountingDb.purchaseInvoices
-    .where('restaurantId').equals(restaurantId).toArray();
+    .where('restaurantId')
+    .equals(restaurantId)
+    .toArray();
   const serverIdToLocalId = new Map<number, number>();
   for (const row of localRows) {
     if (row.serverInvoiceId != null) serverIdToLocalId.set(Number(row.serverInvoiceId), row.id);
@@ -610,7 +619,8 @@ export async function upsertPulledInvoices(restaurantId: number, serverInvoices:
         totalAmount: inv.totalAmount,
         supplierName: inv.supplierName,
         localSyncStatus: 'synced',
-        updatedAt: typeof inv.updatedAt === 'string' ? inv.updatedAt : new Date(inv.updatedAt).toISOString(),
+        updatedAt:
+          typeof inv.updatedAt === 'string' ? inv.updatedAt : new Date(inv.updatedAt).toISOString(),
       });
     } else {
       toInsert.push({
@@ -618,8 +628,10 @@ export async function upsertPulledInvoices(restaurantId: number, serverInvoices:
         localSyncStatus: 'synced',
         syncError: null,
         serverInvoiceId: Number(inv.id),
-        updatedAt: typeof inv.updatedAt === 'string' ? inv.updatedAt : new Date(inv.updatedAt).toISOString(),
-        createdAt: typeof inv.createdAt === 'string' ? inv.createdAt : new Date(inv.createdAt).toISOString(),
+        updatedAt:
+          typeof inv.updatedAt === 'string' ? inv.updatedAt : new Date(inv.updatedAt).toISOString(),
+        createdAt:
+          typeof inv.createdAt === 'string' ? inv.createdAt : new Date(inv.createdAt).toISOString(),
       });
     }
   }
@@ -661,10 +673,14 @@ export async function upsertPulledWarehouseStocks(stocks: any[]) {
   await accountingDb.warehouseStocks.bulkPut(stocks);
 }
 
-export async function getWarehouseStocksLocal(restaurantId: number, warehouseId?: number): Promise<any[]> {
-  const query = warehouseId != null
-    ? accountingDb.warehouseStocks.where('warehouseId').equals(warehouseId)
-    : accountingDb.warehouseStocks.where('restaurantId').equals(restaurantId);
+export async function getWarehouseStocksLocal(
+  restaurantId: number,
+  warehouseId?: number,
+): Promise<any[]> {
+  const query =
+    warehouseId != null
+      ? accountingDb.warehouseStocks.where('warehouseId').equals(warehouseId)
+      : accountingDb.warehouseStocks.where('restaurantId').equals(restaurantId);
   return query.toArray();
 }
 
@@ -719,7 +735,12 @@ export async function reconcileDeletedEntities(
     // (سرور آن‌ها را دارد ولی پس از هر full sync پاک می‌شوند). بعد از رفع قطعی حذف شود.
     console.warn(
       `[reconcile] deleting ${idsToDelete.length} local "${entityType}" row(s) not present in server batch`,
-      { restaurantId, deletedIds: idsToDelete, localCount: localRows.length, serverCount: serverIds.size },
+      {
+        restaurantId,
+        deletedIds: idsToDelete,
+        localCount: localRows.length,
+        serverCount: serverIds.size,
+      },
     );
     await table.bulkDelete(idsToDelete);
   }
@@ -745,8 +766,14 @@ export async function resetAccountingPullTimestamp(restaurantId: number): Promis
  */
 export async function resetEntitySyncOperationsToPending(restaurantId: number): Promise<number> {
   const entityTypes: SyncEntityType[] = [
-    'supplier', 'raw_material', 'final_product', 'recipe_item', 'cash_bank_account',
-    'operational_expense', 'expense_category', 'raw_material_category',
+    'supplier',
+    'raw_material',
+    'final_product',
+    'recipe_item',
+    'cash_bank_account',
+    'operational_expense',
+    'expense_category',
+    'raw_material_category',
   ];
   const all = await accountingDb.syncOperations
     .where('restaurantId')
@@ -769,7 +796,9 @@ export async function resetEntitySyncOperationsToPending(restaurantId: number): 
   return toReset.length;
 }
 
-export async function getFailedAccountingSyncOps(restaurantId: number): Promise<LocalSyncOperation[]> {
+export async function getFailedAccountingSyncOps(
+  restaurantId: number,
+): Promise<LocalSyncOperation[]> {
   try {
     return await accountingDb.syncOperations
       .where('[restaurantId+status]')
@@ -791,9 +820,7 @@ export async function getFailedAccountingSyncOps(restaurantId: number): Promise<
  * صورت (صفر یا چند مورد مشابه) برای جلوگیری از لینک‌شدن اشتباه، فقط لینک را
  * پاک می‌کنیم تا رکورد حداقل بدون خطای «out of range» سینک شود.
  */
-async function repairOrphanedFinalProductPayloads(
-  ops: LocalSyncOperation[],
-): Promise<void> {
+async function repairOrphanedFinalProductPayloads(ops: LocalSyncOperation[]): Promise<void> {
   const orphaned = ops.filter(
     (op) => op.entityType === 'final_product' && Number(op.payload?.productId) < 0,
   );
@@ -826,7 +853,10 @@ async function repairOrphanedFinalProductPayloads(
       });
       const fpId = Number(op.entityId);
       if (fpId) {
-        await accountingDb.finalProducts.update(fpId, { productId: fixedProductId, updatedAt: now });
+        await accountingDb.finalProducts.update(fpId, {
+          productId: fixedProductId,
+          updatedAt: now,
+        });
       }
     }),
   );
@@ -865,9 +895,7 @@ export async function discardAccountingSyncOp(opId: number): Promise<void> {
  * Returns the number of operations discarded. Mirrors retryFailedAccountingOps but
  * deletes instead of resetting to 'pending'.
  */
-export async function discardFailedAccountingSyncOps(
-  restaurantId: number,
-): Promise<number> {
+export async function discardFailedAccountingSyncOps(restaurantId: number): Promise<number> {
   const failed = await getFailedAccountingSyncOps(restaurantId);
   const ids = failed.map((op) => op.id!).filter((id) => id !== undefined);
   if (ids.length > 0) {
@@ -1014,7 +1042,12 @@ export async function deleteRawMaterialLocal(input: { id: number; restaurantId: 
 export async function updateSupplierLocal(input: {
   id: number;
   restaurantId: number;
-  patch: Partial<{ name: string; phone: string | null; address: string | null; notes: string | null }>;
+  patch: Partial<{
+    name: string;
+    phone: string | null;
+    address: string | null;
+    notes: string | null;
+  }>;
 }) {
   const existing = await accountingDb.suppliers.get(input.id);
   if (!existing) return null;
@@ -1084,28 +1117,53 @@ export async function upsertPulledRawMaterialCategories(categories: any[]): Prom
   await accountingDb.rawMaterialCategories.bulkPut(categories);
 }
 
-export async function createRawMaterialCategoryLocal(input: { restaurantId: number; name: string }) {
+export async function createRawMaterialCategoryLocal(input: {
+  restaurantId: number;
+  name: string;
+}) {
   const id = nextLocalEntityId();
   const now = new Date().toISOString();
-  const row = { id, restaurantId: input.restaurantId, name: input.name.trim(), isActive: true, createdAt: now, updatedAt: now };
+  const row = {
+    id,
+    restaurantId: input.restaurantId,
+    name: input.name.trim(),
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  };
   await accountingDb.rawMaterialCategories.put(row);
   await enqueueAccountingOperation({
-    localOpId: nextOpId(), restaurantId: input.restaurantId, entityType: 'raw_material_category',
-    entityId: String(id), operationType: 'create', payload: row, version: 1, clientUpdatedAt: now,
+    localOpId: nextOpId(),
+    restaurantId: input.restaurantId,
+    entityType: 'raw_material_category',
+    entityId: String(id),
+    operationType: 'create',
+    payload: row,
+    version: 1,
+    clientUpdatedAt: now,
   });
   return row;
 }
 
-export async function updateRawMaterialCategoryLocal(input: { id: number; restaurantId: number; patch: Partial<{ name: string; isActive: boolean }> }) {
+export async function updateRawMaterialCategoryLocal(input: {
+  id: number;
+  restaurantId: number;
+  patch: Partial<{ name: string; isActive: boolean }>;
+}) {
   const existing = await accountingDb.rawMaterialCategories.get(input.id);
   if (!existing) return null;
   const now = new Date().toISOString();
   const next = { ...existing, ...input.patch, updatedAt: now };
   await accountingDb.rawMaterialCategories.put(next);
   await enqueueAccountingOperation({
-    localOpId: nextOpId(), restaurantId: input.restaurantId, entityType: 'raw_material_category',
-    entityId: String(input.id), operationType: 'update', payload: next,
-    version: Number(existing.version || 1) + 1, clientUpdatedAt: now,
+    localOpId: nextOpId(),
+    restaurantId: input.restaurantId,
+    entityType: 'raw_material_category',
+    entityId: String(input.id),
+    operationType: 'update',
+    payload: next,
+    version: Number(existing.version || 1) + 1,
+    clientUpdatedAt: now,
   });
   return next;
 }
@@ -1115,9 +1173,14 @@ export async function deleteRawMaterialCategoryLocal(input: { id: number; restau
   if (!existing) return false;
   await accountingDb.rawMaterialCategories.delete(input.id);
   await enqueueAccountingOperation({
-    localOpId: nextOpId(), restaurantId: input.restaurantId, entityType: 'raw_material_category',
-    entityId: String(input.id), operationType: 'delete', payload: { id: input.id },
-    version: Number(existing.version || 1) + 1, clientUpdatedAt: new Date().toISOString(),
+    localOpId: nextOpId(),
+    restaurantId: input.restaurantId,
+    entityType: 'raw_material_category',
+    entityId: String(input.id),
+    operationType: 'delete',
+    payload: { id: input.id },
+    version: Number(existing.version || 1) + 1,
+    clientUpdatedAt: new Date().toISOString(),
   });
   return true;
 }
@@ -1129,7 +1192,12 @@ export async function createPurchaseReturnLocal(input: {
   purchaseInvoiceId: number;
   returnDate: string;
   notes?: string;
-  items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number }>;
+  items: Array<{
+    rawMaterialId?: number;
+    finalProductId?: number;
+    quantity: number;
+    unitPrice: number;
+  }>;
 }) {
   const id = nextLocalEntityId();
   const now = new Date().toISOString();
@@ -1155,17 +1223,22 @@ export async function createPurchaseReturnLocal(input: {
   await accountingDb.purchaseReturns.put(returnRow);
   await accountingDb.purchaseReturnItems.bulkPut(items);
   await enqueueAccountingOperation({
-    localOpId: nextOpId(), restaurantId: input.restaurantId, entityType: 'purchase_return',
-    entityId: String(id), operationType: 'create',
+    localOpId: nextOpId(),
+    restaurantId: input.restaurantId,
+    entityType: 'purchase_return',
+    entityId: String(id),
+    operationType: 'create',
     payload: { ...returnRow, items },
-    version: 1, clientUpdatedAt: now,
+    version: 1,
+    clientUpdatedAt: now,
   });
   return { returnRow, items };
 }
 
 export async function getPendingPurchaseReturnDrafts(restaurantId: number): Promise<any[]> {
   return accountingDb.purchaseReturns
-    .where('restaurantId').equals(restaurantId)
+    .where('restaurantId')
+    .equals(restaurantId)
     .filter((r) => r.localSyncStatus === 'pending' || r.localSyncStatus === 'failed')
     .toArray();
 }
@@ -1175,7 +1248,11 @@ export async function markPurchaseReturnSyncState(
   localSyncStatus: 'pending' | 'syncing' | 'synced' | 'failed',
   patch?: { syncError?: string | null; serverReturnId?: number },
 ) {
-  await accountingDb.purchaseReturns.update(id, { localSyncStatus, ...patch, updatedAt: new Date().toISOString() });
+  await accountingDb.purchaseReturns.update(id, {
+    localSyncStatus,
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 // ─── دسته‌بندی هزینه (آفلاین) ────────────────────────────────────────────────
@@ -1349,7 +1426,14 @@ export async function createPurchaseInvoiceLocal(input: {
   supplierId: number;
   invoiceNumber: string;
   purchaseDate: string;
-  items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number; warehouseId?: number }>;
+  items: Array<{
+    rawMaterialId?: number;
+    finalProductId?: number;
+    quantity: number;
+    unitPrice: number;
+    salePrice?: number;
+    warehouseId?: number;
+  }>;
   extraCosts?: number;
 }) {
   const id = nextLocalEntityId();
@@ -1402,7 +1486,10 @@ export async function getPendingPurchaseInvoiceDrafts(restaurantId: number, limi
 }
 
 export async function getPurchaseInvoiceItemsByInvoiceId(purchaseInvoiceId: number) {
-  return accountingDb.purchaseInvoiceItems.where('purchaseInvoiceId').equals(purchaseInvoiceId).toArray();
+  return accountingDb.purchaseInvoiceItems
+    .where('purchaseInvoiceId')
+    .equals(purchaseInvoiceId)
+    .toArray();
 }
 
 export async function markPurchaseInvoiceSyncState(
@@ -1425,7 +1512,14 @@ export async function updatePurchaseInvoiceDraftLocal(input: {
   supplierId: number;
   invoiceNumber: string;
   purchaseDate: string;
-  items: Array<{ rawMaterialId?: number; finalProductId?: number; quantity: number; unitPrice: number; salePrice?: number; warehouseId?: number }>;
+  items: Array<{
+    rawMaterialId?: number;
+    finalProductId?: number;
+    quantity: number;
+    unitPrice: number;
+    salePrice?: number;
+    warehouseId?: number;
+  }>;
   extraCosts?: number;
 }) {
   const existing = await accountingDb.purchaseInvoices.get(input.invoiceId);
@@ -1527,7 +1621,10 @@ export async function resolveFinalProductTempProductId(
     .toArray();
   await Promise.all(
     affected.map((fp) =>
-      accountingDb.finalProducts.update(fp.id, { productId: realProductId, updatedAt: new Date().toISOString() }),
+      accountingDb.finalProducts.update(fp.id, {
+        productId: realProductId,
+        updatedAt: new Date().toISOString(),
+      }),
     ),
   );
 
@@ -1603,11 +1700,16 @@ export async function deletePurchaseInvoiceDraftLocal(invoiceId: number) {
 
 export function accountTypeLabel(type: CashAccountType): string {
   switch (type) {
-    case 'cash': return 'صندوق';
-    case 'card': return 'کارتخوان';
-    case 'online': return 'آنلاین';
-    case 'bank': return 'بانک';
-    default: return type;
+    case 'cash':
+      return 'صندوق';
+    case 'card':
+      return 'کارتخوان';
+    case 'online':
+      return 'آنلاین';
+    case 'bank':
+      return 'بانک';
+    default:
+      return type;
   }
 }
 
@@ -1637,19 +1739,28 @@ export async function recordOrderPaymentTransactions(params: {
   splitOnline: number;
   mixedHasCredit: boolean;
   referenceCode?: string;
-  cashAccountName?: string;   // e.g., "صندوق جلو" (defaults to 'صندوق')
-  cardAccountName?: string;   // e.g., "کارتخوان ۱" (defaults to 'کارتخوان')
+  cashAccountName?: string; // e.g., "صندوق جلو" (defaults to 'صندوق')
+  cardAccountName?: string; // e.g., "کارتخوان ۱" (defaults to 'کارتخوان')
 }): Promise<void> {
   const {
-    restaurantId, orderId, orderNumber, customerPhone,
-    paymentMethod, finalAmount, splitCash, splitCard, splitOnline,
+    restaurantId,
+    orderId,
+    orderNumber,
+    customerPhone,
+    paymentMethod,
+    finalAmount,
+    splitCash,
+    splitCard,
+    splitOnline,
     referenceCode,
   } = params;
   const cashName = params.cashAccountName || 'صندوق';
   const cardName = params.cardAccountName || 'کارتخوان';
   const today = new Date().toISOString().slice(0, 10);
   const base = {
-    restaurantId, orderId, orderNumber,
+    restaurantId,
+    orderId,
+    orderNumber,
     customerPhone: customerPhone || undefined,
     transactionType: 'sale_income' as CashTransactionType,
     date: today,
@@ -1657,21 +1768,52 @@ export async function recordOrderPaymentTransactions(params: {
   };
 
   if (paymentMethod === 'cash') {
-    await recordCashTransaction({ ...base, accountType: 'cash', accountName: cashName, amount: finalAmount });
+    await recordCashTransaction({
+      ...base,
+      accountType: 'cash',
+      accountName: cashName,
+      amount: finalAmount,
+    });
   } else if (paymentMethod === 'card') {
-    await recordCashTransaction({ ...base, accountType: 'card', accountName: cardName, amount: finalAmount });
+    await recordCashTransaction({
+      ...base,
+      accountType: 'card',
+      accountName: cardName,
+      amount: finalAmount,
+    });
   } else if (paymentMethod === 'online') {
-    await recordCashTransaction({ ...base, accountType: 'online', accountName: 'آنلاین', amount: finalAmount });
+    await recordCashTransaction({
+      ...base,
+      accountType: 'online',
+      accountName: 'آنلاین',
+      amount: finalAmount,
+    });
   } else if (paymentMethod === 'mixed' || paymentMethod === 'credit') {
     // Record each portion to its respective account
     if (splitCash > 0) {
-      await recordCashTransaction({ ...base, accountType: 'cash', accountName: cashName, amount: splitCash });
+      await recordCashTransaction({
+        ...base,
+        accountType: 'cash',
+        accountName: cashName,
+        amount: splitCash,
+      });
     }
     if (splitCard > 0) {
-      await recordCashTransaction({ ...base, accountType: 'card', accountName: cardName, amount: splitCard, referenceCode });
+      await recordCashTransaction({
+        ...base,
+        accountType: 'card',
+        accountName: cardName,
+        amount: splitCard,
+        referenceCode,
+      });
     }
     if (splitOnline > 0) {
-      await recordCashTransaction({ ...base, accountType: 'online', accountName: 'آنلاین', amount: splitOnline });
+      await recordCashTransaction({
+        ...base,
+        accountType: 'online',
+        accountName: 'آنلاین',
+        amount: splitOnline,
+      });
     }
     // Note: the credit portion is NOT a cash transaction — it's a receivable
   }
@@ -1715,7 +1857,8 @@ export async function getCashAccountBalance(
       .toArray();
   } else {
     rows = await accountingDb.cashAccountTransactions
-      .where('restaurantId').equals(restaurantId)
+      .where('restaurantId')
+      .equals(restaurantId)
       .toArray();
   }
   return rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
@@ -1730,9 +1873,11 @@ export async function getCashAccountTransactions(
     limit?: number;
   },
 ): Promise<CashAccountTransaction[]> {
-  let rows = await accountingDb.cashAccountTransactions
-    .where('restaurantId').equals(restaurantId)
-    .reverse().sortBy('createdAt') as CashAccountTransaction[];
+  let rows = (await accountingDb.cashAccountTransactions
+    .where('restaurantId')
+    .equals(restaurantId)
+    .reverse()
+    .sortBy('createdAt')) as CashAccountTransaction[];
 
   if (opts?.accountType) rows = rows.filter((r) => r.accountType === opts.accountType);
   if (opts?.fromDate) rows = rows.filter((r) => r.date >= opts.fromDate!);
@@ -1741,35 +1886,54 @@ export async function getCashAccountTransactions(
   return rows;
 }
 
-export async function getAllCashAccountsSummary(restaurantId: number): Promise<
+export async function getAllCashAccountsSummary(
+  restaurantId: number,
+): Promise<
   Array<{ accountType: CashAccountType; accountName: string; balance: number; txCount: number }>
 > {
-  const all = await accountingDb.cashAccountTransactions
-    .where('restaurantId').equals(restaurantId).toArray() as CashAccountTransaction[];
+  const all = (await accountingDb.cashAccountTransactions
+    .where('restaurantId')
+    .equals(restaurantId)
+    .toArray()) as CashAccountTransaction[];
 
   const types: CashAccountType[] = ['cash', 'card', 'online', 'bank'];
-  return types.map((type) => {
-    const txs = all.filter((r) => r.accountType === type);
-    const balance = txs.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-    return { accountType: type, accountName: accountTypeLabel(type), balance, txCount: txs.length };
-  }).filter((s) => s.txCount > 0 || s.accountType === 'cash' || s.accountType === 'card');
+  return types
+    .map((type) => {
+      const txs = all.filter((r) => r.accountType === type);
+      const balance = txs.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      return {
+        accountType: type,
+        accountName: accountTypeLabel(type),
+        balance,
+        txCount: txs.length,
+      };
+    })
+    .filter((s) => s.txCount > 0 || s.accountType === 'cash' || s.accountType === 'card');
 }
 
-export async function getPendingCashTransactions(restaurantId: number, limit = 100): Promise<CashAccountTransaction[]> {
+export async function getPendingCashTransactions(
+  restaurantId: number,
+  limit = 100,
+): Promise<CashAccountTransaction[]> {
   try {
-    return await accountingDb.cashAccountTransactions
+    return (await accountingDb.cashAccountTransactions
       .where('[restaurantId+syncStatus]')
       .equals([restaurantId, 'pending'])
       .limit(limit)
-      .toArray() as CashAccountTransaction[];
+      .toArray()) as CashAccountTransaction[];
   } catch {
-    const all = await accountingDb.cashAccountTransactions.where('restaurantId').equals(restaurantId).toArray() as CashAccountTransaction[];
+    const all = (await accountingDb.cashAccountTransactions
+      .where('restaurantId')
+      .equals(restaurantId)
+      .toArray()) as CashAccountTransaction[];
     return all.filter((tx) => tx.syncStatus === 'pending').slice(0, limit);
   }
 }
 
 export async function markCashTransactionsSynced(ids: number[]): Promise<void> {
-  await Promise.all(ids.map((id) => accountingDb.cashAccountTransactions.update(id, { syncStatus: 'synced' })));
+  await Promise.all(
+    ids.map((id) => accountingDb.cashAccountTransactions.update(id, { syncStatus: 'synced' })),
+  );
 }
 
 // ─── ابزار تشخیصی موقت (کنسول DevTools) ─────────────────────────────────────
