@@ -5,3 +5,4 @@ build
 coverage
 public
 assets
+src/types/api.generated.ts

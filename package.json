@@ -12,6 +12,7 @@
     "build:electron": "tsc -p tsconfig.electron.json && node scripts/write-packaged-update-env.js",
     "preview": "vite preview",
     "type-check": "tsc -p tsconfig.json --noEmit",
+    "api:types": "node scripts/generate-api-types.cjs",
     "format": "prettier --write \"{src,electron}/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"{src,electron}/**/*.{ts,tsx}\"",
     "pack": "npm run build && electron-builder --dir",
