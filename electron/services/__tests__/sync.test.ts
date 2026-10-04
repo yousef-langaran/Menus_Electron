@@ -7,6 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const post = vi.fn();
 vi.mock('axios', () => ({ default: { post } }));
 
+// sync.ts pulls in database/posShifts (and config/api), which import 'electron'.
+// Mock it like the other electron/* tests so this suite does not need the Electron binary.
+vi.mock('electron', () => ({
+  app: { getPath: vi.fn(() => 'C:/userData') },
+}));
+
 vi.mock('../../database/orders', () => ({
   getOfflineOrders: vi.fn(),
   markOrderAsSynced: vi.fn(),
