@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "type-check": "tsc -p tsconfig.json --noEmit",
     "api:types": "node scripts/generate-api-types.cjs",
+    "check:any": "node scripts/check-any-budget.cjs",
     "format": "prettier --write \"{src,electron}/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"{src,electron}/**/*.{ts,tsx}\"",
     "pack": "npm run build && electron-builder --dir",

@@ -26,6 +26,9 @@ jobs:
       - name: Check formatting
         run: yarn format:check
 
+      - name: Explicit any budget (can only go down)
+        run: yarn check:any
+
       - name: Type-check (renderer)
         run: yarn type-check
 
