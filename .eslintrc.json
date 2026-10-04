@@ -1,0 +1,25 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": { "ecmaVersion": 2022, "sourceType": "module", "ecmaFeatures": { "jsx": true } },
+  "plugins": ["@typescript-eslint", "react-hooks"],
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
+  "env": { "browser": true, "node": true, "es2022": true },
+  "ignorePatterns": ["dist", "release", "build", "node_modules", "src/types/api.generated.ts"],
+  "rules": {
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
+    ],
+    "@typescript-eslint/no-explicit-any": "warn",
+    "max-lines": ["warn", { "max": 800, "skipBlankLines": true, "skipComments": true }]
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**", "vitest.setup.ts"],
+      "rules": { "max-lines": "off", "@typescript-eslint/no-explicit-any": "off" }
+    }
+  ]
+}
