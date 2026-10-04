@@ -5,6 +5,8 @@ on:
   push:
     branches-ignore:
       - master
+  # called by main.yml so that a deploy only starts after CI is green
+  workflow_call:
 
 jobs:
   verify:

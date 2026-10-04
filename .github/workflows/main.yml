@@ -4,9 +4,18 @@ on:
   push:
     branches:
       - master
+  # Manual run: deploys WITHOUT running CI first. Emergency escape hatch only.
+  workflow_dispatch:
 
 jobs:
+  ci:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/ci.yml
+
   deploy:
+    needs: ci
+    # push: only when CI succeeded; manual run: CI is skipped on purpose
+    if: ${{ always() && (needs.ci.result == 'success' || (github.event_name == 'workflow_dispatch' && needs.ci.result == 'skipped')) }}
     runs-on: self-hosted
 
     steps:
