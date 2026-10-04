@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { normalizeNameFa, smartSearchMatch } from '../utils/persian';
-import { Card, CardContent, ModalBody, ModalFooter, ModalHeader } from '@heroui/react';
-import { Modal } from '@/ui/compat-modal';
+import { Card, CardContent } from '@heroui/react';
 import { Button } from '../ui/compat-button';
 import { Input } from '../ui/compat-input';
-import { ModalShell } from '../ui/modal-shell';
 import { Select, SelectItem } from '../ui/compat-select';
 import { useAuthStore } from '../store/authStore';
-import { NameAutocomplete } from '../ui/NameAutocomplete';
-import { getMasterProductByBarcode, searchMasterProducts } from '../services/api';
+import { getMasterProductByBarcode } from '../services/api';
 import {
   createProductLocal,
   deleteProductLocal,
@@ -21,95 +18,17 @@ import {
 import { getFinalProductStockByProductId } from '../services/accountingLocalDb';
 import { runCatalogSync } from '../services/catalogSync';
 import { toast } from '../utils/toast';
-
-const PAGE_SIZE = 20;
-
-const PRODUCT_UNITS = [
-  'عدد',
-  'کیلوگرم',
-  'گرم',
-  'لیتر',
-  'میلی‌لیتر',
-  'متر',
-  'سانتی‌متر',
-  'بسته',
-  'جعبه',
-  'پرس',
-  'وعده',
-  'پیمانه',
-  'قوطی',
-  'بطری',
-];
-
-const SCALE_UNITS = ['کیلوگرم', 'گرم'];
-
-type ProductForm = {
-  id?: number;
-  barcode: string;
-  name_fa: string;
-  name: string;
-  price: string;
-  category_id: string;
-  unit: string;
-  useScaleForWeight: boolean;
-};
-
-const emptyForm: ProductForm = {
-  barcode: '',
-  name_fa: '',
-  name: '',
-  price: '',
-  category_id: '',
-  unit: 'عدد',
-  useScaleForWeight: false,
-};
-
-const normalizeBarcode = (value: string) =>
-  String(value || '')
-    .replace(/[‌‏‪-‮]/g, '')
-    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
-    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
-    .replace(/\s+/g, '')
-    .replace(/^\/+|\/+$/g, '')
-    .trim();
-
-const normalizeDigits = (value: string) =>
-  String(value || '')
-    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
-    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776));
-
-const normalizePriceInput = (value: string) => normalizeDigits(value).replace(/[^\d]/g, '');
-
-const formatPriceInput = (value: string) => {
-  const digits = normalizePriceInput(value);
-  if (!digits) return '';
-  return new Intl.NumberFormat('en-US').format(Number(digits));
-};
-
-function SyncBadge({
-  status,
-  error,
-}: {
-  status: LocalProduct['_syncStatus'];
-  error?: string | null;
-}) {
-  if (status === 'synced') return null;
-  if (status === 'pending_create' || status === 'pending_update') {
-    return (
-      <span className="text-xs bg-warning-soft text-warning-soft-foreground border border-warning/40 px-2 py-0.5 rounded-full">
-        در انتظار سینک
-      </span>
-    );
-  }
-  return (
-    <span
-      className="text-xs bg-danger-soft text-danger-soft-foreground border border-danger/40 px-2 py-0.5 rounded-full"
-      title={error ?? ''}
-    >
-      خطای سینک
-    </span>
-  );
-}
+import {
+  PAGE_SIZE,
+  PRODUCT_UNITS,
+  emptyForm,
+  normalizeBarcode,
+  normalizePriceInput,
+  formatPriceInput,
+  type ProductForm,
+} from './productsPage/shared';
+import { SyncBadge } from './productsPage/SyncBadge';
+import { ProductFormModal } from './productsPage/ProductFormModal';
 
 export default function ProductsPage() {
   const { user, token } = useAuthStore();
@@ -756,107 +675,19 @@ export default function ProductsPage() {
         )}
       </div>
 
-      <Modal isOpen={modalOpen} onOpenChange={setModalOpen}>
-        <ModalShell size="lg">
-          <ModalHeader>{form.id !== undefined ? 'ویرایش محصول' : 'افزودن محصول'}</ModalHeader>
-          <ModalBody className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <NameAutocomplete
-              value={form.name_fa}
-              onValueChange={(v) => {
-                setForm((f) => ({ ...f, name_fa: v }));
-                if (nameSuggestTimerRef.current) clearTimeout(nameSuggestTimerRef.current);
-                if (!v.trim()) {
-                  setNameSuggestions([]);
-                  return;
-                }
-                nameSuggestTimerRef.current = setTimeout(async () => {
-                  const results = await searchMasterProducts(v, token ?? undefined);
-                  setNameSuggestions(results);
-                }, 300);
-              }}
-              suggestions={nameSuggestions}
-              onSelect={(s) => {
-                setForm((f) => ({
-                  ...f,
-                  name_fa: s.name,
-                  name: f.name || s.name,
-                  barcode: f.barcode || s.barcode || '',
-                }));
-                setNameSuggestions([]);
-              }}
-            />
-            <Input
-              label="نام انگلیسی"
-              value={form.name}
-              onValueChange={(v) => setForm((f) => ({ ...f, name: v }))}
-            />
-            <Input
-              label="بارکد"
-              value={form.barcode}
-              onValueChange={(v) => setForm((f) => ({ ...f, barcode: v }))}
-            />
-            <Input
-              label="قیمت (ریال)"
-              type="text"
-              inputMode="numeric"
-              value={formatPriceInput(form.price)}
-              onValueChange={(v) => setForm((f) => ({ ...f, price: normalizePriceInput(v) }))}
-            />
-            <Select
-              label="دسته‌بندی"
-              selectedKeys={form.category_id ? [form.category_id] : []}
-              onSelectionChange={(keys) =>
-                setForm((f) => ({ ...f, category_id: String(Array.from(keys)[0] || '') }))
-              }
-            >
-              {categories.map((c) => (
-                <SelectItem key={String(c.id)}>
-                  {c.name_fa || c.name}
-                  {c._syncStatus !== 'synced' ? ' ⏳' : ''}
-                </SelectItem>
-              ))}
-            </Select>
-            <Select
-              label="واحد شمارش"
-              selectedKeys={[form.unit || 'عدد']}
-              onSelectionChange={(keys) => {
-                const unit = String(Array.from(keys)[0] || 'عدد');
-                setForm((f) => ({
-                  ...f,
-                  unit,
-                  useScaleForWeight: SCALE_UNITS.includes(unit) ? f.useScaleForWeight : false,
-                }));
-              }}
-            >
-              {PRODUCT_UNITS.map((u) => (
-                <SelectItem key={u}>{u}</SelectItem>
-              ))}
-            </Select>
-            {SCALE_UNITS.includes(form.unit) && (
-              <div className="md:col-span-2 flex items-center gap-2 rounded-lg border border-border bg-default-soft px-3 py-2">
-                <input
-                  type="checkbox"
-                  id="useScaleForWeight"
-                  checked={form.useScaleForWeight}
-                  onChange={(e) => setForm((f) => ({ ...f, useScaleForWeight: e.target.checked }))}
-                  className="w-4 h-4 accent-accent cursor-pointer"
-                />
-                <label htmlFor="useScaleForWeight" className="text-sm cursor-pointer select-none">
-                  وزن از ترازو خوانده شود (هنگام انتخاب این محصول در فاکتور)
-                </label>
-              </div>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="light" onPress={() => setModalOpen(false)}>
-              انصراف
-            </Button>
-            <Button color="primary" isLoading={saving} onPress={submit}>
-              {form.id !== undefined ? 'ذخیره تغییرات' : 'ثبت محصول'}
-            </Button>
-          </ModalFooter>
-        </ModalShell>
-      </Modal>
+      <ProductFormModal
+        modalOpen={modalOpen}
+        setModalOpen={setModalOpen}
+        form={form}
+        setForm={setForm}
+        nameSuggestTimerRef={nameSuggestTimerRef}
+        setNameSuggestions={setNameSuggestions}
+        token={token}
+        nameSuggestions={nameSuggestions}
+        categories={categories}
+        saving={saving}
+        submit={submit}
+      />
     </div>
   );
 }

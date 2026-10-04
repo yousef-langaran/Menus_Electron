@@ -7,7 +7,7 @@ import {
   setLiveToken,
 } from '../services/api';
 
-interface User {
+export interface User {
   id: number;
   mobile: string;
   firstName?: string;

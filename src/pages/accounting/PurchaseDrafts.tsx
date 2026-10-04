@@ -7,28 +7,15 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toShamsiDate } from '../../utils/date';
-import { Card, CardContent, ModalBody, ModalFooter, ModalHeader, Spinner } from '@heroui/react';
-import { Modal } from '@/ui/compat-modal';
-import { Chip } from '@/ui/compat-chip';
-import { Button } from '../../ui/compat-button';
-import { Input } from '../../ui/compat-input';
-import { ModalShell } from '../../ui/modal-shell';
-import { Select, SelectItem } from '../../ui/compat-select';
-import { ShamsiDatePicker } from '../../ui/ShamsiDatePicker';
-import { ItemPicker } from '../../ui/ItemPicker';
 import { useAuthStore } from '../../store/authStore';
 import { useSyncStore } from '../../store/syncStore';
 import {
   accountingDb,
   createPurchaseInvoiceLocal,
-  deletePurchaseInvoiceDraftLocal,
   getDefaultWarehouseLocal,
   getOrCreateFinalProductByProductId,
   getPurchaseInvoiceItemsByInvoiceId,
   resetAccountingPullTimestamp,
-  resetEntitySyncOperationsToPending,
-  resetFailedPurchaseDraftsToPending,
   updatePurchaseInvoiceDraftLocal,
 } from '../../services/accountingLocalDb';
 import {
@@ -36,85 +23,20 @@ import {
   getLocalCategories,
   getLocalProducts,
 } from '../../services/catalogLocalDb';
-import {
-  editApprovedPurchaseInvoice,
-  getMasterProductByBarcode,
-  updateAccountingPurchaseInvoiceStatus,
-} from '../../services/api';
+import { editApprovedPurchaseInvoice, getMasterProductByBarcode } from '../../services/api';
 import { toast } from '../../utils/toast';
-
-const SYNC_STATUS_CONFIG: Record<
-  string,
-  { label: string; color: 'warning' | 'success' | 'danger' | 'default' }
-> = {
-  pending: { label: 'در صف ارسال', color: 'warning' },
-  syncing: { label: 'در حال ارسال', color: 'default' },
-  synced: { label: 'سینک شده', color: 'success' },
-  failed: { label: 'ارسال ناموفق', color: 'danger' },
-};
-
-const INVOICE_STATUS_CONFIG: Record<
-  string,
-  { label: string; color: 'warning' | 'success' | 'danger' | 'default' | 'primary' }
-> = {
-  draft: { label: 'پیش‌نویس', color: 'default' },
-  pending_approval: { label: 'در انتظار تایید', color: 'warning' },
-  approved: { label: 'تایید شده', color: 'success' },
-  rejected: { label: 'رد شده', color: 'danger' },
-};
-
-const normalizePriceInput = (value: string) =>
-  String(value || '')
-    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
-    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
-    .replace(/[^\d]/g, '');
-
-const normalizeBarcode = (value: string) =>
-  String(value || '')
-    .replace(/[‌‏‪-‮]/g, '')
-    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
-    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
-    .replace(/\s+/g, '')
-    .replace(/^\/+|\/+$/g, '')
-    .trim();
-
-const formatPriceInput = (value: string) => {
-  const digits = normalizePriceInput(value);
-  if (!digits) return '';
-  return new Intl.NumberFormat('en-US').format(Number(digits));
-};
-
-const formatCurrency = (n: number) =>
-  new Intl.NumberFormat('fa-IR').format(Math.round(n)) + ' ریال';
-
-const toJalali = (isoDate?: string) => toShamsiDate(isoDate);
-
-type ItemType = 'raw_material' | 'final_product';
-
-type DraftItem = {
-  type: ItemType;
-  /** accounting rawMaterial ID */
-  rawMaterialId: string;
-  /** menu product ID — shown in UI for final_product rows */
-  menuProductId: string;
-  /** accounting FinalProduct ID — resolved on save / loaded on edit */
-  finalProductId: string;
-  quantity: string;
-  /** قیمت کل خرید این ردیف (کاربر کل را وارد می‌کند؛ قیمت تکی = کل ÷ مقدار) */
-  totalPrice: string;
-  /** قیمت فروش (اختیاری) */
-  salePrice: string;
-};
-
-const emptyItem = (): DraftItem => ({
-  type: 'raw_material',
-  rawMaterialId: '',
-  menuProductId: '',
-  finalProductId: '',
-  quantity: '1',
-  totalPrice: '0',
-  salePrice: '',
-});
+import {
+  emptyItem,
+  normalizeBarcode,
+  normalizePriceInput,
+  type DraftItem,
+  type ItemType,
+} from './purchaseDrafts/shared';
+import { PurchaseInvoiceModal } from './purchaseDrafts/PurchaseInvoiceModal';
+import { AddProductModal } from './purchaseDrafts/AddProductModal';
+import { PurchaseDraftFilters } from './purchaseDrafts/PurchaseDraftFilters';
+import { PurchaseDraftsHeader } from './purchaseDrafts/PurchaseDraftsHeader';
+import { PurchaseDraftList } from './purchaseDrafts/PurchaseDraftList';
 
 export default function AccountingPurchaseDraftsPage() {
   const navigate = useNavigate();
@@ -742,1090 +664,117 @@ export default function AccountingPurchaseDraftsPage() {
   return (
     <div className="min-h-screen bg-background p-4 space-y-4" dir="rtl">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold text-foreground">پیش‌نویس‌های خرید</h1>
-          {isSyncing && (
-            <span className="inline-flex items-center gap-1 text-xs text-muted">
-              <Spinner size="sm" color="current" />
-              همگام‌سازی...
-            </span>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="flat" size="sm" onPress={() => navigate('/accounting')}>
-            بازگشت
-          </Button>
-          <Button
-            color="warning"
-            variant="flat"
-            size="sm"
-            onPress={async () => {
-              if (!restaurantId) return;
-              // Reset entity operations (supplier, final_product, etc.) that were
-              // incorrectly marked 'synced' with sequence-generated ids by the old bug.
-              const entityCount = await resetEntitySyncOperationsToPending(restaurantId);
-              // Also reset failed invoice drafts.
-              const draftCount = await resetFailedPurchaseDraftsToPending(restaurantId);
-              // Force a full pull so web-created entities appear in Electron.
-              await resetAccountingPullTimestamp(restaurantId);
-              await reload();
-              window.dispatchEvent(new Event('focus'));
-              toast.success(
-                `همگام‌سازی مجدد: ${entityCount} موجودیت + ${draftCount} پیش‌نویس — در حال ارسال...`,
-              );
-            }}
-          >
-            ارسال مجدد و همگام‌سازی کامل
-          </Button>
-          <Button color="primary" onPress={openCreate}>
-            + ثبت پیش‌نویس
-          </Button>
-        </div>
-      </div>
+      <PurchaseDraftsHeader
+        isSyncing={isSyncing}
+        navigate={navigate}
+        restaurantId={restaurantId}
+        reload={reload}
+        openCreate={openCreate}
+      />
 
       {/* Filters */}
       {!isLoading && drafts.length > 0 && (
-        <Card>
-          <CardContent className="py-3 px-4 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-foreground">فیلتر</span>
-              {hasActiveFilters && (
-                <Button size="sm" variant="light" color="danger" onPress={clearFilters}>
-                  پاک کردن فیلترها
-                </Button>
-              )}
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-              <Input
-                size="sm"
-                label="شماره فاکتور"
-                placeholder="جستجو..."
-                value={filterInvoice}
-                onValueChange={setFilterInvoice}
-              />
-              <Select
-                size="sm"
-                label="تامین‌کننده"
-                selectedKeys={filterSupplier ? [filterSupplier] : []}
-                onSelectionChange={(k) => setFilterSupplier(String(Array.from(k)[0] || ''))}
-              >
-                {suppliers.map((s) => (
-                  <SelectItem key={String(s.id)}>{s.name}</SelectItem>
-                ))}
-              </Select>
-              <Select
-                size="sm"
-                label="وضعیت فاکتور"
-                selectedKeys={filterStatus ? [filterStatus] : []}
-                onSelectionChange={(k) => setFilterStatus(String(Array.from(k)[0] || ''))}
-              >
-                <SelectItem key="draft">پیش‌نویس</SelectItem>
-                <SelectItem key="pending_approval">در انتظار تایید</SelectItem>
-                <SelectItem key="approved">تایید شده</SelectItem>
-                <SelectItem key="rejected">رد شده</SelectItem>
-              </Select>
-              <Select
-                size="sm"
-                label="وضعیت سینک"
-                selectedKeys={filterSyncStatus ? [filterSyncStatus] : []}
-                onSelectionChange={(k) => setFilterSyncStatus(String(Array.from(k)[0] || ''))}
-              >
-                <SelectItem key="pending">در صف ارسال</SelectItem>
-                <SelectItem key="syncing">در حال ارسال</SelectItem>
-                <SelectItem key="synced">سینک شده</SelectItem>
-                <SelectItem key="failed">ارسال ناموفق</SelectItem>
-              </Select>
-              <ShamsiDatePicker
-                size="sm"
-                label="از تاریخ"
-                value={filterDateFrom}
-                onChange={setFilterDateFrom}
-              />
-              <ShamsiDatePicker
-                size="sm"
-                label="تا تاریخ"
-                value={filterDateTo}
-                onChange={setFilterDateTo}
-              />
-              <Input
-                size="sm"
-                label="حداقل مبلغ"
-                placeholder="ریال"
-                inputMode="numeric"
-                value={formatPriceInput(filterMinAmount)}
-                onValueChange={(v) => setFilterMinAmount(normalizePriceInput(v))}
-              />
-              <Input
-                size="sm"
-                label="حداکثر مبلغ"
-                placeholder="ریال"
-                inputMode="numeric"
-                value={formatPriceInput(filterMaxAmount)}
-                onValueChange={(v) => setFilterMaxAmount(normalizePriceInput(v))}
-              />
-            </div>
-            {hasActiveFilters && (
-              <p className="text-xs text-muted">
-                {filteredDrafts.length} نتیجه از {drafts.length} فاکتور
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        <PurchaseDraftFilters
+          hasActiveFilters={hasActiveFilters}
+          clearFilters={clearFilters}
+          filterInvoice={filterInvoice}
+          setFilterInvoice={setFilterInvoice}
+          filterSupplier={filterSupplier}
+          setFilterSupplier={setFilterSupplier}
+          filterStatus={filterStatus}
+          setFilterStatus={setFilterStatus}
+          filterSyncStatus={filterSyncStatus}
+          setFilterSyncStatus={setFilterSyncStatus}
+          filterDateFrom={filterDateFrom}
+          setFilterDateFrom={setFilterDateFrom}
+          filterDateTo={filterDateTo}
+          setFilterDateTo={setFilterDateTo}
+          filterMinAmount={filterMinAmount}
+          setFilterMinAmount={setFilterMinAmount}
+          filterMaxAmount={filterMaxAmount}
+          setFilterMaxAmount={setFilterMaxAmount}
+          suppliers={suppliers}
+          filteredDrafts={filteredDrafts}
+          drafts={drafts}
+        />
       )}
 
       {/* Draft list */}
-      {isLoading ? (
-        <div className="flex flex-col gap-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-xl bg-default h-20 animate-pulse" />
-          ))}
-        </div>
-      ) : drafts.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
-            <div className="w-14 h-14 rounded-full bg-default flex items-center justify-center">
-              <svg
-                className="w-7 h-7 text-muted"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            </div>
-            <p className="text-muted text-sm">هیچ پیش‌نویس خریدی ثبت نشده است</p>
-            <Button color="primary" onPress={openCreate}>
-              ثبت اولین پیش‌نویس
-            </Button>
-          </CardContent>
-        </Card>
-      ) : filteredDrafts.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
-            <p className="text-muted text-sm">هیچ فاکتوری با این فیلترها یافت نشد</p>
-            <Button size="sm" variant="flat" onPress={clearFilters}>
-              پاک کردن فیلترها
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {pagedDrafts.map((d) => {
-            const syncCfg = SYNC_STATUS_CONFIG[d.localSyncStatus] ?? SYNC_STATUS_CONFIG.pending;
-            const invCfg =
-              INVOICE_STATUS_CONFIG[d.status] ?? INVOICE_STATUS_CONFIG.pending_approval;
-            const isServerSynced = d.localSyncStatus === 'synced';
-            const canApproveReject = isServerSynced && d.status === 'pending_approval' && token;
-            const serverInvoiceId = d.serverInvoiceId ?? (isServerSynced ? d.id : null);
-            const supplierName =
-              d.supplierName || suppliers.find((s) => s.id === d.supplierId)?.name || '—';
-            return (
-              <Card
-                key={d.id}
-                className="transition-shadow duration-200 hover:shadow-md cursor-default"
-              >
-                <CardContent className="py-3 px-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex flex-col gap-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-foreground">
-                          فاکتور #{d.invoiceNumber}
-                        </span>
-                        <Chip color={invCfg.color as any} size="sm" variant="soft">
-                          <Chip.Label>{invCfg.label}</Chip.Label>
-                        </Chip>
-                        {!isServerSynced && (
-                          <Chip color={syncCfg.color} size="sm" variant="flat">
-                            <Chip.Label>{syncCfg.label}</Chip.Label>
-                          </Chip>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted flex-wrap">
-                        <span>{supplierName}</span>
-                        {d.purchaseDate && <span>{toJalali(d.purchaseDate)}</span>}
-                        {d.totalAmount > 0 && (
-                          <span className="text-foreground font-medium">
-                            {formatCurrency(d.totalAmount)}
-                          </span>
-                        )}
-                      </div>
-                      {d.syncError && (
-                        <p className="text-danger text-xs mt-0.5 break-words whitespace-pre-wrap">
-                          {Array.isArray(d.syncError)
-                            ? d.syncError.join('؛ ')
-                            : String(d.syncError)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-1 shrink-0 flex-wrap">
-                      {isServerSynced && d.status === 'approved' && (
-                        <Button
-                          size="sm"
-                          color="warning"
-                          variant="flat"
-                          onPress={() =>
-                            navigate('/accounting/purchase-returns', {
-                              state: { invoiceId: serverInvoiceId ?? d.id },
-                            })
-                          }
-                        >
-                          برگشت از خرید
-                        </Button>
-                      )}
-                      {canApproveReject && serverInvoiceId && (
-                        <>
-                          <Button
-                            size="sm"
-                            color="success"
-                            variant="flat"
-                            onPress={async () => {
-                              if (!restaurantId) return;
-                              try {
-                                await updateAccountingPurchaseInvoiceStatus(
-                                  Number(serverInvoiceId),
-                                  { restaurantId, status: 'approved' },
-                                  token!,
-                                );
-                                await accountingDb.purchaseInvoices.update(d.id, {
-                                  status: 'approved',
-                                });
-                                await reload();
-                                toast.success('فاکتور تایید شد');
-                              } catch {
-                                toast.error('خطا در تایید فاکتور');
-                              }
-                            }}
-                          >
-                            تایید
-                          </Button>
-                          <Button
-                            size="sm"
-                            color="danger"
-                            variant="flat"
-                            onPress={async () => {
-                              if (!restaurantId) return;
-                              try {
-                                await updateAccountingPurchaseInvoiceStatus(
-                                  Number(serverInvoiceId),
-                                  { restaurantId, status: 'rejected' },
-                                  token!,
-                                );
-                                await accountingDb.purchaseInvoices.update(d.id, {
-                                  status: 'rejected',
-                                });
-                                await reload();
-                                toast.success('فاکتور رد شد');
-                              } catch {
-                                toast.error('خطا در رد فاکتور');
-                              }
-                            }}
-                          >
-                            رد
-                          </Button>
-                        </>
-                      )}
-                      {(d.status === 'pending_approval' || d.status === 'draft') && (
-                        <Button
-                          size="sm"
-                          variant="flat"
-                          onPress={() => loadInvoiceIntoModal(d, false)}
-                        >
-                          ویرایش
-                        </Button>
-                      )}
-                      {d.status === 'approved' && isServerSynced && token && serverInvoiceId ? (
-                        <Button
-                          size="sm"
-                          variant="flat"
-                          onPress={() => openApprovedEdit(d, Number(serverInvoiceId))}
-                        >
-                          ویرایش
-                        </Button>
-                      ) : (
-                        (d.status === 'approved' || d.status === 'rejected') && (
-                          <Button
-                            size="sm"
-                            variant="flat"
-                            onPress={() => loadInvoiceIntoModal(d, true)}
-                          >
-                            مشاهده
-                          </Button>
-                        )
-                      )}
-                      {!isServerSynced && (
-                        <Button
-                          size="sm"
-                          color="danger"
-                          variant="light"
-                          onPress={async () => {
-                            await deletePurchaseInvoiceDraftLocal(d.id);
-                            await reload();
-                            toast.success('پیش‌نویس حذف شد');
-                          }}
-                        >
-                          حذف
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <span className="text-xs text-muted">
-                صفحه {page} از {totalPages} — {filteredDrafts.length} فاکتور
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  size="sm"
-                  variant="flat"
-                  isDisabled={page === 1}
-                  onPress={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  قبلی
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-                  .reduce<(number | '…')[]>((acc, p, idx, arr) => {
-                    if (
-                      idx > 0 &&
-                      typeof arr[idx - 1] === 'number' &&
-                      (p as number) - (arr[idx - 1] as number) > 1
-                    )
-                      acc.push('…');
-                    acc.push(p);
-                    return acc;
-                  }, [])
-                  .map((p, i) =>
-                    p === '…' ? (
-                      <span key={`ellipsis-${i}`} className="px-1 text-muted text-sm">
-                        …
-                      </span>
-                    ) : (
-                      <Button
-                        key={p}
-                        size="sm"
-                        variant={p === page ? 'solid' : 'flat'}
-                        color={p === page ? 'primary' : 'default'}
-                        onPress={() => setPage(p as number)}
-                      >
-                        {p}
-                      </Button>
-                    ),
-                  )}
-                <Button
-                  size="sm"
-                  variant="flat"
-                  isDisabled={page === totalPages}
-                  onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  بعدی
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      <PurchaseDraftList
+        isLoading={isLoading}
+        drafts={drafts}
+        filteredDrafts={filteredDrafts}
+        pagedDrafts={pagedDrafts}
+        suppliers={suppliers}
+        token={token}
+        restaurantId={restaurantId}
+        navigate={navigate}
+        reload={reload}
+        openCreate={openCreate}
+        clearFilters={clearFilters}
+        loadInvoiceIntoModal={loadInvoiceIntoModal}
+        openApprovedEdit={openApprovedEdit}
+        page={page}
+        setPage={setPage}
+        totalPages={totalPages}
+      />
 
       {/* Create / Edit / View Modal */}
-      <Modal isOpen={open} onOpenChange={setOpen}>
-        <ModalShell size="full">
-          {/* ── Header ─────────────────────────────────────────────── */}
-          <ModalHeader>
-            <div className="flex items-center gap-3 w-full">
-              <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                  isViewMode ? 'bg-default-soft' : editingId ? 'bg-warning-soft' : 'bg-accent-soft'
-                }`}
-              >
-                {isViewMode ? (
-                  <svg
-                    className="w-5 h-5 text-muted"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                ) : editingId ? (
-                  <svg
-                    className="w-5 h-5 text-warning"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="w-5 h-5 text-accent"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="font-semibold text-foreground leading-tight">
-                  {isViewMode
-                    ? 'مشاهده فاکتور خرید'
-                    : isEditingApprovedInvoice
-                      ? 'ویرایش فاکتور تاییدشده'
-                      : editingId
-                        ? 'ویرایش پیش‌نویس'
-                        : 'ثبت پیش‌نویس خرید'}
-                </p>
-                {(items.length > 0 || runningTotal > 0) && (
-                  <p className="text-xs text-muted mt-0.5">
-                    {items.length} قلم
-                    {runningTotal > 0 && (
-                      <>
-                        {' '}
-                        ·{' '}
-                        <span className="text-accent font-medium">
-                          {formatCurrency(runningTotal)}
-                        </span>
-                      </>
-                    )}
-                  </p>
-                )}
-              </div>
-            </div>
-          </ModalHeader>
-
-          <ModalBody className="gap-0 p-0">
-            <div className="flex flex-col gap-4 p-4 sm:p-5">
-              {isEditingApprovedInvoice && (
-                <div className="rounded-xl border border-warning/40 bg-warning-soft p-3 text-sm text-warning-soft-foreground">
-                  ذخیره تغییرات این فاکتور را دستکاری نمی‌کند: به‌صورت خودکار یک برگشت کامل از این
-                  خرید ثبت و یک فاکتور خرید جدید با مقادیر ویرایش‌شده صادر می‌شود. اگر برای این
-                  فاکتور از قبل پرداختی ثبت شده باشد، سرور این عملیات را رد می‌کند — در آن صورت از
-                  «برگشت از خرید» دستی استفاده کنید.
-                </div>
-              )}
-
-              {/* ── Barcode scanner ─────────────────────────────────── */}
-              {!isViewMode && (
-                <div className="relative rounded-2xl border-2 border-accent/30 bg-gradient-to-l from-accent-soft/80 to-accent-soft/40 p-3 sm:p-4">
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-60" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-accent" />
-                    </span>
-                    <span className="text-xs font-semibold text-accent-soft-foreground">
-                      اسکنر بارکد آماده است
-                    </span>
-                    <span className="mr-auto text-xs text-accent/80 hidden sm:inline">
-                      Enter = افزودن
-                    </span>
-                  </div>
-                  <Input
-                    ref={barcodeRef}
-                    autoFocus
-                    value={scanValue}
-                    onValueChange={setScanValue}
-                    onKeyDown={handleScanKeyDown}
-                    placeholder="بارکد کالا را اسکن یا تایپ کنید..."
-                    startContent={
-                      <svg
-                        className="w-5 h-5 text-accent/80 shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 5v14M8 5v14M12 5v14M16 5v10M20 5v14"
-                        />
-                      </svg>
-                    }
-                  />
-                </div>
-              )}
-
-              {/* ── Invoice info ─────────────────────────────────────── */}
-              <div className="rounded-2xl border border-border bg-default-soft/60 p-4">
-                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-3">
-                  اطلاعات فاکتور
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <Input
-                    label="شماره فاکتور"
-                    value={invoiceNumber}
-                    onValueChange={setInvoiceNumber}
-                    isRequired
-                    isReadOnly={isViewMode}
-                    startContent={<span className="text-muted text-sm">#</span>}
-                  />
-                  {isViewMode ? (
-                    <Input
-                      label="تامین‌کننده"
-                      value={
-                        suppliers.find((s) => String(s.id) === supplierId)?.name ||
-                        supplierId ||
-                        '—'
-                      }
-                      isReadOnly
-                    />
-                  ) : (
-                    <ItemPicker
-                      options={suppliers.map((s) => ({ id: String(s.id), label: s.name }))}
-                      value={supplierId || null}
-                      label="تامین‌کننده"
-                      placeholder="انتخاب تامین‌کننده..."
-                      onChange={setSupplierId}
-                    />
-                  )}
-                  <ShamsiDatePicker
-                    label="تاریخ فاکتور"
-                    value={purchaseDate}
-                    onChange={isViewMode ? () => {} : setPurchaseDate}
-                    isRequired
-                    isReadOnly={isViewMode}
-                  />
-                </div>
-              </div>
-
-              {/* ── Items ────────────────────────────────────────────── */}
-              <div>
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">اقلام خرید</span>
-                    {items.length > 0 && (
-                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-accent text-accent-foreground text-[10px] font-bold">
-                        {items.length}
-                      </span>
-                    )}
-                  </div>
-                  {!isViewMode && (
-                    <button
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setItems((prev) => [...prev, emptyItem()]);
-                      }}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent cursor-pointer transition-colors duration-150"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2.5}
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
-                      افزودن قلم
-                    </button>
-                  )}
-                </div>
-
-                {/* Warning: no products synced */}
-                {hasNoProducts && (
-                  <div className="rounded-xl border border-warning/30 bg-warning-soft p-3 flex gap-2.5">
-                    <svg
-                      className="w-5 h-5 text-warning shrink-0 mt-0.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                      />
-                    </svg>
-                    <div>
-                      <p className="text-warning-soft-foreground text-sm font-medium">
-                        هیچ کالایی یافت نشد
-                      </p>
-                      <p className="text-warning text-xs mt-0.5">
-                        محصولات را با سرور همگام‌سازی کنید یا از بارکد استفاده کنید
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Empty state */}
-                {items.length === 0 && !hasNoProducts && !isViewMode && (
-                  <button
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setItems((prev) => [...prev, emptyItem()]);
-                    }}
-                    className="w-full rounded-2xl border-2 border-dashed border-border hover:border-accent/40 hover:bg-accent-soft/30 bg-default-soft py-8 px-4 text-center cursor-pointer transition-all duration-200 group"
-                  >
-                    <svg
-                      className="w-8 h-8 mx-auto text-muted group-hover:text-accent/40 mb-2 transition-colors duration-200"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M4 5v14M8 5v14M12 5v14M16 5v10M20 5v14"
-                      />
-                    </svg>
-                    <p className="text-muted text-sm font-medium">
-                      بارکد اسکن کنید یا اینجا کلیک کنید
-                    </p>
-                    <p className="text-muted text-xs mt-0.5">برای افزودن اولین قلم</p>
-                  </button>
-                )}
-
-                {items.length === 0 && isViewMode && (
-                  <p className="text-muted text-sm text-center py-6">این فاکتور قلمی ندارد</p>
-                )}
-
-                {/* Item rows */}
-                <div className="space-y-2.5">
-                  {items.map((line, idx) => {
-                    const isFinalProduct = line.type === 'final_product';
-                    const lineTotal = Number(normalizePriceInput(line.totalPrice) || 0);
-                    const lineQty = Number(line.quantity || 0);
-                    const unitPriceForLine = lineQty > 0 ? lineTotal / lineQty : 0;
-                    const activeOptions = isFinalProduct ? menuProductOptions : materialOptions;
-                    const selectedKey = isFinalProduct ? line.menuProductId : line.rawMaterialId;
-
-                    const viewLabel = isFinalProduct
-                      ? accountingFinalProducts.find((fp) => String(fp.id) === line.finalProductId)
-                          ?.name ||
-                        menuProducts.find((p) => String(p.id) === selectedKey)?.name_fa ||
-                        menuProducts.find((p) => String(p.id) === selectedKey)?.name ||
-                        '—'
-                      : materials.find((m) => String(m.id) === selectedKey)?.name || '—';
-
-                    return (
-                      <div
-                        key={idx}
-                        className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
-                          flashIdx === idx
-                            ? 'border-accent/50 shadow-[0_0_0_3px_theme(colors.primary.DEFAULT/0.12)]'
-                            : 'border-border hover:border-border-secondary'
-                        }`}
-                      >
-                        {/* Item header row */}
-                        <div
-                          className={`flex items-center gap-2 px-3 py-2 ${
-                            flashIdx === idx ? 'bg-accent-soft' : 'bg-default-soft/80'
-                          }`}
-                        >
-                          {/* Index badge */}
-                          <span className="w-5 h-5 rounded-full bg-default text-muted text-[10px] font-bold flex items-center justify-center shrink-0">
-                            {idx + 1}
-                          </span>
-
-                          {/* Type toggle — pill-in-track (iOS style) */}
-                          {!isViewMode && (
-                            <div className="flex rounded-full bg-default p-0.5 gap-0.5 shrink-0">
-                              <button
-                                type="button"
-                                className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all duration-200 cursor-pointer ${
-                                  !isFinalProduct
-                                    ? 'bg-white text-orange-600 shadow-sm'
-                                    : 'text-muted hover:text-foreground/80'
-                                }`}
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  if (isFinalProduct)
-                                    updateItem(idx, {
-                                      type: 'raw_material',
-                                      menuProductId: '',
-                                      finalProductId: '',
-                                    });
-                                }}
-                              >
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${!isFinalProduct ? 'bg-orange-400' : 'bg-default-hover'}`}
-                                />
-                                ماده اولیه
-                              </button>
-                              <button
-                                type="button"
-                                className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold transition-all duration-200 cursor-pointer ${
-                                  isFinalProduct
-                                    ? 'bg-white text-accent shadow-sm'
-                                    : 'text-muted hover:text-foreground/80'
-                                }`}
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  if (!isFinalProduct)
-                                    updateItem(idx, { type: 'final_product', rawMaterialId: '' });
-                                }}
-                              >
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${isFinalProduct ? 'bg-accent' : 'bg-default-hover'}`}
-                                />
-                                محصول
-                              </button>
-                            </div>
-                          )}
-                          {isViewMode && (
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                                isFinalProduct
-                                  ? 'bg-accent-soft text-accent-soft-foreground'
-                                  : 'bg-orange-100 text-orange-700'
-                              }`}
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${isFinalProduct ? 'bg-accent' : 'bg-orange-400'}`}
-                              />
-                              {isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}
-                            </span>
-                          )}
-
-                          {/* Line total — pushed to end */}
-                          <div className="mr-auto flex items-center gap-2">
-                            {lineTotal > 0 && (
-                              <span className="text-xs font-semibold text-foreground tabular-nums">
-                                {formatCurrency(lineTotal)}
-                              </span>
-                            )}
-                            {/* Delete */}
-                            {!isViewMode && (
-                              <button
-                                type="button"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  setItems((prev) => prev.filter((_, i) => i !== idx));
-                                }}
-                                className="w-6 h-6 rounded-lg flex items-center justify-center text-muted hover:text-danger hover:bg-danger-soft transition-colors duration-150 cursor-pointer"
-                                aria-label="حذف آیتم"
-                              >
-                                <svg
-                                  className="w-3.5 h-3.5"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                  />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Item body */}
-                        <div className="p-3 space-y-2.5 bg-background">
-                          {/* Product / material selector */}
-                          {isViewMode ? (
-                            <div className="flex items-center gap-2 py-1">
-                              <span className="text-xs text-muted">
-                                {isFinalProduct ? 'محصول:' : 'ماده اولیه:'}
-                              </span>
-                              <span className="text-sm font-medium text-foreground">
-                                {viewLabel}
-                              </span>
-                            </div>
-                          ) : activeOptions.length === 0 ? (
-                            <p className="text-xs text-muted py-1">
-                              {isFinalProduct
-                                ? 'هیچ محصولی یافت نشد'
-                                : 'هیچ ماده اولیه‌ای ثبت نشده'}
-                            </p>
-                          ) : (
-                            <ItemPicker
-                              options={activeOptions}
-                              value={selectedKey || null}
-                              label={isFinalProduct ? 'محصول رستوران' : 'ماده اولیه'}
-                              placeholder={`جستجو در ${isFinalProduct ? 'محصولات' : 'مواد اولیه'}...`}
-                              onChange={(val) => {
-                                if (isFinalProduct) {
-                                  const prod = menuProducts.find((p) => String(p.id) === val);
-                                  const autoSalePrice =
-                                    prod?.price != null && prod.price > 0 ? String(prod.price) : '';
-                                  updateItem(idx, {
-                                    menuProductId: val,
-                                    finalProductId: '',
-                                    salePrice: autoSalePrice,
-                                  });
-                                } else {
-                                  updateItem(idx, { rawMaterialId: val });
-                                }
-                              }}
-                            />
-                          )}
-
-                          {/* Qty + prices */}
-                          <div className="grid grid-cols-3 gap-2">
-                            <Input
-                              ref={(el) => {
-                                qtyRefs.current[idx] = el;
-                              }}
-                              type="number"
-                              label="تعداد / مقدار"
-                              value={line.quantity}
-                              onValueChange={(v) => updateItem(idx, { quantity: v })}
-                              onKeyDown={handleQtyKeyDown}
-                              isReadOnly={isViewMode}
-                            />
-                            <Input
-                              type="text"
-                              inputMode="numeric"
-                              label="قیمت کل"
-                              value={formatPriceInput(line.totalPrice)}
-                              onValueChange={(v) =>
-                                updateItem(idx, { totalPrice: normalizePriceInput(v) })
-                              }
-                              endContent={<span className="text-muted text-xs">ریال</span>}
-                              isReadOnly={isViewMode}
-                            />
-                            <Input
-                              type="text"
-                              inputMode="numeric"
-                              label="قیمت فروش"
-                              placeholder="اختیاری"
-                              value={formatPriceInput(line.salePrice)}
-                              onValueChange={(v) =>
-                                updateItem(idx, { salePrice: normalizePriceInput(v) })
-                              }
-                              endContent={<span className="text-muted text-xs">ریال</span>}
-                              isReadOnly={isViewMode}
-                            />
-                          </div>
-
-                          {/* Unit price hint */}
-                          {unitPriceForLine > 0 && lineQty > 1 && (
-                            <p className="text-[11px] text-muted flex items-center gap-1">
-                              <svg
-                                className="w-3.5 h-3.5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                              </svg>
-                              قیمت واحد: {formatCurrency(unitPriceForLine)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Add item button — only when items exist */}
-                {!isViewMode && items.length > 0 && (
-                  <button
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setItems((prev) => [...prev, emptyItem()]);
-                    }}
-                    className="mt-2.5 w-full rounded-xl border border-dashed border-border hover:border-accent/40 hover:bg-accent-soft/20 py-2 text-xs font-medium text-muted hover:text-accent flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer"
-                  >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                    افزودن قلم جدید
-                  </button>
-                )}
-              </div>
-
-              {/* ── Summary ──────────────────────────────────────────── */}
-              <div className="rounded-2xl border border-border bg-default-soft/60 p-4">
-                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-3">
-                  خلاصه فاکتور
-                </p>
-                <div className="flex items-end gap-3">
-                  <div className="flex-1">
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      label="هزینه جانبی"
-                      value={formatPriceInput(extraCosts)}
-                      onValueChange={(v) => setExtraCosts(normalizePriceInput(v))}
-                      endContent={<span className="text-muted text-sm">ریال</span>}
-                      isReadOnly={isViewMode}
-                    />
-                  </div>
-                  <div className="flex-1 rounded-xl bg-gradient-to-l from-accent-soft to-accent-soft border border-accent/20 px-4 py-3 text-left">
-                    <p className="text-xs text-accent font-medium mb-0.5">جمع کل فاکتور</p>
-                    <p className="font-bold text-accent text-xl tabular-nums">
-                      {formatCurrency(runningTotal)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </ModalBody>
-
-          {/* ── Footer ───────────────────────────────────────────────── */}
-          <ModalFooter className="border-t border-border">
-            <div className="flex items-center gap-3 w-full">
-              {!isViewMode && items.length > 0 && (
-                <span className="text-xs text-muted mr-auto">
-                  {items.length} قلم · {formatCurrency(runningTotal)}
-                </span>
-              )}
-              <div className="flex gap-2 mr-auto">
-                <Button variant="flat" color="default" onPress={() => setOpen(false)}>
-                  {isViewMode ? 'بستن' : 'انصراف'}
-                </Button>
-                {!isViewMode && (
-                  <Button
-                    color="primary"
-                    isLoading={isSaving}
-                    isDisabled={!hasValidItems}
-                    onPress={handleSave}
-                    title={!hasValidItems ? 'حداقل یک قلم با کالا و مقدار وارد کنید' : undefined}
-                    startContent={
-                      !isSaving && (
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      )
-                    }
-                  >
-                    {editingId ? 'ذخیره تغییرات' : 'ثبت پیش‌نویس'}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </ModalFooter>
-        </ModalShell>
-      </Modal>
+      <PurchaseInvoiceModal
+        open={open}
+        setOpen={setOpen}
+        isViewMode={isViewMode}
+        editingId={editingId}
+        isEditingApprovedInvoice={isEditingApprovedInvoice}
+        items={items}
+        setItems={setItems}
+        runningTotal={runningTotal}
+        barcodeRef={barcodeRef}
+        scanValue={scanValue}
+        setScanValue={setScanValue}
+        handleScanKeyDown={handleScanKeyDown}
+        invoiceNumber={invoiceNumber}
+        setInvoiceNumber={setInvoiceNumber}
+        suppliers={suppliers}
+        supplierId={supplierId}
+        setSupplierId={setSupplierId}
+        purchaseDate={purchaseDate}
+        setPurchaseDate={setPurchaseDate}
+        hasNoProducts={hasNoProducts}
+        flashIdx={flashIdx}
+        menuProductOptions={menuProductOptions}
+        materialOptions={materialOptions}
+        accountingFinalProducts={accountingFinalProducts}
+        menuProducts={menuProducts}
+        materials={materials}
+        updateItem={updateItem}
+        qtyRefs={qtyRefs}
+        handleQtyKeyDown={handleQtyKeyDown}
+        extraCosts={extraCosts}
+        setExtraCosts={setExtraCosts}
+        isSaving={isSaving}
+        hasValidItems={hasValidItems}
+        handleSave={handleSave}
+      />
 
       {/* Add product modal — وقتی بارکد یافت نشود باز می‌شود */}
-      <Modal isOpen={addProductOpen} onOpenChange={setAddProductOpen} size="lg">
-        <ModalShell>
-          <ModalHeader>افزودن محصول جدید</ModalHeader>
-          <ModalBody className="gap-3">
-            {isCheckingMasterProduct && (
-              <div className="flex items-center justify-center gap-2 text-muted text-sm py-2">
-                <Spinner size="sm" />
-                <span>در حال جستجو در محصولات پایه...</span>
-              </div>
-            )}
-            <Input label="بارکد" value={addProductBarcode} isReadOnly />
-            <Input
-              label="نام محصول"
-              value={addProductName}
-              onValueChange={setAddProductName}
-              isDisabled={isCheckingMasterProduct}
-              isRequired
-            />
-            {categories.length === 0 ? (
-              <p className="text-warning text-xs">
-                هیچ دسته‌بندی‌ای یافت نشد — ابتدا از بخش محصولات یک دسته‌بندی بسازید یا با سرور
-                همگام‌سازی کنید.
-              </p>
-            ) : (
-              <Select
-                label="دسته‌بندی"
-                selectedKeys={addProductCategoryId ? [addProductCategoryId] : []}
-                onSelectionChange={(k) => setAddProductCategoryId(String(Array.from(k)[0] || ''))}
-                isDisabled={isCheckingMasterProduct}
-              >
-                {categories.map((c) => (
-                  <SelectItem key={String(c.id)}>{c.name_fa || c.name}</SelectItem>
-                ))}
-              </Select>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                type="text"
-                inputMode="numeric"
-                label="قیمت خرید (برای این فاکتور)"
-                value={formatPriceInput(addProductPurchasePrice)}
-                onValueChange={(v) => setAddProductPurchasePrice(normalizePriceInput(v))}
-                isDisabled={isCheckingMasterProduct}
-                endContent={<span className="text-muted text-sm whitespace-nowrap">ریال</span>}
-              />
-              <Input
-                type="text"
-                inputMode="numeric"
-                label="قیمت فروش"
-                value={formatPriceInput(addProductSalePrice)}
-                onValueChange={(v) => setAddProductSalePrice(normalizePriceInput(v))}
-                isDisabled={isCheckingMasterProduct}
-                endContent={<span className="text-muted text-sm whitespace-nowrap">ریال</span>}
-              />
-            </div>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onPress={() => setAddProductOpen(false)}>
-              انصراف
-            </Button>
-            <Button
-              color="primary"
-              isLoading={addProductSubmitting}
-              isDisabled={isCheckingMasterProduct || categories.length === 0}
-              onPress={handleSubmitAddProduct}
-            >
-              ثبت محصول
-            </Button>
-          </ModalFooter>
-        </ModalShell>
-      </Modal>
+      <AddProductModal
+        addProductOpen={addProductOpen}
+        setAddProductOpen={setAddProductOpen}
+        isCheckingMasterProduct={isCheckingMasterProduct}
+        addProductBarcode={addProductBarcode}
+        addProductName={addProductName}
+        setAddProductName={setAddProductName}
+        categories={categories}
+        addProductCategoryId={addProductCategoryId}
+        setAddProductCategoryId={setAddProductCategoryId}
+        addProductPurchasePrice={addProductPurchasePrice}
+        setAddProductPurchasePrice={setAddProductPurchasePrice}
+        addProductSalePrice={addProductSalePrice}
+        setAddProductSalePrice={setAddProductSalePrice}
+        addProductSubmitting={addProductSubmitting}
+        handleSubmitAddProduct={handleSubmitAddProduct}
+      />
     </div>
   );
 }

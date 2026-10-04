@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, Tab, TabList, TabListContainer, Tabs } from '@heroui/react';
+import { Card, CardContent } from '@heroui/react';
 import { Button } from '../ui/compat-button';
-import { Input } from '../ui/compat-input';
 import { Select, SelectItem } from '../ui/compat-select';
-import { CheckboxCompat as Checkbox } from '../ui/compat-checkbox';
 import { SwitchCompat as Switch } from '../ui/compat-switch';
 import { useAuthStore } from '../store/authStore';
 import { usePrinterSettingsStore } from '../store/printerSettingsStore';
@@ -20,6 +18,11 @@ import { useSyncStore } from '../store/syncStore';
 import { toast } from '../utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { canManageHardwareSettings } from '../lib/electronPermissions';
+import { PrinterSettingsCard } from './settings/PrinterSettingsCard';
+import { ScaleSettingsCard } from './settings/ScaleSettingsCard';
+import { CallerIdSettingsCard } from './settings/CallerIdSettingsCard';
+import { useCallerIdSettings } from './settings/useCallerIdSettings';
+import { useScaleSettings } from './settings/useScaleSettings';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -73,17 +76,27 @@ export default function SettingsPage() {
     lastError: accountingLastError,
   } = useSyncStore();
 
-  const [scaleConnectionType, setScaleConnectionType] = useState<'serial' | 'tcp'>('serial');
-  const [scalePortName, setScalePortName] = useState('');
-  const [scaleBaudRate, setScaleBaudRate] = useState('9600');
-  const [scaleHost, setScaleHost] = useState('');
-  const [scaleTcpPort, setScaleTcpPort] = useState('8000');
-  const [scalePorts, setScalePorts] = useState<
-    Array<{ path: string; manufacturer?: string; friendlyName?: string }>
-  >([]);
-  const [scaleConnected, setScaleConnected] = useState(false);
-  const [scaleConnecting, setScaleConnecting] = useState(false);
-  const [scaleSaving, setScaleSaving] = useState(false);
+  const {
+    scaleConnectionType,
+    setScaleConnectionType,
+    scalePortName,
+    setScalePortName,
+    scaleBaudRate,
+    setScaleBaudRate,
+    scaleHost,
+    setScaleHost,
+    scaleTcpPort,
+    setScaleTcpPort,
+    scalePorts,
+    scaleConnected,
+    scaleConnecting,
+    scaleSaving,
+    loadScaleData,
+    handleScaleSave,
+    handleScaleConnect,
+    handleScaleDisconnect,
+    handleRefreshPorts,
+  } = useScaleSettings();
 
   const [posWarehouseId, setPosWarehouseId] = useState<number | null>(null);
   const [posWarehouseList, setPosWarehouseList] = useState<
@@ -91,30 +104,44 @@ export default function SettingsPage() {
   >([]);
   const [posWarehouseSaving, setPosWarehouseSaving] = useState(false);
 
-  const [callerIdEnabled, setCallerIdEnabled] = useState(false);
-  const [callerIdMode, setCallerIdMode] = useState<'webhook' | 'serial' | 'hid'>('webhook');
-  // webhook
-  const [callerIdPort, setCallerIdPort] = useState('5055');
-  const [callerIdSecret, setCallerIdSecret] = useState('');
-  const [callerIdPhoneField, setCallerIdPhoneField] = useState('caller');
-  // serial / USB
-  const [callerIdSerialPort, setCallerIdSerialPort] = useState('');
-  const [callerIdSerialBaud, setCallerIdSerialBaud] = useState('9600');
-  const [callerIdSerialFormat, setCallerIdSerialFormat] = useState('auto');
-  const [callerIdSerialPorts, setCallerIdSerialPorts] = useState<
-    Array<{ path: string; manufacturer?: string; friendlyName?: string }>
-  >([]);
-  const [callerIdSerialConnected, setCallerIdSerialConnected] = useState(false);
-  const [callerIdSerialConnecting, setCallerIdSerialConnecting] = useState(false);
-  // HID (T-Line TK-202UH)
-  const [callerIdHidConnected, setCallerIdHidConnected] = useState(false);
-  const [callerIdHidConnecting, setCallerIdHidConnecting] = useState(false);
-  const [callerIdHidDeviceFound, setCallerIdHidDeviceFound] = useState(false);
-  // common
-  const [callerIdDuration, setCallerIdDuration] = useState('30');
-  const [callerIdSound, setCallerIdSound] = useState(true);
-  const [callerIdSaving, setCallerIdSaving] = useState(false);
-  const [callerIdWebhookRunning, setCallerIdWebhookRunning] = useState(false);
+  const {
+    callerIdEnabled,
+    setCallerIdEnabled,
+    callerIdMode,
+    setCallerIdMode,
+    callerIdPort,
+    setCallerIdPort,
+    callerIdSecret,
+    setCallerIdSecret,
+    callerIdPhoneField,
+    setCallerIdPhoneField,
+    callerIdSerialPort,
+    setCallerIdSerialPort,
+    callerIdSerialBaud,
+    setCallerIdSerialBaud,
+    callerIdSerialFormat,
+    setCallerIdSerialFormat,
+    callerIdSerialPorts,
+    callerIdSerialConnected,
+    callerIdSerialConnecting,
+    callerIdHidConnected,
+    callerIdHidConnecting,
+    callerIdHidDeviceFound,
+    callerIdDuration,
+    setCallerIdDuration,
+    callerIdSound,
+    setCallerIdSound,
+    callerIdSaving,
+    callerIdWebhookRunning,
+    loadCallerIdData,
+    handleCallerIdSerialRefreshPorts,
+    handleCallerIdSerialConnect,
+    handleCallerIdSerialDisconnect,
+    handleCallerIdHidCheckDevice,
+    handleCallerIdHidConnect,
+    handleCallerIdHidDisconnect,
+    handleCallerIdSave,
+  } = useCallerIdSettings();
 
   useEffect(() => {
     window.electronAPI
@@ -167,258 +194,6 @@ export default function SettingsPage() {
       toast.error('خطا در ذخیره انبار پایانه');
     } finally {
       setPosWarehouseSaving(false);
-    }
-  };
-
-  const loadCallerIdData = async () => {
-    const api = window.electronAPI;
-    if (!api?.getCallerIdSettings) return;
-    try {
-      const [s, status, serialStatus, ports, hidStatus, hidDevices] = await Promise.all([
-        api.getCallerIdSettings(),
-        api.getCallerIdWebhookStatus?.() ?? Promise.resolve({ running: false, port: null }),
-        api.callerIdSerialStatus?.() ?? Promise.resolve({ connected: false }),
-        api.callerIdSerialListPorts?.() ?? Promise.resolve([]),
-        api.callerIdHidStatus?.() ?? Promise.resolve({ connected: false }),
-        api.callerIdHidListDevices?.() ?? Promise.resolve([]),
-      ]);
-      setCallerIdEnabled(Boolean(s.enabled));
-      setCallerIdMode(
-        s.inputMode === 'serial' ? 'serial' : s.inputMode === 'hid' ? 'hid' : 'webhook',
-      );
-      setCallerIdHidConnected(Boolean(hidStatus?.connected));
-      setCallerIdHidDeviceFound(Array.isArray(hidDevices) && hidDevices.length > 0);
-      setCallerIdPort(String(s.webhookPort || 5055));
-      setCallerIdSecret(String(s.webhookSecret || ''));
-      setCallerIdPhoneField(String(s.phoneField || 'caller'));
-      setCallerIdSerialPort(String(s.serialPortName || ''));
-      setCallerIdSerialBaud(String(s.serialBaudRate || 9600));
-      setCallerIdSerialFormat(String(s.serialFormat || 'auto'));
-      setCallerIdDuration(String(s.notifyDurationSec || 30));
-      setCallerIdSound(s.playSoundEnabled !== false);
-      setCallerIdWebhookRunning(Boolean(status?.running));
-      setCallerIdSerialConnected(Boolean(serialStatus?.connected));
-      setCallerIdSerialPorts(ports ?? []);
-    } catch {}
-  };
-
-  const handleCallerIdSerialRefreshPorts = async () => {
-    const api = window.electronAPI;
-    if (!api?.callerIdSerialListPorts) return;
-    try {
-      const ports = await api.callerIdSerialListPorts();
-      setCallerIdSerialPorts(ports ?? []);
-      if (!ports?.length) toast.info('دستگاه USB یافت نشد');
-    } catch {
-      toast.error('خطا در خواندن پورت‌ها');
-    }
-  };
-
-  const handleCallerIdSerialConnect = async () => {
-    const api = window.electronAPI;
-    if (!api?.callerIdSerialConnect) return;
-    setCallerIdSerialConnecting(true);
-    try {
-      const result = await api.callerIdSerialConnect({
-        enabled: true,
-        portName: callerIdSerialPort,
-        baudRate: Number(callerIdSerialBaud) || 9600,
-        format: callerIdSerialFormat,
-      });
-      if (result.success) {
-        setCallerIdSerialConnected(true);
-        toast.success('دستگاه Caller ID متصل شد');
-      } else {
-        toast.error(`خطا: ${result.error || 'اتصال ناموفق'}`);
-      }
-    } catch {
-      toast.error('خطا در اتصال به دستگاه');
-    } finally {
-      setCallerIdSerialConnecting(false);
-    }
-  };
-
-  const handleCallerIdSerialDisconnect = async () => {
-    const api = window.electronAPI;
-    if (!api?.callerIdSerialDisconnect) return;
-    try {
-      await api.callerIdSerialDisconnect();
-      setCallerIdSerialConnected(false);
-      toast.info('دستگاه Caller ID قطع شد');
-    } catch {
-      toast.error('خطا در قطع اتصال');
-    }
-  };
-
-  // ── HID handlers ────────────────────────────────────────────────────────────
-  const handleCallerIdHidCheckDevice = async () => {
-    const api = window.electronAPI;
-    if (!api?.callerIdHidListDevices) return;
-    try {
-      const devices = await api.callerIdHidListDevices();
-      const found = Array.isArray(devices) && devices.length > 0;
-      setCallerIdHidDeviceFound(found);
-      if (found) toast.success('دستگاه T-Line TK-202UH پیدا شد!');
-      else toast.info('دستگاه T-Line یافت نشد — USB را چک کنید');
-    } catch {
-      toast.error('خطا در جستجوی دستگاه');
-    }
-  };
-
-  const handleCallerIdHidConnect = async () => {
-    const api = window.electronAPI;
-    if (!api?.callerIdHidConnect) return;
-    setCallerIdHidConnecting(true);
-    try {
-      const result = await api.callerIdHidConnect();
-      if (result.success) {
-        setCallerIdHidConnected(true);
-        toast.success('دستگاه T-Line TK-202UH متصل شد — در انتظار تماس...');
-      } else {
-        toast.error(`خطا: ${result.error || 'اتصال ناموفق'}`);
-      }
-    } catch {
-      toast.error('خطا در اتصال به دستگاه HID');
-    } finally {
-      setCallerIdHidConnecting(false);
-    }
-  };
-
-  const handleCallerIdHidDisconnect = async () => {
-    const api = window.electronAPI;
-    if (!api?.callerIdHidDisconnect) return;
-    try {
-      await api.callerIdHidDisconnect();
-      setCallerIdHidConnected(false);
-      toast.info('دستگاه T-Line قطع شد');
-    } catch {
-      toast.error('خطا در قطع اتصال');
-    }
-  };
-
-  const handleCallerIdSave = async () => {
-    const api = window.electronAPI;
-    if (!api?.saveCallerIdSettings) return;
-    setCallerIdSaving(true);
-    try {
-      await api.saveCallerIdSettings({
-        enabled: callerIdEnabled,
-        inputMode: callerIdMode,
-        webhookPort: Number(callerIdPort) || 5055,
-        webhookSecret: callerIdSecret,
-        phoneField: callerIdPhoneField || 'caller',
-        serialPortName: callerIdSerialPort,
-        serialBaudRate: Number(callerIdSerialBaud) || 9600,
-        serialFormat: callerIdSerialFormat,
-        notifyDurationSec: Number(callerIdDuration) || 30,
-        playSoundEnabled: callerIdSound,
-      });
-      const status = await api.getCallerIdWebhookStatus?.();
-      setCallerIdWebhookRunning(Boolean(status?.running));
-      const serialStatus = await api.callerIdSerialStatus?.();
-      setCallerIdSerialConnected(Boolean(serialStatus?.connected));
-      toast.success('تنظیمات Caller ID ذخیره شد');
-    } catch {
-      toast.error('خطا در ذخیره تنظیمات Caller ID');
-    } finally {
-      setCallerIdSaving(false);
-    }
-  };
-
-  const loadScaleData = async () => {
-    const api = window.electronAPI;
-    if (!api?.scaleLoadSettings) return;
-    try {
-      const [settings, status, ports] = await Promise.all([
-        api.scaleLoadSettings(),
-        api.scaleStatus?.() ?? Promise.resolve({ connected: false, latestWeight: null }),
-        api.scaleListPorts?.() ?? Promise.resolve([]),
-      ]);
-      if (settings) {
-        setScaleConnectionType(settings.connectionType === 'tcp' ? 'tcp' : 'serial');
-        setScalePortName(settings.portName || '');
-        setScaleBaudRate(String(settings.baudRate || 9600));
-        setScaleHost(settings.host || '');
-        setScaleTcpPort(String(settings.tcpPort || 8000));
-      }
-      setScaleConnected(status?.connected ?? false);
-      setScalePorts(ports ?? []);
-    } catch {}
-  };
-
-  const handleScaleSave = async () => {
-    const api = window.electronAPI;
-    if (!api?.scaleSaveSettings) return;
-    setScaleSaving(true);
-    try {
-      await api.scaleSaveSettings({
-        connectionType: scaleConnectionType,
-        portName: scalePortName,
-        baudRate: Number(scaleBaudRate) || 9600,
-        host: scaleHost,
-        tcpPort: Number(scaleTcpPort) || 8000,
-      });
-      toast.success('تنظیمات ترازو ذخیره شد');
-    } catch {
-      toast.error('خطا در ذخیره تنظیمات ترازو');
-    } finally {
-      setScaleSaving(false);
-    }
-  };
-
-  const handleScaleConnect = async () => {
-    const api = window.electronAPI;
-    if (!api?.scaleConnect) return;
-    setScaleConnecting(true);
-    try {
-      await api.scaleSaveSettings?.({
-        connectionType: scaleConnectionType,
-        portName: scalePortName,
-        baudRate: Number(scaleBaudRate) || 9600,
-        host: scaleHost,
-        tcpPort: Number(scaleTcpPort) || 8000,
-      });
-      const result = await api.scaleConnect({
-        connectionType: scaleConnectionType,
-        portName: scalePortName,
-        baudRate: Number(scaleBaudRate) || 9600,
-        host: scaleHost,
-        tcpPort: Number(scaleTcpPort) || 8000,
-      });
-      if (result.success) {
-        setScaleConnected(true);
-        toast.success('ترازو با موفقیت متصل شد');
-      } else {
-        toast.error(`خطا: ${result.error || 'اتصال ناموفق'}`);
-      }
-    } catch (err: any) {
-      toast.error(String(err?.message || 'خطا در اتصال ترازو'));
-    } finally {
-      setScaleConnecting(false);
-    }
-  };
-
-  const handleScaleDisconnect = async () => {
-    const api = window.electronAPI;
-    if (!api?.scaleDisconnect) return;
-    try {
-      await api.scaleDisconnect();
-      setScaleConnected(false);
-      toast.info('ترازو قطع شد');
-    } catch {
-      toast.error('خطا در قطع ترازو');
-    }
-  };
-
-  const handleRefreshPorts = async () => {
-    const api = window.electronAPI;
-    if (!api?.scaleListPorts) return;
-    try {
-      const ports = await api.scaleListPorts();
-      setScalePorts(ports ?? []);
-      if (ports.length === 0) toast.info('پورت سریال یافت نشد');
-    } catch {
-      toast.error('خطا در دریافت پورت‌ها');
     }
   };
 
@@ -824,302 +599,27 @@ export default function SettingsPage() {
           </Card>
         )}
 
-        <Card>
-          <CardContent className="gap-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-foreground border-b-2 border-accent pb-2">
-                تنظیمات پرینتر
-              </h2>
-              <Button size="sm" variant="light" color="primary" onPress={loadPrinters}>
-                بروزرسانی لیست
-              </Button>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border p-3">
-              <div className="flex flex-col">
-                <span className="font-medium text-foreground">
-                  چاپ خودکار سفارش‌های آنلاین جدید
-                </span>
-                <span className="text-sm text-muted">
-                  به‌محض رسیدن هر سفارش آنلاین جدید، رسیدهای فعال روی پرینترهای فعال بدون نیاز به
-                  کلیک دستی چاپ می‌شوند.
-                </span>
-              </div>
-              <Switch isSelected={autoPrintOnNewOrder} onValueChange={setAutoPrintOnNewOrder} />
-            </div>
-            {isLoadingPrinters ? (
-              <p className="text-muted">در حال دریافت لیست پرینترها...</p>
-            ) : availablePrinters.length === 0 ? (
-              <p className="text-muted">هیچ پرینتری یافت نشد.</p>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {availablePrinters.map((printer) => {
-                  const config = configs[printer.name];
-                  const isEnabled = !!config?.enabled;
-                  const receipts = getPrinterReceipts(printer.name);
-                  const fullReceipt = receipts.find((r) => r.type === 'full');
-                  const kitchenReceipt = receipts.find((r) => r.type === 'kitchen');
-                  // انتخاب صریح این پرینتر؛ اگر انتخابی نشده باشد قالب پیش‌فرض برنامه اعمال می‌شود
-                  const hasExplicitTemplate = Object.prototype.hasOwnProperty.call(
-                    printerTemplatesMap,
-                    printer.name,
-                  );
-                  const effectiveTemplate = hasExplicitTemplate
-                    ? printerTemplatesMap[printer.name]
-                    : defaultTemplate;
-                  const templateValue = effectiveTemplate ? String(effectiveTemplate.id) : 'none';
-                  return (
-                    <Card key={printer.name} className="shadow-sm border border-border">
-                      <CardContent className="gap-4">
-                        <div className="flex flex-col gap-1">
-                          <Checkbox
-                            isSelected={isEnabled}
-                            onValueChange={(checked) => setPrinterEnabled(printer, checked)}
-                            classNames={{ label: 'font-semibold' }}
-                          >
-                            {printer.displayName || printer.name}
-                          </Checkbox>
-                          {printer.description && (
-                            <p className="text-sm text-muted mr-6">{printer.description}</p>
-                          )}
-                        </div>
-                        {isEnabled && (
-                          <div className="flex flex-col gap-4 pr-6 border-t border-border pt-4">
-                            {loadingTemplates ? (
-                              <p className="text-sm text-muted">در حال بارگذاری قالب‌ها...</p>
-                            ) : (
-                              <Select
-                                label="قالب چاپ این پرینتر"
-                                placeholder="بدون قالب (تنظیمات دستی زیر)"
-                                selectedKeys={[templateValue]}
-                                onSelectionChange={(keys) => {
-                                  const v = Array.from(keys)[0] as string | undefined;
-                                  handlePrinterTemplateChange(
-                                    printer.name,
-                                    v === 'none' || !v ? null : v,
-                                  );
-                                }}
-                                isDisabled={savingTemplateForPrinter === printer.name}
-                                variant="bordered"
-                                size="sm"
-                              >
-                                <SelectItem key="none" textValue="بدون قالب">
-                                  بدون قالب (تنظیمات دستی زیر)
-                                </SelectItem>
-                                {printTemplates.map((t) => (
-                                  <SelectItem
-                                    key={String(t.id)}
-                                    textValue={`${t.name} (${t.paperWidth}×${t.paperLength} mm)`}
-                                  >
-                                    {t.name} ({t.paperWidth}×{t.paperLength} mm)
-                                  </SelectItem>
-                                ))}
-                              </Select>
-                            )}
-                            {!loadingTemplates && (
-                              <p className="text-xs text-muted -mt-2">
-                                قالب پایهٔ این پرینتر؛ هر رسید می‌تواند در بخش «نوع رسید» قالب
-                                متفاوت خودش را داشته باشد.
-                              </p>
-                            )}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                              <Input
-                                type="number"
-                                label="عرض کاغذ (mm)"
-                                value={String(config?.paperWidth ?? 80)}
-                                onValueChange={(v) =>
-                                  updatePrinterConfig(printer.name, { paperWidth: Number(v) || 80 })
-                                }
-                                min={40}
-                                max={120}
-                                variant="bordered"
-                                size="sm"
-                              />
-                              <Input
-                                type="number"
-                                label="طول کاغذ (mm)"
-                                value={String(config?.paperLength ?? 200)}
-                                onValueChange={(v) =>
-                                  updatePrinterConfig(printer.name, {
-                                    paperLength: Number(v) || 200,
-                                  })
-                                }
-                                min={80}
-                                max={800}
-                                variant="bordered"
-                                size="sm"
-                              />
-                              <Input
-                                type="number"
-                                label="حاشیه (mm)"
-                                value={String(config?.margin ?? 5)}
-                                onValueChange={(v) =>
-                                  updatePrinterConfig(printer.name, { margin: Number(v) || 5 })
-                                }
-                                min={0}
-                                max={20}
-                                variant="bordered"
-                                size="sm"
-                              />
-                            </div>
-                            <div className="border-t border-border pt-4 space-y-3">
-                              <h3 className="text-sm font-medium text-foreground">نوع رسید</h3>
-                              <div className="flex flex-col gap-3">
-                                <div className="flex flex-col gap-3 p-3 rounded-lg bg-default-soft border border-border">
-                                  <div className="flex flex-wrap items-center gap-3">
-                                    <Checkbox
-                                      isSelected={fullReceipt?.enabled ?? true}
-                                      onValueChange={(checked) =>
-                                        setReceiptEnabled(printer.name, 'full', checked)
-                                      }
-                                    >
-                                      رسید کامل (با قیمت)
-                                    </Checkbox>
-                                    {(fullReceipt?.enabled ?? true) && (
-                                      <Input
-                                        type="number"
-                                        size="sm"
-                                        className="w-20"
-                                        min={1}
-                                        max={5}
-                                        value={String(fullReceipt?.copies ?? 1)}
-                                        onValueChange={(v) =>
-                                          setReceiptCopies(printer.name, 'full', Number(v) || 1)
-                                        }
-                                        aria-label="تعداد رسید کامل"
-                                      />
-                                    )}
-                                  </div>
-                                  {(fullReceipt?.enabled ?? true) && !loadingTemplates && (
-                                    <div className="flex flex-col gap-1">
-                                      <Select
-                                        label="قالب این رسید"
-                                        selectedKeys={[receiptTemplateValue(printer.name, 'full')]}
-                                        onSelectionChange={(keys) => {
-                                          const v = Array.from(keys)[0] as string | undefined;
-                                          handlePrinterTemplateChange(
-                                            printer.name,
-                                            v ?? 'inherit',
-                                            'full',
-                                          );
-                                        }}
-                                        isDisabled={
-                                          savingTemplateForPrinter ===
-                                          printTemplateKey(printer.name, 'full')
-                                        }
-                                        variant="bordered"
-                                        size="sm"
-                                      >
-                                        <SelectItem key="inherit" textValue="مثل قالب پرینتر">
-                                          مثل قالب پرینتر
-                                        </SelectItem>
-                                        <SelectItem key="none" textValue="بدون قالب">
-                                          بدون قالب (تنظیمات دستی بالا)
-                                        </SelectItem>
-                                        {printTemplates.map((t) => (
-                                          <SelectItem
-                                            key={String(t.id)}
-                                            textValue={`${t.name} (${t.paperWidth}×${t.paperLength} mm)`}
-                                          >
-                                            {t.name} ({t.paperWidth}×{t.paperLength} mm)
-                                          </SelectItem>
-                                        ))}
-                                      </Select>
-                                      <p className="text-xs text-muted">
-                                        الان با «
-                                        {effectiveReceiptTemplateName(printer.name, 'full')}» چاپ
-                                        می‌شود
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex flex-col gap-3 p-3 rounded-lg bg-default-soft border border-border">
-                                  <div className="flex flex-wrap items-center gap-3">
-                                    <Checkbox
-                                      isSelected={kitchenReceipt?.enabled ?? false}
-                                      onValueChange={(checked) =>
-                                        setReceiptEnabled(printer.name, 'kitchen', checked)
-                                      }
-                                    >
-                                      رسید آشپزخانه (بدون قیمت)
-                                    </Checkbox>
-                                    {(kitchenReceipt?.enabled ?? false) && (
-                                      <Input
-                                        type="number"
-                                        size="sm"
-                                        className="w-20"
-                                        min={1}
-                                        max={5}
-                                        value={String(kitchenReceipt?.copies ?? 1)}
-                                        onValueChange={(v) =>
-                                          setReceiptCopies(printer.name, 'kitchen', Number(v) || 1)
-                                        }
-                                        aria-label="تعداد رسید آشپزخانه"
-                                      />
-                                    )}
-                                  </div>
-                                  {(kitchenReceipt?.enabled ?? false) && !loadingTemplates && (
-                                    <div className="flex flex-col gap-1">
-                                      <Select
-                                        label="قالب این رسید"
-                                        selectedKeys={[
-                                          receiptTemplateValue(printer.name, 'kitchen'),
-                                        ]}
-                                        onSelectionChange={(keys) => {
-                                          const v = Array.from(keys)[0] as string | undefined;
-                                          handlePrinterTemplateChange(
-                                            printer.name,
-                                            v ?? 'inherit',
-                                            'kitchen',
-                                          );
-                                        }}
-                                        isDisabled={
-                                          savingTemplateForPrinter ===
-                                          printTemplateKey(printer.name, 'kitchen')
-                                        }
-                                        variant="bordered"
-                                        size="sm"
-                                      >
-                                        <SelectItem key="inherit" textValue="مثل قالب پرینتر">
-                                          مثل قالب پرینتر
-                                        </SelectItem>
-                                        <SelectItem key="none" textValue="بدون قالب">
-                                          بدون قالب (تنظیمات دستی بالا)
-                                        </SelectItem>
-                                        {printTemplates.map((t) => (
-                                          <SelectItem
-                                            key={String(t.id)}
-                                            textValue={`${t.name} (${t.paperWidth}×${t.paperLength} mm)`}
-                                          >
-                                            {t.name} ({t.paperWidth}×{t.paperLength} mm)
-                                          </SelectItem>
-                                        ))}
-                                      </Select>
-                                      <p className="text-xs text-muted">
-                                        الان با «
-                                        {effectiveReceiptTemplateName(printer.name, 'kitchen')}» چاپ
-                                        می‌شود
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-            <p className="text-muted text-sm">
-              برای هر پرینتر می‌توانید قالب چاپ و نوع/تعداد رسید را جداگانه تنظیم کنید. اگر از یک
-              پرینتر دو فیش می‌گیرید، برای هرکدام در بخش «نوع رسید» قالب دلخواه خودش را انتخاب کنید؛
-              در غیر این صورت هر دو با قالب پایهٔ پرینتر چاپ می‌شوند. این تنظیمات برای چاپ خودکار
-              رسید هنگام ثبت سفارش استفاده می‌شود.
-            </p>
-          </CardContent>
-        </Card>
+        <PrinterSettingsCard
+          loadPrinters={loadPrinters}
+          autoPrintOnNewOrder={autoPrintOnNewOrder}
+          setAutoPrintOnNewOrder={setAutoPrintOnNewOrder}
+          isLoadingPrinters={isLoadingPrinters}
+          availablePrinters={availablePrinters}
+          configs={configs}
+          getPrinterReceipts={getPrinterReceipts}
+          printerTemplatesMap={printerTemplatesMap}
+          defaultTemplate={defaultTemplate}
+          setPrinterEnabled={setPrinterEnabled}
+          loadingTemplates={loadingTemplates}
+          handlePrinterTemplateChange={handlePrinterTemplateChange}
+          savingTemplateForPrinter={savingTemplateForPrinter}
+          printTemplates={printTemplates}
+          updatePrinterConfig={updatePrinterConfig}
+          setReceiptEnabled={setReceiptEnabled}
+          setReceiptCopies={setReceiptCopies}
+          receiptTemplateValue={receiptTemplateValue}
+          effectiveReceiptTemplateName={effectiveReceiptTemplateName}
+        />
 
         {/* مسیر ذخیره‌سازی داده‌ها */}
         <Card>
@@ -1159,481 +659,67 @@ export default function SettingsPage() {
         </Card>
 
         {window.electronAPI?.scaleLoadSettings && canManageHw && (
-          <Card>
-            <CardContent className="gap-3">
-              <div className="flex items-center justify-between border-b-2 border-accent pb-2">
-                <h2 className="text-lg font-semibold text-foreground">اتصال ترازو</h2>
-                <span
-                  className={`text-xs px-2 py-1 rounded-full font-medium ${scaleConnected ? 'bg-success-soft text-success-soft-foreground' : 'bg-default-soft text-muted'}`}
-                >
-                  {scaleConnected ? 'متصل' : 'قطع'}
-                </span>
-              </div>
-
-              <Select
-                label="نوع اتصال"
-                selectedKeys={[scaleConnectionType]}
-                onSelectionChange={(keys) =>
-                  setScaleConnectionType(
-                    String(Array.from(keys)[0] || 'serial') as 'serial' | 'tcp',
-                  )
-                }
-                variant="bordered"
-                size="sm"
-                className="max-w-xs"
-              >
-                <SelectItem key="serial">سریال / USB (COM Port)</SelectItem>
-                <SelectItem key="tcp">شبکه (TCP/IP)</SelectItem>
-              </Select>
-
-              {scaleConnectionType === 'serial' ? (
-                <div className="flex gap-2 flex-wrap items-end">
-                  <Select
-                    label="پورت COM"
-                    selectedKeys={scalePortName ? [scalePortName] : []}
-                    onSelectionChange={(keys) =>
-                      setScalePortName(String(Array.from(keys)[0] || ''))
-                    }
-                    variant="bordered"
-                    size="sm"
-                    className="flex-1 min-w-[140px]"
-                    placeholder={scalePorts.length === 0 ? 'پورتی یافت نشد' : 'انتخاب پورت'}
-                  >
-                    {scalePorts.map((p) => (
-                      <SelectItem key={p.path} textValue={p.path}>
-                        {p.path}
-                        {p.friendlyName
-                          ? ` — ${p.friendlyName}`
-                          : p.manufacturer
-                            ? ` (${p.manufacturer})`
-                            : ''}
-                      </SelectItem>
-                    ))}
-                  </Select>
-                  <Button size="sm" variant="flat" onPress={handleRefreshPorts}>
-                    بازخوانی پورت‌ها
-                  </Button>
-                  <Select
-                    label="Baud Rate"
-                    selectedKeys={[scaleBaudRate]}
-                    onSelectionChange={(keys) =>
-                      setScaleBaudRate(String(Array.from(keys)[0] || '9600'))
-                    }
-                    variant="bordered"
-                    size="sm"
-                    className="w-32"
-                  >
-                    {['1200', '2400', '4800', '9600', '19200', '38400', '57600', '115200'].map(
-                      (b) => (
-                        <SelectItem key={b}>{b}</SelectItem>
-                      ),
-                    )}
-                  </Select>
-                </div>
-              ) : (
-                <div className="flex gap-2 flex-wrap">
-                  <Input
-                    label="آدرس IP ترازو"
-                    value={scaleHost}
-                    onValueChange={setScaleHost}
-                    placeholder="192.168.1.100"
-                    variant="bordered"
-                    size="sm"
-                    className="flex-1 min-w-[180px]"
-                  />
-                  <Input
-                    label="پورت TCP"
-                    value={scaleTcpPort}
-                    onValueChange={setScaleTcpPort}
-                    placeholder="8000"
-                    variant="bordered"
-                    size="sm"
-                    className="w-28"
-                  />
-                </div>
-              )}
-
-              <div className="flex gap-2 flex-wrap">
-                <Button size="sm" variant="flat" isLoading={scaleSaving} onPress={handleScaleSave}>
-                  ذخیره تنظیمات
-                </Button>
-                {scaleConnected ? (
-                  <Button size="sm" color="danger" variant="flat" onPress={handleScaleDisconnect}>
-                    قطع اتصال
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    color="primary"
-                    variant="flat"
-                    isLoading={scaleConnecting}
-                    onPress={handleScaleConnect}
-                  >
-                    اتصال و تست
-                  </Button>
-                )}
-              </div>
-
-              <p className="text-xs text-muted">
-                پس از تنظیم، دکمه «اتصال و تست» را بزنید. اگر موفق شد ترازو آماده استفاده در فاکتور
-                است.
-              </p>
-            </CardContent>
-          </Card>
+          <ScaleSettingsCard
+            scaleConnected={scaleConnected}
+            scaleConnectionType={scaleConnectionType}
+            setScaleConnectionType={setScaleConnectionType}
+            scalePortName={scalePortName}
+            setScalePortName={setScalePortName}
+            scalePorts={scalePorts}
+            handleRefreshPorts={handleRefreshPorts}
+            scaleBaudRate={scaleBaudRate}
+            setScaleBaudRate={setScaleBaudRate}
+            scaleHost={scaleHost}
+            setScaleHost={setScaleHost}
+            scaleTcpPort={scaleTcpPort}
+            setScaleTcpPort={setScaleTcpPort}
+            scaleSaving={scaleSaving}
+            handleScaleSave={handleScaleSave}
+            handleScaleDisconnect={handleScaleDisconnect}
+            scaleConnecting={scaleConnecting}
+            handleScaleConnect={handleScaleConnect}
+          />
         )}
 
         {/* Caller ID Settings */}
         {window.electronAPI?.getCallerIdSettings && canManageHw && (
-          <Card>
-            <CardContent>
-              <div className="flex flex-col gap-4">
-                {/* header + master toggle */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-semibold text-foreground">
-                      شناسایی تماس‌گیرنده (Caller ID)
-                    </h2>
-                    <p className="text-xs text-muted mt-0.5">
-                      هنگام تماس ورودی، اطلاعات مشتری و سوابق سفارش نمایش داده می‌شود.
-                    </p>
-                  </div>
-                  <Switch
-                    isSelected={callerIdEnabled}
-                    onValueChange={setCallerIdEnabled}
-                    size="sm"
-                    aria-label="فعال‌سازی Caller ID"
-                  />
-                </div>
-
-                {callerIdEnabled && (
-                  <div className="flex flex-col gap-4 border-t border-border pt-3">
-                    {/* mode selector */}
-                    <Tabs
-                      selectedKey={callerIdMode}
-                      onSelectionChange={(k) => setCallerIdMode(k as 'webhook' | 'serial' | 'hid')}
-                      aria-label="نوع ورودی Caller ID"
-                    >
-                      <TabListContainer>
-                        <TabList>
-                          <Tab id="webhook">🌐 VOIP / Webhook</Tab>
-                          <Tab id="serial">🔌 دستگاه USB (COM)</Tab>
-                          <Tab id="hid">📞 T-Line TK-202UH</Tab>
-                        </TabList>
-                      </TabListContainer>
-                    </Tabs>
-
-                    {/* ─── Webhook mode ─── */}
-                    {callerIdMode === 'webhook' && (
-                      <div className="flex flex-col gap-3">
-                        <div className="flex gap-2 flex-wrap items-end">
-                          <Input
-                            label="پورت webhook محلی"
-                            value={callerIdPort}
-                            onValueChange={setCallerIdPort}
-                            placeholder="5055"
-                            variant="bordered"
-                            size="sm"
-                            className="w-36"
-                            description="سیستم VOIP به این پورت POST می‌زند"
-                          />
-                          <Input
-                            label="نام فیلد شماره تماس"
-                            value={callerIdPhoneField}
-                            onValueChange={setCallerIdPhoneField}
-                            placeholder="caller"
-                            variant="bordered"
-                            size="sm"
-                            className="w-40"
-                            description="نام فیلد در body JSON"
-                          />
-                        </div>
-                        <Input
-                          label="توکن احراز هویت (اختیاری)"
-                          value={callerIdSecret}
-                          onValueChange={setCallerIdSecret}
-                          placeholder="X-Secret یا Bearer token"
-                          variant="bordered"
-                          size="sm"
-                          type="password"
-                          description="اگر خالی باشد همه درخواست‌ها پذیرفته می‌شوند"
-                        />
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-2 h-2 rounded-full ${callerIdWebhookRunning ? 'bg-green-500' : 'bg-gray-400'}`}
-                          />
-                          <span className="text-xs text-muted">
-                            {callerIdWebhookRunning
-                              ? `webhook فعال روی پورت ${callerIdPort}`
-                              : 'webhook غیرفعال'}
-                          </span>
-                        </div>
-                        <div className="rounded-xl bg-default-soft p-3 text-xs text-muted flex flex-col gap-1">
-                          <p className="font-semibold text-foreground/70">
-                            نحوه اتصال VOIP / FXO Gateway
-                          </p>
-                          <code className="bg-default rounded px-1.5 py-0.5 font-mono text-foreground/80 break-all">
-                            POST http://127.0.0.1:{callerIdPort}/call
-                          </code>
-                          <code className="bg-default rounded px-1.5 py-0.5 font-mono text-foreground/80">
-                            {`{"${callerIdPhoneField || 'caller'}": "09123456789"}`}
-                          </code>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* ─── USB/Serial mode ─── */}
-                    {callerIdMode === 'serial' && (
-                      <div className="flex flex-col gap-3">
-                        <p className="text-xs text-muted">
-                          دستگاه‌های USB Caller ID موجود در بازار (جعبه تلفن با USB) را انتخاب کنید.
-                          پس از وصل کردن USB، پورت‌ها را رفرش کنید.
-                        </p>
-
-                        <div className="flex gap-2 flex-wrap items-end">
-                          <Select
-                            label="دستگاه USB Caller ID"
-                            placeholder="انتخاب پورت..."
-                            variant="bordered"
-                            size="sm"
-                            className="flex-1 min-w-[160px]"
-                            selectedKeys={callerIdSerialPort ? [callerIdSerialPort] : []}
-                            onSelectionChange={(keys) =>
-                              setCallerIdSerialPort(Array.from(keys)[0] as string)
-                            }
-                          >
-                            {callerIdSerialPorts.map((p) => (
-                              <SelectItem key={p.path} value={p.path}>
-                                {p.path}
-                                {p.friendlyName
-                                  ? ` — ${p.friendlyName}`
-                                  : p.manufacturer
-                                    ? ` (${p.manufacturer})`
-                                    : ''}
-                              </SelectItem>
-                            ))}
-                          </Select>
-                          <Button
-                            size="sm"
-                            variant="flat"
-                            onPress={handleCallerIdSerialRefreshPorts}
-                          >
-                            رفرش پورت‌ها
-                          </Button>
-                        </div>
-
-                        <div className="flex gap-2 flex-wrap items-end">
-                          <Select
-                            label="نرخ Baud"
-                            variant="bordered"
-                            size="sm"
-                            className="w-36"
-                            selectedKeys={[callerIdSerialBaud]}
-                            onSelectionChange={(keys) =>
-                              setCallerIdSerialBaud(Array.from(keys)[0] as string)
-                            }
-                          >
-                            {[
-                              '1200',
-                              '2400',
-                              '4800',
-                              '9600',
-                              '19200',
-                              '38400',
-                              '57600',
-                              '115200',
-                            ].map((b) => (
-                              <SelectItem key={b}>{b}</SelectItem>
-                            ))}
-                          </Select>
-                          <Select
-                            label="فرمت دستگاه"
-                            variant="bordered"
-                            size="sm"
-                            className="flex-1 min-w-[180px]"
-                            selectedKeys={[callerIdSerialFormat]}
-                            onSelectionChange={(keys) =>
-                              setCallerIdSerialFormat(Array.from(keys)[0] as string)
-                            }
-                          >
-                            <SelectItem key="auto">خودکار (تشخیص فرمت)</SelectItem>
-                            <SelectItem key="at-clip">مودم AT — +CLIP</SelectItem>
-                            <SelectItem key="cid-nmbr">CID — NMBR=...</SelectItem>
-                            <SelectItem key="caller-field">CALLER: / NUMBER:</SelectItem>
-                            <SelectItem key="raw-number">شماره خالص</SelectItem>
-                          </Select>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-2 h-2 rounded-full ${callerIdSerialConnected ? 'bg-green-500' : 'bg-gray-400'}`}
-                          />
-                          <span className="text-xs text-muted">
-                            {callerIdSerialConnected ? `متصل روی ${callerIdSerialPort}` : 'قطع'}
-                          </span>
-                        </div>
-
-                        <div className="flex gap-2 flex-wrap">
-                          {callerIdSerialConnected ? (
-                            <Button
-                              size="sm"
-                              color="danger"
-                              variant="flat"
-                              onPress={handleCallerIdSerialDisconnect}
-                            >
-                              قطع اتصال دستگاه
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              color="primary"
-                              variant="flat"
-                              isLoading={callerIdSerialConnecting}
-                              onPress={handleCallerIdSerialConnect}
-                            >
-                              اتصال و تست دستگاه
-                            </Button>
-                          )}
-                        </div>
-
-                        <div className="rounded-xl bg-default-soft p-3 text-xs text-muted flex flex-col gap-1.5">
-                          <p className="font-semibold text-foreground/70">دستگاه‌های USB سازگار</p>
-                          <p>
-                            اکثر جعبه‌های Caller ID موجود در بازار ایران با فرمت «خودکار» کار
-                            می‌کنند.
-                          </p>
-                          <p>
-                            اگر دستگاه شما از نوع مودم USB است (AT commands)، گزینه «مودم AT» را
-                            انتخاب کنید.
-                          </p>
-                          <p>در صورت اتصال، هر تماس ورودی را با تست واقعی بررسی کنید.</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* ─── T-Line TK-202UH HID mode ─── */}
-                    {callerIdMode === 'hid' && (
-                      <div className="flex flex-col gap-3">
-                        <div className="rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-xs flex flex-col gap-1.5">
-                          <p className="font-semibold text-blue-700 dark:text-blue-300">
-                            📞 T-Line TK-202UH
-                          </p>
-                          <p className="text-foreground/70">
-                            دستگاه USB Caller ID مدل TK-202UH تیلداکیش
-                          </p>
-                          <p className="text-muted">
-                            قبل از اتصال، مطمئن شوید درایور <strong>WinUSB</strong> از طریق{' '}
-                            <strong>Zadig</strong> روی این دستگاه نصب شده باشد. (منوی Options → List
-                            All Devices → T-Line TK-202UH → WinUSB → Replace Driver)
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`w-2.5 h-2.5 rounded-full ${callerIdHidDeviceFound ? 'bg-green-500' : 'bg-gray-400'}`}
-                            />
-                            <span className="text-xs text-muted">
-                              {callerIdHidDeviceFound ? 'دستگاه پیدا شد' : 'دستگاه یافت نشد'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`w-2.5 h-2.5 rounded-full ${callerIdHidConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-                            />
-                            <span className="text-xs text-muted">
-                              {callerIdHidConnected ? 'در حال پایش تماس‌ها' : 'قطع'}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2 flex-wrap">
-                          <Button size="sm" variant="flat" onPress={handleCallerIdHidCheckDevice}>
-                            🔍 شناسایی دستگاه
-                          </Button>
-                          {callerIdHidConnected ? (
-                            <Button
-                              size="sm"
-                              color="danger"
-                              variant="flat"
-                              onPress={handleCallerIdHidDisconnect}
-                            >
-                              قطع اتصال
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              color="primary"
-                              variant="flat"
-                              isLoading={callerIdHidConnecting}
-                              onPress={handleCallerIdHidConnect}
-                              isDisabled={!callerIdHidDeviceFound}
-                            >
-                              اتصال و شروع پایش
-                            </Button>
-                          )}
-                        </div>
-
-                        <div className="rounded-xl bg-default-soft p-3 text-xs text-muted flex flex-col gap-1.5">
-                          <p className="font-semibold text-foreground/70">راهنمای نصب Zadig</p>
-                          <ol className="list-decimal list-inside flex flex-col gap-0.5 pr-1">
-                            <li>دستگاه TK-202UH را به USB وصل کنید</li>
-                            <li>
-                              Zadig را از <strong>zadig.akeo.ie</strong> دانلود و اجرا کنید
-                            </li>
-                            <li>
-                              از منوی Options گزینه <strong>List All Devices</strong> را فعال کنید
-                            </li>
-                            <li>
-                              دستگاه <strong>T-LINE</strong> یا <strong>TK-202UH</strong> را انتخاب
-                              کنید
-                            </li>
-                            <li>
-                              درایور را روی <strong>WinUSB</strong> تنظیم کنید و{' '}
-                              <strong>Replace Driver</strong> را بزنید
-                            </li>
-                            <li>پس از نصب، «شناسایی دستگاه» را بزنید</li>
-                          </ol>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* ─── تنظیمات عمومی ─── */}
-                    <div className="flex flex-col gap-2 border-t border-border pt-3">
-                      <Input
-                        label="مدت نمایش اعلان (ثانیه)"
-                        value={callerIdDuration}
-                        onValueChange={setCallerIdDuration}
-                        placeholder="30"
-                        variant="bordered"
-                        size="sm"
-                        className="w-44"
-                      />
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          isSelected={callerIdSound}
-                          onValueChange={setCallerIdSound}
-                          size="sm"
-                          aria-label="پخش صدا"
-                        />
-                        <span className="text-sm text-foreground/70">
-                          پخش صدای زنگ هنگام تماس ورودی
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <Button
-                  size="sm"
-                  variant="flat"
-                  isLoading={callerIdSaving}
-                  onPress={handleCallerIdSave}
-                >
-                  ذخیره تنظیمات Caller ID
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <CallerIdSettingsCard
+            callerIdEnabled={callerIdEnabled}
+            setCallerIdEnabled={setCallerIdEnabled}
+            callerIdMode={callerIdMode}
+            setCallerIdMode={setCallerIdMode}
+            callerIdPort={callerIdPort}
+            setCallerIdPort={setCallerIdPort}
+            callerIdPhoneField={callerIdPhoneField}
+            setCallerIdPhoneField={setCallerIdPhoneField}
+            callerIdSecret={callerIdSecret}
+            setCallerIdSecret={setCallerIdSecret}
+            callerIdWebhookRunning={callerIdWebhookRunning}
+            callerIdSerialPort={callerIdSerialPort}
+            setCallerIdSerialPort={setCallerIdSerialPort}
+            callerIdSerialPorts={callerIdSerialPorts}
+            handleCallerIdSerialRefreshPorts={handleCallerIdSerialRefreshPorts}
+            callerIdSerialBaud={callerIdSerialBaud}
+            setCallerIdSerialBaud={setCallerIdSerialBaud}
+            callerIdSerialFormat={callerIdSerialFormat}
+            setCallerIdSerialFormat={setCallerIdSerialFormat}
+            callerIdSerialConnected={callerIdSerialConnected}
+            handleCallerIdSerialDisconnect={handleCallerIdSerialDisconnect}
+            callerIdSerialConnecting={callerIdSerialConnecting}
+            handleCallerIdSerialConnect={handleCallerIdSerialConnect}
+            callerIdHidDeviceFound={callerIdHidDeviceFound}
+            callerIdHidConnected={callerIdHidConnected}
+            handleCallerIdHidCheckDevice={handleCallerIdHidCheckDevice}
+            handleCallerIdHidDisconnect={handleCallerIdHidDisconnect}
+            callerIdHidConnecting={callerIdHidConnecting}
+            handleCallerIdHidConnect={handleCallerIdHidConnect}
+            callerIdDuration={callerIdDuration}
+            setCallerIdDuration={setCallerIdDuration}
+            callerIdSound={callerIdSound}
+            setCallerIdSound={setCallerIdSound}
+            callerIdSaving={callerIdSaving}
+            handleCallerIdSave={handleCallerIdSave}
+          />
         )}
 
         {window.electronAPI?.getPosWarehouseId && posWarehouseList.length > 1 && (

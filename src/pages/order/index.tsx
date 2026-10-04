@@ -1,22 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { Card, CardContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
-import { Modal } from '@/ui/compat-modal';
+import { Card, CardContent } from '@heroui/react';
 import { Button } from '../../ui/compat-button';
 import { Input } from '../../ui/compat-input';
-import { Select, SelectItem } from '../../ui/compat-select';
-import { ModalShell } from '../../ui/modal-shell';
-import { NameAutocomplete } from '../../ui/NameAutocomplete';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { useAuthStore } from '../../store/authStore';
 import { useOrderStore } from '../../store/orderStore';
-import { useOrderNavStore } from '../../store/orderNavStore';
 import {
   createProduct,
   fetchOrderById,
-  fetchOrders,
   getMasterProductByBarcode,
-  searchMasterProducts,
   type MasterProduct,
 } from '../../services/api';
 import { MODULES } from '../../types';
@@ -28,35 +21,9 @@ import { OrderProductGrid } from './components/OrderProductGrid';
 import { OrderCart } from './components/OrderCart';
 import { OrderModal, type OrderModalState } from './components/OrderModal';
 import { OrderQuickActionsRail } from './components/OrderQuickActionsRail';
-
-const PRODUCT_UNITS = [
-  'عدد',
-  'کیلوگرم',
-  'گرم',
-  'لیتر',
-  'میلی‌لیتر',
-  'متر',
-  'سانتی‌متر',
-  'بسته',
-  'جعبه',
-  'پرس',
-  'وعده',
-  'پیمانه',
-  'قوطی',
-  'بطری',
-];
-
-const normalizePriceInput = (value: string) =>
-  String(value || '')
-    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
-    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
-    .replace(/[^\d]/g, '');
-
-const formatPriceInput = (value: string) => {
-  const digits = normalizePriceInput(value);
-  if (!digits) return '';
-  return new Intl.NumberFormat('en-US').format(Number(digits));
-};
+import { CreateProductModal } from './orderPage/CreateProductModal';
+import { ScaleWeightModal } from './orderPage/ScaleWeightModal';
+import { useOrderPageEffects } from './orderPage/useOrderPageEffects';
 
 const INITIAL_MODAL_STATE: OrderModalState = {
   isOpen: false,
@@ -276,162 +243,6 @@ export default function OrderPage() {
     };
   }, [editingOrderId, token]);
 
-  // Load card terminal profiles
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const cfg = await window.electronAPI?.getCardTerminalConfig?.();
-        const profiles = (cfg?.profiles || []).map((p: any) => ({
-          id: String(p.id),
-          name: String(p.name || 'کارتخوان'),
-        }));
-        setModalState((s) => ({
-          ...s,
-          cardTerminalProfiles: profiles,
-          selectedCardTerminalId: String(cfg?.defaultProfileId || profiles[0]?.id || ''),
-        }));
-      } catch {
-        setModalState((s) => ({ ...s, cardTerminalProfiles: [], selectedCardTerminalId: '' }));
-      }
-    };
-    load();
-  }, []);
-
-  // Load cash boxes
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const { accountingDb } = await import('../../services/accountingLocalDb');
-        const rid = user?.restaurants?.[0]?.id;
-        if (!rid) return;
-        const accounts = await accountingDb.cashBankAccounts
-          .where('restaurantId')
-          .equals(Number(rid))
-          .filter((a: any) => a.accountType === 'cashbox' || a.accountType === 'cash')
-          .toArray();
-        setModalState((s) => ({
-          ...s,
-          cashBoxAccounts: accounts || [],
-          selectedCashBoxId: accounts?.[0]?.id ?? null,
-          selectedCashBoxName: accounts?.[0]?.name || 'صندوق',
-        }));
-      } catch {
-        setModalState((s) => ({ ...s, cashBoxAccounts: [] }));
-      }
-    };
-    load();
-  }, [user?.restaurants]);
-
-  // Scale weight listener
-  useEffect(() => {
-    if (!scaleModalOpen || !window.electronAPI?.onScaleWeightUpdate) return;
-    const unsub = window.electronAPI.onScaleWeightUpdate((weight) => {
-      setScaleWeight(weight);
-      setScaleReading(false);
-      setScaleError('');
-    });
-    return () => unsub?.();
-  }, [scaleModalOpen]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSearchTerm('');
-      if (e.key === 'Enter' && !modalState.isOpen && cart.length > 0) {
-        const target = e.target as HTMLElement;
-        if (!target.closest('input') && !target.closest('textarea') && !target.closest('button')) {
-          setModalState((s) => ({ ...s, isOpen: true }));
-          e.preventDefault();
-        }
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [modalState.isOpen, cart.length]);
-
-  // اگر کاربر مستقیم وارد صفحهٔ ثبت سفارش شده (بدون اینکه قبلاً از صفحهٔ لیست سفارشات
-  // بازدید کرده باشد)، useOrderNavStore هنوز خالی است — یک بار به‌صورت پس‌زمینه سفارش‌های
-  // اخیر را می‌گیریم تا میانبر ← / → همین‌جا هم فعال باشد
-  useEffect(() => {
-    if (!token) return;
-    if (useOrderNavStore.getState().orderIds.length > 0) return;
-    let cancelled = false;
-    const restaurantName = user?.restaurants?.[0]?.name;
-    (async () => {
-      try {
-        const response = await fetchOrders(
-          { page: 1, limit: 100, ...(restaurantName ? { restaurantName } : {}) },
-          token,
-        );
-        if (cancelled) return;
-        const data = Array.isArray(response)
-          ? response
-          : Array.isArray(response?.data)
-            ? response.data
-            : [];
-        useOrderNavStore
-          .getState()
-          .setOrderIds(data.map((o: any) => o?.id).filter((id: any) => id != null));
-      } catch {
-        /* آفلاین یا خطای شبکه — میانبر پیمایش صرفاً غیرفعال می‌ماند */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [token, user?.restaurants]);
-
-  // پیمایش بین فاکتور قبلی/بعدی با ← / → — هم از صفحهٔ خالی «ثبت سفارش» (وقتی سبد خالی
-  // است، تا سفارش تازهٔ در حال تکمیل گم نشود) و هم حین ویرایش یک سفارش. فهرست شناسه‌ها
-  // از صفحهٔ لیست سفارشات در useOrderNavStore منتشر می‌شود چون رفتن به این صفحه
-  // (/order?edit=) آن کامپوننت را از DOM خارج می‌کند و شنوندهٔ کیبوردش دیگر وجود ندارد
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      const active = document.activeElement as HTMLElement | null;
-      if (active?.closest('input, textarea, [contenteditable="true"]')) return;
-      if (active?.closest('[role="dialog"]')) return;
-      if (active?.closest('[data-slot="select"]')) return;
-      if (editingOrderId == null && cart.length > 0) return;
-      const orderIds = useOrderNavStore.getState().orderIds;
-      if (orderIds.length === 0) return;
-      const currentIndex = editingOrderId != null ? orderIds.indexOf(editingOrderId) : -1;
-      const max = orderIds.length - 1;
-      const nextIndex =
-        e.key === 'ArrowRight' ? Math.min(currentIndex + 1, max) : Math.max(currentIndex - 1, 0);
-      if (currentIndex !== -1 && nextIndex === currentIndex) return;
-      e.preventDefault();
-      navigate(`/order?edit=${orderIds[nextIndex]}`);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [editingOrderId, cart.length, navigate]);
-
-  useEffect(() => {
-    const onShortcut = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'Backspace') {
-        e.preventDefault();
-        resetSession();
-      }
-    };
-    window.addEventListener('keydown', onShortcut);
-    return () => window.removeEventListener('keydown', onShortcut);
-  });
-
-  useEffect(() => {
-    const onReset = () => resetSession({ skipConfirm: true });
-    window.addEventListener('menus-electron:reset-order-session', onReset);
-    return () => window.removeEventListener('menus-electron:reset-order-session', onReset);
-  });
-
-  // Error toasts
-  useEffect(() => {
-    if (orderEditError) {
-      toast.error(orderEditError);
-      setOrderEditError('');
-    }
-  }, [orderEditError]);
-
   const resetSession = (options?: { skipConfirm?: boolean }) => {
     if ((cart.length > 0 || editingOrderId != null) && !options?.skipConfirm) {
       if (!window.confirm('سبد خرید ریست شود؟')) return;
@@ -441,6 +252,24 @@ export default function OrderPage() {
     setSearchTerm('');
     if (editingOrderId != null) navigate('/order');
   };
+
+  useOrderPageEffects({
+    setModalState,
+    user,
+    scaleModalOpen,
+    setScaleWeight,
+    setScaleReading,
+    setScaleError,
+    setSearchTerm,
+    modalState,
+    cart,
+    token,
+    editingOrderId,
+    navigate,
+    resetSession,
+    orderEditError,
+    setOrderEditError,
+  });
 
   const staffCartUnitPrice = (product: any) => Number(product?.price || 0);
 
@@ -836,194 +665,37 @@ export default function OrderPage() {
       />
 
       {/* New product from barcode modal */}
-      <Modal isOpen={showCreateProductModal} onOpenChange={setShowCreateProductModal}>
-        <ModalShell size="lg">
-          <ModalHeader>افزودن محصول جدید با بارکد</ModalHeader>
-          <ModalBody className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {isCheckingMasterProduct && (
-              <p className="text-muted text-sm text-center col-span-2 py-1">
-                در حال جستجو در محصولات پایه...
-              </p>
-            )}
-            <Input
-              label="بارکد"
-              value={newProductForm.barcode}
-              readOnly
-              onValueChange={(v) => setNewProductForm((f) => ({ ...f, barcode: v }))}
-            />
-            <NameAutocomplete
-              value={newProductForm.name_fa}
-              autoFocus={!isCheckingMasterProduct}
-              isDisabled={isCheckingMasterProduct}
-              onValueChange={(v) => {
-                setNewProductForm((f) => ({ ...f, name_fa: v }));
-                if (nameSuggestTimerRef.current) clearTimeout(nameSuggestTimerRef.current);
-                if (!v.trim()) {
-                  setNameSuggestions([]);
-                  return;
-                }
-                nameSuggestTimerRef.current = setTimeout(async () => {
-                  const results = await searchMasterProducts(v, token || undefined);
-                  setNameSuggestions(results);
-                }, 300);
-              }}
-              suggestions={nameSuggestions}
-              onSelect={(s) => {
-                setNewProductForm((f) => ({
-                  ...f,
-                  name_fa: s.name,
-                  name: f.name || s.name,
-                  barcode: f.barcode || s.barcode || '',
-                }));
-                setNameSuggestions([]);
-              }}
-            />
-            <Input
-              label="نام انگلیسی (اختیاری)"
-              value={newProductForm.name}
-              isDisabled={isCheckingMasterProduct}
-              onValueChange={(v) => setNewProductForm((f) => ({ ...f, name: v }))}
-            />
-            <Input
-              label="قیمت (ریال)"
-              type="text"
-              inputMode="numeric"
-              value={formatPriceInput(newProductForm.price)}
-              isDisabled={isCheckingMasterProduct}
-              onValueChange={(v) =>
-                setNewProductForm((f) => ({ ...f, price: normalizePriceInput(v) }))
-              }
-            />
-            <Select
-              label="دسته‌بندی"
-              selectedKeys={newProductForm.category_id ? [newProductForm.category_id] : []}
-              isDisabled={isCheckingMasterProduct}
-              onSelectionChange={(keys) =>
-                setNewProductForm((f) => ({ ...f, category_id: String(Array.from(keys)[0] || '') }))
-              }
-            >
-              {productLoader.productCategories.map((c: any) => (
-                <SelectItem key={String(c.id)}>{c.name_fa || c.name}</SelectItem>
-              ))}
-            </Select>
-            <Select
-              label="واحد شمارش"
-              selectedKeys={[newProductForm.unit || 'عدد']}
-              isDisabled={isCheckingMasterProduct}
-              onSelectionChange={(keys) =>
-                setNewProductForm((f) => ({ ...f, unit: String(Array.from(keys)[0] || 'عدد') }))
-              }
-            >
-              {PRODUCT_UNITS.map((u) => (
-                <SelectItem key={u}>{u}</SelectItem>
-              ))}
-            </Select>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="light" onPress={() => setShowCreateProductModal(false)}>
-              انصراف
-            </Button>
-            <Button
-              color="primary"
-              isLoading={creatingProduct}
-              isDisabled={isCheckingMasterProduct}
-              onPress={submitCreateProduct}
-            >
-              ثبت و افزودن به سبد
-            </Button>
-          </ModalFooter>
-        </ModalShell>
-      </Modal>
+      <CreateProductModal
+        showCreateProductModal={showCreateProductModal}
+        setShowCreateProductModal={setShowCreateProductModal}
+        isCheckingMasterProduct={isCheckingMasterProduct}
+        newProductForm={newProductForm}
+        setNewProductForm={setNewProductForm}
+        nameSuggestTimerRef={nameSuggestTimerRef}
+        setNameSuggestions={setNameSuggestions}
+        token={token}
+        nameSuggestions={nameSuggestions}
+        productLoader={productLoader}
+        creatingProduct={creatingProduct}
+        submitCreateProduct={submitCreateProduct}
+      />
 
       {/* Scale modal */}
-      <Modal
-        isOpen={scaleModalOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setScaleModalOpen(false);
-            setScaleModalProduct(null);
-            setScaleWeight(null);
-          }
-        }}
-      >
-        <ModalShell size="sm">
-          <ModalHeader>خواندن وزن از ترازو</ModalHeader>
-          <ModalBody className="text-center space-y-4 py-4">
-            {scaleModalProduct && (
-              <p className="font-semibold text-foreground">
-                {scaleModalProduct.name_fa || scaleModalProduct.name}
-              </p>
-            )}
-            {scaleReading ? (
-              <div className="flex flex-col items-center gap-2 text-muted">
-                <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm">در حال خواندن وزن...</span>
-              </div>
-            ) : scaleError ? (
-              <div className="text-danger text-sm space-y-2">
-                <p>{scaleError}</p>
-                <Button
-                  size="sm"
-                  variant="flat"
-                  onPress={async () => {
-                    setScaleError('');
-                    setScaleReading(true);
-                    try {
-                      await window.electronAPI?.scaleClearWeight?.();
-                      await window.electronAPI?.scaleRequestWeight?.();
-                      const r = await window.electronAPI?.scaleReadWeight?.();
-                      if (r?.success && r.weight != null) setScaleWeight(r.weight);
-                      else setScaleError(r?.error || 'وزنی دریافت نشد');
-                    } catch (e: any) {
-                      setScaleError(String(e?.message || 'خطا'));
-                    } finally {
-                      setScaleReading(false);
-                    }
-                  }}
-                >
-                  تلاش مجدد
-                </Button>
-              </div>
-            ) : scaleWeight != null ? (
-              <div className="space-y-1">
-                <p className="text-4xl font-bold text-accent tabular-nums">
-                  {scaleModalProduct?.unit === 'گرم'
-                    ? `${Math.round(scaleWeight * 1000).toLocaleString('fa-IR')} گرم`
-                    : `${scaleWeight.toFixed(3)} کیلوگرم`}
-                </p>
-                <p className="text-sm text-muted">
-                  مبلغ:{' '}
-                  {formatPrice(
-                    staffCartUnitPrice(scaleModalProduct) *
-                      (scaleModalProduct?.unit === 'گرم'
-                        ? Math.round(scaleWeight * 1000)
-                        : scaleWeight),
-                  )}
-                </p>
-              </div>
-            ) : null}
-          </ModalBody>
-          <ModalFooter>
-            <Button
-              variant="light"
-              onPress={() => {
-                setScaleModalOpen(false);
-                setScaleModalProduct(null);
-                setScaleWeight(null);
-              }}
-            >
-              انصراف
-            </Button>
-            <Button
-              color="primary"
-              isDisabled={scaleWeight == null || scaleReading}
-              onPress={handleScaleConfirm}
-            >
-              تأیید و افزودن به فاکتور
-            </Button>
-          </ModalFooter>
-        </ModalShell>
-      </Modal>
+      <ScaleWeightModal
+        scaleModalOpen={scaleModalOpen}
+        setScaleModalOpen={setScaleModalOpen}
+        setScaleModalProduct={setScaleModalProduct}
+        setScaleWeight={setScaleWeight}
+        scaleModalProduct={scaleModalProduct}
+        scaleReading={scaleReading}
+        scaleError={scaleError}
+        setScaleError={setScaleError}
+        setScaleReading={setScaleReading}
+        scaleWeight={scaleWeight}
+        formatPrice={formatPrice}
+        staffCartUnitPrice={staffCartUnitPrice}
+        handleScaleConfirm={handleScaleConfirm}
+      />
     </div>
   );
 }
